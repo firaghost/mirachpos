@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+
+  --primary: 43 85% 55%;
+  --primary-foreground: 222.2 84% 4.9%;
+
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 43 85% 55%;
+
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 30 18% 7%;
+  --foreground: 60 33% 96%;
+
+  --card: 30 18% 9%;
+  --card-foreground: 60 33% 96%;
+
+  --popover: 30 18% 9%;
+  --popover-foreground: 60 33% 96%;
+
+  --primary: 43 85% 55%;
+  --primary-foreground: 30 18% 7%;
+
+  --secondary: 28 18% 14%;
+  --secondary-foreground: 60 33% 96%;
+
+  --muted: 28 18% 14%;
+  --muted-foreground: 40 15% 70%;
+
+  --accent: 28 18% 14%;
+  --accent-foreground: 60 33% 96%;
+
+  --destructive: 0 62.8% 50%;
+  --destructive-foreground: 60 33% 96%;
+
+  --border: 30 18% 18%;
+  --input: 30 18% 18%;
+  --ring: 43 85% 55%;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: Manrope, "Noto Sans", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}

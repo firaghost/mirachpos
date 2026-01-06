@@ -1,0 +1,1291 @@
+{
+  "branches": {
+    "id_46de19d83d8498_19b64ed89e7": {
+      "id": "id_46de19d83d8498_19b64ed89e7",
+      "name": "Main Branch",
+      "managerName": "",
+      "city": "",
+      "region": "",
+      "address": "",
+      "phone": "",
+      "staffCount": 0,
+      "status": "Open",
+      "rating": 5,
+      "createdAt": "2025-12-28T12:27:27.592Z"
+    }
+  },
+  "staff": [
+    {
+      "id": "st_22f5cf02a01e1_19b64ed89e8",
+      "code": "",
+      "name": "berba",
+      "email": "test@gmail.com",
+      "password": "123456",
+      "phone": "",
+      "roleId": "role_owner",
+      "branchId": "",
+      "status": "Active",
+      "lastLoginAt": "",
+      "createdAt": "2025-12-28T12:27:27.592Z"
+    },
+    {
+      "id": "st_bd6c0a75f3d7c_19b65cb2b06",
+      "code": "KFN",
+      "name": "Fira",
+      "email": "waiter@gmail.com",
+      "phone": "",
+      "roleId": "role_waiter",
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "status": "Active",
+      "lastLoginAt": "",
+      "createdAt": "2025-12-28T16:29:32.294Z"
+    },
+    {
+      "id": "st_960a135f2027a8_19b65d573bc",
+      "code": "BTT",
+      "name": "Berba",
+      "email": "waiters@gmail.com",
+      "password": "test123",
+      "phone": "1354688+98",
+      "roleId": "role_waiter",
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "status": "Active",
+      "lastLoginAt": "",
+      "createdAt": "2025-12-28T16:40:46.268Z",
+      "pin_hash": "Tqyo/DzOiY+w15KPaPIUFaQSzIztiAQHam6YfzVt2T0=",
+      "pin_salt": "52ayQ31U67cP7rKn7szWrg==",
+      "pin_iters": 120000
+    },
+    {
+      "id": "st_db2fac987d2c7_19b6a8226c9",
+      "code": "1234BTT",
+      "name": "berbas",
+      "email": "berba@gmail.com",
+      "password": "123456",
+      "pin_hash": "",
+      "pin_salt": "",
+      "phone": "123456789",
+      "roleId": "role_manager",
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "status": "Active",
+      "lastLoginAt": "",
+      "createdAt": "2025-12-29T14:27:53.161Z"
+    }
+  ],
+  "roles": [
+    {
+      "id": "role_waiter",
+      "name": "Waiter",
+      "scope": "branch",
+      "permissions": [],
+      "createdAt": "2025-12-28T12:27:27.591Z"
+    },
+    {
+      "id": "role_manager",
+      "name": "Branch Manager",
+      "scope": "branch",
+      "permissions": [],
+      "createdAt": "2025-12-28T12:27:27.591Z"
+    },
+    {
+      "id": "role_owner",
+      "name": "Cafe Owner",
+      "scope": "global",
+      "permissions": [],
+      "createdAt": "2025-12-28T12:27:27.591Z"
+    }
+  ],
+  "sessions": [],
+  "events": [
+    {
+      "id": "evt_ae8ee1954a0aa_19b64ed89e8",
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "type": "tenant_signup",
+      "payload": {
+        "tenantId": "tenant_e57b88113019d_19b64ed89db",
+        "email": "test@gmail.com"
+      },
+      "at": "2025-12-28T12:27:27.592Z"
+    },
+    {
+      "id": "evt_6c922ef45b41b8_19b65cb2b06",
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "type": "staff_created",
+      "payload": {
+        "staffId": "st_bd6c0a75f3d7c_19b65cb2b06",
+        "name": "waiter",
+        "roleId": "role_waiter",
+        "by": "Branch Manager"
+      },
+      "at": "2025-12-28T16:29:32.294Z"
+    },
+    {
+      "id": "evt_70c402de4919_19b65d573bc",
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "type": "staff_created",
+      "payload": {
+        "staffId": "st_960a135f2027a8_19b65d573bc",
+        "name": "waiter",
+        "roleId": "role_waiter",
+        "by": "Branch Manager"
+      },
+      "at": "2025-12-28T16:40:46.268Z"
+    },
+    {
+      "id": "evt_908f7f575a204_19b69df97e2",
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "type": "staff_updated",
+      "payload": {
+        "staffId": "st_960a135f2027a8_19b65d573bc",
+        "by": "Branch Manager"
+      },
+      "at": "2025-12-29T11:30:19.746Z"
+    },
+    {
+      "id": "evt_61b9b2d232af9_19b69dfb62c",
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "type": "staff_updated",
+      "payload": {
+        "staffId": "st_bd6c0a75f3d7c_19b65cb2b06",
+        "by": "Branch Manager"
+      },
+      "at": "2025-12-29T11:30:27.500Z"
+    },
+    {
+      "id": "evt_f7c0724d80ac8_19b6a51f564",
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "type": "staff_updated",
+      "payload": {
+        "staffId": "st_960a135f2027a8_19b65d573bc",
+        "by": "Branch Manager"
+      },
+      "at": "2025-12-29T13:35:14.788Z"
+    },
+    {
+      "id": "evt_dac29a6150427_19b6a8226c9",
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "type": "staff_created",
+      "payload": {
+        "staffId": "st_db2fac987d2c7_19b6a8226c9",
+        "name": "berbas",
+        "roleId": "role_manager"
+      },
+      "at": "2025-12-29T14:27:53.161Z"
+    },
+    {
+      "id": "evt_fa0ae4775e94e_19b6a9766bf",
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "type": "schedule_updated",
+      "payload": {
+        "weekStart": "2025-12-28",
+        "rows": 3,
+        "by": "Cafe Owner"
+      },
+      "at": "2025-12-29T14:51:05.791Z"
+    }
+  ],
+  "ownerSettings": {
+    "currency": "USD",
+    "timezone": "UTC",
+    "receiptFooter": ""
+  },
+  "posStateByBranchId": {
+    "pos_id_46de19d83d8498_19b64ed89e7": {
+      "version": 1,
+      "products": [
+        {
+          "id": "1",
+          "code": "PRD1",
+          "name": "Macchiato",
+          "price": 65,
+          "category": "Coffee",
+          "image": "https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&q=80&w=200",
+          "stock": 498
+        },
+        {
+          "id": "2",
+          "code": "PRD2",
+          "name": "Special Tibs",
+          "price": 650,
+          "category": "Food",
+          "image": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=200",
+          "stock": 44
+        },
+        {
+          "id": "3",
+          "code": "PRD3",
+          "name": "Fasting Firfir",
+          "price": 180,
+          "category": "Food",
+          "image": "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&q=80&w=200",
+          "stock": 30
+        },
+        {
+          "id": "4",
+          "code": "PRD4",
+          "name": "Spris Juice",
+          "price": 120,
+          "category": "Drinks",
+          "image": "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?auto=format&fit=crop&q=80&w=200",
+          "stock": 100
+        },
+        {
+          "id": "5",
+          "code": "PRD5",
+          "name": "Chechebsa",
+          "price": 250,
+          "category": "Breakfast",
+          "image": "https://images.unsplash.com/photo-1595295333158-4742f28fbd85?auto=format&fit=crop&q=80&w=200",
+          "stock": 20
+        }
+      ],
+      "tables": [
+        {
+          "id": "1",
+          "name": "T-01",
+          "area": "Main Hall",
+          "status": "Free",
+          "seats": 4,
+          "openOrderId": null,
+          "lastOrderId": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a",
+          "cartItemCount": 0,
+          "currentTotal": 0,
+          "assignedStaffId": null,
+          "assignedStaffName": null
+        },
+        {
+          "id": "2",
+          "name": "T-02",
+          "area": "Main Hall",
+          "status": "Free",
+          "seats": 2,
+          "openOrderId": null,
+          "lastOrderId": null,
+          "cartItemCount": 0,
+          "currentTotal": 0,
+          "assignedStaffId": null,
+          "assignedStaffName": null
+        },
+        {
+          "id": "3",
+          "name": "T-03",
+          "area": "Main Hall",
+          "status": "Payment",
+          "seats": 6,
+          "openOrderId": null,
+          "lastOrderId": null,
+          "cartItemCount": 0,
+          "currentTotal": 0,
+          "assignedStaffId": null,
+          "assignedStaffName": null
+        },
+        {
+          "id": "4",
+          "name": "T-04",
+          "area": "Patio",
+          "status": "Reserved",
+          "seats": 4,
+          "openOrderId": null,
+          "lastOrderId": null,
+          "cartItemCount": 0,
+          "currentTotal": 0,
+          "assignedStaffId": null,
+          "assignedStaffName": null
+        },
+        {
+          "id": "5",
+          "name": "T-05",
+          "area": "Bar Area",
+          "status": "Free",
+          "seats": 2,
+          "openOrderId": null,
+          "lastOrderId": null,
+          "cartItemCount": 0,
+          "currentTotal": 0,
+          "assignedStaffId": null,
+          "assignedStaffName": null
+        },
+        {
+          "id": "6",
+          "name": "T-06",
+          "area": "Private Room",
+          "status": "Occupied",
+          "seats": 8,
+          "openOrderId": null,
+          "lastOrderId": null,
+          "cartItemCount": 0,
+          "currentTotal": 0,
+          "assignedStaffId": null,
+          "assignedStaffName": null
+        }
+      ],
+      "orders": [
+        {
+          "id": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a",
+          "number": "#0003",
+          "tableId": "1",
+          "tableName": "T-01",
+          "items": [
+            {
+              "productId": "1",
+              "name": "Macchiato",
+              "unitPrice": 65,
+              "qty": 1
+            }
+          ],
+          "subtotal": 65,
+          "tax": 9.75,
+          "serviceCharge": 0,
+          "total": 74.75,
+          "status": "Paid",
+          "createdAt": "2025-12-28T16:55:02.996Z",
+          "timeLabel": "19:55",
+          "inventoryDeducted": true,
+          "syncedToServer": false,
+          "paidAt": "2025-12-29T13:25:33.498Z",
+          "paymentMethod": "Telebirr"
+        },
+        {
+          "id": "4e1c2030-96b1-4251-92c6-3fe6b7ca8452",
+          "number": "#0002",
+          "tableId": "1",
+          "tableName": "T-01",
+          "items": [
+            {
+              "productId": "2",
+              "name": "Special Tibs",
+              "unitPrice": 650,
+              "qty": 1,
+              "voidedQty": 0,
+              "note": ""
+            }
+          ],
+          "subtotal": 650,
+          "tax": 97.5,
+          "serviceCharge": 0,
+          "total": 747.5,
+          "status": "Paid",
+          "createdAt": "2025-12-28T16:42:59.029Z",
+          "timeLabel": "19:42",
+          "inventoryDeducted": true,
+          "syncedToServer": false,
+          "syncedAt": "2025-12-28T16:43:55.528Z",
+          "paidAt": "2025-12-28T16:50:53.207Z",
+          "paymentMethod": "Cash",
+          "tenderedAmount": 747.5
+        },
+        {
+          "id": "0ca31047-4c86-4def-b7d1-1ad30eabc02f",
+          "number": "#0001",
+          "tableId": "1",
+          "tableName": "T-01",
+          "items": [
+            {
+              "productId": "1",
+              "name": "Macchiato",
+              "unitPrice": 65,
+              "qty": 1,
+              "voidedQty": 0,
+              "note": ""
+            }
+          ],
+          "subtotal": 65,
+          "tax": 9.75,
+          "serviceCharge": 0,
+          "total": 74.75,
+          "status": "Paid",
+          "createdAt": "2025-12-28T16:41:25.102Z",
+          "timeLabel": "19:41",
+          "inventoryDeducted": true,
+          "syncedToServer": true,
+          "syncedAt": "2025-12-28T16:43:55.528Z",
+          "paidAt": "2025-12-28T16:42:52.364Z",
+          "paymentMethod": "Cash",
+          "tenderedAmount": 74.75
+        }
+      ],
+      "notifications": [
+        {
+          "id": "883f725a-1007-418b-8639-3473b436065c",
+          "type": "Payments",
+          "title": "Payment Confirmed - T-01",
+          "message": "#0003 paid via Telebirr.",
+          "orderId": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a",
+          "createdAt": "2025-12-29T13:25:33.498Z",
+          "read": false
+        },
+        {
+          "id": "1f3280e8-2570-44b1-aa19-cc9631b80d55",
+          "type": "Kitchen",
+          "title": "Order Served - T-01",
+          "message": "#0003 is now Served.",
+          "orderId": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a",
+          "createdAt": "2025-12-29T12:00:22.461Z",
+          "read": false
+        },
+        {
+          "id": "da297261-43f1-4fdf-afeb-f3a432cfdfe0",
+          "type": "Kitchen",
+          "title": "Order Ready - T-01",
+          "message": "#0003 is now Ready.",
+          "orderId": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a",
+          "createdAt": "2025-12-29T12:00:21.155Z",
+          "read": false
+        },
+        {
+          "id": "b72b6ab9-4491-44ed-8355-ffb4e7592c9d",
+          "type": "Kitchen",
+          "title": "Order Cooking - T-01",
+          "message": "#0003 is now Cooking.",
+          "orderId": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a",
+          "createdAt": "2025-12-29T12:00:20.694Z",
+          "read": false
+        },
+        {
+          "id": "52f61efe-3493-47a4-b1f5-2eb00b827596",
+          "type": "Kitchen",
+          "title": "New Order - T-01",
+          "message": "#0003 sent to kitchen (1 items).",
+          "orderId": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a",
+          "createdAt": "2025-12-28T16:55:02.996Z",
+          "read": false
+        },
+        {
+          "id": "b8b7f1a1-20f9-495e-9897-d67b9f8616cf",
+          "type": "Payments",
+          "title": "Payment Confirmed - T-01",
+          "message": "#0002 paid via Cash.",
+          "orderId": "4e1c2030-96b1-4251-92c6-3fe6b7ca8452",
+          "createdAt": "2025-12-28T16:50:53.207Z",
+          "read": false
+        },
+        {
+          "id": "3d4bf6d9-2427-46ed-b999-b946ed776783",
+          "type": "Kitchen",
+          "title": "Order Served - T-01",
+          "message": "#0002 is now Served.",
+          "orderId": "4e1c2030-96b1-4251-92c6-3fe6b7ca8452",
+          "createdAt": "2025-12-28T16:49:58.342Z",
+          "read": false
+        },
+        {
+          "id": "0e9c133a-4f74-45ca-860c-b0ee96b4ebdb",
+          "type": "Kitchen",
+          "title": "Order Ready - T-01",
+          "message": "#0002 is now Ready.",
+          "orderId": "4e1c2030-96b1-4251-92c6-3fe6b7ca8452",
+          "createdAt": "2025-12-28T16:49:54.761Z",
+          "read": false
+        },
+        {
+          "id": "0f7b290e-cec0-4e03-85ad-3f0d191f63aa",
+          "type": "Kitchen",
+          "title": "Order Cooking - T-01",
+          "message": "#0002 is now Cooking.",
+          "orderId": "4e1c2030-96b1-4251-92c6-3fe6b7ca8452",
+          "createdAt": "2025-12-28T16:49:53.766Z",
+          "read": false
+        },
+        {
+          "id": "769adad9-6360-45a4-b33c-a6555d017679",
+          "type": "Kitchen",
+          "title": "New Order - T-01",
+          "message": "#0002 sent to kitchen (1 items).",
+          "orderId": "4e1c2030-96b1-4251-92c6-3fe6b7ca8452",
+          "createdAt": "2025-12-28T16:42:59.029Z",
+          "read": false
+        },
+        {
+          "id": "60a87883-7571-4898-8917-b6cf76228b68",
+          "type": "Payments",
+          "title": "Payment Confirmed - T-01",
+          "message": "#0001 paid via Cash.",
+          "orderId": "0ca31047-4c86-4def-b7d1-1ad30eabc02f",
+          "createdAt": "2025-12-28T16:42:52.364Z",
+          "read": false
+        },
+        {
+          "id": "f08b6965-0c56-4d2a-9cb9-2494afb12e63",
+          "type": "Kitchen",
+          "title": "Order Served - T-01",
+          "message": "#0001 is now Served.",
+          "orderId": "0ca31047-4c86-4def-b7d1-1ad30eabc02f",
+          "createdAt": "2025-12-28T16:41:39.350Z",
+          "read": false
+        },
+        {
+          "id": "67bc72ac-cd9f-42f9-b4d8-db80d87f5d63",
+          "type": "Kitchen",
+          "title": "Order Ready - T-01",
+          "message": "#0001 is now Ready.",
+          "orderId": "0ca31047-4c86-4def-b7d1-1ad30eabc02f",
+          "createdAt": "2025-12-28T16:41:36.803Z",
+          "read": false
+        },
+        {
+          "id": "671d9341-c153-4e82-ac07-b989694708b8",
+          "type": "Kitchen",
+          "title": "Order Cooking - T-01",
+          "message": "#0001 is now Cooking.",
+          "orderId": "0ca31047-4c86-4def-b7d1-1ad30eabc02f",
+          "createdAt": "2025-12-28T16:41:35.887Z",
+          "read": false
+        },
+        {
+          "id": "533bbf4a-d9cc-46c6-be0e-dcdc530d0a64",
+          "type": "Kitchen",
+          "title": "New Order - T-01",
+          "message": "#0001 sent to kitchen (1 items).",
+          "orderId": "0ca31047-4c86-4def-b7d1-1ad30eabc02f",
+          "createdAt": "2025-12-28T16:41:25.102Z",
+          "read": false
+        }
+      ],
+      "cartByTableId": {},
+      "selectedTableId": "1",
+      "selectedOrderId": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a"
+    }
+  },
+  "orders": [
+    {
+      "id": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a",
+      "number": "#0003",
+      "tableId": "1",
+      "tableName": "T-01",
+      "items": [
+        {
+          "productId": "1",
+          "name": "Macchiato",
+          "unitPrice": 65,
+          "qty": 1
+        }
+      ],
+      "subtotal": 65,
+      "tax": 9.75,
+      "serviceCharge": 0,
+      "total": 74.75,
+      "status": "Paid",
+      "createdAt": "2025-12-28T16:55:02.996Z",
+      "timeLabel": "19:55",
+      "inventoryDeducted": true,
+      "syncedToServer": false,
+      "paidAt": "2025-12-29T13:25:33.498Z",
+      "paymentMethod": "Telebirr",
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "updatedAt": "2025-12-29T15:01:33.890Z"
+    },
+    {
+      "id": "4e1c2030-96b1-4251-92c6-3fe6b7ca8452",
+      "number": "#0002",
+      "tableId": "1",
+      "tableName": "T-01",
+      "items": [
+        {
+          "productId": "2",
+          "name": "Special Tibs",
+          "unitPrice": 650,
+          "qty": 1,
+          "voidedQty": 0,
+          "note": ""
+        }
+      ],
+      "subtotal": 650,
+      "tax": 97.5,
+      "serviceCharge": 0,
+      "total": 747.5,
+      "status": "Paid",
+      "createdAt": "2025-12-28T16:42:59.029Z",
+      "timeLabel": "19:42",
+      "inventoryDeducted": true,
+      "syncedToServer": false,
+      "syncedAt": "2025-12-28T16:43:55.528Z",
+      "paidAt": "2025-12-28T16:50:53.207Z",
+      "paymentMethod": "Cash",
+      "tenderedAmount": 747.5,
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "updatedAt": "2025-12-29T15:01:33.890Z"
+    },
+    {
+      "id": "0ca31047-4c86-4def-b7d1-1ad30eabc02f",
+      "number": "#0001",
+      "tableId": "1",
+      "tableName": "T-01",
+      "items": [
+        {
+          "productId": "1",
+          "name": "Macchiato",
+          "unitPrice": 65,
+          "qty": 1,
+          "voidedQty": 0,
+          "note": ""
+        }
+      ],
+      "subtotal": 65,
+      "tax": 9.75,
+      "serviceCharge": 0,
+      "total": 74.75,
+      "status": "Paid",
+      "createdAt": "2025-12-28T16:41:25.102Z",
+      "timeLabel": "19:41",
+      "inventoryDeducted": true,
+      "syncedToServer": true,
+      "syncedAt": "2025-12-28T16:43:55.528Z",
+      "paidAt": "2025-12-28T16:42:52.364Z",
+      "paymentMethod": "Cash",
+      "tenderedAmount": 74.75,
+      "branchId": "id_46de19d83d8498_19b64ed89e7",
+      "updatedAt": "2025-12-29T15:01:33.890Z"
+    }
+  ],
+  "sync": {
+    "cursor": 22,
+    "events": [
+      {
+        "event_id": "evt_fb3ed2472e2268_19b65e55276",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "mobile_sim",
+        "client_type": "mobile",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_8ddcb90bbc7ee_19b65e4d7f9",
+        "event_type": "order.draft_created",
+        "created_at_local": "2025-12-28T16:57:34.969Z",
+        "payload": {
+          "draft_id": "draft_8ddcb90bbc7ee_19b65e4d7f9",
+          "created_by_staff_id": "",
+          "note": "ghjhdhd"
+        },
+        "observed_at_server": "2025-12-28T16:58:07.275Z",
+        "cursor": 1
+      },
+      {
+        "event_id": "evt_1f9a24d2f0e9a_19b65e55276",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "mobile_sim",
+        "client_type": "mobile",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_8ddcb90bbc7ee_19b65e4d7f9",
+        "event_type": "order.draft_submitted",
+        "created_at_local": "2025-12-28T16:58:06.326Z",
+        "payload": {
+          "draft_id": "draft_8ddcb90bbc7ee_19b65e4d7f9",
+          "submitted_at_local": "2025-12-28T16:58:06.326Z"
+        },
+        "observed_at_server": "2025-12-28T16:58:07.275Z",
+        "cursor": 2
+      },
+      {
+        "event_id": "evt_3435d5a122a2c_19b65e55632",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "mobile_sim",
+        "client_type": "mobile",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_b39ff83f0b37e_19b65e40958",
+        "event_type": "order.draft_created",
+        "created_at_local": "2025-12-28T16:56:42.072Z",
+        "payload": {
+          "draft_id": "draft_b39ff83f0b37e_19b65e40958",
+          "created_by_staff_id": "",
+          "note": "table 01 tafestehd"
+        },
+        "observed_at_server": "2025-12-28T16:58:07.538Z",
+        "cursor": 3
+      },
+      {
+        "event_id": "evt_d8e8d1e68e6a98_19b65e55632",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "mobile_sim",
+        "client_type": "mobile",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_b39ff83f0b37e_19b65e40958",
+        "event_type": "order.draft_submitted",
+        "created_at_local": "2025-12-28T16:58:07.283Z",
+        "payload": {
+          "draft_id": "draft_b39ff83f0b37e_19b65e40958",
+          "submitted_at_local": "2025-12-28T16:58:07.283Z"
+        },
+        "observed_at_server": "2025-12-28T16:58:07.538Z",
+        "cursor": 4
+      },
+      {
+        "event_id": "evt_c38c82f1fe5138_19b65e69e96",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "desktop_ui",
+        "client_type": "desktop",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_b39ff83f0b37e_19b65e40958",
+        "event_type": "order.accepted",
+        "created_at_local": "2025-12-28T16:59:31.350Z",
+        "payload": {
+          "draft_id": "draft_b39ff83f0b37e_19b65e40958",
+          "order_id": "draft_b39ff83f0b37e_19b65e40958",
+          "accepted_by_staff_id": ""
+        },
+        "observed_at_server": "2025-12-28T16:59:31.670Z",
+        "cursor": 5
+      },
+      {
+        "event_id": "srv_evt_c38c82f1fe5138_19b65e69e96_sent_to_kitchen",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "server",
+        "client_type": "server",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_b39ff83f0b37e_19b65e40958",
+        "event_type": "order.sent_to_kitchen",
+        "created_at_local": "2025-12-28T16:59:31.350Z",
+        "payload": {
+          "order_id": "draft_b39ff83f0b37e_19b65e40958",
+          "sent_by_staff_id": "st_22f5cf02a01e1_19b64ed89e8",
+          "stations": [
+            "kitchen",
+            "bar"
+          ],
+          "source_accept_event_id": "evt_c38c82f1fe5138_19b65e69e96"
+        },
+        "observed_at_server": "2025-12-28T16:59:31.670Z",
+        "cursor": 6
+      },
+      {
+        "event_id": "evt_1929447eb6263_19b65e6a7f7",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "desktop_ui",
+        "client_type": "desktop",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_8ddcb90bbc7ee_19b65e4d7f9",
+        "event_type": "order.accepted",
+        "created_at_local": "2025-12-28T16:59:33.751Z",
+        "payload": {
+          "draft_id": "draft_8ddcb90bbc7ee_19b65e4d7f9",
+          "order_id": "draft_8ddcb90bbc7ee_19b65e4d7f9",
+          "accepted_by_staff_id": ""
+        },
+        "observed_at_server": "2025-12-28T16:59:33.757Z",
+        "cursor": 7
+      },
+      {
+        "event_id": "srv_evt_1929447eb6263_19b65e6a7f7_sent_to_kitchen",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "server",
+        "client_type": "server",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_8ddcb90bbc7ee_19b65e4d7f9",
+        "event_type": "order.sent_to_kitchen",
+        "created_at_local": "2025-12-28T16:59:33.751Z",
+        "payload": {
+          "order_id": "draft_8ddcb90bbc7ee_19b65e4d7f9",
+          "sent_by_staff_id": "st_22f5cf02a01e1_19b64ed89e8",
+          "stations": [
+            "kitchen",
+            "bar"
+          ],
+          "source_accept_event_id": "evt_1929447eb6263_19b65e6a7f7"
+        },
+        "observed_at_server": "2025-12-28T16:59:33.758Z",
+        "cursor": 8
+      },
+      {
+        "event_id": "evt_118ac144cb7ed8_19b65fcbd49",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "mobile_sim",
+        "client_type": "mobile",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_89bff1ba7e6aa8_19b65fa7a2b",
+        "event_type": "order.draft_created",
+        "created_at_local": "2025-12-28T17:21:12.747Z",
+        "payload": {
+          "draft_id": "draft_89bff1ba7e6aa8_19b65fa7a2b",
+          "created_by_staff_id": "",
+          "note": "ghfihfkdhgcjhjjjffghvhvgv"
+        },
+        "observed_at_server": "2025-12-28T17:23:41.323Z",
+        "cursor": 9
+      },
+      {
+        "event_id": "evt_ed6316eaacd41_19b65fcbd49",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "mobile_sim",
+        "client_type": "mobile",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_89bff1ba7e6aa8_19b65fa7a2b",
+        "event_type": "order.draft_submitted",
+        "created_at_local": "2025-12-28T17:23:41.001Z",
+        "payload": {
+          "draft_id": "draft_89bff1ba7e6aa8_19b65fa7a2b",
+          "submitted_at_local": "2025-12-28T17:23:41.001Z"
+        },
+        "observed_at_server": "2025-12-28T17:23:41.323Z",
+        "cursor": 10
+      },
+      {
+        "event_id": "evt_eccee6204e9f8_19b65fcbe91",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "mobile_sim",
+        "client_type": "mobile",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_3a50d647b7fc1_19b65fa4571",
+        "event_type": "order.draft_created",
+        "created_at_local": "2025-12-28T17:20:59.249Z",
+        "payload": {
+          "draft_id": "draft_3a50d647b7fc1_19b65fa4571",
+          "created_by_staff_id": "",
+          "note": "halooo"
+        },
+        "observed_at_server": "2025-12-28T17:23:41.581Z",
+        "cursor": 11
+      },
+      {
+        "event_id": "evt_70b1c0e2386188_19b65fcbe91",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "mobile_sim",
+        "client_type": "mobile",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_3a50d647b7fc1_19b65fa4571",
+        "event_type": "order.draft_submitted",
+        "created_at_local": "2025-12-28T17:23:41.329Z",
+        "payload": {
+          "draft_id": "draft_3a50d647b7fc1_19b65fa4571",
+          "submitted_at_local": "2025-12-28T17:23:41.329Z"
+        },
+        "observed_at_server": "2025-12-28T17:23:41.581Z",
+        "cursor": 12
+      },
+      {
+        "event_id": "evt_2c0ae0322b8488_19b65fd3680",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "desktop_ui",
+        "client_type": "desktop",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_3a50d647b7fc1_19b65fa4571",
+        "event_type": "order.accepted",
+        "created_at_local": "2025-12-28T17:24:12.032Z",
+        "payload": {
+          "draft_id": "draft_3a50d647b7fc1_19b65fa4571",
+          "order_id": "draft_3a50d647b7fc1_19b65fa4571",
+          "accepted_by_staff_id": ""
+        },
+        "observed_at_server": "2025-12-28T17:24:12.359Z",
+        "cursor": 13
+      },
+      {
+        "event_id": "srv_evt_2c0ae0322b8488_19b65fd3680_sent_to_kitchen",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "server",
+        "client_type": "server",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_3a50d647b7fc1_19b65fa4571",
+        "event_type": "order.sent_to_kitchen",
+        "created_at_local": "2025-12-28T17:24:12.032Z",
+        "payload": {
+          "order_id": "draft_3a50d647b7fc1_19b65fa4571",
+          "sent_by_staff_id": "st_22f5cf02a01e1_19b64ed89e8",
+          "stations": [
+            "kitchen",
+            "bar"
+          ],
+          "source_accept_event_id": "evt_2c0ae0322b8488_19b65fd3680"
+        },
+        "observed_at_server": "2025-12-28T17:24:12.360Z",
+        "cursor": 14
+      },
+      {
+        "event_id": "evt_92164959c2aad8_19b65fd3be1",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "desktop_ui",
+        "client_type": "desktop",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_89bff1ba7e6aa8_19b65fa7a2b",
+        "event_type": "order.accepted",
+        "created_at_local": "2025-12-28T17:24:13.409Z",
+        "payload": {
+          "draft_id": "draft_89bff1ba7e6aa8_19b65fa7a2b",
+          "order_id": "draft_89bff1ba7e6aa8_19b65fa7a2b",
+          "accepted_by_staff_id": ""
+        },
+        "observed_at_server": "2025-12-28T17:24:13.422Z",
+        "cursor": 15
+      },
+      {
+        "event_id": "srv_evt_92164959c2aad8_19b65fd3be1_sent_to_kitchen",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "server",
+        "client_type": "server",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_89bff1ba7e6aa8_19b65fa7a2b",
+        "event_type": "order.sent_to_kitchen",
+        "created_at_local": "2025-12-28T17:24:13.409Z",
+        "payload": {
+          "order_id": "draft_89bff1ba7e6aa8_19b65fa7a2b",
+          "sent_by_staff_id": "st_22f5cf02a01e1_19b64ed89e8",
+          "stations": [
+            "kitchen",
+            "bar"
+          ],
+          "source_accept_event_id": "evt_92164959c2aad8_19b65fd3be1"
+        },
+        "observed_at_server": "2025-12-28T17:24:13.422Z",
+        "cursor": 16
+      },
+      {
+        "event_id": "evt_bb08675a1089c8_19b66069418",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "mobile_sim",
+        "client_type": "mobile",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_2cc52407e365c8_19b66068686",
+        "event_type": "order.draft_created",
+        "created_at_local": "2025-12-28T17:34:22.342Z",
+        "payload": {
+          "draft_id": "draft_2cc52407e365c8_19b66068686",
+          "created_by_staff_id": ""
+        },
+        "observed_at_server": "2025-12-28T17:34:26.140Z",
+        "cursor": 17
+      },
+      {
+        "event_id": "evt_044e99c1e6666_19b66069418",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "mobile_sim",
+        "client_type": "mobile",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_2cc52407e365c8_19b66068686",
+        "event_type": "order.draft_item_upserted",
+        "created_at_local": "2025-12-28T17:34:22.342Z",
+        "payload": {
+          "draft_id": "draft_2cc52407e365c8_19b66068686",
+          "product_id": "1",
+          "name": "Macchiato",
+          "unit_price": 65,
+          "qty": 1
+        },
+        "observed_at_server": "2025-12-28T17:34:26.141Z",
+        "cursor": 18
+      },
+      {
+        "event_id": "evt_63a34bb9cbd5_19b66069418",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "mobile_sim",
+        "client_type": "mobile",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_2cc52407e365c8_19b66068686",
+        "event_type": "order.draft_item_upserted",
+        "created_at_local": "2025-12-28T17:34:22.342Z",
+        "payload": {
+          "draft_id": "draft_2cc52407e365c8_19b66068686",
+          "product_id": "3",
+          "name": "Fasting Firfir",
+          "unit_price": 180,
+          "qty": 1
+        },
+        "observed_at_server": "2025-12-28T17:34:26.141Z",
+        "cursor": 19
+      },
+      {
+        "event_id": "evt_09ccb4dc42aa9_19b66069418",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "mobile_sim",
+        "client_type": "mobile",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_2cc52407e365c8_19b66068686",
+        "event_type": "order.draft_submitted",
+        "created_at_local": "2025-12-28T17:34:25.816Z",
+        "payload": {
+          "draft_id": "draft_2cc52407e365c8_19b66068686",
+          "submitted_at_local": "2025-12-28T17:34:25.816Z"
+        },
+        "observed_at_server": "2025-12-28T17:34:26.141Z",
+        "cursor": 20
+      },
+      {
+        "event_id": "evt_1365d9dc0ade1_19b68a927c6",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "desktop_ui",
+        "client_type": "desktop",
+        "aggregate_type": "order",
+        "aggregate_id": "draft_2cc52407e365c8_19b66068686",
+        "event_type": "order.accepted",
+        "created_at_local": "2025-12-29T05:51:14.886Z",
+        "payload": {
+          "draft_id": "draft_2cc52407e365c8_19b66068686",
+          "order_id": "ba5845ca-ca67-4d4e-ad21-4b0ffc2e0697",
+          "table_id": "",
+          "accepted_by_staff_id": ""
+        },
+        "observed_at_server": "2025-12-29T05:51:14.904Z",
+        "cursor": 21
+      },
+      {
+        "event_id": "srv_evt_1365d9dc0ade1_19b68a927c6_sent_to_kitchen",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "device_id": "server",
+        "client_type": "server",
+        "aggregate_type": "order",
+        "aggregate_id": "ba5845ca-ca67-4d4e-ad21-4b0ffc2e0697",
+        "event_type": "order.sent_to_kitchen",
+        "created_at_local": "2025-12-29T05:51:14.886Z",
+        "payload": {
+          "order_id": "ba5845ca-ca67-4d4e-ad21-4b0ffc2e0697",
+          "sent_by_staff_id": "st_22f5cf02a01e1_19b64ed89e8",
+          "stations": [
+            "kitchen",
+            "bar"
+          ],
+          "source_accept_event_id": "evt_1365d9dc0ade1_19b68a927c6"
+        },
+        "observed_at_server": "2025-12-29T05:51:14.905Z",
+        "cursor": 22
+      }
+    ],
+    "eventIds": {
+      "evt_fb3ed2472e2268_19b65e55276": 1,
+      "evt_1f9a24d2f0e9a_19b65e55276": 2,
+      "evt_3435d5a122a2c_19b65e55632": 3,
+      "evt_d8e8d1e68e6a98_19b65e55632": 4,
+      "evt_c38c82f1fe5138_19b65e69e96": 5,
+      "srv_evt_c38c82f1fe5138_19b65e69e96_sent_to_kitchen": 6,
+      "evt_1929447eb6263_19b65e6a7f7": 7,
+      "srv_evt_1929447eb6263_19b65e6a7f7_sent_to_kitchen": 8,
+      "evt_118ac144cb7ed8_19b65fcbd49": 9,
+      "evt_ed6316eaacd41_19b65fcbd49": 10,
+      "evt_eccee6204e9f8_19b65fcbe91": 11,
+      "evt_70b1c0e2386188_19b65fcbe91": 12,
+      "evt_2c0ae0322b8488_19b65fd3680": 13,
+      "srv_evt_2c0ae0322b8488_19b65fd3680_sent_to_kitchen": 14,
+      "evt_92164959c2aad8_19b65fd3be1": 15,
+      "srv_evt_92164959c2aad8_19b65fd3be1_sent_to_kitchen": 16,
+      "evt_bb08675a1089c8_19b66069418": 17,
+      "evt_044e99c1e6666_19b66069418": 18,
+      "evt_63a34bb9cbd5_19b66069418": 19,
+      "evt_09ccb4dc42aa9_19b66069418": 20,
+      "evt_1365d9dc0ade1_19b68a927c6": 21,
+      "srv_evt_1365d9dc0ade1_19b68a927c6_sent_to_kitchen": 22
+    },
+    "drafts": [
+      {
+        "draft_id": "draft_8ddcb90bbc7ee_19b65e4d7f9",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "created_by_staff_id": "",
+        "status": "ACCEPTED",
+        "created_at_local": "2025-12-28T16:57:34.969Z",
+        "created_at_server": "2025-12-28T16:58:07.275Z",
+        "updated_at_server": "2025-12-28T16:59:33.757Z",
+        "summary": {
+          "items": 0,
+          "total": 0
+        },
+        "submitted_at_local": "2025-12-28T16:58:06.326Z",
+        "accepted_by_staff_id": "",
+        "order_id": "draft_8ddcb90bbc7ee_19b65e4d7f9",
+        "table_id": ""
+      },
+      {
+        "draft_id": "draft_b39ff83f0b37e_19b65e40958",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "created_by_staff_id": "",
+        "status": "ACCEPTED",
+        "created_at_local": "2025-12-28T16:56:42.072Z",
+        "created_at_server": "2025-12-28T16:58:07.538Z",
+        "updated_at_server": "2025-12-28T16:59:31.670Z",
+        "summary": {
+          "items": 0,
+          "total": 0
+        },
+        "submitted_at_local": "2025-12-28T16:58:07.283Z",
+        "accepted_by_staff_id": "",
+        "order_id": "draft_b39ff83f0b37e_19b65e40958",
+        "table_id": ""
+      },
+      {
+        "draft_id": "draft_89bff1ba7e6aa8_19b65fa7a2b",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "created_by_staff_id": "",
+        "status": "ACCEPTED",
+        "notes": "ghfihfkdhgcjhjjjffghvhvgv",
+        "created_at_local": "2025-12-28T17:21:12.747Z",
+        "created_at_server": "2025-12-28T17:23:41.323Z",
+        "updated_at_server": "2025-12-28T17:24:13.422Z",
+        "summary": {
+          "items": 0,
+          "total": 0
+        },
+        "submitted_at_local": "2025-12-28T17:23:41.001Z",
+        "accepted_by_staff_id": "",
+        "order_id": "draft_89bff1ba7e6aa8_19b65fa7a2b",
+        "table_id": ""
+      },
+      {
+        "draft_id": "draft_3a50d647b7fc1_19b65fa4571",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "created_by_staff_id": "",
+        "status": "ACCEPTED",
+        "notes": "halooo",
+        "created_at_local": "2025-12-28T17:20:59.249Z",
+        "created_at_server": "2025-12-28T17:23:41.581Z",
+        "updated_at_server": "2025-12-28T17:24:12.359Z",
+        "summary": {
+          "items": 0,
+          "total": 0
+        },
+        "submitted_at_local": "2025-12-28T17:23:41.329Z",
+        "accepted_by_staff_id": "",
+        "order_id": "draft_3a50d647b7fc1_19b65fa4571",
+        "table_id": ""
+      },
+      {
+        "draft_id": "draft_2cc52407e365c8_19b66068686",
+        "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+        "branch_id": "id_46de19d83d8498_19b64ed89e7",
+        "created_by_staff_id": "",
+        "status": "ACCEPTED",
+        "notes": "",
+        "items": [
+          {
+            "product_id": "1",
+            "name": "Macchiato",
+            "unit_price": 65,
+            "qty": 1
+          },
+          {
+            "product_id": "3",
+            "name": "Fasting Firfir",
+            "unit_price": 180,
+            "qty": 1
+          }
+        ],
+        "created_at_local": "2025-12-28T17:34:22.342Z",
+        "created_at_server": "2025-12-28T17:34:26.140Z",
+        "updated_at_server": "2025-12-29T05:51:14.904Z",
+        "summary": {
+          "items": 2,
+          "total": 245
+        },
+        "submitted_at_local": "2025-12-28T17:34:25.816Z",
+        "accepted_by_staff_id": "",
+        "order_id": "ba5845ca-ca67-4d4e-ad21-4b0ffc2e0697",
+        "table_id": ""
+      }
+    ]
+  },
+  "audit": [
+    {
+      "id": "aud_fb482a60f99f3_19b69fb1423",
+      "at": "2025-12-29T12:00:21.027Z",
+      "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+      "branch_id": "id_46de19d83d8498_19b64ed89e7",
+      "actor_staff_id": "st_960a135f2027a8_19b65d573bc",
+      "actor_name": "Berba",
+      "action": "order.status_changed",
+      "entity_type": "order",
+      "entity_id": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a",
+      "message": "Order status changed to Cooking",
+      "meta": {
+        "status": "Cooking"
+      }
+    },
+    {
+      "id": "aud_bc0ac61880497_19b69fb1520",
+      "at": "2025-12-29T12:00:21.280Z",
+      "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+      "branch_id": "id_46de19d83d8498_19b64ed89e7",
+      "actor_staff_id": "st_960a135f2027a8_19b65d573bc",
+      "actor_name": "Berba",
+      "action": "order.status_changed",
+      "entity_type": "order",
+      "entity_id": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a",
+      "message": "Order status changed to Ready",
+      "meta": {
+        "status": "Ready"
+      }
+    },
+    {
+      "id": "aud_8c954197af1cc_19b69fb19ce",
+      "at": "2025-12-29T12:00:22.478Z",
+      "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+      "branch_id": "id_46de19d83d8498_19b64ed89e7",
+      "actor_staff_id": "st_960a135f2027a8_19b65d573bc",
+      "actor_name": "Berba",
+      "action": "order.status_changed",
+      "entity_type": "order",
+      "entity_id": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a",
+      "message": "Order status changed to Served",
+      "meta": {
+        "status": "Served"
+      }
+    },
+    {
+      "id": "aud_c562db5d46867_19b6a4916ca",
+      "at": "2025-12-29T13:25:33.514Z",
+      "tenant_id": "tenant_e57b88113019d_19b64ed89db",
+      "branch_id": "id_46de19d83d8498_19b64ed89e7",
+      "actor_staff_id": "st_960a135f2027a8_19b65d573bc",
+      "actor_name": "Berba",
+      "action": "payment.recorded",
+      "entity_type": "order",
+      "entity_id": "4a7112e7-6fe8-4aea-99e0-ff9d6a66e15a",
+      "message": "Payment recorded via Telebirr",
+      "meta": {
+        "paymentMethod": "Telebirr",
+        "tenderedAmount": null,
+        "splitId": null
+      }
+    }
+  ],
+  "schedulesByWeek": {
+    "2025-12-28": [
+      {
+        "staffId": "st_bd6c0a75f3d7c_19b65cb2b06",
+        "mon": "day",
+        "tue": "Off",
+        "wed": "Off",
+        "thu": "Off",
+        "fri": "Off",
+        "sat": "Off",
+        "sun": "Off"
+      },
+      {
+        "staffId": "st_960a135f2027a8_19b65d573bc",
+        "mon": "Off",
+        "tue": "Off",
+        "wed": "Off",
+        "thu": "Off",
+        "fri": "Off",
+        "sat": "Off",
+        "sun": "Off"
+      },
+      {
+        "staffId": "st_db2fac987d2c7_19b6a8226c9",
+        "mon": "Off",
+        "tue": "Off",
+        "wed": "Off",
+        "thu": "Off",
+        "fri": "Off",
+        "sat": "Off",
+        "sun": "Off"
+      }
+    ]
+  }
+}

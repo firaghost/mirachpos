@@ -1,0 +1,68 @@
+{
+  "branches": {
+    "id_9f8fc71cfb703_19b64caba0c": {
+      "id": "id_9f8fc71cfb703_19b64caba0c",
+      "name": "Main Branch",
+      "managerName": "",
+      "city": "",
+      "region": "",
+      "address": "",
+      "phone": "",
+      "staffCount": 0,
+      "status": "Open",
+      "rating": 5,
+      "createdAt": "2025-12-28T11:49:26.156Z"
+    }
+  },
+  "staff": [
+    {
+      "id": "st_59acacd3a6b078_19b64caba0d",
+      "code": "",
+      "name": "Firagos Nuredin",
+      "email": "test@test.com",
+      "password": "123456",
+      "phone": "",
+      "roleId": "role_owner",
+      "branchId": "",
+      "status": "Active",
+      "lastLoginAt": "",
+      "createdAt": "2025-12-28T11:49:26.157Z"
+    }
+  ],
+  "roles": [
+    {
+      "id": "role_waiter",
+      "name": "Waiter",
+      "scope": "branch",
+      "permissions": [],
+      "createdAt": "2025-12-28T11:49:26.156Z"
+    },
+    {
+      "id": "role_manager",
+      "name": "Branch Manager",
+      "scope": "branch",
+      "permissions": [],
+      "createdAt": "2025-12-28T11:49:26.156Z"
+    },
+    {
+      "id": "role_owner",
+      "name": "Cafe Owner",
+      "scope": "global",
+      "permissions": [],
+      "createdAt": "2025-12-28T11:49:26.156Z"
+    }
+  ],
+  "sessions": [],
+  "events": [
+    {
+      "id": "evt_6a1ccf587f8f2_19b64caba0d",
+      "branchId": "id_9f8fc71cfb703_19b64caba0c",
+      "type": "tenant_signup",
+      "payload": {
+        "tenantId": "tenant_aff02bea9c46b_19b64caba08",
+        "email": "test@test.com"
+      },
+      "at": "2025-12-28T11:49:26.157Z"
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "name": "mirachpos---ethiopian-edition",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "electron/main.mjs",
+  "engines": {
+    "node": "^22.0.0 || ^20.0.0"
+  },
+  "scripts": {
+    "postinstall": "electron-builder install-app-deps || exit 0",
+    "rebuild:electron": "electron-builder install-app-deps",
+    "dev": "vite",
+    "dev:api": "node api/src/index.js",
+    "dev:desktop": "concurrently -k -n API,VITE,ELECTRON -c yellow,cyan,magenta \"node api/src/index.js\" \"vite\" \"wait-on http://localhost:3001 && electron ./electron/main.mjs\"",
+    "dev:desktop:noapi": "concurrently -k -n VITE,ELECTRON -c cyan,magenta \"vite\" \"wait-on http://localhost:3001 && electron ./electron/main.mjs\"",
+    "build": "vite build",
+    "build:desktop": "vite build",
+    "dist:desktop": "npm run build:desktop && electron-builder",
+    "dist:win": "npm run build:desktop && electron-builder --win nsis",
+    "start:desktop": "electron ./electron/main.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "electron-updater": "^6.6.2",
+    "jspdf": "^3.0.4",
+    "jspdf-autotable": "^5.0.2",
+    "multer": "^1.4.5-lts.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "recharts": "^3.6.0",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.1",
+    "electron": "^38.0.0",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0",
+    "wait-on": "^8.0.5"
+  },
+  "build": {
+    "appId": "com.mirachpos.desktop",
+    "productName": "MirachPOS",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "server",
+        "to": "server"
+      }
+    ],
+    "directories": {
+      "buildResources": "electron",
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://example.com/mirachpos/updates/"
+      }
+    ]
+  }
+}

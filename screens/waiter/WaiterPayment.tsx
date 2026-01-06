@@ -1,0 +1,702 @@
+
+import React, { useEffect, useMemo, useState } from 'react';
+import { Screen } from '../../types';
+import { usePos, useSelectedOrder } from '../../PosContext';
+import { apiFetch } from '../../api';
+
+interface Props {
+  onNavigate: (screen: Screen) => void;
+}
+
+type PosSettingsResponse = {
+  ok?: boolean;
+  general?: { currency?: string };
+  taxes?: { vatEnabled?: boolean; vatRate?: number; serviceChargeEnabled?: boolean; serviceChargeRate?: number };
+  printers?: {
+    autoPrintReceipts?: boolean;
+    defaultReceiptPrinterId?: string | null;
+  };
+  payments?: {
+    allowSplitPayments?: boolean;
+    methods?: Array<{ id?: string; enabled?: boolean; label?: string; reason?: string }>;
+  };
+  branchPayments?: {
+    qrCodes?: { telebirr?: string; bank_transfer?: string; card?: string };
+    qrDetails?: {
+      telebirr?: { image?: string; accountName?: string; phone?: string; merchantId?: string; note?: string };
+      bank_transfer?: { image?: string; bankName?: string; accountName?: string; accountNumber?: string; phone?: string; note?: string };
+      card?: { image?: string; merchantId?: string; note?: string };
+    };
+    requireReferenceForMethods?: string[];
+  };
+};
+
+const RECEIPT_SPLIT_KEY = 'mirachpos.receipt.splitId.v1';
+
+export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
+  const { confirmPayment } = usePos();
+  const order = useSelectedOrder();
+  const [method, setMethod] = useState<'Cash' | 'Card' | 'Telebirr' | 'Bank Transfer' | 'Loyalty'>('Cash');
+  const [tendered, setTendered] = useState('');
+  const [selectedSplitId, setSelectedSplitId] = useState<string>('');
+  const [paymentReference, setPaymentReference] = useState<string>('');
+  const [actionErr, setActionErr] = useState<string>('');
+  const [posSettings, setPosSettings] = useState<PosSettingsResponse | null>(null);
+
+  // Telebirr Online States
+  const [telebirrOnlineLoading, setTelebirrOnlineLoading] = useState(false);
+  const [telebirrCheckoutUrl, setTelebirrCheckoutUrl] = useState<string | null>(null);
+  const [telebirrOnlineActive, setTelebirrOnlineActive] = useState(false);
+  const pollRef = React.useRef<any>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const res = await apiFetch('/api/pos/settings');
+        const json = (await res.json().catch(() => null)) as any;
+        if (!res.ok) return;
+        if (!mounted) return;
+        setPosSettings((json && typeof json === 'object' ? json : null) as any);
+      } catch {
+        // ignore
+      }
+    };
+    void run();
+    return () => {
+      mounted = false;
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Stop polling if we switch away from Telebirr or close online mode
+    if (method !== 'Telebirr' || !telebirrOnlineActive) {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    }
+  }, [method, telebirrOnlineActive]);
+
+  const initiateTelebirrOnline = async () => {
+    if (!order) return;
+    setTelebirrOnlineLoading(true);
+    setActionErr('');
+    try {
+      const res = await apiFetch(`/api/pos/orders/${order.id}/pay-telebirr`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || json.error || 'Failed to initiate Telebirr');
+
+      setTelebirrCheckoutUrl(json.checkoutUrl);
+      setTelebirrOnlineActive(true);
+
+      // Start polling
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        try {
+          const sRes = await apiFetch(`/api/pos/orders/${order.id}/payment-status`);
+          const sJson = await sRes.json();
+          if (sRes.ok && sJson.paid) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+            // Success!
+            onNavigate(Screen.WAITER_RECEIPT);
+          }
+        } catch {
+          // ignore polling errors
+        }
+      }, 3000);
+    } catch (e: any) {
+      setActionErr(e.message || 'Telebirr Online Error');
+    } finally {
+      setTelebirrOnlineLoading(false);
+    }
+  };
+
+  const settingsUi = useMemo(() => {
+    const cur = typeof posSettings?.general?.currency === 'string' ? posSettings.general.currency : 'ETB';
+    const vatEnabled = posSettings?.taxes?.vatEnabled !== false;
+    const vatRate = Number.isFinite(Number(posSettings?.taxes?.vatRate)) ? Number(posSettings?.taxes?.vatRate) : 15;
+    const serviceEnabled = posSettings?.taxes?.serviceChargeEnabled === true;
+    const serviceRate = Number.isFinite(Number(posSettings?.taxes?.serviceChargeRate)) ? Number(posSettings?.taxes?.serviceChargeRate) : 10;
+    return {
+      currency: String(cur || 'ETB').toUpperCase(),
+      vatEnabled,
+      vatRate,
+      serviceEnabled,
+      serviceRate,
+      autoPrintReceipts: posSettings?.printers?.autoPrintReceipts === true,
+      defaultReceiptPrinterId: posSettings?.printers?.defaultReceiptPrinterId ?? null,
+    };
+  }, [posSettings]);
+
+  const methodConfig = useMemo(() => {
+    const list = Array.isArray(posSettings?.payments?.methods) ? posSettings?.payments?.methods || [] : [];
+    const map = new Map<string, { enabled: boolean; label: string; reason: string }>();
+    for (const m of list) {
+      const id = String(m?.id || '').trim();
+      if (!id) continue;
+      map.set(id, {
+        enabled: m?.enabled !== false,
+        label: typeof m?.label === 'string' && m.label.trim() ? m.label.trim() : id,
+        reason: typeof m?.reason === 'string' ? m.reason : '',
+      });
+    }
+    return map;
+  }, [posSettings]);
+
+  const requireRefList = useMemo(() => {
+    return Array.isArray(posSettings?.branchPayments?.requireReferenceForMethods) ? (posSettings?.branchPayments?.requireReferenceForMethods || []).map((x) => String(x || '').trim()) : [];
+  }, [posSettings]);
+
+  const requireReference = useMemo(() => {
+    const id = method === 'Telebirr' ? 'mobile_money' : method === 'Bank Transfer' ? 'bank_transfer' : method === 'Card' ? 'card' : method === 'Loyalty' ? 'loyalty' : 'cash';
+    return requireRefList.includes(id);
+  }, [method, requireRefList]);
+
+  const qrSrc = useMemo(() => {
+    const q = posSettings?.branchPayments?.qrCodes;
+    const d = posSettings?.branchPayments?.qrDetails;
+    if (method === 'Telebirr') return typeof q?.telebirr === 'string' ? q.telebirr : '';
+    if (method === 'Bank Transfer') return typeof q?.bank_transfer === 'string' ? q.bank_transfer : '';
+    if (method === 'Card') return typeof q?.card === 'string' ? q.card : '';
+    return '';
+  }, [posSettings, method]);
+
+  const paymentDetails = useMemo(() => {
+    const d = posSettings?.branchPayments?.qrDetails;
+    const q = posSettings?.branchPayments?.qrCodes;
+
+    if (method === 'Telebirr') {
+      const t = d?.telebirr;
+      return {
+        title: 'Telebirr',
+        image: (typeof t?.image === 'string' && t.image.trim()) ? t.image : (typeof q?.telebirr === 'string' ? q.telebirr : ''),
+        rows: [
+          { k: 'Account Name', v: typeof t?.accountName === 'string' ? t.accountName : '' },
+          { k: 'Phone', v: typeof t?.phone === 'string' ? t.phone : '' },
+          { k: 'Merchant ID', v: typeof t?.merchantId === 'string' ? t.merchantId : '' },
+          { k: 'Note', v: typeof t?.note === 'string' ? t.note : '' },
+        ].filter((r) => r.v && r.v.trim()),
+      };
+    }
+
+    if (method === 'Bank Transfer') {
+      const b = d?.bank_transfer;
+      return {
+        title: 'Bank Transfer',
+        image: (typeof b?.image === 'string' && b.image.trim()) ? b.image : (typeof q?.bank_transfer === 'string' ? q.bank_transfer : ''),
+        rows: [
+          { k: 'Bank', v: typeof b?.bankName === 'string' ? b.bankName : '' },
+          { k: 'Account Name', v: typeof b?.accountName === 'string' ? b.accountName : '' },
+          { k: 'Account No', v: typeof b?.accountNumber === 'string' ? b.accountNumber : '' },
+          { k: 'Phone', v: typeof b?.phone === 'string' ? b.phone : '' },
+          { k: 'Note', v: typeof b?.note === 'string' ? b.note : '' },
+        ].filter((r) => r.v && r.v.trim()),
+      };
+    }
+
+    if (method === 'Card') {
+      const c = d?.card;
+      return {
+        title: 'Card',
+        image: (typeof c?.image === 'string' && c.image.trim()) ? c.image : (typeof q?.card === 'string' ? q.card : ''),
+        rows: [
+          { k: 'Merchant ID', v: typeof c?.merchantId === 'string' ? c.merchantId : '' },
+          { k: 'Note', v: typeof c?.note === 'string' ? c.note : '' },
+        ].filter((r) => r.v && r.v.trim()),
+      };
+    }
+
+    return { title: '', image: '', rows: [] as Array<{ k: string; v: string }> };
+  }, [posSettings, method]);
+
+  const itemCount = useMemo(() => (order ? order.items.reduce((sum, i) => sum + i.qty, 0) : 0), [order]);
+
+  const methodButtons = useMemo(() => {
+    const defs: Array<{ id: string; label: string; icon: string; value: any }> = [
+      { id: 'cash', label: 'Cash', icon: 'payments', value: 'Cash' },
+      { id: 'card', label: 'Card', icon: 'credit_card', value: 'Card' },
+      { id: 'mobile_money', label: 'Telebirr', icon: 'qr_code', value: 'Telebirr' },
+      { id: 'bank_transfer', label: 'Bank Transfer', icon: 'account_balance', value: 'Bank Transfer' },
+    ];
+
+    const base = defs
+      .map((d) => {
+        const cfg = methodConfig.get(d.id);
+        const enabled = cfg ? cfg.enabled : true;
+        const reason = cfg ? cfg.reason : '';
+        return { ...d, enabled, reason };
+      })
+      .filter((d) => d.id !== 'bank_transfer' || methodConfig.has('bank_transfer') || typeof posSettings?.branchPayments?.qrCodes?.bank_transfer === 'string');
+
+    const result = base;
+    if (order?.customer) result.push({ id: 'loyalty', label: 'Loyalty', icon: 'loyalty', value: 'Loyalty', enabled: true, reason: '' } as any);
+    return result;
+  }, [methodConfig, order?.customer, posSettings]);
+
+  useEffect(() => {
+    setTendered('');
+    setPaymentReference('');
+  }, [selectedSplitId, method]);
+
+  if (!order) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
+        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#483c23] bg-[#2c241b] px-6 py-3">
+          <div className="flex items-center gap-4 text-white">
+            <div className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] text-[#221c11]">
+              <span className="material-symbols-outlined">payments</span>
+            </div>
+            <h2 className="text-white text-xl font-bold leading-tight tracking-tight">Payment</h2>
+          </div>
+          <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#483c23] hover:bg-[#3a2e22] transition-colors text-[#c9b792] text-sm font-medium">
+            <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
+          </button>
+        </header>
+
+        {actionErr ? (
+          <div className="px-6 py-2 text-xs text-red-300 font-semibold bg-red-900/10 border-b border-red-900/30">
+            {actionErr}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (order.status === 'Voided' || order.status === 'Paid' || order.status !== 'Served') {
+    return (
+      <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
+        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#483c23] bg-[#2c241b] px-6 py-3">
+          <div className="flex items-center gap-4 text-white">
+            <div className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] text-[#221c11]">
+              <span className="material-symbols-outlined">payments</span>
+            </div>
+            <h2 className="text-white text-xl font-bold leading-tight tracking-tight">Payment</h2>
+          </div>
+          <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#483c23] hover:bg-[#3a2e22] transition-colors text-[#c9b792] text-sm font-medium">
+            <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
+          </button>
+        </header>
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="max-w-lg w-full bg-[#2c241b] border border-[#483c23] rounded-xl p-6">
+            <div className="text-white font-bold text-lg mb-2">Payment is not available yet</div>
+            <div className="text-[#c9b792] text-sm">
+              Orders can be paid only after they are marked <span className="text-white font-bold">Served</span>.
+            </div>
+            <div className="mt-4 flex gap-3">
+              <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors">Go to Kitchen</button>
+              <button onClick={() => onNavigate(Screen.WAITER_ACTIVE_ORDERS)} className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-colors">Active Orders</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleConfirm = () => {
+    setActionErr('');
+    const tenderedValue = Number.parseFloat(tendered);
+    const tenderedAmount = Number.isFinite(tenderedValue) ? tenderedValue : undefined;
+    const splitId = selectedSplitId || undefined;
+    try {
+      if (splitId) localStorage.setItem(RECEIPT_SPLIT_KEY, splitId);
+      else localStorage.removeItem(RECEIPT_SPLIT_KEY);
+    } catch {
+      // ignore
+    }
+    const ref = paymentReference.trim() ? paymentReference.trim().toUpperCase() : undefined;
+
+    if (requireReference && !ref) {
+      setActionErr('Payment reference is required for this method.');
+      return;
+    }
+    confirmPayment(order.id, method, method === 'Cash' ? tenderedAmount : undefined, splitId, ref);
+
+    // Print immediately after confirming payment (LAN only via backend).
+    // This prevents missed prints if the user navigates away from the receipt screen.
+    try {
+      const enabled = settingsUi.autoPrintReceipts === true;
+      const deviceId = typeof settingsUi.defaultReceiptPrinterId === 'string' ? settingsUi.defaultReceiptPrinterId : null;
+      if (enabled && deviceId && !splitId) {
+        const key = `mirachpos.printedReceipt.${order.id}.full`;
+        if (sessionStorage.getItem(key) !== '1') {
+          sessionStorage.setItem(key, '1');
+          void apiFetch(`/api/pos/print/receipt/${encodeURIComponent(String(order.id))}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId }),
+          }).catch(() => {
+            // ignore (receipt screen still has browser print fallback)
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    onNavigate(Screen.WAITER_RECEIPT);
+  };
+
+  const split = selectedSplitId ? (order.splits || []).find((s) => s.id === selectedSplitId) ?? null : null;
+  const totalDue = split ? split.total : order.total;
+
+  const tenderedValue = Number.parseFloat(tendered);
+  const tenderedAmount = Number.isFinite(tenderedValue) ? tenderedValue : 0;
+  const changeDue = Math.max(0, tenderedAmount - totalDue);
+  const loyaltyBalance = Number(order.customer?.loyaltyBalance) || 0;
+  const canConfirm =
+    method === 'Cash'
+      ? tenderedAmount >= totalDue
+      : method === 'Loyalty'
+        ? Boolean(order.customer) && loyaltyBalance + 1e-9 >= totalDue
+        : requireReference
+          ? Boolean(paymentReference.trim())
+          : true;
+
+  const appendTendered = (val: string) => {
+    setTendered((prev) => {
+      if (val === '.') {
+        if (prev.includes('.')) return prev;
+        return prev.length === 0 ? '0.' : `${prev}.`;
+      }
+      if (prev === '0') return val;
+      return `${prev}${val}`;
+    });
+  };
+
+  const backspaceTendered = () => {
+    setTendered((prev) => (prev.length <= 1 ? '' : prev.slice(0, -1)));
+  };
+
+  const setQuickTendered = (amount: number) => {
+    setTendered(amount.toFixed(2));
+  };
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
+      {/* Top Navigation */}
+      <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#483c23] bg-[#2c241b] px-6 py-3">
+        <div className="flex items-center gap-4 text-white">
+          <div className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] text-[#221c11]">
+            <span className="material-symbols-outlined">payments</span>
+          </div>
+          <h2 className="text-white text-xl font-bold leading-tight tracking-tight">Payment</h2>
+          <div className="h-6 w-px bg-[#483c23] mx-2"></div>
+          <div className="flex flex-col">
+            <span className="text-sm font-bold leading-none">{order.tableName}</span>
+            <span className="text-xs text-[#c9b792] leading-none mt-1">{order.number}</span>
+          </div>
+        </div>
+        <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#483c23] hover:bg-[#3a2e22] transition-colors text-[#c9b792] text-sm font-medium">
+          <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
+        </button>
+      </header>
+
+      {/* Main Content Grid */}
+      <main className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+        {/* Left Column: Order Summary */}
+        <section className="w-full lg:w-[360px] min-h-0 flex flex-col lg:border-r border-b lg:border-b-0 border-[#483c23] bg-[#2c241b] shrink-0">
+          <div className="px-5 py-4 border-b border-[#483c23] flex justify-between items-center">
+            <h3 className="text-lg font-bold">Bill Summary</h3>
+            <span className="text-xs bg-[#3a2e22] px-2 py-1 rounded text-[#c9b792]">{itemCount} Items</span>
+          </div>
+          {order.customer ? (
+            <div className="px-5 py-3 border-b border-[#483c23]">
+              <div className="text-xs text-[#c9b792]">Customer</div>
+              <div className="text-sm font-bold text-white">{order.customer.name}</div>
+              <div className="text-xs text-[#c9b792]">{order.customer.phone}    Points {order.customer.loyaltyPoints}    Balance {settingsUi.currency} {order.customer.loyaltyBalance.toFixed(2)}</div>
+            </div>
+          ) : null}
+          {/* Order List */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
+            {order.items.map((item) => (
+              <div key={item.productId} className="flex items-center gap-3 bg-[#221c11] p-3 rounded-lg border border-transparent hover:border-[#483c23] transition-colors">
+                <div className="bg-[#483c23] rounded-md size-12 shrink-0 flex items-center justify-center text-[#c9b792]">
+                  <span className="material-symbols-outlined">receipt_long</span>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <div className="flex justify-between items-start">
+                    <p className="text-white text-sm font-semibold truncate">{item.name} x{item.qty}</p>
+                    <p className="text-white text-sm font-semibold">{settingsUi.currency} {(item.unitPrice * item.qty).toFixed(2)}</p>
+                  </div>
+                  <p className="text-[#c9b792] text-xs truncate"></p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Totals */}
+          <div className="shrink-0 p-5 border-t border-[#483c23] bg-[#3a2e22]/50">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[#c9b792] text-sm">Subtotal</span>
+              <span className="text-white font-medium">{settingsUi.currency} {order.subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[#c9b792] text-sm">{settingsUi.vatEnabled ? `Tax (${settingsUi.vatRate}%)` : 'Tax (disabled)'}</span>
+              <span className="text-white font-medium">{settingsUi.currency} {order.tax.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[#c9b792] text-sm">{settingsUi.serviceEnabled ? `Service (${settingsUi.serviceRate}%)` : 'Service (disabled)'}</span>
+              <span className="text-white font-medium">{settingsUi.currency} {order.serviceCharge.toFixed(2)}</span>
+            </div>
+            <div className="h-px bg-[#483c23] w-full my-3"></div>
+            <div className="flex justify-between items-center">
+              <span className="text-white text-lg font-bold">Total</span>
+              <span className="text-[#eead2b] text-2xl font-black">{settingsUi.currency} {order.total.toFixed(2)}</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Right Column: Payment Interface */}
+        <section className="flex-1 min-h-0 flex flex-col bg-[#221c11] overflow-hidden">
+          <div className="shrink-0 px-6 py-5 bg-[#2c241b] border-b border-[#483c23]">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
+              <div>
+                <p className="text-[#c9b792] uppercase tracking-widest text-[11px] font-semibold">Total Amount Due</p>
+                <div className="text-3xl md:text-4xl font-black text-white tracking-tight">{settingsUi.currency} {totalDue.toFixed(2)}</div>
+              </div>
+              <div className="text-xs text-[#c9b792]">
+                {split ? 'Paying: selected split' : Array.isArray(order.splits) && order.splits.length > 0 ? 'Paying: full bill' : ''}
+              </div>
+            </div>
+            {split ? (
+              null
+            ) : Array.isArray(order.splits) && order.splits.length > 0 ? (
+              null
+            ) : null}
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr,320px] gap-6 items-start">
+              <div className="flex flex-col gap-6">
+                {Array.isArray(order.splits) && order.splits.length > 0 ? (
+                  <div>
+                    <h4 className="text-sm font-bold text-[#c9b792] mb-3 uppercase tracking-wider">Split Bills</h4>
+                    <div className="space-y-2">
+                      {order.splits.map((sp, idx) => {
+                        const selected = selectedSplitId === sp.id;
+                        const disabled = sp.status === 'Paid';
+                        return (
+                          <button
+                            key={sp.id}
+                            disabled={disabled}
+                            onClick={() => setSelectedSplitId(sp.id)}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${disabled
+                              ? 'border-[#483c23] bg-[#2c241b]/40 text-[#c9b792]/60 cursor-not-allowed'
+                              : selected
+                                ? 'border-[#eead2b] bg-[#eead2b]/10 text-white'
+                                : 'border-[#483c23] bg-[#2c241b] hover:bg-[#3a2e22] text-white'
+                              }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`text-xs font-black px-2 py-1 rounded ${selected ? 'bg-[#eead2b] text-[#221c11]' : 'bg-[#3a2e22] text-[#c9b792]'}`}>Split {idx + 1}</div>
+                              <div className="text-xs">{sp.status}</div>
+                            </div>
+                            <div className="text-sm font-extrabold">{settingsUi.currency} {sp.total.toFixed(2)}</div>
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => setSelectedSplitId('')}
+                        className={`w-full px-4 py-3 rounded-xl border border-[#483c23] ${selectedSplitId ? 'bg-[#2c241b] hover:bg-[#3a2e22] text-[#c9b792]' : 'bg-[#eead2b]/10 border-[#eead2b]/40 text-[#eead2b]'} transition-colors text-sm font-bold`}
+                      >
+                        Pay Full Bill
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                <div>
+                  <h4 className="text-sm font-bold text-[#c9b792] mb-3 uppercase tracking-wider">Payment Method</h4>
+                  <div className={`grid gap-3 ${order.customer ? 'grid-cols-1 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
+                    {methodButtons.map((b) => {
+                      const selected = method === b.value;
+                      const disabled = b.enabled === false;
+                      return (
+                        <button
+                          key={b.id}
+                          disabled={disabled}
+                          title={disabled && b.reason ? b.reason : undefined}
+                          onClick={() => setMethod(b.value)}
+                          className={`flex flex-col items-center justify-center p-4 rounded-xl transition-all ${disabled
+                            ? 'border border-[#483c23] bg-[#2c241b]/40 text-[#c9b792]/60 cursor-not-allowed'
+                            : selected
+                              ? 'border-2 border-[#eead2b] bg-[#eead2b]/10 text-[#eead2b] shadow-lg ring-2 ring-[#eead2b]/20'
+                              : 'border border-[#483c23] bg-[#2c241b] hover:bg-[#3a2e22] text-[#c9b792] hover:text-white'
+                            }`}
+                        >
+                          <span className="material-symbols-outlined text-3xl mb-1">{b.icon}</span>
+                          <span className="font-bold">{b.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-4 mt-2">
+                  {paymentDetails.image ? (
+                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                      <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">{paymentDetails.title ? `${paymentDetails.title} PAYMENT` : 'Scan to Pay'}</div>
+                      <div className="mt-3 flex items-center justify-center">
+                        <img src={paymentDetails.image} alt="QR" className="max-h-44 max-w-full rounded-lg border border-[#483c23] bg-white p-2" />
+                      </div>
+                      {paymentDetails.rows.length ? (
+                        <div className="mt-4 grid grid-cols-1 gap-2">
+                          {paymentDetails.rows.map((r) => (
+                            <div key={r.k} className="flex items-center justify-between gap-4 text-sm">
+                              <span className="text-[#c9b792]">{r.k}</span>
+                              <span className="text-white font-semibold text-right break-all">{r.v}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {!telebirrOnlineActive && method === 'Telebirr' && (
+                        <button
+                          onClick={initiateTelebirrOnline}
+                          disabled={telebirrOnlineLoading}
+                          className="mt-4 w-full h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-all disabled:opacity-50"
+                        >
+                          {telebirrOnlineLoading ? 'Generating...' : 'Generate Dynamic QR'}
+                        </button>
+                      )}
+                    </div>
+                  ) : qrSrc ? (
+                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                      <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Scan to Pay</div>
+                      <div className="mt-3 flex items-center justify-center">
+                        <img src={qrSrc} alt="QR" className="max-h-44 max-w-full rounded-lg border border-[#483c23] bg-white p-2" />
+                      </div>
+                      {method === 'Telebirr' && !telebirrOnlineActive && (
+                        <button
+                          onClick={initiateTelebirrOnline}
+                          disabled={telebirrOnlineLoading}
+                          className="mt-4 w-full h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-all disabled:opacity-50"
+                        >
+                          {telebirrOnlineLoading ? 'Generating...' : 'Generate Dynamic QR'}
+                        </button>
+                      )}
+                    </div>
+                  ) : (method === 'Telebirr') ? (
+                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                      <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Telebirr Online</div>
+                      <div className="mt-4">
+                        <button
+                          onClick={initiateTelebirrOnline}
+                          disabled={telebirrOnlineLoading}
+                          className="w-full h-12 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {telebirrOnlineLoading ? (
+                            <>
+                              <span className="material-symbols-outlined animate-spin">sync</span>
+                              Initializing...
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined">qr_code_2</span>
+                              Generate Dynamic QR
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {telebirrOnlineActive && telebirrCheckoutUrl && (
+                    <div className="bg-[#1a150d] p-5 rounded-xl border-2 border-[#eead2b] shadow-[0_0_15px_rgba(238,173,43,0.3)] animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-xs text-[#eead2b] font-black uppercase tracking-widest flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-[#eead2b] animate-pulse"></span>
+                          Waiting for Payment
+                        </div>
+                        <button onClick={() => setTelebirrOnlineActive(false)} className="text-[#c9b792] hover:text-white transition-colors">
+                          <span className="material-symbols-outlined text-lg">close</span>
+                        </button>
+                      </div>
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="bg-white p-3 rounded-xl">
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(telebirrCheckoutUrl)}`}
+                            alt="Dynamic QR"
+                            className="w-48 h-48"
+                          />
+                        </div>
+                        <p className="text-center text-xs text-[#c9b792] px-4">
+                          Ask the customer to scan this QR with their Telebirr app. The system will automatically confirm once paid.
+                        </p>
+                        <div className="w-full h-1 bg-[#2c241b] rounded-full overflow-hidden">
+                          <div className="h-full bg-[#eead2b] animate-pulse" style={{ width: '100%' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {requireReference ? (
+                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                      <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">PAYMENT REFERENCE</div>
+                      <div className="mt-2">
+                        <input
+                          value={paymentReference}
+                          onChange={(e) => setPaymentReference(String(e.target.value || '').toUpperCase())}
+                          placeholder="ENTER REFERENCE"
+                          className="w-full h-11 bg-[#221c11] border border-[#483c23] rounded-lg px-4 text-white font-mono focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b]"
+                        />
+                        <div className="text-[#c9b792] text-xs mt-2">Reference is required and stored in capital letters.</div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {method === 'Loyalty' ? (
+                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23] flex justify-between items-center">
+                      <span className="text-[#c9b792] font-medium">Loyalty Balance</span>
+                      <div className={`text-xl font-bold ${loyaltyBalance + 1e-9 >= totalDue ? 'text-green-400' : 'text-red-400'}`}>{settingsUi.currency} {loyaltyBalance.toFixed(2)}</div>
+                    </div>
+                  ) : null}
+                  <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23] flex justify-between items-center">
+                    <span className="text-[#c9b792] font-medium">Tendered Amount</span>
+                    <div className="text-2xl font-bold text-white border-b-2 border-[#eead2b] px-2 pb-1 min-w-[140px] text-right">{tendered.length ? tendered : ' ”'}</div>
+                  </div>
+                  <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23] flex justify-between items-center opacity-75">
+                    <span className="text-[#c9b792] font-medium">Change Due</span>
+                    <span className="text-2xl font-bold text-green-400">{settingsUi.currency} {changeDue.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full xl:w-[320px] flex flex-col gap-3">
+                <h4 className="text-sm font-bold text-[#c9b792] mb-0 uppercase tracking-wider">Quick Entry</h4>
+                <div className="grid grid-cols-4 gap-2">
+                  <button onClick={() => setQuickTendered(100)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">100</button>
+                  <button onClick={() => setQuickTendered(200)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">200</button>
+                  <button onClick={() => setQuickTendered(500)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">500</button>
+                  <button onClick={() => setQuickTendered(totalDue)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-[#eead2b] transition-colors">Exact</button>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, '.', 0].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => appendTendered(String(n))}
+                      className="h-14 bg-[#3a2e22] hover:bg-[#4a3b2b] rounded-xl text-2xl font-semibold text-white transition-colors shadow-sm"
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  <button onClick={backspaceTendered} className="h-14 bg-[#3a2e22] hover:bg-[#4a3b2b] rounded-xl text-xl font-semibold text-white transition-colors shadow-sm flex items-center justify-center">
+                    <span className="material-symbols-outlined">backspace</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="shrink-0 border-t border-[#483c23] bg-[#2c241b] px-4 md:px-6 py-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="w-full sm:w-1/3 h-12 rounded-xl border border-[#483c23] bg-transparent hover:bg-[#3a2e22] text-white font-bold transition-colors flex items-center justify-center gap-2">Cancel</button>
+              <button disabled={!canConfirm} onClick={handleConfirm} className="w-full sm:flex-1 h-12 rounded-xl bg-[#eead2b] hover:bg-[#d49619] disabled:bg-[#3a2e22] disabled:text-[#c9b792] text-[#221c11] font-extrabold shadow-lg shadow-black/20 transition-all transform active:scale-[0.99] flex items-center justify-center gap-3 disabled:cursor-not-allowed">
+                <span className="material-symbols-outlined icon-filled">check_circle</span> Confirm Payment
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+};
