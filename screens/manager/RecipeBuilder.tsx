@@ -5,6 +5,7 @@ import type { InventoryItem, Product, Recipe } from '../../types';
 import { Screen } from '../../types';
 import { apiFetch } from '../../api';
 import { readSession } from '../../session';
+import { usePersistedNullableString } from '../../usePersistedState';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -38,13 +39,14 @@ export const RecipeBuilder: React.FC<Props> = ({ onNavigate }) => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
 
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(STORAGE_SELECTED_PRODUCT);
-    } catch {
-      return null;
-    }
-  });
+  const [query, setQuery] = useState('');
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyErr, setHistoryErr] = useState('');
+  const [historyEvents, setHistoryEvents] = useState<
+    Array<{ id: string; at: string; type: string; summary: string; actorName?: string; actorRole?: string }>
+  >([]);
+
+  const [selectedProductId, setSelectedProductId] = usePersistedNullableString(STORAGE_SELECTED_PRODUCT, null);
 
   const [addOpen, setAddOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -70,6 +72,15 @@ export const RecipeBuilder: React.FC<Props> = ({ onNavigate }) => {
     }
     return '';
   };
+
+  const sessionRole = useMemo(() => {
+    try {
+      const s = readSession<any>();
+      return typeof s?.role === 'string' ? s.role : '';
+    } catch {
+      return '';
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -174,8 +185,32 @@ export const RecipeBuilder: React.FC<Props> = ({ onNavigate }) => {
         if (bid) qs.set('branchId', bid);
         const res = await apiFetch(`/api/inventory/items?${qs.toString()}`);
         const json = (await res.json().catch(() => null)) as any;
-        if (!res.ok) return;
-        const rows = Array.isArray(json?.items) ? json.items : [];
+        let rows = Array.isArray(json?.items) ? json.items : [];
+        if (!res.ok) rows = [];
+
+        // Fallback (owner sessions) if inventory/items is empty or unavailable.
+        if ((!rows.length || !res.ok) && sessionRole === 'Cafe Owner') {
+          try {
+            const qs2 = new URLSearchParams();
+            if (bid) qs2.set('branchId', bid);
+            const res2 = await apiFetch(`/api/owner/inventory?${qs2.toString()}`);
+            const json2 = (await res2.json().catch(() => null)) as any;
+            const items2 = Array.isArray(json2?.items) ? json2.items : [];
+            rows = items2.map((it: any) => ({
+              id: String(it?.sku || it?.id || ''),
+              name: String(it?.name || ''),
+              category: String(it?.category || 'Raw Material'),
+              stock: Number(it?.globalQty ?? 0) || 0,
+              unit: String(it?.unit || ''),
+              minStock: Number(it?.minQty ?? 0) || 0,
+              price: Number(it?.cost ?? it?.price ?? 0) || 0,
+              status: String(it?.status || 'Active'),
+            }));
+          } catch {
+            // ignore
+          }
+        }
+
         const next = mapInventoryItems(rows);
         if (!mounted) return;
         setInventoryItems(next);
@@ -187,9 +222,133 @@ export const RecipeBuilder: React.FC<Props> = ({ onNavigate }) => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [sessionRole]);
 
   const selectedProduct = useMemo(() => products.find((p) => p.id === selectedProductId) ?? null, [products, selectedProductId]);
+
+  // selectedProductId is persisted via usePersistedNullableString
+
+  useEffect(() => {
+    if (tab !== 'history') return;
+    if (!selectedProduct) {
+      setHistoryEvents([]);
+      setHistoryErr('');
+      return;
+    }
+
+    let mounted = true;
+    const run = async () => {
+      setHistoryLoading(true);
+      setHistoryErr('');
+      try {
+        const qs = new URLSearchParams();
+        qs.set('limit', '200');
+        const bid = resolveBranchId();
+        if (bid) qs.set('branchId', bid);
+        const res = await apiFetch(`/api/manager/audit/list?${qs.toString()}`);
+        const json = (await res.json().catch(() => null)) as any;
+        if (!res.ok) throw new Error(String(json?.error || json?.message || res.status));
+
+        const rows = Array.isArray(json?.audit) ? (json.audit as any[]) : [];
+        const pid = selectedProduct.id;
+        const productName = selectedProduct.name;
+
+        const relevant = rows
+          .filter((r: any) => {
+            const type = String(r?.type || '');
+            if (!type.startsWith('menu_')) return false;
+            const payload = r?.payload && typeof r.payload === 'object' ? r.payload : {};
+            const payloadProductId = String((payload as any)?.productId || (payload as any)?.id || '');
+            return payloadProductId === pid;
+          })
+          .slice(0, 30)
+          .map((r: any) => ({
+            id: String(r?.id || ''),
+            at: String(r?.at || ''),
+            type: String(r?.type || ''),
+            summary: (() => {
+              const t = String(r?.type || '');
+              const raw = String(r?.summary || '').trim();
+              const replaced = raw ? raw.replaceAll(pid, productName) : '';
+              if (replaced) return replaced;
+              if (t === 'menu_recipe.upserted') return `Updated recipe for: ${productName}`;
+              if (t === 'menu_recipe.deleted') return `Deleted recipe for: ${productName}`;
+              if (t === 'menu_product.updated') return `Updated menu item: ${productName}`;
+              if (t === 'menu_product.created') return `Created menu item: ${productName}`;
+              if (t === 'menu_product.deleted') return `Deleted menu item: ${productName}`;
+              return t || 'Update';
+            })(),
+            actorName: typeof r?.actorName === 'string' ? r.actorName : '',
+            actorRole: typeof r?.actorRole === 'string' ? r.actorRole : '',
+          }))
+          .filter((x) => x.id);
+
+        if (!mounted) return;
+        setHistoryEvents(relevant);
+      } catch (e) {
+        if (!mounted) return;
+        setHistoryEvents([]);
+        setHistoryErr(e instanceof Error ? e.message : 'Failed to load history');
+      } finally {
+        if (mounted) setHistoryLoading(false);
+      }
+    };
+
+    void run();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedProduct, tab]);
+
+  // If the selected product has no recipe due to owner/global vs branch productId mismatch,
+  // try to resolve the branch product by matching product code.
+  useEffect(() => {
+    if (!selectedProduct) return;
+    if (recipes.some((r) => r.productId === selectedProduct.id)) return;
+    const bid = resolveBranchId();
+    if (!bid) return;
+    if (!selectedProduct.code) return;
+
+    let mounted = true;
+    const run = async () => {
+      try {
+        const pqs = new URLSearchParams();
+        pqs.set('limit', '500');
+        pqs.set('branchId', bid);
+        const pres = await apiFetch(`/api/manager/menu/products?${pqs.toString()}`);
+        const pjson = (await pres.json().catch(() => null)) as any;
+        if (!pres.ok) return;
+        const prows = Array.isArray(pjson?.products) ? pjson.products : [];
+        const match = prows.find((x: any) => String(x?.code || '').trim() === String(selectedProduct.code || '').trim());
+        const pid2 = String(match?.id || '').trim();
+        if (!pid2 || pid2 === selectedProduct.id) return;
+
+        const rqs = new URLSearchParams();
+        rqs.set('productId', pid2);
+        rqs.set('branchId', bid);
+        const rres = await apiFetch(`/api/manager/menu/recipes?${rqs.toString()}`);
+        const rjson = (await rres.json().catch(() => null)) as any;
+        if (!rres.ok) return;
+        const rows = Array.isArray(rjson?.recipes) ? rjson.recipes : [];
+        const row = rows.find((r: any) => String(r?.productId || r?.product_id || '') === pid2) || null;
+        const recipeObj = row?.recipe && typeof row.recipe === 'object' ? row.recipe : null;
+        if (!recipeObj) return;
+        const ingredients = Array.isArray(recipeObj.ingredients) ? recipeObj.ingredients : [];
+        const totalCost = Number(recipeObj.totalCost || 0) || 0;
+        if (!mounted) return;
+        setRecipes((prev) => {
+          if (prev.some((x) => x.productId === pid2)) return prev;
+          return [...prev, { productId: pid2, productName: selectedProduct.name, ingredients, totalCost }];
+        });
+      } catch {
+        // ignore
+      }
+    };
+    void run();
+    return () => {
+      mounted = false;
+    };
+  }, [recipes, selectedProduct]);
 
   const recipe = useMemo(() => {
     if (!selectedProduct) return null;
@@ -336,12 +495,23 @@ export const RecipeBuilder: React.FC<Props> = ({ onNavigate }) => {
                 <div className="absolute left-3 text-[#cbb790]">
                   <span className="material-symbols-outlined text-xl">search</span>
                 </div>
-                <input className="w-full bg-transparent border-none text-white placeholder:text-[#cbb790] pl-10 pr-4 text-sm focus:ring-0 h-full" placeholder="Search by name or SKU..." />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="w-full bg-transparent border-none text-white placeholder:text-[#cbb790] pl-10 pr-4 text-sm focus:ring-0 h-full"
+                  placeholder="Search by name or code..."
+                />
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {products.map((p) => (
+              {products
+                .filter((p) => {
+                  const q = query.trim().toLowerCase();
+                  if (!q) return true;
+                  return p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || p.id.toLowerCase().includes(q);
+                })
+                .map((p) => (
                 <button
                   key={p.id}
                   onClick={() => {
@@ -447,7 +617,36 @@ export const RecipeBuilder: React.FC<Props> = ({ onNavigate }) => {
                   </div>
 
                   {tab === 'history' ? (
-                    <div className="p-6 text-[#cbb790]">History is coming soon (audit trail for recipe edits, stock changes, and COGS updates).</div>
+                    <div className="p-6 text-[#cbb790] space-y-3">
+                      <div className="rounded-lg border border-[#685631] bg-[#231d10] p-3">
+                        <div className="text-[#cbb790] text-xs uppercase tracking-wider font-bold">Selected Item</div>
+                        <div className="mt-1 text-white font-black text-lg">{selectedProduct?.name ?? '—'}</div>
+                        <div className="text-[#cbb790] text-xs font-mono">Code: {selectedProduct?.code ?? '—'} • SKU: {selectedProduct ? selectedProduct.id.slice(0, 12) : '—'}</div>
+                      </div>
+
+                      {historyLoading ? <div className="text-[#cbb790] text-sm">Loading history...</div> : null}
+                      {historyErr ? <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{historyErr}</div> : null}
+                      {!historyLoading && !historyErr && historyEvents.length === 0 ? (
+                        <div className="text-[#cbb790] text-sm">No recent recipe/menu changes for this item.</div>
+                      ) : null}
+
+                      {historyEvents.length > 0 ? (
+                        <div className="rounded-lg border border-[#685631] bg-[#231d10] overflow-hidden">
+                          <div className="px-3 py-2 border-b border-[#685631] text-[#cbb790] text-xs uppercase tracking-wider font-bold">Recent Changes</div>
+                          <div className="divide-y divide-[#685631]/40">
+                            {historyEvents.map((e) => (
+                              <div key={e.id} className="px-3 py-2">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="text-white font-semibold text-sm">{e.summary || e.type}</div>
+                                  <div className="text-[#cbb790] text-[11px] font-mono">{e.at ? new Date(e.at).toLocaleString() : ''}</div>
+                                </div>
+                                <div className="mt-1 text-[#cbb790] text-[11px]">{e.actorName ? `${e.actorName}${e.actorRole ? ` (${e.actorRole})` : ''}` : e.actorRole || ''}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">

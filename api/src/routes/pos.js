@@ -8,6 +8,7 @@ const { db } = require('../db');
 const { uid } = require('../utils/ids');
 const { makeInitialPosState } = require('./posInitPreset');
 const paymentGatewayService = require('../services/paymentGatewayService');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -35,6 +36,31 @@ const verifyStaffPin = async ({ tenantId, branchId, staffId, pin }) => {
   } catch {
     return false;
   }
+};
+
+const verifyManagerOrOwnerPin = async ({ tenantId, branchId, pin }) => {
+  const p = String(pin || '').trim();
+  if (!p) return false;
+
+  const rows = await db()
+    .from('staff')
+    .where({ tenant_id: tenantId, branch_id: branchId })
+    .whereIn('role_name', ['Branch Manager', 'Cafe Owner'])
+    .select(['pin_hash'])
+    .limit(25);
+
+  for (const r of rows) {
+    const hash = r?.pin_hash ? String(r.pin_hash) : '';
+    if (!hash) continue;
+    try {
+      // Accept the first match.
+      // eslint-disable-next-line no-await-in-loop
+      if (await bcrypt.compare(p, hash)) return true;
+    } catch {
+      // ignore
+    }
+  }
+  return false;
 };
 
 const mapAuditToNotification = (row) => {
@@ -268,15 +294,6 @@ const sendTcp = async ({ host, port, data, timeoutMs }) => {
         sock.destroy();
       } catch {
         // ignore
-      }
-
-      if (body?.discount != null) {
-        const settings = await resolveEffectivePosSettings({ tenantId: req.tenant.id, branchId });
-        const disc = Number(body.discount || 0) || 0;
-        if ((disc > 0.0001 || disc < -0.0001) && settings?.security?.requirePinForDiscounts) {
-          const ok = await verifyStaffPin({ tenantId: req.tenant.id, branchId, staffId: String(req.auth?.staffId || ''), pin: body?.pin });
-          if (!ok) return res.status(401).json({ error: 'pin_required' });
-        }
       }
       if (err) reject(err);
       else resolve();
@@ -596,7 +613,7 @@ const referenceRequiredForMethod = (settings, pmId) => {
   return list.includes(pmId);
 };
 
-const computeOrderTotalsFromPayload = ({ payload, tip, discount, settings }) => {
+const computeOrderTotalsFromPayload = ({ payload, tip, discount, discountPct, settings, allowOverMax }) => {
   const items = Array.isArray(payload?.items) ? payload.items : [];
   const subtotal = items.reduce((sum, it) => {
     const qty = Number(it?.qty) || 0;
@@ -606,8 +623,19 @@ const computeOrderTotalsFromPayload = ({ payload, tip, discount, settings }) => 
   }, 0);
 
   const maxPct = Number(settings?.policies?.maxDiscountPctWithoutApproval ?? 10) || 0;
-  const maxDiscount = Math.max(0, subtotal * (Math.max(0, Math.min(90, maxPct)) / 100));
-  const discountApplied = Math.max(0, Math.min(Number(discount || 0) || 0, maxDiscount));
+  const maxPctClamped = Math.max(0, Math.min(90, maxPct));
+  const canOverride = allowOverMax === true;
+
+  const incomingPct = Number(discountPct);
+  const hasPct = Number.isFinite(incomingPct);
+  const pctRequested = hasPct ? Math.max(0, Math.min(90, incomingPct)) : 0;
+  const pctApplied = hasPct ? (canOverride ? pctRequested : Math.min(pctRequested, maxPctClamped)) : 0;
+  const discountFromPct = subtotal * (pctApplied / 100);
+
+  const hardCapPct = canOverride ? 90 : maxPctClamped;
+  const maxDiscount = Math.max(0, subtotal * (hardCapPct / 100));
+  const discountFromAmount = Math.max(0, Math.min(Number(discount || 0) || 0, maxDiscount));
+  const discountApplied = hasPct ? Math.max(0, Math.min(discountFromPct, maxDiscount)) : discountFromAmount;
 
   const taxableBase = Math.max(0, subtotal - discountApplied);
   const vatRate = Math.max(0, Math.min(40, Number(settings?.taxes?.vatRate ?? 0) || 0));
@@ -621,6 +649,7 @@ const computeOrderTotalsFromPayload = ({ payload, tip, discount, settings }) => 
 
   return {
     subtotal,
+    discountPct: hasPct ? pctApplied : 0,
     discount: discountApplied,
     tax: vat,
     serviceCharge,
@@ -673,7 +702,7 @@ const makePosRouter = () => {
     return { status: 500, error: 'print_failed' };
   };
 
-  r.get('/pos/menu/products', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/pos/menu/products', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -729,7 +758,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.get('/pos/settings', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/pos/settings', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -756,7 +785,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/initialize', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/pos/initialize', tenantMiddleware, requireAuth, loadEntitlements, requireModule('pos'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -792,7 +821,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/print/receipt/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/pos/print/receipt/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -836,7 +865,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/orders/:id/refund', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/pos/orders/:id/refund', tenantMiddleware, requireAuth, loadEntitlements, requireModule('finance'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -852,14 +881,29 @@ const makePosRouter = () => {
       const amount = Number(body?.amount ?? 0) || 0;
       const reason = String(body?.reason || '').trim();
       const pin = body?.pin;
+      const approveAsStaffId = String(body?.approveAsStaffId || body?.approveAs || '').trim();
 
       if (!(amount > 0)) return res.status(400).json({ error: 'amount_required' });
       if (!reason) return res.status(400).json({ error: 'reason_required' });
 
       const settings = await resolveEffectivePosSettings({ tenantId: req.tenant.id, branchId });
-      if (settings?.security?.requirePinForRefunds) {
-        const ok = await verifyStaffPin({ tenantId: req.tenant.id, branchId, staffId, pin });
+      const requireManagerApproval = settings?.policies?.refundsRequireManager === true;
+      const requirePin = settings?.security?.requirePinForRefunds === true;
+      let authorizedByStaffId = staffId;
+      if (requirePin || requireManagerApproval) {
+        if (!approveAsStaffId) return res.status(400).json({ error: 'approver_required' });
+
+        const approver = await db()
+          .from('staff')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, id: approveAsStaffId })
+          .select(['id', 'role_name'])
+          .first();
+        const approverRole = String(approver?.role_name || '').trim();
+        if (approverRole !== 'Branch Manager' && approverRole !== 'Cafe Owner') return res.status(403).json({ error: 'forbidden' });
+
+        const ok = await verifyStaffPin({ tenantId: req.tenant.id, branchId, staffId: approveAsStaffId, pin });
         if (!ok) return res.status(401).json({ error: 'pin_required' });
+        authorizedByStaffId = approveAsStaffId;
       }
 
       const orderRow = await db()
@@ -891,7 +935,7 @@ const makePosRouter = () => {
           amount: -Math.abs(amount),
           currency: 'ETB',
           memo: `Refund for order ${id}`,
-          payload_json: JSON.stringify({ orderId: id, amount, reason, paymentMethod, paymentReference }),
+          payload_json: JSON.stringify({ orderId: id, amount, reason, paymentMethod, paymentReference, authorizedBy: authorizedByStaffId, performedBy: staffId }),
           at: nowIso,
           created_at: nowIso,
         });
@@ -907,7 +951,7 @@ const makePosRouter = () => {
           qty: 1,
           amount_etb: Math.abs(amount),
           reason,
-          authorized_by: staffId,
+          authorized_by: authorizedByStaffId,
           performed_by: staffId,
           occurred_at: nowIso,
           created_at: nowIso,
@@ -921,7 +965,7 @@ const makePosRouter = () => {
           actor_role: String(req.auth?.role || ''),
           type: 'payment.refunded',
           summary: `Refunded order ${id}`,
-          payload_json: JSON.stringify({ action: 'payment.refunded', meta: { orderId: id, amount, reason, paymentMethod, paymentReference } }),
+          payload_json: JSON.stringify({ action: 'payment.refunded', meta: { orderId: id, amount, reason, paymentMethod, paymentReference, authorizedBy: authorizedByStaffId, performedBy: staffId } }),
           created_at: nowIso,
         });
       });
@@ -932,7 +976,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/print/kitchen/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/pos/print/kitchen/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -977,7 +1021,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/print/bar/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/pos/print/bar/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -1022,7 +1066,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.get('/pos/state', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/pos/state', tenantMiddleware, requireAuth, loadEntitlements, requireModule('pos'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -1041,7 +1085,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.put('/pos/state', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/pos/state', tenantMiddleware, requireAuth, loadEntitlements, requireModule('pos'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -1064,7 +1108,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.get('/pos/orders', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/pos/orders', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -1085,6 +1129,11 @@ const makePosRouter = () => {
         tax: Number(row.tax || 0) || 0,
         tip: Number(row.tip || 0) || 0,
         discount: Number(row.discount || 0) || 0,
+        discountPct: (() => {
+          const p = safeJsonParse(row.payload, null);
+          const v = p?.discountPct;
+          return v == null ? 0 : Number(v || 0) || 0;
+        })(),
         createdAt: row.created_at,
         paidAt: row.paid_at,
         payload: safeJsonParse(row.payload, null),
@@ -1096,7 +1145,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.get('/pos/orders/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/pos/orders/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -1120,6 +1169,11 @@ const makePosRouter = () => {
         tax: Number(row.tax || 0) || 0,
         tip: Number(row.tip || 0) || 0,
         discount: Number(row.discount || 0) || 0,
+        discountPct: (() => {
+          const p = safeJsonParse(row.payload, null);
+          const v = p?.discountPct;
+          return v == null ? 0 : Number(v || 0) || 0;
+        })(),
         createdAt: row.created_at,
         paidAt: row.paid_at,
         payload: safeJsonParse(row.payload, null),
@@ -1131,7 +1185,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.get('/pos/notifications', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/pos/notifications', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -1199,7 +1253,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.put('/pos/notifications/:id/read', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/pos/notifications/:id/read', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -1237,7 +1291,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/notifications/read_all', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/pos/notifications/read_all', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -1273,7 +1327,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/orders', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/pos/orders', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -1285,11 +1339,18 @@ const makePosRouter = () => {
 
       const tip = Number(body?.tip || 0) || 0;
       const discount = Number(body?.discount || 0) || 0;
+      const discountPct = body?.discountPct != null ? Number(body.discountPct) : undefined;
 
       const settings = await resolveEffectivePosSettings({ tenantId: req.tenant.id, branchId });
 
-      if ((discount > 0.0001 || discount < -0.0001) && settings?.security?.requirePinForDiscounts) {
-        const ok = await verifyStaffPin({ tenantId: req.tenant.id, branchId, staffId: String(req.auth?.staffId || ''), pin: body?.pin });
+      const thresholdPct = Math.max(0, Math.min(90, Number(settings?.policies?.maxDiscountPctWithoutApproval ?? 10) || 0));
+      const hasPct = Number.isFinite(Number(discountPct));
+      const requestedPct = hasPct ? Math.max(0, Math.min(90, Number(discountPct))) : 0;
+      const needsApproval = hasPct ? requestedPct > thresholdPct : discount > 0 ? discount > (Number.isFinite(Number(payload?.subtotal)) ? Number(payload.subtotal) : 0) * (thresholdPct / 100) : false;
+      const requireApprovalPin = needsApproval && settings?.security?.requirePinForDiscounts;
+
+      if (requireApprovalPin) {
+        const ok = await verifyManagerOrOwnerPin({ tenantId: req.tenant.id, branchId, pin: body?.pin });
         if (!ok) return res.status(401).json({ error: 'pin_required' });
       }
 
@@ -1298,7 +1359,7 @@ const makePosRouter = () => {
         return res.status(402).json({ error: 'split_payments_disabled' });
       }
 
-      const computed = computeOrderTotalsFromPayload({ payload, tip, discount, settings });
+      const computed = computeOrderTotalsFromPayload({ payload, tip, discount, discountPct, settings, allowOverMax: requireApprovalPin });
       const total = computed.total;
       const tax = computed.tax;
 
@@ -1308,6 +1369,7 @@ const makePosRouter = () => {
         tax: computed.tax,
         serviceCharge: computed.serviceCharge,
         discount: computed.discount,
+        discountPct: computed.discountPct,
         tip: computed.tip,
         total: computed.total,
       };
@@ -1354,7 +1416,7 @@ const makePosRouter = () => {
           total,
           tax,
           tip,
-          discount,
+          discount: computed.discount,
           created_at: nowIso,
           paid_at: status === 'Paid' ? nowIso : null,
           payload: JSON.stringify(nextPayload),
@@ -1365,7 +1427,7 @@ const makePosRouter = () => {
           total,
           tax,
           tip,
-          discount,
+          discount: computed.discount,
           paid_at: status === 'Paid' ? nowIso : null,
           payload: JSON.stringify(nextPayload),
         });
@@ -1376,7 +1438,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.put('/pos/orders/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/pos/orders/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -1398,9 +1460,16 @@ const makePosRouter = () => {
       const incomingPayload = body?.payload && typeof body.payload === 'object' ? body.payload : null;
       const tip = body?.tip != null ? Number(body.tip || 0) || 0 : 0;
       const discount = body?.discount != null ? Number(body.discount || 0) || 0 : 0;
+      const discountPct = body?.discountPct != null ? Number(body.discountPct) : undefined;
 
-      if ((discount > 0.0001 || discount < -0.0001) && settings?.security?.requirePinForDiscounts) {
-        const ok = await verifyStaffPin({ tenantId: req.tenant.id, branchId, staffId: String(req.auth?.staffId || ''), pin: body?.pin });
+      const thresholdPct = Math.max(0, Math.min(90, Number(settings?.policies?.maxDiscountPctWithoutApproval ?? 10) || 0));
+      const hasPct = Number.isFinite(Number(discountPct));
+      const requestedPct = hasPct ? Math.max(0, Math.min(90, Number(discountPct))) : 0;
+      const needsApproval = hasPct ? requestedPct > thresholdPct : false;
+      const requireApprovalPin = needsApproval && settings?.security?.requirePinForDiscounts;
+
+      if (requireApprovalPin) {
+        const ok = await verifyManagerOrOwnerPin({ tenantId: req.tenant.id, branchId, pin: body?.pin });
         if (!ok) return res.status(401).json({ error: 'pin_required' });
       }
 
@@ -1415,7 +1484,7 @@ const makePosRouter = () => {
           return res.status(402).json({ error: 'split_payments_disabled' });
         }
 
-        const computed = computeOrderTotalsFromPayload({ payload: incomingPayload, tip, discount, settings });
+        const computed = computeOrderTotalsFromPayload({ payload: incomingPayload, tip, discount, discountPct, settings, allowOverMax: requireApprovalPin });
         patch.total = computed.total;
         patch.tax = computed.tax;
         patch.tip = computed.tip;
@@ -1426,6 +1495,7 @@ const makePosRouter = () => {
           tax: computed.tax,
           serviceCharge: computed.serviceCharge,
           discount: computed.discount,
+          discountPct: computed.discountPct,
           tip: computed.tip,
           total: computed.total,
         };
@@ -1471,7 +1541,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/orders/:id/pay-telebirr', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/pos/orders/:id/pay-telebirr', tenantMiddleware, requireAuth, loadEntitlements, requireModule('finance'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
@@ -1512,7 +1582,7 @@ const makePosRouter = () => {
     }
   });
 
-  r.get('/pos/orders/:id/payment-status', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/pos/orders/:id/payment-status', tenantMiddleware, requireAuth, loadEntitlements, requireModule('finance'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);

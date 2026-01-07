@@ -4,6 +4,8 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -17,15 +19,6 @@ const safeJsonParse = (raw, fallback) => {
 
 const makeManagerSuppliersRouter = () => {
   const r = express.Router();
-
-  const resolveBranchId = (req) => {
-    const role = String(req.auth?.role || '');
-    const fromToken = String(req.auth?.branchId || '');
-    const q = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
-
-    if (role === 'Cafe Owner' && (!fromToken || fromToken === 'global')) return q || '';
-    return fromToken;
-  };
 
   const requireManagerOrOwner = (req, res) => {
     if (req.auth?.tenantId !== req.tenant.id) {
@@ -55,12 +48,11 @@ const makeManagerSuppliersRouter = () => {
     };
   };
 
-  r.get('/manager/suppliers', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/manager/suppliers', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
       const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 200) || 200));
@@ -75,12 +67,11 @@ const makeManagerSuppliersRouter = () => {
     }
   });
 
-  r.post('/manager/suppliers', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/manager/suppliers', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const body = req.body && typeof req.body === 'object' ? req.body : {};
       const name = String(body?.name || '').trim();
@@ -115,12 +106,11 @@ const makeManagerSuppliersRouter = () => {
     }
   });
 
-  r.put('/manager/suppliers/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/manager/suppliers/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });
@@ -151,12 +141,11 @@ const makeManagerSuppliersRouter = () => {
     }
   });
 
-  r.delete('/manager/suppliers/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.delete('/manager/suppliers/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });

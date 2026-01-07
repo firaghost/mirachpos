@@ -145,6 +145,7 @@ const receiptHtml = (
   const tableNo = escapeHtml(order.tableName || '');
 
   const discount = Number((order as any)?.discount ?? 0) || 0;
+  const discountPct = Number((order as any)?.discountPct ?? (order as any)?.payload?.discountPct ?? 0) || 0;
   const serviceCharge = Number(order.serviceCharge) || 0;
   const taxableBase = Math.max(0, Number(order.subtotal || 0) - discount + serviceCharge);
   const taxRateLabel = settings.vatEnabled ? `${settings.vatRate.toFixed(2)}%` : '';
@@ -262,7 +263,7 @@ const receiptHtml = (
       <div class="hr"></div>
       <div class="meta"><span class="b">SUBTOTAL</span><span class="b">${cur} ${Number(order.subtotal || 0).toFixed(2)}</span></div>
       <div class="meta" style="margin-top:6px"><span class="b">${escapeHtml(serviceLabel)}</span><span class="b">${cur} ${serviceCharge.toFixed(2)}</span></div>
-      ${discount > 0 ? `<div class="meta" style="margin-top:6px"><span class="b">DISCOUNT</span><span class="b">-${cur} ${discount.toFixed(2)}</span></div>` : ''}
+      ${discount > 0 ? `<div class="meta" style="margin-top:6px"><span class="b">DISCOUNT${discountPct > 0 ? ` (${discountPct.toFixed(2)}%)` : ''}</span><span class="b">-${cur} ${discount.toFixed(2)}</span></div>` : ''}
       <div class="hr"></div>
       <div class="meta"><span class="b">TXBL 1</span><span class="b">${cur} ${taxableBase.toFixed(2)}</span></div>
       <div class="meta" style="margin-top:6px"><span class="b">TAX 1${taxRateLabel ? `(${escapeHtml(taxRateLabel)})` : ''}</span><span class="b">${cur} ${Number(order.tax || 0).toFixed(2)}</span></div>

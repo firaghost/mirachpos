@@ -3,6 +3,8 @@ const express = require('express');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
+const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -17,15 +19,6 @@ const safeJsonParse = (raw, fallback) => {
 const makeManagerAuditRouter = () => {
   const r = express.Router();
 
-  const resolveBranchId = (req) => {
-    const role = String(req.auth?.role || '');
-    const fromToken = String(req.auth?.branchId || '');
-    const q = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
-
-    if (role === 'Cafe Owner' && (!fromToken || fromToken === 'global')) return q || '';
-    return fromToken;
-  };
-
   const requireManagerOrOwner = (req, res) => {
     if (req.auth?.tenantId !== req.tenant.id) {
       res.status(403).json({ error: 'forbidden' });
@@ -39,13 +32,12 @@ const makeManagerAuditRouter = () => {
     return true;
   };
 
-  r.get('/manager/audit/list', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/manager/audit/list', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 50) || 50));
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       let q = db().from({ a: 'audit_log' }).where({ 'a.tenant_id': req.tenant.id }).andWhere('a.branch_id', branchId);
 

@@ -7,6 +7,8 @@ const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 
 const { loadEntitlements, requireModule, enforceStaffLimit } = require('../middleware/entitlements');
+const { requirePermission } = require('../middleware/permissions');
+const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -19,6 +21,13 @@ const safeJsonParse = (raw, fallback) => {
 };
 
 const nowIso = () => new Date().toISOString();
+
+const randomPin = (len = 6) => {
+  const digits = '0123456789';
+  let out = '';
+  for (let i = 0; i < len; i += 1) out += digits[Math.floor(Math.random() * digits.length)];
+  return out;
+};
 
 const cafeCode = (name) => {
   const s = String(name || '')
@@ -65,45 +74,114 @@ const nextStaffCode = async (trx, { tenantId, cafeName, roleName }) => {
 
 const ensureDefaultRoles = async (trx, tenantId) => {
   const defaults = [
-    { idPrefix: 'r_owner', name: 'Cafe Owner', scope: 'global', permissions: ['*'] },
-    { idPrefix: 'r_manager', name: 'Branch Manager', scope: 'branch', permissions: ['*'] },
-    { idPrefix: 'r_waiter', name: 'Waiter', scope: 'branch', permissions: ['*'] },
-    { idPrefix: 'r_kitchen', name: 'Kitchen', scope: 'branch', permissions: ['*'] },
-    { idPrefix: 'r_barista', name: 'Barista', scope: 'branch', permissions: ['*'] },
+    {
+      idPrefix: 'r_owner',
+      name: 'Cafe Owner',
+      scope: 'global',
+      permissions: [
+        'roles.read',
+        'roles.create',
+        'roles.update',
+        'roles.delete',
+        'invites.read',
+        'invites.create',
+        'invites.delete',
+        'branches.read',
+        'branches.create',
+        'branches.update',
+        'branches.delete',
+        'staff.read',
+        'staff.create',
+        'staff.update',
+        'staff.delete',
+        'reports.read',
+        'reports.export',
+        'manager.settings.read',
+        'manager.settings.write',
+        'finance.read',
+        'finance.write',
+        'menu.manage',
+        'inventory.manage',
+        'settings.manage',
+      ],
+    },
+    {
+      idPrefix: 'r_manager',
+      name: 'Branch Manager',
+      scope: 'branch',
+      permissions: [
+        'staff.read',
+        'staff.create',
+        'staff.update',
+        'staff.activity.read',
+        'reports.read',
+        'reports.export',
+        'manager.settings.read',
+        'manager.settings.write',
+        'orders.read',
+        'orders.void',
+        'orders.refund',
+        'payments.read',
+        'finance.read',
+        'inventory.read',
+        'inventory.update',
+        'kds.view',
+        'kds.configure',
+      ],
+    },
+    {
+      idPrefix: 'r_waiter',
+      name: 'Waiter',
+      scope: 'branch',
+      permissions: ['orders.create', 'orders.read', 'orders.update', 'payments.process'],
+    },
+    {
+      idPrefix: 'r_kitchen',
+      name: 'Kitchen',
+      scope: 'branch',
+      permissions: ['kds.view', 'kds.update'],
+    },
+    {
+      idPrefix: 'r_barista',
+      name: 'Barista',
+      scope: 'branch',
+      permissions: ['orders.create', 'orders.read', 'kds.view'],
+    },
   ];
 
-  const existing = await trx.from('roles').where({ tenant_id: tenantId }).select(['name']);
-  const have = new Set(existing.map((x) => String(x.name || '')));
+  const existing = await trx.from('roles').where({ tenant_id: tenantId }).select(['id', 'name', 'scope', 'permissions']);
+  const existingByName = new Map(existing.map((x) => [String(x.name || ''), x]));
   const createdAt = nowIso();
 
   for (const d of defaults) {
-    if (have.has(d.name)) continue;
+    const ex = existingByName.get(d.name);
+    if (!ex) {
+      // eslint-disable-next-line no-await-in-loop
+      await trx.from('roles').insert({
+        id: makeId(d.idPrefix),
+        tenant_id: tenantId,
+        name: d.name,
+        scope: d.scope,
+        permissions: JSON.stringify(d.permissions),
+        created_at: createdAt,
+      });
+      continue;
+    }
+
+    const current = Array.isArray(safeJsonParse(ex.permissions, [])) ? safeJsonParse(ex.permissions, []).map(String) : [];
+    const shouldUpgrade = current.length === 0 || (current.length === 1 && current[0] === '*');
+    if (!shouldUpgrade) continue;
+
     // eslint-disable-next-line no-await-in-loop
-    await trx.from('roles').insert({
-      id: makeId(d.idPrefix),
-      tenant_id: tenantId,
-      name: d.name,
+    await trx.from('roles').where({ tenant_id: tenantId, id: String(ex.id) }).update({
       scope: d.scope,
       permissions: JSON.stringify(d.permissions),
-      created_at: createdAt,
     });
   }
 };
 
 const makeManagerStaffRouter = () => {
   const r = express.Router();
-
-  const resolveBranchId = (req) => {
-    const role = String(req.auth?.role || '');
-    const fromToken = String(req.auth?.branchId || '');
-    const q = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
-
-    // Cafe Owner can manage a specific branch via query override when token branchId is global.
-    if (role === 'Cafe Owner' && (!fromToken || fromToken === 'global')) {
-      return q || '';
-    }
-    return fromToken;
-  };
 
   const requireManagerOrOwner = (req, res) => {
     if (req.auth?.tenantId !== req.tenant.id) {
@@ -120,12 +198,19 @@ const makeManagerStaffRouter = () => {
     return true;
   };
 
-  r.get('/manager/staff', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/staff',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('staff'),
+    requirePermission('staff.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
       const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
@@ -165,7 +250,16 @@ const makeManagerStaffRouter = () => {
     }
   });
 
-  r.post('/manager/staff', tenantMiddleware, requireAuth, loadEntitlements, requireModule('staff'), enforceStaffLimit, async (req, res, next) => {
+  r.post(
+    '/manager/staff',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('staff'),
+    requirePermission('staff.create'),
+    requireBranchId(),
+    enforceStaffLimit,
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
@@ -177,8 +271,7 @@ const makeManagerStaffRouter = () => {
         // ignore
       }
 
-      const branchId = resolveBranchId(req);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const body = req.body && typeof req.body === 'object' ? req.body : null;
       const name = typeof body?.name === 'string' ? body.name.trim() : '';
@@ -193,6 +286,7 @@ const makeManagerStaffRouter = () => {
       if (!name) return res.status(400).json({ error: 'name_required' });
       if (!email) return res.status(400).json({ error: 'email_required' });
       if (!password || password.length < 4) return res.status(400).json({ error: 'password_too_short' });
+      if (pin && String(pin).trim().length < 3) return res.status(400).json({ error: 'pin_too_short' });
 
       const now = nowIso();
 
@@ -207,7 +301,9 @@ const makeManagerStaffRouter = () => {
 
       const staffId = makeId('s');
       const passwordHash = await bcrypt.hash(password, 10);
-      const pinHash = pin ? await bcrypt.hash(pin, 10) : null;
+      const needsPin = effectiveRoleName === 'Branch Manager' || effectiveRoleName === 'Cafe Owner';
+      const finalPin = String(pin || '').trim() || (needsPin ? randomPin(6) : '');
+      const pinHash = finalPin ? await bcrypt.hash(finalPin, 10) : null;
 
       const out = await db().transaction(async (trx) => {
         let effectiveCode = code || '';
@@ -252,21 +348,28 @@ const makeManagerStaffRouter = () => {
         at: now,
       });
 
-      return res.status(201).json({ ok: true, staffId, code: out.effectiveCode || '', tempPassword: password, tempPin: pin || '' });
+      return res.status(201).json({ ok: true, staffId, code: out.effectiveCode || '', tempPassword: password, tempPin: finalPin || '' });
     } catch (e) {
       return next(e);
     }
   });
 
-  r.put('/manager/staff/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put(
+    '/manager/staff/:id',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('staff'),
+    requirePermission('staff.update'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const staffId = String(req.params.id || '').trim();
       if (!staffId) return res.status(400).json({ error: 'staff_id_required' });
 
-      const branchId = resolveBranchId(req);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const body = req.body && typeof req.body === 'object' ? req.body : null;
       const name = typeof body?.name === 'string' ? body.name.trim() : '';
@@ -291,7 +394,15 @@ const makeManagerStaffRouter = () => {
       if (typeof phone === 'string') patch.phone = phone;
       if (typeof code === 'string') patch.code = code;
       if (status) patch.status = status;
-      if (pin) patch.pin_hash = await bcrypt.hash(pin, 10);
+
+      let tempPin = '';
+      if (body?.resetPin === true) {
+        tempPin = randomPin(6);
+        patch.pin_hash = await bcrypt.hash(tempPin, 10);
+      } else if (pin) {
+        if (pin.length < 3) return res.status(400).json({ error: 'pin_too_short' });
+        patch.pin_hash = await bcrypt.hash(pin, 10);
+      }
 
       if (roleName) {
         const roleRow = await db().select(['id', 'name']).from('roles').where({ tenant_id: req.tenant.id, name: roleName }).first();
@@ -311,21 +422,28 @@ const makeManagerStaffRouter = () => {
         at: nowIso(),
       });
 
-      return res.json({ ok: true });
+      return res.json({ ok: true, tempPin: tempPin || undefined });
     } catch (e) {
       return next(e);
     }
   });
 
-  r.delete('/manager/staff/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.delete(
+    '/manager/staff/:id',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('staff'),
+    requirePermission('staff.delete'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const staffId = String(req.params.id || '').trim();
       if (!staffId) return res.status(400).json({ error: 'staff_id_required' });
 
-      const branchId = resolveBranchId(req);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const existing = await db()
         .select(['id', 'branch_id', 'name'])
@@ -352,12 +470,19 @@ const makeManagerStaffRouter = () => {
     }
   });
 
-  r.get('/manager/staff/activity', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/staff/activity',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('staff'),
+    requirePermission('staff.activity.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
       const type = typeof req.query?.type === 'string' ? req.query.type.trim() : '';

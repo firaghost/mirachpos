@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Screen } from '../../types';
 import { usePos, useSelectedOrder } from '../../PosContext';
 import { apiFetch } from '../../api';
+import { Modal } from '../../components/Modal';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -12,6 +13,8 @@ type PosSettingsResponse = {
   ok?: boolean;
   general?: { currency?: string };
   taxes?: { vatEnabled?: boolean; vatRate?: number; serviceChargeEnabled?: boolean; serviceChargeRate?: number };
+  security?: { requirePinForDiscounts?: boolean };
+  policies?: { maxDiscountPctWithoutApproval?: number };
   printers?: {
     autoPrintReceipts?: boolean;
     defaultReceiptPrinterId?: string | null;
@@ -34,7 +37,7 @@ type PosSettingsResponse = {
 const RECEIPT_SPLIT_KEY = 'mirachpos.receipt.splitId.v1';
 
 export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
-  const { confirmPayment } = usePos();
+  const { confirmPayment, refreshFromServer } = usePos();
   const order = useSelectedOrder();
   const [method, setMethod] = useState<'Cash' | 'Card' | 'Telebirr' | 'Bank Transfer' | 'Loyalty'>('Cash');
   const [tendered, setTendered] = useState('');
@@ -42,6 +45,12 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const [paymentReference, setPaymentReference] = useState<string>('');
   const [actionErr, setActionErr] = useState<string>('');
   const [posSettings, setPosSettings] = useState<PosSettingsResponse | null>(null);
+
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const [discountValue, setDiscountValue] = useState('');
+  const [discountPin, setDiscountPin] = useState('');
+  const [discountErr, setDiscountErr] = useState('');
+  const [discountSaving, setDiscountSaving] = useState(false);
 
   // Telebirr Online States
   const [telebirrOnlineLoading, setTelebirrOnlineLoading] = useState(false);
@@ -120,6 +129,10 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
     const vatRate = Number.isFinite(Number(posSettings?.taxes?.vatRate)) ? Number(posSettings?.taxes?.vatRate) : 15;
     const serviceEnabled = posSettings?.taxes?.serviceChargeEnabled === true;
     const serviceRate = Number.isFinite(Number(posSettings?.taxes?.serviceChargeRate)) ? Number(posSettings?.taxes?.serviceChargeRate) : 10;
+    const requirePinForDiscounts = posSettings?.security?.requirePinForDiscounts === true;
+    const maxDiscountPctWithoutApproval = Number.isFinite(Number(posSettings?.policies?.maxDiscountPctWithoutApproval))
+      ? Math.max(0, Math.min(90, Number(posSettings?.policies?.maxDiscountPctWithoutApproval)))
+      : 10;
     return {
       currency: String(cur || 'ETB').toUpperCase(),
       vatEnabled,
@@ -128,6 +141,8 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       serviceRate,
       autoPrintReceipts: posSettings?.printers?.autoPrintReceipts === true,
       defaultReceiptPrinterId: posSettings?.printers?.defaultReceiptPrinterId ?? null,
+      requirePinForDiscounts,
+      maxDiscountPctWithoutApproval,
     };
   }, [posSettings]);
 
@@ -342,6 +357,14 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const split = selectedSplitId ? (order.splits || []).find((s) => s.id === selectedSplitId) ?? null : null;
   const totalDue = split ? split.total : order.total;
 
+  const discountAmount = Number((order as any)?.discount ?? 0) || 0;
+  const discountPct = Number((order as any)?.discountPct ?? (order as any)?.payload?.discountPct ?? 0) || 0;
+  const subtotal = Number(order.subtotal ?? 0) || 0;
+  const previewPctValue = Number(discountValue);
+  const previewPct = Number.isFinite(previewPctValue) ? Math.max(0, Math.min(90, previewPctValue)) : 0;
+  const previewDiscountAmount = subtotal > 0 ? (subtotal * previewPct) / 100 : 0;
+  const discountNeedsApproval = settingsUi.requirePinForDiscounts && previewPct > settingsUi.maxDiscountPctWithoutApproval + 1e-9;
+
   const tenderedValue = Number.parseFloat(tendered);
   const tenderedAmount = Number.isFinite(tenderedValue) ? tenderedValue : 0;
   const changeDue = Math.max(0, tenderedAmount - totalDue);
@@ -439,6 +462,27 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex justify-between items-center mb-2">
               <span className="text-[#c9b792] text-sm">{settingsUi.serviceEnabled ? `Service (${settingsUi.serviceRate}%)` : 'Service (disabled)'}</span>
               <span className="text-white font-medium">{settingsUi.currency} {order.serviceCharge.toFixed(2)}</span>
+            </div>
+            {discountAmount > 0.0001 ? (
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[#c9b792] text-sm">Discount</span>
+                <span className="text-white font-medium">-{settingsUi.currency} {discountAmount.toFixed(2)}</span>
+              </div>
+            ) : null}
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (discountSaving) return;
+                  setDiscountErr('');
+                  setDiscountPin('');
+                  setDiscountValue('');
+                  setDiscountOpen(true);
+                }}
+                className="w-full h-10 rounded-lg bg-[#221c11] border border-[#483c23] text-[#c9b792] hover:text-white hover:border-[#eead2b]/30 font-bold transition-colors"
+              >
+                Apply Discount
+              </button>
             </div>
             <div className="h-px bg-[#483c23] w-full my-3"></div>
             <div className="flex justify-between items-center">
@@ -697,6 +741,137 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
           </div>
         </section>
       </main>
+
+      <Modal
+        open={discountOpen}
+        title="Apply Discount"
+        onClose={() => {
+          if (discountSaving) return;
+          setDiscountOpen(false);
+          setDiscountErr('');
+          setDiscountPin('');
+          setDiscountValue('');
+        }}
+        footer={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (discountSaving) return;
+                setDiscountOpen(false);
+                setDiscountErr('');
+                setDiscountPin('');
+                setDiscountValue('');
+              }}
+              className="h-11 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] border border-[#544b3b] text-white font-semibold transition-colors"
+            >
+              Cancel
+            </button>
+            <div className="flex-1" />
+            <button
+              type="button"
+              disabled={discountSaving || !(Number(discountValue) >= 0)}
+              onClick={async () => {
+                if (!order) return;
+                if (discountSaving) return;
+
+                setDiscountErr('');
+                const pct = Number(discountValue);
+                if (!Number.isFinite(pct) || pct < 0 || pct > 90) {
+                  setDiscountErr('Enter a valid discount percentage (0 - 90).');
+                  return;
+                }
+                if (discountNeedsApproval && !discountPin.trim()) {
+                  setDiscountErr('Manager PIN required.');
+                  return;
+                }
+
+                setDiscountSaving(true);
+                try {
+                  const payload = {
+                    number: order.number,
+                    tableId: order.tableId,
+                    tableName: order.tableName,
+                    items: order.items,
+                    createdAt: order.createdAt,
+                    paidAt: (order as any).paidAt ?? null,
+                    createdByStaffId: (order as any).createdByStaffId ?? null,
+                    createdByName: (order as any).createdByName ?? null,
+                    paymentMethod: (order as any).paymentMethod ?? null,
+                    tenderedAmount: (order as any).tenderedAmount ?? null,
+                    paymentReference: (order as any).paymentReference ?? null,
+                    splits: (order as any).splits ?? null,
+                    notes: (order as any).notes ?? null,
+                  };
+
+                  const res = await apiFetch(`/api/pos/orders/${encodeURIComponent(order.id)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      discountPct: pct,
+                      payload,
+                      pin: discountPin.trim() || undefined,
+                    }),
+                  });
+                  const json = (await res.json().catch(() => null)) as any;
+                  if (!res.ok) {
+                    const err = String(json?.error || json?.message || 'discount_failed');
+                    if (err === 'pin_required') setDiscountErr('PIN required or incorrect.');
+                    else setDiscountErr('Failed to apply discount.');
+                    return;
+                  }
+
+                  setDiscountOpen(false);
+                  setDiscountErr('');
+                  setDiscountPin('');
+                  setDiscountValue('');
+                  await refreshFromServer();
+                } catch {
+                  setDiscountErr('Failed to apply discount.');
+                } finally {
+                  setDiscountSaving(false);
+                }
+              }}
+              className="h-11 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-extrabold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {discountSaving ? 'Saving...' : 'Apply'}
+            </button>
+          </div>
+        }
+      >
+        <div className="text-sm text-[#c9b792]">
+          Enter discount percentage. Up to {settingsUi.maxDiscountPctWithoutApproval.toFixed(0)}% can be applied without approval.
+        </div>
+
+        {discountErr ? <div className="mt-3 text-sm text-red-300">{discountErr}</div> : null}
+
+        <div className="mt-4">
+          <label className="text-xs font-bold text-[#c9b792]">Discount (%)</label>
+          <input
+            value={discountValue}
+            onChange={(e) => setDiscountValue(e.target.value)}
+            onFocus={(e) => e.currentTarget.select()}
+            inputMode="decimal"
+            placeholder=""
+            className="mt-2 w-full h-11 bg-[#221c10] border border-[#483c23] rounded-lg px-4 text-white focus:ring-1 focus:ring-[#eead2b]/50 focus:border-[#eead2b]/50"
+          />
+          <div className="mt-2 text-xs text-[#c9b792]">
+            Preview: -{settingsUi.currency} {Number.isFinite(previewDiscountAmount) ? previewDiscountAmount.toFixed(2) : '0.00'} (Subtotal {settingsUi.currency} {subtotal.toFixed(2)})
+          </div>
+        </div>
+
+        {discountNeedsApproval ? (
+          <div className="mt-4">
+            <label className="text-xs font-bold text-[#c9b792]">Manager PIN</label>
+            <input
+              value={discountPin}
+              onChange={(e) => setDiscountPin(e.target.value)}
+              placeholder="Enter PIN"
+              className="mt-2 w-full h-11 bg-[#221c10] border border-[#483c23] rounded-lg px-4 text-white focus:ring-1 focus:ring-[#eead2b]/50 focus:border-[#eead2b]/50"
+            />
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Header } from '../components/Header';
 import { apiFetch } from '../api';
+import { readSession } from '../session';
 
 type RangeKey = 'Today' | 'Yesterday' | '7 Days';
 
@@ -32,6 +33,7 @@ type PaymentTx = {
   tax: number;
   tip: number;
   discount: number;
+  discountPct?: number;
   createdAt: string | null;
   paidAt: string | null;
   method: string;
@@ -91,9 +93,32 @@ export const Finance: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [payments, setPayments] = useState<PaymentTx[]>([]);
   const [loadingRemote, setLoadingRemote] = useState(true);
+  const [remoteError, setRemoteError] = useState<string | null>(null);
+
+  const resolveBranchId = () => {
+    try {
+      const s = readSession<any>();
+      const role = typeof s?.role === 'string' ? s.role : '';
+      const tokenBranchId = String(s?.branchId || '').trim();
+      if (role !== 'Cafe Owner') return '';
+      if (tokenBranchId && tokenBranchId !== 'global') return tokenBranchId;
+    } catch {
+      // ignore
+    }
+    try {
+      const raw = String(localStorage.getItem('mirachpos.owner.selectedBranchId.v1') || '').trim();
+      if (raw && raw !== 'global') return raw;
+    } catch {
+      // ignore
+    }
+    return '';
+  };
 
   const updateCashSession = async (id: string, patch: Partial<CashSession>) => {
-    const res = await apiFetch(`/api/manager/finance/cash-sessions/${encodeURIComponent(id)}`, {
+    const bid = resolveBranchId();
+    const qs = new URLSearchParams();
+    if (bid) qs.set('branchId', bid);
+    const res = await apiFetch(`/api/manager/finance/cash-sessions/${encodeURIComponent(id)}${qs.toString() ? `?${qs.toString()}` : ''}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
@@ -107,15 +132,21 @@ export const Finance: React.FC = () => {
     const now = new Date();
     const todayStart = startOfDay(now);
     const start = r === 'Today' ? todayStart : r === 'Yesterday' ? addDays(todayStart, -1) : addDays(todayStart, -6);
-    const end = r === 'Yesterday' ? todayStart : addDays(todayStart, 1);
-    const from = `${isoDate(start)}T00:00:00.000Z`;
-    const to = `${isoDate(end)}T23:59:59.999Z`;
+    const endExclusive = r === 'Yesterday' ? todayStart : addDays(todayStart, 1);
+    const toInclusiveIso = new Date(endExclusive.getTime() - 1).toISOString();
+    const fromIso = `${isoDate(start)}T00:00:00.000Z`;
+    const bid = resolveBranchId();
 
-    const qs = new URLSearchParams({ limit: '200', from, to });
+    const qs = new URLSearchParams({ limit: '200', from: fromIso, to: toInclusiveIso });
+    if (bid) qs.set('branchId', bid);
+
+    const payQs = new URLSearchParams({ from: start.toISOString(), to: endExclusive.toISOString(), limit: '500' });
+    if (bid) payQs.set('branchId', bid);
+
     const [csRes, exRes, payRes] = await Promise.all([
       apiFetch(`/api/manager/finance/cash-sessions?${qs.toString()}`),
       apiFetch(`/api/manager/finance/expenses?${qs.toString()}`),
-      apiFetch(`/api/manager/payments?${new URLSearchParams({ from: start.toISOString(), to: end.toISOString(), limit: '500' }).toString()}`),
+      apiFetch(`/api/manager/payments?${payQs.toString()}`),
     ]);
 
     const csJson = (await csRes.json().catch(() => null)) as any;
@@ -136,6 +167,7 @@ export const Finance: React.FC = () => {
         tax: Number(p.tax ?? 0) || 0,
         tip: Number(p.tip ?? 0) || 0,
         discount: Number(p.discount ?? 0) || 0,
+        discountPct: p.discountPct == null ? undefined : Number(p.discountPct ?? 0) || 0,
         createdAt: typeof p.createdAt === 'string' ? p.createdAt : null,
         paidAt: typeof p.paidAt === 'string' ? p.paidAt : null,
         method: String(p.method || 'Unknown'),
@@ -144,18 +176,19 @@ export const Finance: React.FC = () => {
       }))
       .filter((x) => x.id);
 
-    return { start, end, cashSessions: nextCashSessions, expenses: nextExpenses, payments: nextPayments };
+    return { start, end: endExclusive, cashSessions: nextCashSessions, expenses: nextExpenses, payments: nextPayments };
   };
 
   const loadRemote = async (rangeOverride?: RangeKey) => {
     try {
       setLoadingRemote(true);
+      setRemoteError(null);
       const out = await fetchFinanceRemote(rangeOverride);
       setCashSessions(out.cashSessions);
       setExpenses(out.expenses);
       setPayments(out.payments);
-    } catch {
-      // Keep UI usable even if API is down
+    } catch (e) {
+      setRemoteError(e instanceof Error ? e.message : 'Failed to load finance.');
       setCashSessions([]);
       setExpenses([]);
       setPayments([]);
@@ -743,7 +776,10 @@ export const Finance: React.FC = () => {
     const now = new Date().toISOString();
     (async () => {
       try {
-        const res = await apiFetch('/api/manager/finance/cash-sessions', {
+        const bid = resolveBranchId();
+        const qs = new URLSearchParams();
+        if (bid) qs.set('branchId', bid);
+        const res = await apiFetch(`/api/manager/finance/cash-sessions${qs.toString() ? `?${qs.toString()}` : ''}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ register: sessionCreateDraft.register || 'POS', openingCash, openedAt: now }),
@@ -784,7 +820,10 @@ export const Finance: React.FC = () => {
     const actualCash = typeof target?.actualCash === 'number' ? target.actualCash : target?.expectedCash ?? 0;
     (async () => {
       try {
-        const res = await apiFetch(`/api/manager/finance/cash-sessions/${encodeURIComponent(id)}`, {
+        const bid = resolveBranchId();
+        const qs = new URLSearchParams();
+        if (bid) qs.set('branchId', bid);
+        const res = await apiFetch(`/api/manager/finance/cash-sessions/${encodeURIComponent(id)}${qs.toString() ? `?${qs.toString()}` : ''}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'Closed', closedAt: now, actualCash }),
@@ -856,7 +895,10 @@ export const Finance: React.FC = () => {
     }
     (async () => {
       try {
-        const res = await apiFetch(`/api/manager/finance/expenses/${encodeURIComponent(id)}`, {
+        const bid = resolveBranchId();
+        const qs = new URLSearchParams();
+        if (bid) qs.set('branchId', bid);
+        const res = await apiFetch(`/api/manager/finance/expenses/${encodeURIComponent(id)}${qs.toString() ? `?${qs.toString()}` : ''}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: expenseDraft.title, vendor: expenseDraft.vendor, amount }),
@@ -875,7 +917,10 @@ export const Finance: React.FC = () => {
   const deleteExpense = (id: string) => {
     (async () => {
       try {
-        const res = await apiFetch(`/api/manager/finance/expenses/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const bid = resolveBranchId();
+        const qs = new URLSearchParams();
+        if (bid) qs.set('branchId', bid);
+        const res = await apiFetch(`/api/manager/finance/expenses/${encodeURIComponent(id)}${qs.toString() ? `?${qs.toString()}` : ''}`, { method: 'DELETE' });
         const json = (await res.json().catch(() => null)) as any;
         if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
         await loadRemote(range);
@@ -907,7 +952,10 @@ export const Finance: React.FC = () => {
     const now = new Date().toISOString();
     (async () => {
       try {
-        const res = await apiFetch('/api/manager/finance/expenses', {
+        const bid = resolveBranchId();
+        const qs = new URLSearchParams();
+        if (bid) qs.set('branchId', bid);
+        const res = await apiFetch(`/api/manager/finance/expenses${qs.toString() ? `?${qs.toString()}` : ''}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, vendor, amount, createdAt: now, icon: expenseCreateDraft.icon }),
@@ -926,80 +974,89 @@ export const Finance: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-none border-b border-border">
-        <Header title="Finance Overview" subtitle="Manage cash sessions, expenses, and reports" />
+    <div className="bg-[#221c10] font-display text-white overflow-hidden h-full flex flex-col">
+      <div className="flex-none border-b border-[#483c23]">
+        <Header title="Finance Overview" subtitle="Cash sessions, expenses, and daily cash flow" />
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 lg:p-10">
         <div className="max-w-7xl mx-auto flex flex-col gap-6">
+          {remoteError ? (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200 flex items-center justify-between gap-3">
+              <div>Failed to load finance: {remoteError}</div>
+              <button
+                onClick={() => loadRemote(range)}
+                className="px-4 h-10 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] font-bold"
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
           {expenseCreateOpen ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-              <div className="w-full max-w-lg rounded-xl border border-border bg-surface shadow-2xl">
-                <div className="flex items-center justify-between border-b border-border px-5 py-4">
-                  <div className="text-white font-bold">Add Expense</div>
+              <div className="w-full max-w-lg rounded-xl border border-[#483c23] bg-[#2c241b] shadow-2xl">
+                <div className="flex items-center justify-between border-b border-[#483c23] px-5 py-4">
+                  <div className="text-white font-bold">New Expense</div>
                   <button
                     onClick={() => setExpenseCreateOpen(false)}
-                    className="size-8 flex items-center justify-center rounded-lg hover:bg-surface-light text-text-muted hover:text-white"
+                    className="size-8 flex items-center justify-center rounded-lg hover:bg-[#483c23] text-[#c9b792] hover:text-white"
                   >
                     <span className="material-symbols-outlined text-[20px]">close</span>
                   </button>
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="space-y-1">
-                    <div className="text-xs text-text-muted font-bold">Title</div>
+                    <div className="text-xs text-[#c9b792] font-bold">Title</div>
                     <input
                       value={expenseCreateDraft.title}
                       onChange={(e) => setExpenseCreateDraft((d) => ({ ...d, title: e.target.value }))}
-                      className="w-full bg-surface-light border border-border rounded px-3 py-2 text-sm text-white"
-                      placeholder="e.g. Milk purchase"
+                      className="w-full bg-[#483c23] border border-white/5 rounded px-3 py-2 text-sm text-white"
+                      placeholder="Supplies / Utilities / etc"
                     />
                   </div>
                   <div className="space-y-1">
-                    <div className="text-xs text-text-muted font-bold">Vendor</div>
+                    <div className="text-xs text-[#c9b792] font-bold">Vendor</div>
                     <input
                       value={expenseCreateDraft.vendor}
                       onChange={(e) => setExpenseCreateDraft((d) => ({ ...d, vendor: e.target.value }))}
-                      className="w-full bg-surface-light border border-border rounded px-3 py-2 text-sm text-white"
-                      placeholder="e.g. ABC Supplier"
+                      className="w-full bg-[#483c23] border border-white/5 rounded px-3 py-2 text-sm text-white"
+                      placeholder="Supplier name"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <div className="text-xs text-text-muted font-bold">Amount (ETB)</div>
-                      <input
-                        type="number"
-                        value={expenseCreateDraft.amount}
-                        onChange={(e) => setExpenseCreateDraft((d) => ({ ...d, amount: e.target.value }))}
-                        className="w-full bg-surface-light border border-border rounded px-3 py-2 text-sm text-white"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-xs text-text-muted font-bold">Icon</div>
-                      <select
-                        value={expenseCreateDraft.icon}
-                        onChange={(e) => setExpenseCreateDraft((d) => ({ ...d, icon: e.target.value as any }))}
-                        className="w-full h-10 px-2 rounded-lg border border-border bg-surface text-sm text-text-muted focus:outline-none"
-                      >
-                        <option value="receipt_long">Receipt</option>
-                        <option value="local_shipping">Shipping</option>
-                        <option value="build">Maintenance</option>
-                        <option value="sanitizer">Supplies</option>
-                      </select>
-                    </div>
+                  <div className="space-y-1">
+                    <div className="text-xs text-[#c9b792] font-bold">Amount (ETB)</div>
+                    <input
+                      type="number"
+                      value={expenseCreateDraft.amount}
+                      onChange={(e) => setExpenseCreateDraft((d) => ({ ...d, amount: e.target.value }))}
+                      className="w-full bg-[#483c23] border border-white/5 rounded px-3 py-2 text-sm text-white"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs text-[#c9b792] font-bold">Icon</div>
+                    <select
+                      value={expenseCreateDraft.icon}
+                      onChange={(e) => setExpenseCreateDraft((d) => ({ ...d, icon: e.target.value as any }))}
+                      className="w-full h-10 px-2 rounded-lg border border-white/5 bg-[#483c23] text-sm text-white focus:outline-none"
+                    >
+                      <option value="receipt_long">Receipt</option>
+                      <option value="local_shipping">Shipping</option>
+                      <option value="build">Maintenance</option>
+                      <option value="sanitizer">Supplies</option>
+                    </select>
                   </div>
                 </div>
-                <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
+                <div className="flex items-center justify-end gap-2 border-t border-[#483c23] px-5 py-4">
                   <button
                     onClick={() => setExpenseCreateOpen(false)}
-                    className="px-4 py-2 rounded-lg border border-border text-text-muted hover:text-white hover:bg-surface"
+                    className="px-4 py-2 rounded-lg border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/40"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={submitNewExpense}
-                    className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-[#221c10] font-bold"
+                    className="px-4 py-2 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] font-bold"
                   >
                     Create
                   </button>
@@ -1010,47 +1067,47 @@ export const Finance: React.FC = () => {
 
           {sessionCreateOpen ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-              <div className="w-full max-w-lg rounded-xl border border-border bg-surface shadow-2xl">
-                <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div className="w-full max-w-lg rounded-xl border border-[#483c23] bg-[#2c241b] shadow-2xl">
+                <div className="flex items-center justify-between border-b border-[#483c23] px-5 py-4">
                   <div className="text-white font-bold">Open Cash Session</div>
                   <button
                     onClick={() => setSessionCreateOpen(false)}
-                    className="size-8 flex items-center justify-center rounded-lg hover:bg-surface-light text-text-muted hover:text-white"
+                    className="size-8 flex items-center justify-center rounded-lg hover:bg-[#483c23] text-[#c9b792] hover:text-white"
                   >
                     <span className="material-symbols-outlined text-[20px]">close</span>
                   </button>
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="space-y-1">
-                    <div className="text-xs text-text-muted font-bold">Register</div>
+                    <div className="text-xs text-[#c9b792] font-bold">Register</div>
                     <input
                       value={sessionCreateDraft.register}
                       onChange={(e) => setSessionCreateDraft((d) => ({ ...d, register: e.target.value }))}
-                      className="w-full bg-surface-light border border-border rounded px-3 py-2 text-sm text-white"
+                      className="w-full bg-[#483c23] border border-white/5 rounded px-3 py-2 text-sm text-white"
                       placeholder="POS"
                     />
                   </div>
                   <div className="space-y-1">
-                    <div className="text-xs text-text-muted font-bold">Opening Cash (ETB)</div>
+                    <div className="text-xs text-[#c9b792] font-bold">Opening Cash (ETB)</div>
                     <input
                       type="number"
                       value={sessionCreateDraft.openingCash}
                       onChange={(e) => setSessionCreateDraft((d) => ({ ...d, openingCash: e.target.value }))}
-                      className="w-full bg-surface-light border border-border rounded px-3 py-2 text-sm text-white"
+                      className="w-full bg-[#483c23] border border-white/5 rounded px-3 py-2 text-sm text-white"
                       placeholder="0"
                     />
                   </div>
                 </div>
-                <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
+                <div className="flex items-center justify-end gap-2 border-t border-[#483c23] px-5 py-4">
                   <button
                     onClick={() => setSessionCreateOpen(false)}
-                    className="px-4 py-2 rounded-lg border border-border text-text-muted hover:text-white hover:bg-surface"
+                    className="px-4 py-2 rounded-lg border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/40"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={submitNewSession}
-                    className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-[#221c10] font-bold"
+                    className="px-4 py-2 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] font-bold"
                   >
                     Open
                   </button>
@@ -1059,30 +1116,34 @@ export const Finance: React.FC = () => {
             </div>
           ) : null}
           {loadingRemote ? (
-            <div className="rounded-xl border border-border bg-surface px-4 py-3 text-xs text-text-muted font-bold">
+            <div className="rounded-xl border border-[#483c23] bg-[#2c241b] px-4 py-3 text-xs text-[#c9b792] font-bold">
               Loading finance data ¦
             </div>
           ) : null}
           {flash && (
-            <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${flash.kind === 'success' ? 'bg-success/10 border-success/20 text-success' : 'bg-warning/10 border-warning/20 text-warning'}`}>
+            <div
+              className={`rounded-xl border px-4 py-3 text-sm font-medium ${
+                flash.kind === 'success' ? 'bg-[#34c759]/10 border-[#34c759]/20 text-[#34c759]' : 'bg-[#ff9900]/10 border-[#ff9900]/20 text-[#ff9900]'
+              }`}
+            >
               {flash.message}
             </div>
           )}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="flex flex-col gap-1">
               <h1 className="text-white text-3xl font-black tracking-tight">Finance Overview</h1>
-              <p className="text-text-muted text-base">
+              <p className="text-[#c9b792] text-base">
                 Daily financial summary for <span className="text-white font-medium">{formatDateLabel(new Date(rangeWindow.start))}</span>
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex bg-surface p-1 rounded-lg border border-border">
+              <div className="flex bg-[#2c241b] p-1 rounded-lg border border-[#483c23]">
                 {(['Today', 'Yesterday', '7 Days'] as const).map((k) => (
                   <button
                     key={k}
                     onClick={() => setRange(k)}
                     className={`px-3 py-1.5 rounded text-xs font-bold transition-colors ${
-                      range === k ? 'bg-primary text-[#221c10] shadow-md' : 'text-text-muted hover:text-white'
+                      range === k ? 'bg-[#eead2b] text-[#221c10] shadow-md' : 'text-[#c9b792] hover:text-white hover:bg-[#483c23]/30'
                     }`}
                   >
                     {k}
@@ -1091,7 +1152,7 @@ export const Finance: React.FC = () => {
               </div>
               <button
                 onClick={exportCsv}
-                className="flex items-center gap-2 bg-surface hover:bg-surface-light text-white px-4 py-2.5 rounded-lg text-sm font-bold border border-border transition-colors"
+                className="flex items-center gap-2 bg-[#2c241b] hover:bg-[#483c23]/50 text-white px-4 py-2.5 rounded-lg text-sm font-bold border border-[#483c23] transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">download</span>
                 Export Report
@@ -1100,69 +1161,69 @@ export const Finance: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-surface rounded-xl p-5 border border-border shadow-lg relative overflow-hidden group">
+            <div className="bg-[#2c241b] rounded-xl p-5 border border-[#483c23] shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-4xl text-primary">payments</span>
+                <span className="material-symbols-outlined text-4xl text-[#eead2b]">payments</span>
               </div>
-              <p className="text-text-muted text-sm font-medium mb-1">Total Revenue</p>
+              <p className="text-[#c9b792] text-sm font-medium mb-1">Total Revenue</p>
               <h3 className="text-white text-2xl font-bold font-mono">{formatMoney(totalRevenue)}</h3>
-              <div className="flex items-center gap-1 mt-2 text-success text-xs font-bold">
+              <div className="flex items-center gap-1 mt-2 text-green-300 text-xs font-bold">
                 <span className="material-symbols-outlined text-[14px]">trending_up</span>
                 <span>{payments.length} paid orders</span>
               </div>
             </div>
 
-            <div className="bg-surface rounded-xl p-5 border border-border shadow-lg relative overflow-hidden group">
+            <div className="bg-[#2c241b] rounded-xl p-5 border border-[#483c23] shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-4xl text-success">account_balance_wallet</span>
+                <span className="material-symbols-outlined text-4xl text-green-300">account_balance_wallet</span>
               </div>
-              <p className="text-text-muted text-sm font-medium mb-1">Net Cash in Hand</p>
+              <p className="text-[#c9b792] text-sm font-medium mb-1">Net Cash in Hand</p>
               <h3 className="text-white text-2xl font-bold font-mono">{formatMoney(netCashInHand)}</h3>
-              <div className="flex items-center gap-1 mt-2 text-text-muted text-xs">
+              <div className="flex items-center gap-1 mt-2 text-[#c9b792] text-xs">
                 <span>{openSessions.length} Active Sessions</span>
               </div>
             </div>
 
-            <div className="bg-surface rounded-xl p-5 border border-border shadow-lg relative overflow-hidden group">
+            <div className="bg-[#2c241b] rounded-xl p-5 border border-[#483c23] shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-4xl text-danger">receipt_long</span>
+                <span className="material-symbols-outlined text-4xl text-red-300">receipt_long</span>
               </div>
-              <p className="text-text-muted text-sm font-medium mb-1">Total Expenses</p>
+              <p className="text-[#c9b792] text-sm font-medium mb-1">Total Expenses</p>
               <h3 className="text-white text-2xl font-bold font-mono">{formatMoney(totalExpenses)}</h3>
-              <div className="flex items-center gap-1 mt-2 text-danger text-xs font-bold">
+              <div className="flex items-center gap-1 mt-2 text-red-300 text-xs font-bold">
                 <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
                 <span>{expenses.length} entries</span>
               </div>
             </div>
 
-            <div className="bg-surface rounded-xl p-5 border border-border shadow-lg relative overflow-hidden group">
+            <div className="bg-[#2c241b] rounded-xl p-5 border border-[#483c23] shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-4xl text-warning">warning</span>
+                <span className="material-symbols-outlined text-4xl text-orange-300">warning</span>
               </div>
-              <p className="text-text-muted text-sm font-medium mb-1">Discrepancies</p>
-              <h3 className="text-warning text-2xl font-bold font-mono">{(discrepancyTotal >= 0 ? '' : '-') + formatMoney(Math.abs(discrepancyTotal))}</h3>
-              <div className="flex items-center gap-1 mt-2 text-warning text-xs font-bold">
+              <p className="text-[#c9b792] text-sm font-medium mb-1">Discrepancies</p>
+              <h3 className="text-orange-300 text-2xl font-bold font-mono">{(discrepancyTotal >= 0 ? '' : '-') + formatMoney(Math.abs(discrepancyTotal))}</h3>
+              <div className="flex items-center gap-1 mt-2 text-orange-300 text-xs font-bold">
                 <span>{Math.abs(discrepancyTotal) > 0.001 ? 'Needs Review' : 'OK'}</span>
               </div>
             </div>
           </div>
 
-          <div className="w-full bg-surface rounded-xl p-6 border border-border shadow-lg">
+          <div className="w-full bg-[#2c241b] rounded-xl p-6 border border-[#483c23] shadow-lg">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-white text-lg font-bold">Daily Flow</h3>
               <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1 text-xs text-text-muted"><span className="w-2 h-2 rounded-full bg-primary"></span> Revenue</span>
-                <span className="flex items-center gap-1 text-xs text-text-muted"><span className="w-2 h-2 rounded-full bg-danger"></span> Expenses</span>
+                <span className="flex items-center gap-1 text-xs text-[#c9b792]"><span className="w-2 h-2 rounded-full bg-[#eead2b]"></span> Revenue</span>
+                <span className="flex items-center gap-1 text-xs text-[#c9b792]"><span className="w-2 h-2 rounded-full bg-red-400"></span> Expenses</span>
               </div>
             </div>
 
             <div className="w-full h-48 flex items-end gap-2 px-2 relative">
               <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10">
-                <div className="w-full h-px bg-border"></div>
-                <div className="w-full h-px bg-border"></div>
-                <div className="w-full h-px bg-border"></div>
-                <div className="w-full h-px bg-border"></div>
-                <div className="w-full h-px bg-border"></div>
+                <div className="w-full h-px bg-[#483c23]"></div>
+                <div className="w-full h-px bg-[#483c23]"></div>
+                <div className="w-full h-px bg-[#483c23]"></div>
+                <div className="w-full h-px bg-[#483c23]"></div>
+                <div className="w-full h-px bg-[#483c23]"></div>
               </div>
 
               {dayFlow.rows.map((r) => {
@@ -1170,17 +1231,26 @@ export const Finance: React.FC = () => {
                 const expH = Math.max(2, Math.round((r.expenses / dayFlow.max) * 100));
                 return (
                   <div key={r.time} className="flex-1 relative group">
-                    <div className="w-full bg-primary/20 hover:bg-primary/40 transition-all rounded-t-sm" style={{ height: `${h}%` }}>
+                    <div
+                      className="w-full transition-all rounded-t-sm"
+                      style={{
+                        height: `${h}%`,
+                        background: 'linear-gradient(180deg, rgba(238,173,43,0.40), rgba(238,173,43,0.18))',
+                      }}
+                    >
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity mb-1 font-mono">
                         {formatMoney(r.revenue)}
                       </div>
                     </div>
-                    <div className="absolute left-0 right-0 bottom-0 pointer-events-none" style={{ height: `${expH}%`, background: 'linear-gradient(180deg, rgba(244,63,94,0.35), rgba(244,63,94,0.10))' }} />
+                    <div
+                      className="absolute left-0 right-0 bottom-0 pointer-events-none"
+                      style={{ height: `${expH}%`, background: 'linear-gradient(180deg, rgba(244,63,94,0.40), rgba(244,63,94,0.12))' }}
+                    />
                   </div>
                 );
               })}
             </div>
-            <div className="flex justify-between mt-2 text-xs text-text-muted font-mono">
+            <div className="flex justify-between mt-2 text-xs text-[#c9b792] font-mono">
               {dayFlow.rows.map((r) => (
                 <span key={r.time}>{r.time}</span>
               ))}
@@ -1188,15 +1258,15 @@ export const Finance: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-surface rounded-xl border border-border shadow-lg flex flex-col">
-              <div className="p-5 border-b border-border flex justify-between items-center">
+            <div className="lg:col-span-2 bg-[#2c241b] rounded-xl border border-[#483c23] shadow-lg flex flex-col">
+              <div className="p-5 border-b border-[#483c23] flex justify-between items-center">
                 <h3 className="text-white text-lg font-bold">Cash Sessions</h3>
-                <button onClick={() => setTab('Cash Sessions')} className="text-primary text-sm font-bold hover:underline">View All</button>
+                <button onClick={() => setTab('Cash Sessions')} className="text-[#eead2b] text-sm font-bold hover:underline">View All</button>
               </div>
               <div className="p-0 overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="text-xs text-text-muted uppercase tracking-wider border-b border-border">
+                    <tr className="text-xs text-[#c9b792] uppercase tracking-wider border-b border-[#483c23]">
                       <th className="px-5 py-3 font-medium">Register</th>
                       <th className="px-5 py-3 font-medium">Staff</th>
                       <th className="px-5 py-3 font-medium text-right">Opening</th>
@@ -1205,24 +1275,24 @@ export const Finance: React.FC = () => {
                       <th className="px-5 py-3 font-medium text-center">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="text-sm divide-y divide-border">
+                  <tbody className="text-sm divide-y divide-[#483c23]">
                     {cashSessions.slice(0, 6).map((s) => {
                       const actual = typeof s.actualCash === 'number' ? s.actualCash : undefined;
                       const variance = (actual ?? s.expectedCash) - s.expectedCash;
-                      const varianceCls = variance > 0.001 ? 'text-success' : variance < -0.001 ? 'text-warning font-bold' : 'text-success';
+                      const varianceCls = variance > 0.001 ? 'text-green-300' : variance < -0.001 ? 'text-orange-300 font-bold' : 'text-green-300';
                       const statusPill =
                         s.status === 'Active'
-                          ? 'bg-success/10 text-success'
+                          ? 'bg-green-500/10 text-green-300'
                           : s.status === 'Audit'
-                            ? 'bg-warning/10 text-warning'
-                            : 'bg-surface-light text-text-muted';
+                            ? 'bg-orange-500/10 text-orange-300'
+                            : 'bg-[#483c23]/35 text-[#c9b792]';
                       return (
-                        <tr key={s.id} className="hover:bg-surface-light transition-colors group">
+                        <tr key={s.id} className="hover:bg-[#483c23]/20 transition-colors group">
                           <td className="px-5 py-4 font-medium text-white">{s.register}</td>
-                          <td className="px-5 py-4 text-text-muted">{s.staffName}</td>
-                          <td className="px-5 py-4 text-right font-mono text-text-muted">{formatMoney(s.openingCash)}</td>
+                          <td className="px-5 py-4 text-[#c9b792]">{s.staffName}</td>
+                          <td className="px-5 py-4 text-right font-mono text-[#c9b792]">{formatMoney(s.openingCash)}</td>
                           <td className="px-5 py-4 text-right font-mono text-white">{actual != null ? formatMoney(actual) : '--'}</td>
-                          <td className={`px-5 py-4 text-right font-mono ${actual != null ? varianceCls : 'text-text-muted'}`}>{actual != null ? `${variance >= 0 ? '+' : ''}${formatMoney(variance)}` : '--'}</td>
+                          <td className={`px-5 py-4 text-right font-mono ${actual != null ? varianceCls : 'text-[#c9b792]'}`}>{actual != null ? `${variance >= 0 ? '+' : ''}${formatMoney(variance)}` : '--'}</td>
                           <td className="px-5 py-4 text-center">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusPill}`}>{s.status}</span>
                           </td>
@@ -1232,19 +1302,22 @@ export const Finance: React.FC = () => {
                   </tbody>
                 </table>
               </div>
-              <div className="p-4 border-t border-border mt-auto">
-                <button onClick={reconcileAllSessions} className="w-full py-2 rounded-lg border border-primary text-primary text-sm font-bold hover:bg-primary/10 transition-colors">
+              <div className="p-4 border-t border-[#483c23] mt-auto">
+                <button
+                  onClick={reconcileAllSessions}
+                  className="w-full py-2 rounded-lg border border-[#eead2b]/40 text-[#eead2b] text-sm font-bold hover:bg-[#eead2b]/10 transition-colors"
+                >
                   Reconcile All Sessions
                 </button>
               </div>
             </div>
 
-            <div className="bg-surface rounded-xl border border-border shadow-lg flex flex-col">
-              <div className="p-5 border-b border-border flex justify-between items-center">
+            <div className="bg-[#2c241b] rounded-xl border border-[#483c23] shadow-lg flex flex-col">
+              <div className="p-5 border-b border-[#483c23] flex justify-between items-center">
                 <h3 className="text-white text-lg font-bold">Expenses</h3>
                 <button
                   onClick={addExpense}
-                  className="size-8 flex items-center justify-center rounded-lg bg-primary hover:bg-primary-hover text-[#221c10] transition-colors"
+                  className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] transition-colors"
                 >
                   <span className="material-symbols-outlined text-[20px]">add</span>
                 </button>
@@ -1252,19 +1325,19 @@ export const Finance: React.FC = () => {
               <div className="flex-1 p-0 overflow-y-auto max-h-[300px]">
                 <div className="flex flex-col">
                   {expenses.slice(0, 8).map((e) => (
-                    <div key={e.id} className="flex items-center justify-between p-4 border-b border-border hover:bg-surface-light transition-colors">
+                    <div key={e.id} className="flex items-center justify-between p-4 border-b border-[#483c23] hover:bg-[#483c23]/20 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="size-10 rounded-lg bg-surface-light flex items-center justify-center text-primary">
+                        <div className="size-10 rounded-lg bg-[#483c23]/35 flex items-center justify-center text-[#eead2b]">
                           <span className="material-symbols-outlined text-[20px]">{e.icon}</span>
                         </div>
                         <div>
                           <p className="text-white text-sm font-medium">{e.title}</p>
-                          <p className="text-text-muted text-xs">Vendor: {e.vendor}</p>
+                          <p className="text-[#c9b792] text-xs">Vendor: {e.vendor}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-danger text-sm font-mono font-bold">-{formatMoney(e.amount)}</p>
-                        <p className="text-text-muted text-xs">{formatTime12(e.createdAt)}</p>
+                        <p className="text-red-300 text-sm font-mono font-bold">-{formatMoney(e.amount)}</p>
+                        <p className="text-[#c9b792] text-xs">{formatTime12(e.createdAt)}</p>
                       </div>
                     </div>
                   ))}
@@ -1273,53 +1346,53 @@ export const Finance: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-surface border border-border rounded-xl p-6 flex flex-wrap items-center justify-between gap-6 shadow-xl">
+          <div className="bg-[#2c241b] border border-[#483c23] rounded-xl p-6 flex flex-wrap items-center justify-between gap-6 shadow-xl">
             <div className="flex flex-col">
               <h4 className="text-white text-base font-bold">Daily Reconciliation</h4>
-              <p className="text-text-muted text-sm">Verify physical cash against recorded transactions.</p>
+              <p className="text-[#c9b792] text-sm">Verify physical cash against recorded transactions.</p>
             </div>
             <div className="flex items-center gap-8">
               <div className="flex flex-col items-end">
-                <span className="text-xs text-text-muted uppercase">Expected Cash</span>
+                <span className="text-xs text-[#c9b792] uppercase">Expected Cash</span>
                 <span className="text-xl text-white font-mono font-bold">{formatMoney(expectedCash)}</span>
               </div>
               <div className="h-8 w-px bg-white/10"></div>
               <div className="flex flex-col items-end">
-                <span className="text-xs text-text-muted uppercase">Actual Counted</span>
-                <span className={`text-xl font-mono font-bold ${Math.abs(actualCounted - expectedCash) < 0.01 ? 'text-success' : 'text-warning'}`}>{formatMoney(actualCounted)}</span>
+                <span className="text-xs text-[#c9b792] uppercase">Actual Counted</span>
+                <span className={`text-xl font-mono font-bold ${Math.abs(actualCounted - expectedCash) < 0.01 ? 'text-green-300' : 'text-orange-300'}`}>{formatMoney(actualCounted)}</span>
               </div>
             </div>
             <button
               onClick={closeShiftAndGenerate}
-              className="bg-primary hover:bg-primary-hover text-[#221c10] px-6 py-3 rounded-lg font-bold shadow-lg shadow-primary/20 transition-all active:scale-95"
+              className="bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] px-6 py-3 rounded-lg font-bold shadow-lg shadow-[#eead2b]/20 transition-all active:scale-95"
             >
               Close Shift & Generate Report
             </button>
           </div>
 
-          <div className="flex flex-col rounded-xl bg-surface border border-border shadow-sm overflow-hidden">
-            <div className="flex border-b border-border">
+          <div className="flex flex-col rounded-xl bg-[#2c241b] border border-[#483c23] shadow-sm overflow-hidden">
+            <div className="flex border-b border-[#483c23]">
               <button
                 onClick={() => setTab('Cash Sessions')}
-                className={`px-6 py-4 text-sm font-bold border-b-2 ${tab === 'Cash Sessions' ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-text-muted hover:text-white hover:bg-surface-light'}`}
+                className={`px-6 py-4 text-sm font-bold border-b-2 ${tab === 'Cash Sessions' ? 'border-[#eead2b] text-[#eead2b] bg-[#eead2b]/10' : 'border-transparent text-[#c9b792] hover:text-white hover:bg-[#483c23]/20'}`}
               >
                 Cash Sessions
               </button>
               <button
                 onClick={() => setTab('Expenses')}
-                className={`px-6 py-4 text-sm font-bold border-b-2 ${tab === 'Expenses' ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-text-muted hover:text-white hover:bg-surface-light'}`}
+                className={`px-6 py-4 text-sm font-bold border-b-2 ${tab === 'Expenses' ? 'border-[#eead2b] text-[#eead2b] bg-[#eead2b]/10' : 'border-transparent text-[#c9b792] hover:text-white hover:bg-[#483c23]/20'}`}
               >
                 Expenses
               </button>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-surface-light">
+            <div className="flex items-center justify-between p-4 bg-[#221c10]">
               <div className="relative max-w-xl w-full">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-text-muted text-lg">search</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#c9b792] text-lg">search</span>
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-border bg-surface focus:ring-2 focus:ring-primary focus:outline-none placeholder:text-text-muted text-white"
+                  className="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-[#483c23] bg-[#2c241b] focus:ring-1 focus:ring-[#eead2b] focus:outline-none placeholder:text-white/30 text-white"
                   placeholder="Search by staff, ID, vendor..."
                   type="text"
                 />
@@ -1328,7 +1401,9 @@ export const Finance: React.FC = () => {
                     <button
                       key={s}
                       onClick={() => setStatusFilter(s)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-bold border ${statusFilter === s ? 'bg-primary text-[#221c10] border-primary' : 'bg-surface text-text-muted border-border hover:bg-surface-light'}`}
+                      className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                        statusFilter === s ? 'bg-[#eead2b] text-[#221c10] border-[#eead2b]' : 'bg-[#2c241b] text-[#c9b792] border-[#483c23] hover:bg-[#483c23]/20'
+                      }`}
                     >
                       {s}
                     </button>
@@ -1336,7 +1411,7 @@ export const Finance: React.FC = () => {
                   <select
                     value={registerFilter}
                     onChange={(e) => setRegisterFilter(e.target.value)}
-                    className="h-8 px-2 rounded-lg border border-border bg-surface text-sm text-text-muted focus:outline-none"
+                    className="h-8 px-2 rounded-lg border border-[#483c23] bg-[#2c241b] text-sm text-white focus:outline-none"
                   >
                     <option value="All">All Registers</option>
                     {registers.map((r) => (
@@ -1346,7 +1421,7 @@ export const Finance: React.FC = () => {
                   <select
                     value={staffFilter}
                     onChange={(e) => setStaffFilter(e.target.value)}
-                    className="h-8 px-2 rounded-lg border border-border bg-surface text-sm text-text-muted focus:outline-none"
+                    className="h-8 px-2 rounded-lg border border-[#483c23] bg-[#2c241b] text-sm text-white focus:outline-none"
                   >
                     <option value="All">All Staff</option>
                     {staffNames.map((r) => (
@@ -1362,12 +1437,15 @@ export const Finance: React.FC = () => {
                     setRegisterFilter('All');
                     setStaffFilter('All');
                   }}
-                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-text-muted hover:text-white transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[#c9b792] hover:text-white transition-colors"
                 >
                   <span className="material-symbols-outlined text-lg">filter_list</span>
                   Reset
                 </button>
-                <button onClick={openNewSession} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-surface border border-border rounded-lg shadow-sm hover:bg-surface-light transition-colors">
+                <button
+                  onClick={openNewSession}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-[#2c241b] border border-[#483c23] rounded-lg shadow-sm hover:bg-[#483c23]/20 transition-colors"
+                >
                   <span className="material-symbols-outlined text-lg">add</span>
                   Open Session
                 </button>
@@ -1378,47 +1456,47 @@ export const Finance: React.FC = () => {
               {tab === 'Cash Sessions' ? (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-border">
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted w-20">ID</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted">Staff Member</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted">Terminal</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted">Time</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted text-right">Expected</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted text-right">Actual</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted text-right">Difference</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted text-center">Status</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted text-right">Actions</th>
+                    <tr className="border-b border-[#483c23]">
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] w-20">ID</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">Staff Member</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">Terminal</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">Time</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-right">Expected</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-right">Actual</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-right">Difference</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-center">Status</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-[#483c23]">
                     {filteredSessions.map((s) => {
                       const actual = typeof s.actualCash === 'number' ? s.actualCash : undefined;
                       const diff = actual != null ? actual - s.expectedCash : 0;
-                      const diffCls = diff < -0.01 ? 'text-danger' : diff > 0.01 ? 'text-success' : 'text-success';
+                      const diffCls = diff < -0.01 ? 'text-red-300' : diff > 0.01 ? 'text-green-300' : 'text-green-300';
                       const pill =
                         s.status === 'Active'
-                          ? 'bg-success/10 text-success animate-pulse'
-                          : 'bg-surface-light text-text-muted';
+                          ? 'bg-green-500/10 text-green-300 animate-pulse'
+                          : 'bg-[#483c23]/35 text-[#c9b792]';
                       return (
-                        <tr key={s.id} className="hover:bg-surface-light transition-colors">
-                          <td className="py-3 px-4 text-sm font-medium text-text-muted">#{s.id}</td>
+                        <tr key={s.id} className="hover:bg-[#483c23]/20 transition-colors">
+                          <td className="py-3 px-4 text-sm font-medium text-[#c9b792]">#{s.id}</td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-surface-light bg-cover bg-center" />
+                              <div className="h-8 w-8 rounded-full bg-[#483c23]/35 bg-cover bg-center" />
                               <div className="flex flex-col">
                                 <span className="text-sm font-medium text-white">{s.staffName}</span>
-                                <span className="text-xs text-text-muted">{s.staffRole}</span>
+                                <span className="text-xs text-[#c9b792]">{s.staffRole}</span>
                               </div>
                             </div>
                           </td>
                           <td className="py-3 px-4 text-sm text-white">{s.register}</td>
-                          <td className="py-3 px-4 text-sm text-text-muted">{formatTime12(s.openedAt)} - {s.status === 'Active' ? 'Active' : s.closedAt ? formatTime12(s.closedAt) : 'Closed'}</td>
+                          <td className="py-3 px-4 text-sm text-[#c9b792]">{formatTime12(s.openedAt)} - {s.status === 'Active' ? 'Active' : s.closedAt ? formatTime12(s.closedAt) : 'Closed'}</td>
                           <td className="py-3 px-4 text-sm text-right font-medium text-white">{formatMoney(s.expectedCash)}</td>
                           <td className="py-3 px-4 text-sm text-right font-medium text-white">
                             {s.status === 'Active' && sessionEditingId === s.id ? (
                               <input
                                 type="number"
-                                className="w-28 text-right bg-surface-light border border-border rounded px-2 py-1 text-sm text-white"
+                                className="w-28 text-right bg-[#483c23] border border-[#483c23] rounded px-2 py-1 text-sm text-white"
                                 value={actual ?? ''}
                                 onChange={(e) => setSessionActualCash(s.id, parseFloat(e.target.value || ''))}
                                 onBlur={() => setSessionEditingId(null)}
@@ -1429,19 +1507,25 @@ export const Finance: React.FC = () => {
                               '--'
                             )}
                           </td>
-                          <td className={`py-3 px-4 text-sm text-right font-bold ${actual != null ? diffCls : 'text-text-muted'}`}>{actual != null ? `${diff < 0 ? '-' : '+'}${formatMoney(Math.abs(diff))}` : '--'}</td>
+                          <td className={`py-3 px-4 text-sm text-right font-bold ${actual != null ? diffCls : 'text-[#c9b792]'}`}>{actual != null ? `${diff < 0 ? '-' : '+'}${formatMoney(Math.abs(diff))}` : '--'}</td>
                           <td className="py-3 px-4 text-center">
                             <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${pill}`}>{s.status}</span>
                           </td>
                           <td className="py-3 px-4 text-right space-x-2">
                             {s.status === 'Active' && (
-                              <button onClick={() => setSessionEditingId(s.id)} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-text-muted hover:text-white hover:bg-surface">
+                              <button
+                                onClick={() => setSessionEditingId(s.id)}
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/25"
+                              >
                                 <span className="material-symbols-outlined text-sm">calculate</span>
                                 Count
                               </button>
                             )}
                             {s.status === 'Active' && (
-                              <button onClick={() => closeSession(s.id)} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-text-muted hover:text-white hover:bg-surface">
+                              <button
+                                onClick={() => closeSession(s.id)}
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/25"
+                              >
                                 <span className="material-symbols-outlined text-sm">lock</span>
                                 Close
                               </button>
@@ -1455,49 +1539,49 @@ export const Finance: React.FC = () => {
               ) : (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-border">
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted">ID</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted">Description</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted">Vendor</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted">Time</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted text-right">Amount</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-text-muted text-right">Actions</th>
+                    <tr className="border-b border-[#483c23]">
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">ID</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">Description</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">Vendor</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">Time</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-right">Amount</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-[#483c23]">
                     {filteredExpenses.map((e) => (
-                      <tr key={e.id} className="hover:bg-surface-light transition-colors">
-                        <td className="py-3 px-4 text-sm font-medium text-text-muted">{e.id}</td>
+                      <tr key={e.id} className="hover:bg-[#483c23]/20 transition-colors">
+                        <td className="py-3 px-4 text-sm font-medium text-[#c9b792]">{e.id}</td>
                         <td className="py-3 px-4 text-sm text-white">
                           {expenseEditingId === e.id ? (
                             <input
                               value={expenseDraft.title}
                               onChange={(ev) => setExpenseDraft((d) => ({ ...d, title: ev.target.value }))}
-                              className="w-full bg-surface-light border border-border rounded px-2 py-1 text-sm text-white"
+                              className="w-full bg-[#483c23] border border-[#483c23] rounded px-2 py-1 text-sm text-white"
                             />
                           ) : (
                             e.title
                           )}
                         </td>
-                        <td className="py-3 px-4 text-sm text-text-muted">
+                        <td className="py-3 px-4 text-sm text-[#c9b792]">
                           {expenseEditingId === e.id ? (
                             <input
                               value={expenseDraft.vendor}
                               onChange={(ev) => setExpenseDraft((d) => ({ ...d, vendor: ev.target.value }))}
-                              className="w-full bg-surface-light border border-border rounded px-2 py-1 text-sm text-white"
+                              className="w-full bg-[#483c23] border border-[#483c23] rounded px-2 py-1 text-sm text-white"
                             />
                           ) : (
                             e.vendor
                           )}
                         </td>
-                        <td className="py-3 px-4 text-sm text-text-muted">{formatTime12(e.createdAt)}</td>
-                        <td className="py-3 px-4 text-sm text-right font-mono font-bold text-danger">
+                        <td className="py-3 px-4 text-sm text-[#c9b792]">{formatTime12(e.createdAt)}</td>
+                        <td className="py-3 px-4 text-sm text-right font-mono font-bold text-red-300">
                           {expenseEditingId === e.id ? (
                             <input
                               type="number"
                               value={expenseDraft.amount}
                               onChange={(ev) => setExpenseDraft((d) => ({ ...d, amount: ev.target.value }))}
-                              className="w-28 text-right bg-surface-light border border-border rounded px-2 py-1 text-sm text-white"
+                              className="w-28 text-right bg-[#483c23] border border-[#483c23] rounded px-2 py-1 text-sm text-white"
                             />
                           ) : (
                             `-${formatMoney(e.amount)}`
@@ -1506,22 +1590,34 @@ export const Finance: React.FC = () => {
                         <td className="py-3 px-4 text-right">
                           {expenseEditingId === e.id ? (
                             <div className="space-x-2">
-                              <button onClick={() => saveExpenseEdit(e.id)} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-text-muted hover:text-white hover:bg-surface">
+                              <button
+                                onClick={() => saveExpenseEdit(e.id)}
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/25"
+                              >
                                 <span className="material-symbols-outlined text-sm">save</span>
                                 Save
                               </button>
-                              <button onClick={() => setExpenseEditingId(null)} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-text-muted hover:text-white hover:bg-surface">
+                              <button
+                                onClick={() => setExpenseEditingId(null)}
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/25"
+                              >
                                 <span className="material-symbols-outlined text-sm">close</span>
                                 Cancel
                               </button>
                             </div>
                           ) : (
                             <div className="space-x-2">
-                              <button onClick={() => startEditExpense(e)} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-text-muted hover:text-white hover:bg-surface">
+                              <button
+                                onClick={() => startEditExpense(e)}
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/25"
+                              >
                                 <span className="material-symbols-outlined text-sm">edit</span>
                                 Edit
                               </button>
-                              <button onClick={() => deleteExpense(e.id)} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-danger hover:bg-surface">
+                              <button
+                                onClick={() => deleteExpense(e.id)}
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#483c23] text-red-300 hover:bg-[#483c23]/25"
+                              >
                                 <span className="material-symbols-outlined text-sm">delete</span>
                                 Remove
                               </button>
@@ -1535,16 +1631,16 @@ export const Finance: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center justify-between p-4 border-t border-border">
-              <p className="text-sm text-text-muted">
+            <div className="flex items-center justify-between p-4 border-t border-[#483c23]">
+              <p className="text-sm text-[#c9b792]">
                 Showing <span className="font-medium text-white">1-{tab === 'Cash Sessions' ? filteredSessions.length : filteredExpenses.length}</span> of{' '}
                 <span className="font-medium text-white">{tab === 'Cash Sessions' ? filteredSessions.length : filteredExpenses.length}</span> {tab === 'Cash Sessions' ? 'sessions' : 'expenses'}
               </p>
               <div className="flex gap-2">
-                <button className="px-3 py-1 text-sm border border-border rounded bg-surface disabled:opacity-50 text-text-muted hover:bg-surface-light" disabled>
+                <button className="px-3 py-1 text-sm border border-[#483c23] rounded bg-[#2c241b] disabled:opacity-50 text-[#c9b792] hover:bg-[#483c23]/25" disabled>
                   Previous
                 </button>
-                <button className="px-3 py-1 text-sm border border-border rounded bg-surface text-text-muted hover:bg-surface-light" disabled>
+                <button className="px-3 py-1 text-sm border border-[#483c23] rounded bg-[#2c241b] text-[#c9b792] hover:bg-[#483c23]/25" disabled>
                   Next
                 </button>
               </div>

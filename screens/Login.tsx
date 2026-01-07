@@ -82,6 +82,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         token,
         role: mappedRole,
         tenantId,
+        tenantSlug: ws,
+        tenant: { id: tenantId, slug: ws, name: '' },
         staffId,
         staffName,
         branchId,

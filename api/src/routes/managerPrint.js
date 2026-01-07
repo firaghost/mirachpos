@@ -4,6 +4,8 @@ const net = require('net');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
+const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -15,16 +17,6 @@ const safeJsonParse = (raw, fallback) => {
   }
 };
 
-const resolveBranchId = (req) => {
-  const role = String(req.auth?.role || '');
-  const fromToken = String(req.auth?.branchId || '');
-  const q = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
-
-  if (role === 'Cafe Owner' && (!fromToken || fromToken === 'global')) {
-    return q || '';
-  }
-  return fromToken;
-};
 
 const requireManagerOrOwner = (req, res) => {
   if (req.auth?.tenantId !== req.tenant.id) {
@@ -291,16 +283,11 @@ const makeManagerPrintRouter = () => {
     return res.status(204).end();
   });
 
-  r.post('/manager/print/test', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/manager/print/test', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      let branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') {
-        const first = await db().select(['id']).from('branches').where({ tenant_id: req.tenant.id }).orderBy('created_at', 'asc').first();
-        branchId = first?.id ? String(first.id) : '';
-      }
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const deviceId = String(req.body?.deviceId || '').trim();
       if (!deviceId) return res.status(400).json({ error: 'device_required' });
@@ -331,16 +318,11 @@ const makeManagerPrintRouter = () => {
     }
   });
 
-  r.post('/manager/print/order/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/manager/print/order/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      let branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') {
-        const first = await db().select(['id']).from('branches').where({ tenant_id: req.tenant.id }).orderBy('created_at', 'asc').first();
-        branchId = first?.id ? String(first.id) : '';
-      }
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const orderId = String(req.params?.id || '').trim();
       if (!orderId) return res.status(400).json({ error: 'order_required' });

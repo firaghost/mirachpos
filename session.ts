@@ -71,9 +71,10 @@ export const readSession = <T = any>(): T | null => {
 
 export const writeSession = (session: any) => {
   const store = getSessionStore();
-  if (!store) return;
-  safeSet(store, SESSION_KEY, JSON.stringify(session ?? {}));
-  safeRemove(getLegacyStore(), SESSION_KEY);
+  const payload = JSON.stringify(session ?? {});
+  if (store) safeSet(store, SESSION_KEY, payload);
+  // Keep legacy localStorage copy in sync for older screens still reading it directly.
+  safeSet(getLegacyStore(), SESSION_KEY, payload);
 };
 
 export const updateSession = (patch: Record<string, any>) => {

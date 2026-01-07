@@ -2,21 +2,33 @@ import React, { useMemo, useState } from 'react';
 import { usePos } from '../../PosContext';
 import { Screen } from '../../types';
 import { Modal } from '../../components/Modal';
+import { apiFetch } from '../../api';
+import { readSession } from '../../session';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
 }
 
 export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
-  const { orders, selectedOrderId, setOrderStatus, voidOrder } = usePos();
+  const { orders, selectedOrderId, setOrderStatus, voidOrder, refreshFromServer } = usePos();
   const [voidOpen, setVoidOpen] = useState(false);
   const [voidReason, setVoidReason] = useState('');
+
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const [refundPin, setRefundPin] = useState('');
+  const [refundApprovers, setRefundApprovers] = useState<Array<{ id: string; name: string; roleName: string }>>([]);
+  const [refundApproveAsId, setRefundApproveAsId] = useState<string>('');
+  const [refundErr, setRefundErr] = useState('');
+  const [refundSaving, setRefundSaving] = useState(false);
 
   const order = useMemo(() => orders.find((o) => o.id === selectedOrderId) ?? null, [orders, selectedOrderId]);
 
   const isVoided = order?.status === 'Voided';
   const isPaid = order?.status === 'Paid';
-  const canMutate = Boolean(order && !isVoided && !isPaid);
+  const isRefunded = order?.status === 'Refunded';
+  const canMutate = Boolean(order && !isVoided && !isPaid && !isRefunded);
 
   if (!order) {
     return (
@@ -46,7 +58,9 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
                 ? 'bg-green-900/40 text-green-400 border-green-800/50'
                 : order.status === 'Voided'
                   ? 'bg-red-900/40 text-red-400 border-red-800/50'
-                  : 'bg-white/10 text-[#c9b792] border-white/10'
+                  : order.status === 'Refunded'
+                    ? 'bg-purple-900/40 text-purple-300 border-purple-800/50'
+                    : 'bg-white/10 text-[#c9b792] border-white/10'
             }`}>{order.status}</span>
           </div>
           <p className="text-[#c9b792] text-sm mt-1">
@@ -83,6 +97,53 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
               </button>
             </div>
           ) : null}
+
+          {isPaid && !isRefunded ? (
+            <button
+              onClick={() => {
+                setRefundErr('');
+                setRefundReason('');
+                setRefundPin('');
+                setRefundAmount('');
+
+                setRefundApprovers([]);
+                setRefundApproveAsId('');
+                try {
+                  const s = readSession<any>();
+                  const selfId = typeof s?.staffId === 'string' ? s.staffId : '';
+                  const role = typeof s?.role === 'string' ? s.role : '';
+                  if (selfId && (role === 'Branch Manager' || role === 'Cafe Owner')) setRefundApproveAsId(selfId);
+                } catch {
+                  // ignore
+                }
+
+                void (async () => {
+                  try {
+                    const res = await apiFetch('/api/manager/staff?pageSize=200');
+                    const json = (await res.json().catch(() => null)) as any;
+                    if (!res.ok) return;
+                    const rows = Array.isArray(json?.staff) ? (json.staff as any[]) : [];
+                    const approvers = rows
+                      .map((r: any) => ({ id: String(r?.id || ''), name: String(r?.name || ''), roleName: String(r?.roleName || r?.role_name || '') }))
+                      .filter((r: any) => r.id && r.name && (r.roleName === 'Branch Manager' || r.roleName === 'Cafe Owner'));
+                    setRefundApprovers(approvers);
+                    if (!refundApproveAsId) {
+                      const preferred = approvers.find((a: any) => a.roleName === 'Branch Manager') || approvers[0];
+                      if (preferred?.id) setRefundApproveAsId(preferred.id);
+                    }
+                  } catch {
+                    // ignore
+                  }
+                })();
+
+                setRefundOpen(true);
+              }}
+              className="hidden md:flex items-center gap-2 h-10 px-4 rounded-lg bg-purple-500/10 hover:bg-purple-500/15 border border-purple-500/20 text-purple-200 text-sm font-extrabold"
+            >
+              Refund
+            </button>
+          ) : null}
+
           <button onClick={() => onNavigate(Screen.MANAGER_ORDERS)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white text-sm font-semibold transition-all hover:border-[#c9b792]/30">
             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
             <span>Back</span>
@@ -232,6 +293,154 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
             placeholder="e.g. CUSTOMER CANCELED"
             className="mt-2 w-full h-11 bg-[#221c10] border border-[#483c23] rounded-lg px-4 text-white focus:ring-1 focus:ring-red-400/50 focus:border-red-400/50"
           />
+        </div>
+      </Modal>
+
+      <Modal
+        open={refundOpen}
+        title="Refund Order"
+        onClose={() => {
+          if (refundSaving) return;
+          setRefundOpen(false);
+          setRefundErr('');
+          setRefundReason('');
+          setRefundPin('');
+          setRefundAmount('');
+        }}
+        footer={
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                if (refundSaving) return;
+                setRefundOpen(false);
+                setRefundErr('');
+                setRefundReason('');
+                setRefundPin('');
+                setRefundAmount('');
+              }}
+              className="h-11 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] border border-[#544b3b] text-white font-semibold transition-colors"
+            >
+              Cancel
+            </button>
+            <div className="flex-1" />
+            <button
+              disabled={refundSaving || !refundReason.trim() || !(Number(refundAmount) > 0)}
+              onClick={async () => {
+                if (!order) return;
+                if (refundSaving) return;
+                setRefundErr('');
+
+                const amt = Number(refundAmount);
+                if (!(amt > 0)) {
+                  setRefundErr('Enter a valid refund amount.');
+                  return;
+                }
+                const rsn = refundReason.trim();
+                if (!rsn) {
+                  setRefundErr('Reason is required.');
+                  return;
+                }
+                if (!refundApproveAsId) {
+                  setRefundErr('Select who approves this refund.');
+                  return;
+                }
+
+                setRefundSaving(true);
+                try {
+                  const res = await apiFetch(`/api/pos/orders/${encodeURIComponent(order.id)}/refund`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      amount: amt,
+                      reason: rsn,
+                      pin: refundPin.trim() || undefined,
+                      approveAsStaffId: refundApproveAsId,
+                    }),
+                  });
+                  const json = (await res.json().catch(() => null)) as any;
+                  if (!res.ok) {
+                    const err = String(json?.error || json?.message || 'refund_failed');
+                    if (err === 'pin_required') {
+                      setRefundErr('Manager PIN required. Enter a Branch Manager or Cafe Owner PIN.');
+                    } else if (err === 'approver_required') {
+                      setRefundErr('Select who approves this refund.');
+                    } else if (err === 'only_paid_orders_can_refund') {
+                      setRefundErr('Only paid orders can be refunded.');
+                    } else {
+                      setRefundErr('Failed to refund order.');
+                    }
+                    return;
+                  }
+
+                  setRefundOpen(false);
+                  setRefundErr('');
+                  setRefundReason('');
+                  setRefundPin('');
+                  setRefundAmount('');
+                  await refreshFromServer();
+                } catch {
+                  setRefundErr('Failed to refund order.');
+                } finally {
+                  setRefundSaving(false);
+                }
+              }}
+              className="h-11 px-4 rounded-lg bg-purple-500/20 hover:bg-purple-500/25 border border-purple-500/30 text-purple-100 font-extrabold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {refundSaving ? 'Refunding...' : 'Refund'}
+            </button>
+          </div>
+        }
+      >
+        <div className="text-sm text-[#c9b792]">Enter amount and reason. Refunds require manager approval and will be saved in reports and finance ledger.</div>
+
+        {refundErr ? <div className="mt-3 text-sm text-red-300">{refundErr}</div> : null}
+
+        <div className="mt-4 grid grid-cols-1 gap-4">
+          <div>
+            <label className="text-xs font-bold text-[#c9b792]">Approve as</label>
+            <select
+              value={refundApproveAsId}
+              onChange={(e) => setRefundApproveAsId(e.target.value)}
+              className="mt-2 w-full h-11 bg-[#221c10] border border-[#483c23] rounded-lg px-4 text-white focus:ring-1 focus:ring-purple-400/50 focus:border-purple-400/50"
+            >
+              <option value="">Select approver</option>
+              {refundApprovers.map((a) => (
+                <option key={a.id} value={a.id}>{a.name} ({a.roleName})</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-[#c9b792]">Amount (ETB)</label>
+            <input
+              value={refundAmount}
+              onChange={(e) => setRefundAmount(e.target.value)}
+              onFocus={(e) => e.currentTarget.select()}
+              inputMode="decimal"
+              placeholder=""
+              className="mt-2 w-full h-11 bg-[#221c10] border border-[#483c23] rounded-lg px-4 text-white focus:ring-1 focus:ring-purple-400/50 focus:border-purple-400/50"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-[#c9b792]">Reason</label>
+            <input
+              value={refundReason}
+              onChange={(e) => setRefundReason(e.target.value)}
+              placeholder="e.g. CUSTOMER RETURN"
+              className="mt-2 w-full h-11 bg-[#221c10] border border-[#483c23] rounded-lg px-4 text-white focus:ring-1 focus:ring-purple-400/50 focus:border-purple-400/50"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-[#c9b792]">PIN (if required)</label>
+            <input
+              value={refundPin}
+              onChange={(e) => setRefundPin(e.target.value)}
+              placeholder="Enter PIN"
+              className="mt-2 w-full h-11 bg-[#221c10] border border-[#483c23] rounded-lg px-4 text-white focus:ring-1 focus:ring-purple-400/50 focus:border-purple-400/50"
+            />
+          </div>
         </div>
       </Modal>
     </div>

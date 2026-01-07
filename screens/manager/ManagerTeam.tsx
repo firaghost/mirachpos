@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Header } from '../../components/Header';
 import { apiFetch } from '../../api';
+import { Screen } from '../../types';
+import { readSession } from '../../session';
 import { Modal } from '../../components/Modal';
 
 type ApiStaff = {
@@ -92,6 +95,18 @@ export const ManagerTeam: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
+      try {
+        const s = readSession<any>();
+        const role = typeof s?.role === 'string' ? s.role : '';
+        if (role !== 'Branch Manager' && role !== 'Cafe Owner') {
+          setData(null);
+          return;
+        }
+      } catch {
+        setData(null);
+        return;
+      }
+
       const params = new URLSearchParams();
       if (q.trim()) params.set('q', q.trim());
       if (status) params.set('status', status);
@@ -120,6 +135,18 @@ export const ManagerTeam: React.FC = () => {
     setActivityLoading(true);
     setActivityError(null);
     try {
+      try {
+        const s = readSession<any>();
+        const role = typeof s?.role === 'string' ? s.role : '';
+        if (role !== 'Branch Manager' && role !== 'Cafe Owner') {
+          setActivity(null);
+          return;
+        }
+      } catch {
+        setActivity(null);
+        return;
+      }
+
       const params = new URLSearchParams();
       if (activityQ.trim()) params.set('q', activityQ.trim());
       if (activityType) params.set('type', activityType);
@@ -175,6 +202,29 @@ export const ManagerTeam: React.FC = () => {
     setDraftStatus('Active');
   };
 
+  const resetPin = async () => {
+    if (editLoading || !editTarget) return;
+    setEditLoading(true);
+    try {
+      const res = await apiFetch(`/api/manager/staff/${encodeURIComponent(editTarget.id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resetPin: true }),
+      });
+      const payload = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(payload?.error || String(res.status));
+      const tpin = typeof payload?.tempPin === 'string' ? payload.tempPin : '';
+      setEditPin('');
+      setBanner({ kind: 'success', message: tpin ? `PIN reset. New PIN: ${tpin}` : 'PIN reset.' });
+      await fetchStaff();
+      if (tab === 'activity') await fetchActivity();
+    } catch (e) {
+      setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to reset PIN.' });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   const closeAdd = () => {
     setAddOpen(false);
     setAddLoading(false);
@@ -182,6 +232,18 @@ export const ManagerTeam: React.FC = () => {
 
   const submitAdd = async () => {
     if (addLoading) return;
+    try {
+      const s = readSession<any>();
+      const role = typeof s?.role === 'string' ? s.role : '';
+      if (role !== 'Branch Manager' && role !== 'Cafe Owner') {
+        setBanner({ kind: 'error', message: 'forbidden' });
+        return;
+      }
+    } catch {
+      setBanner({ kind: 'error', message: 'forbidden' });
+      return;
+    }
+
     const name = draftName.trim();
     if (!name) {
       setBanner({ kind: 'error', message: 'Name is required.' });
@@ -244,6 +306,18 @@ export const ManagerTeam: React.FC = () => {
 
   const submitEdit = async () => {
     if (editLoading || !editTarget) return;
+    try {
+      const s = readSession<any>();
+      const role = typeof s?.role === 'string' ? s.role : '';
+      if (role !== 'Branch Manager' && role !== 'Cafe Owner') {
+        setBanner({ kind: 'error', message: 'forbidden' });
+        return;
+      }
+    } catch {
+      setBanner({ kind: 'error', message: 'forbidden' });
+      return;
+    }
+
     const name = editName.trim();
     if (!name) {
       setBanner({ kind: 'error', message: 'Name is required.' });
@@ -612,6 +686,15 @@ export const ManagerTeam: React.FC = () => {
             <label className="text-xs font-bold text-[#b9b09d]">Set New PIN (optional)</label>
             <input value={editPin} onChange={(e) => setEditPin(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
           </div>
+
+          <button
+            type="button"
+            onClick={resetPin}
+            disabled={editLoading || !editTarget}
+            className="h-10 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] text-white font-bold disabled:opacity-50"
+          >
+            Reset PIN
+          </button>
 
           <div className="text-xs text-[#b9b09d]">Role changes are not allowed for Branch Managers.</div>
 

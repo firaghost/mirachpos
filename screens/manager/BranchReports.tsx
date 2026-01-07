@@ -107,9 +107,20 @@ type ShiftLog = {
   clockOutAt?: string;
 };
 
+type BusinessHeader = {
+  businessName: string;
+  legalName: string;
+  tin: string;
+  phone: string;
+  email: string;
+  address: string;
+  receipt: { showTin: boolean; logoDataUrl: string };
+};
+
 type ManagerReportsResp = {
   ok: boolean;
   branchId: string;
+  businessHeader?: BusinessHeader;
   staff: StaffMember[];
   shiftLogs: ShiftLog[];
   cashSessions: CashSession[];
@@ -127,6 +138,7 @@ type PaymentTx = {
   tax: number;
   tip: number;
   discount: number;
+  discountPct?: number;
   createdAt: string | null;
   paidAt: string | null;
   method: string;
@@ -175,6 +187,7 @@ export const BranchReports: React.FC = () => {
   const [remote, setRemote] = useState<ManagerReportsResp | null>(null);
   const [remoteLoading, setRemoteLoading] = useState(true);
   const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
   const [payments, setPayments] = useState<PaymentTx[]>([]);
   const [paymentsPrev, setPaymentsPrev] = useState<PaymentTx[]>([]);
   const [dailyAgg, setDailyAgg] = useState<DailyAggPoint[]>([]);
@@ -240,7 +253,11 @@ export const BranchReports: React.FC = () => {
           throw new Error('select_branch');
         }
 
-        const url = branchOverride ? `/api/manager/reports?branchId=${encodeURIComponent(branchOverride)}` : '/api/manager/reports';
+        const qs = new URLSearchParams();
+        if (branchOverride) qs.set('branchId', branchOverride);
+        qs.set('from', effectiveRange.start.toISOString());
+        qs.set('to', effectiveRange.end.toISOString());
+        const url = `/api/manager/reports?${qs.toString()}`;
         const res = await apiFetch(url);
         if (!res.ok) throw new Error(String(res.status));
         const json = (await res.json()) as ManagerReportsResp;
@@ -256,6 +273,29 @@ export const BranchReports: React.FC = () => {
       }
     };
     run();
+    return () => {
+      mounted = false;
+    };
+  }, [effectiveRange.end, effectiveRange.start]);
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const res = await apiFetch('/api/branches');
+        const json = (await res.json().catch(() => null)) as any;
+        if (!res.ok) return;
+        const rows = Array.isArray(json?.branches) ? (json.branches as any[]) : [];
+        const next = rows
+          .map((b) => ({ id: String(b?.id || ''), name: String(b?.name || '') }))
+          .filter((b) => b.id && b.name);
+        if (!mounted) return;
+        setBranches(next);
+      } catch {
+        // ignore
+      }
+    };
+    void run();
     return () => {
       mounted = false;
     };
@@ -307,6 +347,7 @@ export const BranchReports: React.FC = () => {
               tax: Number(p.tax ?? 0) || 0,
               tip: Number(p.tip ?? 0) || 0,
               discount: Number(p.discount ?? 0) || 0,
+              discountPct: p.discountPct == null ? undefined : Number(p.discountPct ?? 0) || 0,
               createdAt: typeof p.createdAt === 'string' ? p.createdAt : null,
               paidAt: typeof p.paidAt === 'string' ? p.paidAt : null,
               method: String(p.method || 'Unknown'),
@@ -505,6 +546,24 @@ export const BranchReports: React.FC = () => {
   const shiftLogs = useMemo(() => (remote?.shiftLogs && Array.isArray(remote.shiftLogs) ? remote.shiftLogs : []), [remote]);
   const cashSessions = useMemo(() => (remote?.cashSessions && Array.isArray(remote.cashSessions) ? remote.cashSessions : []), [remote]);
 
+  const businessHeader = useMemo<BusinessHeader | null>(() => {
+    const bh = remote?.businessHeader && typeof remote.businessHeader === 'object' ? (remote.businessHeader as any) : null;
+    if (!bh) return null;
+    const receipt = bh.receipt && typeof bh.receipt === 'object' ? bh.receipt : {};
+    return {
+      businessName: String(bh.businessName || '').trim(),
+      legalName: String(bh.legalName || '').trim(),
+      tin: String(bh.tin || '').trim(),
+      phone: String(bh.phone || '').trim(),
+      email: String(bh.email || '').trim(),
+      address: String(bh.address || '').trim(),
+      receipt: {
+        showTin: typeof receipt.showTin === 'boolean' ? receipt.showTin : true,
+        logoDataUrl: typeof receipt.logoDataUrl === 'string' ? receipt.logoDataUrl : '',
+      },
+    };
+  }, [remote]);
+
   const paymentsSorted = useMemo(() => {
     return [...payments].sort((a, b) => {
       const atA = new Date(a.paidAt ?? a.createdAt ?? '').getTime();
@@ -586,7 +645,11 @@ export const BranchReports: React.FC = () => {
     if (categoryAgg.length > 0) {
       const sorted = [...categoryAgg].sort((a, b) => b.revenue - a.revenue).slice(0, 6);
       const max = Math.max(1, ...sorted.map((s) => s.revenue));
-      return sorted.map((s) => ({ ...s, pct: (s.revenue / max) * 100 }));
+      return sorted.map((s) => {
+        const rev = Number((s as any)?.revenue ?? 0) || 0;
+        const pct = max > 0 ? (rev / max) * 100 : 0;
+        return { ...s, pct: Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0 };
+      });
     }
     const map = new Map<string, number>();
     for (const p of payments) {
@@ -600,7 +663,11 @@ export const BranchReports: React.FC = () => {
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 6);
     const max = Math.max(1, ...sorted.map((s) => s.qty));
-    return sorted.map((s) => ({ ...s, pct: (s.qty / max) * 100 }));
+    return sorted.map((s) => {
+      const qty = Number((s as any)?.qty ?? 0) || 0;
+      const pct = max > 0 ? (qty / max) * 100 : 0;
+      return { ...s, pct: Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0 };
+    });
   }, [categoryAgg, payments]);
 
   const staffPerformance = useMemo(() => {
@@ -777,114 +844,200 @@ export const BranchReports: React.FC = () => {
   }, [paymentsSorted]);
 
   const exportCsv = () => {
-    const esc = (v: string) => {
+    const esc = (v: unknown) => {
       const s = String(v ?? '');
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
 
-    const lines: string[] = [];
-    lines.push(['Report', 'Branch Reports'].map(esc).join(','));
-    lines.push(['Period', period].map(esc).join(','));
-    lines.push(['From', rangeWindow.start.toISOString()].map(esc).join(','));
-    lines.push(['To', rangeWindow.end.toISOString()].map(esc).join(','));
-    lines.push('');
-    lines.push(['TotalRevenue', formatMoney(totalRevenue), `Delta ${revenueDelta.toFixed(2)}%`].map(esc).join(','));
-    lines.push(['TotalExpenses', formatMoney(totalExpenses)].map(esc).join(','));
-    lines.push(['NetProfit', formatMoney(netProfit), `Delta ${profitDelta.toFixed(2)}%`].map(esc).join(','));
-    lines.push(['OrdersProcessed', String(ordersProcessed), `Delta ${ordersDelta.toFixed(2)}%`].map(esc).join(','));
-    lines.push(['AvgOrderValue', formatMoney(avgOrderValue), `Delta ${aovDelta.toFixed(2)}%`].map(esc).join(','));
-    lines.push(['CashExpected', formatMoney(cashSummary.expected)].map(esc).join(','));
-    lines.push(['CashActual', formatMoney(cashSummary.actual)].map(esc).join(','));
-    lines.push(['CashDiscrepancy', formatMoney(cashSummary.discrepancy)].map(esc).join(','));
-    lines.push('');
+    // One consistent schema for all rows (Excel-friendly).
+    const headers = [
+      'section',
+      'record_type',
+      'date',
+      'id',
+      'name',
+      'category',
+      'method',
+      'qty',
+      'orders',
+      'hours',
+      'revenue',
+      'expenses',
+      'profit',
+      'amount',
+      'expected_cash',
+      'actual_cash',
+      'cash_difference',
+      'status',
+      'reason',
+      'performed_by',
+      'authorized_by',
+      'notes',
+    ];
 
-    lines.push('PaymentBreakdown,method,amount,count');
+    type Row = Record<(typeof headers)[number], string>;
+    const makeRow = (): Row => Object.fromEntries(headers.map((h) => [h, ''])) as Row;
+
+    const reportName = `${branchName || 'Branch'} Analytics Report`;
+    const toIso = (d: Date) => d.toISOString();
+    const push = (rows: Row[], patch: Partial<Row>) => rows.push({ ...makeRow(), ...patch });
+
+    const rows: Row[] = [];
+
+    // Meta
+    push(rows, { section: 'meta', record_type: 'report', name: reportName, notes: '' });
+    push(rows, { section: 'meta', record_type: 'period', name: period, date: toIso(new Date()) });
+    push(rows, { section: 'meta', record_type: 'range_from', date: toIso(effectiveRange.start) });
+    push(rows, { section: 'meta', record_type: 'range_to', date: toIso(effectiveRange.end) });
+
+    // KPIs
+    push(rows, { section: 'kpi', record_type: 'total_revenue', amount: String(totalRevenue), revenue: formatMoney(totalRevenue), notes: `delta_pct=${revenueDelta.toFixed(2)}` });
+    push(rows, { section: 'kpi', record_type: 'total_expenses', amount: String(totalExpenses), expenses: formatMoney(totalExpenses) });
+    push(rows, { section: 'kpi', record_type: 'net_profit', amount: String(netProfit), profit: formatMoney(netProfit), notes: `delta_pct=${profitDelta.toFixed(2)}` });
+    push(rows, { section: 'kpi', record_type: 'orders_processed', orders: String(ordersProcessed), notes: `delta_pct=${ordersDelta.toFixed(2)}` });
+    push(rows, { section: 'kpi', record_type: 'avg_order_value', amount: String(avgOrderValue), notes: `delta_pct=${aovDelta.toFixed(2)}` });
+    push(rows, { section: 'kpi', record_type: 'cash_expected', expected_cash: formatMoney(cashSummary.expected), amount: String(cashSummary.expected) });
+    push(rows, { section: 'kpi', record_type: 'cash_actual', actual_cash: formatMoney(cashSummary.actual), amount: String(cashSummary.actual) });
+    push(rows, { section: 'kpi', record_type: 'cash_discrepancy', cash_difference: formatMoney(cashSummary.discrepancy), amount: String(cashSummary.discrepancy) });
+
+    // Payment mix
     for (const [method, v] of paymentBreakdown) {
-      lines.push(['PaymentBreakdown', method, formatMoney(v.sum), String(v.count)].map(esc).join(','));
+      push(rows, {
+        section: 'payments',
+        record_type: 'payment_method',
+        method,
+        amount: String(v.sum),
+        revenue: formatMoney(v.sum),
+        orders: String(v.count),
+      });
     }
-    lines.push('');
 
-    lines.push('TopProducts,name,qty');
-    for (const p of topProducts) {
-      lines.push(['TopProducts', p.name, String(p.qty)].map(esc).join(','));
+    // Daily summary
+    for (const d of dailyAgg.slice(0, 400)) {
+      push(rows, {
+        section: 'trend',
+        record_type: 'daily',
+        date: `${d.date}T00:00:00`,
+        orders: String(d.orderCount),
+        revenue: formatMoney(d.totalCollected ?? 0),
+        amount: String(d.totalCollected ?? 0),
+      });
     }
-    lines.push('');
 
-    lines.push('TopCategories,category,revenue,qtySold,orderCount');
+    // Categories
     for (const c of categoryAgg.slice(0, 200)) {
-      lines.push(['TopCategories', c.category, formatMoney(c.revenue), String(c.qtySold), String(c.orderCount)].map(esc).join(','));
-    }
-    lines.push('');
-
-    lines.push('RecentTransactions,date,orderId,payment,amount,status');
-    for (const t of recentTransactions) {
-      lines.push(['RecentTransactions', t.date, t.id, t.payment, formatMoney(t.amount), t.statusLabel].map(esc).join(','));
-    }
-
-    lines.push('');
-    lines.push('Expenses,time,id,title,vendor,amount');
-    for (const e of expensesInRange.slice(0, 200)) {
-      lines.push([
-        'Expenses',
-        new Date(e.createdAt).toISOString(),
-        e.id,
-        e.title,
-        e.vendor,
-        formatMoney(e.amount),
-      ].map(esc).join(','));
+      push(rows, {
+        section: 'categories',
+        record_type: 'category',
+        category: c.category,
+        qty: String(c.qtySold),
+        orders: String(c.orderCount),
+        revenue: formatMoney(c.revenue),
+        amount: String(c.revenue),
+      });
     }
 
-    lines.push('');
-    lines.push('ShiftReports,id,staffName,status,openedAt,closedAt,openingCash,expectedCash,closingCash,cashDifference,orderCount,totalCollected');
-    for (const s of shiftAgg.slice(0, 200)) {
-      lines.push([
-        'ShiftReports',
-        s.id,
-        s.staffName,
-        s.status,
-        s.openedAt || '',
-        s.closedAt || '',
-        formatMoney(s.openingCash),
-        s.expectedCash == null ? '' : formatMoney(s.expectedCash),
-        s.closingCash == null ? '' : formatMoney(s.closingCash),
-        s.cashDifference == null ? '' : formatMoney(s.cashDifference),
-        String(s.orderCount),
-        formatMoney(s.totalCollected),
-      ].map(esc).join(','));
+    // Products
+    for (const p of productAgg.slice(0, 200)) {
+      push(rows, {
+        section: 'products',
+        record_type: 'product',
+        id: p.productId,
+        name: p.name,
+        category: p.category,
+        qty: String(p.qtySold),
+        revenue: formatMoney(p.revenue),
+        amount: String(p.revenue),
+        profit: formatMoney(p.profit),
+      });
     }
 
-    lines.push('');
-    lines.push('VoidRefundLog,occurredAt,type,orderId,product,qty,amount,reason,performedBy,authorizedBy');
-    for (const e of voidAgg.slice(0, 500)) {
-      lines.push([
-        'VoidRefundLog',
-        e.occurredAt || '',
-        e.type,
-        e.orderId,
-        e.productName,
-        String(e.qty),
-        formatMoney(e.amount),
-        e.reason,
-        e.performedBy,
-        e.authorizedBy,
-      ].map(esc).join(','));
+    // Expenses
+    for (const e of expensesInRange.slice(0, 500)) {
+      push(rows, {
+        section: 'expenses',
+        record_type: 'expense',
+        date: new Date(e.createdAt).toISOString(),
+        id: e.id,
+        name: e.title,
+        category: e.vendor,
+        amount: String(e.amount),
+        expenses: formatMoney(e.amount),
+      });
     }
 
-    lines.push('');
-    lines.push('StaffPerformance,staffId,name,role,hours,shiftCount,orders,revenue,avgOrderValue,revenuePerHour');
+    // Shifts
+    for (const s of shiftAgg.slice(0, 500)) {
+      push(rows, {
+        section: 'shifts',
+        record_type: 'shift',
+        id: s.id,
+        name: s.staffName,
+        status: s.status,
+        date: s.openedAt || '',
+        expected_cash: s.expectedCash == null ? '' : formatMoney(s.expectedCash),
+        actual_cash: s.closingCash == null ? '' : formatMoney(s.closingCash),
+        cash_difference: s.cashDifference == null ? '' : formatMoney(s.cashDifference),
+        orders: String(s.orderCount),
+        revenue: formatMoney(s.totalCollected),
+        amount: String(s.totalCollected),
+        notes: s.closedAt ? `closed_at=${s.closedAt}` : '',
+      });
+    }
+
+    // Voids & refunds
+    for (const v of voidAgg.slice(0, 1000)) {
+      push(rows, {
+        section: 'voids_refunds',
+        record_type: 'event',
+        date: v.occurredAt || '',
+        id: v.id,
+        name: v.productName,
+        qty: String(v.qty),
+        amount: String(v.amount),
+        expenses: formatMoney(v.amount),
+        reason: v.reason,
+        performed_by: v.performedBy,
+        authorized_by: v.authorizedBy,
+        notes: `type=${v.type}; order_id=${v.orderId}`,
+      });
+    }
+
+    // Staff performance
     for (const r of staffPerformance.rows) {
-      lines.push([
-        'StaffPerformance',
-        r.id,
-        r.name,
-        r.role,
-        r.hours.toFixed(2),
-        String(r.shifts),
-        String(r.orderCount),
-        formatMoney(r.revenue),
-        formatMoney(r.aov),
-        formatMoney(r.revPerHour),
-      ].map(esc).join(','));
+      push(rows, {
+        section: 'staff',
+        record_type: 'staff',
+        id: r.id,
+        name: r.name,
+        category: r.role,
+        hours: r.hours.toFixed(2),
+        orders: String(r.orderCount),
+        revenue: formatMoney(r.revenue),
+        amount: String(r.revenue),
+        profit: formatMoney(r.revPerHour),
+        notes: `avg_ticket=${formatMoney(r.aov)}; shifts=${String(r.shifts)}`,
+      });
+    }
+
+    // Recent transactions
+    for (const t of recentTransactions) {
+      push(rows, {
+        section: 'transactions',
+        record_type: 'payment',
+        date: t.date,
+        id: t.id,
+        method: t.payment,
+        amount: String(t.amount),
+        revenue: formatMoney(t.amount),
+        status: t.statusLabel,
+      });
+    }
+
+    const lines: string[] = [];
+    lines.push(headers.map(esc).join(','));
+    for (const r of rows) {
+      lines.push(headers.map((h) => esc(r[h])).join(','));
     }
 
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
@@ -898,10 +1051,433 @@ export const BranchReports: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const branchName = useMemo(() => {
+    const bid = remote?.branchId ? String(remote.branchId) : '';
+    if (!bid) return '';
+    const hit = branches.find((b) => b.id === bid);
+    return hit?.name || '';
+  }, [branches, remote?.branchId]);
+
+  const exportPdf = () => {
+    const esc = (s: string) =>
+      String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const title = `${branchName || 'Branch'} Analytics Report`;
+    const generatedAt = new Date().toISOString();
+
+    const asText = (v: unknown, fallback = '') => {
+      const s = String(v ?? '').trim();
+      return s || fallback;
+    };
+
+    const num = (v: unknown) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const fmt = (v: unknown) => formatMoney(num(v));
+
+    const headerLogo = businessHeader?.receipt?.logoDataUrl ? String(businessHeader.receipt.logoDataUrl) : '';
+    const headerBizName = businessHeader?.businessName || 'Business';
+    const headerBranchName = branchName || '';
+    const headerTin = businessHeader?.tin || '';
+    const headerAddress = businessHeader?.address || '';
+    const headerPhone = businessHeader?.phone || '';
+    const headerEmail = businessHeader?.email || '';
+
+    const topPayment = paymentBreakdown.length ? paymentBreakdown[0] : null;
+    const topCategory = categoryAgg.length ? [...categoryAgg].sort((a, b) => b.revenue - a.revenue)[0] : null;
+    const topProduct = productAgg.length ? [...productAgg].sort((a, b) => b.revenue - a.revenue)[0] : null;
+    const topStaff = staffPerformance.rows.length ? staffPerformance.rows[0] : null;
+    const avgTicket = ordersProcessed > 0 ? totalRevenue / ordersProcessed : 0;
+    const marginPct = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+
+    const summaryLines = [
+      `Total revenue: ${fmt(totalRevenue)} across ${String(ordersProcessed)} paid orders (avg ticket ${fmt(avgTicket)}).`,
+      `Total expenses: ${fmt(totalExpenses)}. Net profit: ${fmt(netProfit)} (${marginPct.toFixed(1)}% margin).`,
+      topPayment ? `Top payment method: ${String(topPayment[0])} (${fmt(topPayment[1].sum)}).` : '',
+      topCategory ? `Top category: ${String(topCategory.category)} (${fmt(topCategory.revenue)}).` : '',
+      topProduct ? `Top product: ${String(topProduct.name || topProduct.productId)} (${fmt(topProduct.revenue)}).` : '',
+      topStaff ? `Top staff: ${String(topStaff.name)} (${fmt(topStaff.revenue)} revenue, ${topStaff.hours.toFixed(1)} hours).` : '',
+    ].filter(Boolean);
+
+    const summaryHtml = summaryLines.map((l) => `<div class="sub">${esc(l)}</div>`).join('');
+
+    const kpi = [
+      { k: 'Total Revenue', v: fmt(totalRevenue), sub: `${revenueDelta >= 0 ? '+' : ''}${revenueDelta.toFixed(1)}% vs prev` },
+      { k: 'Total Expenses', v: `-${fmt(totalExpenses)}`, sub: `${expensesInRange.length} entries` },
+      { k: 'Net Profit', v: fmt(netProfit), sub: `${profitDelta >= 0 ? '+' : ''}${profitDelta.toFixed(1)}% vs prev` },
+      { k: 'Orders', v: asText(ordersProcessed), sub: `${ordersDelta >= 0 ? '+' : ''}${ordersDelta.toFixed(1)}% vs prev` },
+      { k: 'Avg Order', v: fmt(avgOrderValue), sub: `${aovDelta >= 0 ? '+' : ''}${aovDelta.toFixed(1)}% vs prev` },
+      { k: 'Cash Discrepancy', v: fmt(cashSummary.discrepancy), sub: `Expected ${fmt(cashSummary.expected)} • Actual ${fmt(cashSummary.actual)}` },
+    ];
+
+    const kpiHtml = kpi
+      .map(
+        (x) => `
+        <div class="kpi">
+          <div class="k">${esc(x.k)}</div>
+          <div class="v">${esc(x.v)}</div>
+          <div class="s">${esc(x.sub)}</div>
+        </div>`
+      )
+      .join('');
+
+    const paymentRows = paymentBreakdown
+      .map(([method, v]) => {
+        const pct = totalRevenue > 0 ? (num(v.sum) / totalRevenue) * 100 : 0;
+        return `
+          <tr>
+            <td>${esc(method)}</td>
+            <td class="right">${esc(fmt(v.sum))}</td>
+            <td class="right">${esc(String(v.count))}</td>
+            <td class="right">${esc(`${Math.max(0, Math.min(100, pct)).toFixed(1)}%`)}</td>
+          </tr>`;
+      })
+      .join('');
+
+    const dailyRows = dailyAgg
+      .slice(Math.max(0, dailyAgg.length - 31))
+      .map((r) => {
+        return `
+          <tr>
+            <td>${esc(r.date)}</td>
+            <td class="right">${esc(String(r.orderCount))}</td>
+            <td class="right">${esc(fmt(r.totalCollected || 0))}</td>
+            <td class="right">${esc(fmt(r.netSales || 0))}</td>
+          </tr>`;
+      })
+      .join('');
+
+    const categoryRows = categoryAgg
+      .slice(0, 20)
+      .map((c) => {
+        return `
+          <tr>
+            <td>${esc(c.category)}</td>
+            <td class="right">${esc(String(c.orderCount))}</td>
+            <td class="right">${esc(String(c.qtySold))}</td>
+            <td class="right">${esc(fmt(c.revenue))}</td>
+          </tr>`;
+      })
+      .join('');
+
+    const productRows = productAgg
+      .slice(0, 25)
+      .map((p) => {
+        return `
+          <tr>
+            <td>${esc(p.name || p.productId)}</td>
+            <td>${esc(p.category || '')}</td>
+            <td class="right">${esc(String(p.qtySold))}</td>
+            <td class="right">${esc(fmt(p.revenue))}</td>
+            <td class="right">${esc(fmt(p.profit))}</td>
+          </tr>`;
+      })
+      .join('');
+
+    const cashMetaHtml = `
+      <div class="grid2">
+        <div class="card">
+          <div class="k">Cash Sessions</div>
+          <div class="v">${esc(String(cashSummary.inRange.length))}</div>
+          <div class="s">Open ${esc(String(cashSummary.openCount))} • Closed ${esc(String(cashSummary.closedCount))}</div>
+        </div>
+        <div class="card">
+          <div class="k">Expected Cash</div>
+          <div class="v">${esc(fmt(cashSummary.expected))}</div>
+          <div class="s">Actual ${esc(fmt(cashSummary.actual))}</div>
+        </div>
+        <div class="card">
+          <div class="k">Discrepancy</div>
+          <div class="v ${Math.abs(cashSummary.discrepancy) < 0.01 ? 'ok' : 'warn'}">${esc(fmt(cashSummary.discrepancy))}</div>
+          <div class="s">Sum of closed sessions</div>
+        </div>
+        <div class="card">
+          <div class="k">Net Margin</div>
+          <div class="v">${esc(totalRevenue > 0 ? `${((netProfit / totalRevenue) * 100).toFixed(1)}%` : '0.0%')}</div>
+          <div class="s">Profit vs Revenue</div>
+        </div>
+      </div>`;
+
+    const expenseRows = expensesInRange
+      .slice(0, 60)
+      .map((e) => {
+        return `
+          <tr>
+            <td>${esc(new Date(e.createdAt).toISOString().slice(0, 19).replace('T', ' '))}</td>
+            <td>${esc(e.title)}</td>
+            <td>${esc(e.vendor)}</td>
+            <td class="right">-${esc(fmt(e.amount))}</td>
+          </tr>`;
+      })
+      .join('');
+
+    const shiftRows = shiftAgg
+      .slice(0, 40)
+      .map((s) => {
+        return `
+          <tr>
+            <td>${esc(s.openedAt ? new Date(s.openedAt).toISOString().slice(0, 19).replace('T', ' ') : '')}</td>
+            <td>${esc(s.staffName || '')}</td>
+            <td>${esc(s.status || '')}</td>
+            <td class="right">${esc(s.expectedCash == null ? '' : fmt(s.expectedCash))}</td>
+            <td class="right">${esc(s.closingCash == null ? '' : fmt(s.closingCash))}</td>
+            <td class="right">${esc(s.cashDifference == null ? '' : fmt(s.cashDifference))}</td>
+            <td class="right">${esc(String(s.orderCount))}</td>
+            <td class="right">${esc(fmt(s.totalCollected))}</td>
+          </tr>`;
+      })
+      .join('');
+
+    const voidRows = voidAgg
+      .slice(0, 80)
+      .map((e) => {
+        return `
+          <tr>
+            <td>${esc(e.occurredAt ? new Date(e.occurredAt).toISOString().slice(0, 19).replace('T', ' ') : '')}</td>
+            <td>${esc(e.type || '')}</td>
+            <td>${esc(e.orderId || '')}</td>
+            <td>${esc(e.productName || '')}</td>
+            <td class="right">${esc(String(e.qty))}</td>
+            <td class="right">${esc(fmt(e.amount))}</td>
+            <td>${esc(e.reason || '')}</td>
+            <td>${esc(e.performedBy || '')}</td>
+            <td>${esc(e.authorizedBy || '')}</td>
+          </tr>`;
+      })
+      .join('');
+
+    const staffRows = staffPerformance.rows
+      .slice(0, 40)
+      .map((r) => {
+        return `
+          <tr>
+            <td>${esc(r.name)}</td>
+            <td>${esc(r.role)}</td>
+            <td class="right">${esc(r.hours.toFixed(1))}</td>
+            <td class="right">${esc(String(r.shifts))}</td>
+            <td class="right">${esc(String(r.orderCount))}</td>
+            <td class="right">${esc(fmt(r.revenue))}</td>
+            <td class="right">${esc(fmt(r.revPerHour))}</td>
+            <td class="right">${esc(fmt(r.aov))}</td>
+          </tr>`;
+      })
+      .join('');
+
+    const txRows = paymentsSorted
+      .slice(0, 40)
+      .map((p) => {
+        return `
+          <tr>
+            <td>${esc(p.paidAt ? new Date(p.paidAt).toISOString().slice(0, 19).replace('T', ' ') : '')}</td>
+            <td>${esc(p.number ? `#${p.number}` : `#${p.id}`)}</td>
+            <td>${esc(p.method || '')}</td>
+            <td class="right">${esc(fmt(p.total ?? 0))}</td>
+          </tr>`;
+      })
+      .join('');
+
+    const html = `<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>${esc(title)}</title>
+          <style>
+            :root { color-scheme: light; }
+            body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background: #f3f4f6; color: #111827; }
+            .page { max-width: 940px; margin: 18px auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 12px 28px rgba(0,0,0,0.08); }
+            .wrap { padding: 18px; }
+            .head { display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; }
+            .brand { display:flex; align-items:flex-start; gap: 12px; }
+            .logo { width: 58px; height: 58px; border: 1px solid #e5e7eb; border-radius: 10px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#fff; }
+            .logo img { width: 100%; height: 100%; object-fit: cover; }
+            .meta { text-align:right; }
+            .title { font-size: 18px; font-weight: 900; }
+            .sub { font-size: 12px; color: #6b7280; margin-top: 4px; }
+            .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+            .grid2 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+            .kpi { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; background: #fafafa; }
+            .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; background: #fff; }
+            .k { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .08em; }
+            .v { font-size: 16px; font-weight: 900; margin-top: 6px; }
+            .s { font-size: 11px; color: #6b7280; margin-top: 4px; }
+            .ok { color: #047857; }
+            .warn { color: #b45309; }
+            h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; margin: 18px 0 8px; }
+            .section { break-inside: avoid; }
+            .hr { height: 1px; background: #e5e7eb; margin: 14px 0; }
+            table { width: 100%; border-collapse: collapse; }
+            thead { display: table-header-group; }
+            th { text-align: left; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid #e5e7eb; padding: 8px 0; }
+            td { font-size: 12px; border-bottom: 1px solid #f3f4f6; padding: 7px 0; vertical-align: top; }
+            .right { text-align: right; }
+            .note { font-size: 11px; color: #6b7280; margin-top: 10px; line-height: 1.35; }
+            .pagebreak { page-break-before: always; break-before: page; }
+            @media print {
+              body { background: #fff; }
+              .page { box-shadow: none; margin: 0; border: none; border-radius: 0; }
+              .wrap { padding: 10px; }
+              .grid2 { grid-template-columns: repeat(4, 1fr); }
+              .pagebreak { page-break-before: always; }
+            }
+            @page { size: A4; margin: 10mm; }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            <div class="wrap">
+              <div class="head">
+                <div class="brand">
+                  ${headerLogo ? `<div class="logo"><img src="${esc(headerLogo)}" alt="logo" /></div>` : `<div class="logo"></div>`}
+                  <div>
+                    <div class="title">${esc(headerBizName)}${headerBranchName ? ` — ${esc(headerBranchName)}` : ''}</div>
+                    <div class="sub">Analytics Report</div>
+                    <div class="sub">${esc(businessHeader?.legalName || '')}</div>
+                    ${businessHeader?.receipt?.showTin && headerTin ? `<div class="sub">TIN: ${esc(headerTin)}</div>` : ''}
+                    ${headerAddress ? `<div class="sub">${esc(headerAddress)}</div>` : ''}
+                    ${(headerPhone || headerEmail) ? `<div class="sub">${esc([headerPhone, headerEmail].filter(Boolean).join(' • '))}</div>` : ''}
+                  </div>
+                </div>
+                <div class="meta">
+                  <div class="sub">Generated: ${esc(new Date(generatedAt).toLocaleString())}</div>
+                  <div class="sub">Range: ${esc(formatDateLabel(effectiveRange.start))} → ${esc(formatDateLabel(addDays(effectiveRange.end, -1)))}</div>
+                </div>
+              </div>
+
+              <div class="hr"></div>
+              <div class="section">
+                <h2>Executive Summary</h2>
+                ${summaryHtml || `<div class="sub">No data for this range.</div>`}
+              </div>
+
+              <div class="grid">
+                ${kpiHtml}
+              </div>
+
+              <div class="hr"></div>
+
+              <div class="section">
+              <h2>Payment Mix</h2>
+              <table>
+                <thead><tr><th>Method</th><th class="right">Amount</th><th class="right">Orders</th><th class="right">% of Total</th></tr></thead>
+                <tbody>${paymentRows || `<tr><td colspan="4" style="color:#6b7280">No payments in range.</td></tr>`}</tbody>
+              </table>
+
+              <h2>Daily Trend</h2>
+              <table>
+                <thead><tr><th>Date</th><th class="right">Orders</th><th class="right">Collected</th><th class="right">Net Sales</th></tr></thead>
+                <tbody>${dailyRows || `<tr><td colspan="4" style="color:#6b7280">No daily summary in range.</td></tr>`}</tbody>
+              </table>
+              </div>
+
+              <div class="pagebreak"></div>
+              <div class="section">
+              <h2>Top Categories</h2>
+              <table>
+                <thead><tr><th>Category</th><th class="right">Orders</th><th class="right">Qty</th><th class="right">Revenue</th></tr></thead>
+                <tbody>${categoryRows || `<tr><td colspan="4" style="color:#6b7280">No category summary in range.</td></tr>`}</tbody>
+              </table>
+
+              <h2>Top Products</h2>
+              <table>
+                <thead><tr><th>Product</th><th>Category</th><th class="right">Qty</th><th class="right">Revenue</th><th class="right">Profit</th></tr></thead>
+                <tbody>${productRows || `<tr><td colspan="5" style="color:#6b7280">No product summary in range.</td></tr>`}</tbody>
+              </table>
+
+              <h2>Cash & Reconciliation</h2>
+              ${cashMetaHtml}
+              </div>
+
+              <div class="pagebreak"></div>
+              <div class="section">
+              <h2>Expenses (Top 60)</h2>
+              <table>
+                <thead><tr><th>Time</th><th>Title</th><th>Vendor</th><th class="right">Amount</th></tr></thead>
+                <tbody>${expenseRows || `<tr><td colspan="4" style="color:#6b7280">No expenses in range.</td></tr>`}</tbody>
+              </table>
+
+              <h2>Shift Reports (Top 40)</h2>
+              <table>
+                <thead><tr><th>Opened</th><th>Staff</th><th>Status</th><th class="right">Expected</th><th class="right">Actual</th><th class="right">Diff</th><th class="right">Orders</th><th class="right">Collected</th></tr></thead>
+                <tbody>${shiftRows || `<tr><td colspan="8" style="color:#6b7280">No shift reports in range.</td></tr>`}</tbody>
+              </table>
+
+              <h2>Voids & Refunds (Top 80)</h2>
+              <table>
+                <thead><tr><th>Time</th><th>Type</th><th>Order</th><th>Item</th><th class="right">Qty</th><th class="right">Amount</th><th>Reason</th><th>By</th><th>Authorized</th></tr></thead>
+                <tbody>${voidRows || `<tr><td colspan="9" style="color:#6b7280">No void/refund events in range.</td></tr>`}</tbody>
+              </table>
+              </div>
+
+              <div class="pagebreak"></div>
+              <div class="section">
+              <h2>Staff Performance (Top 40)</h2>
+              <table>
+                <thead><tr><th>Staff</th><th>Role</th><th class="right">Hours</th><th class="right">Shifts</th><th class="right">Orders</th><th class="right">Revenue</th><th class="right">Rev/Hour</th><th class="right">Avg Ticket</th></tr></thead>
+                <tbody>${staffRows || `<tr><td colspan="8" style="color:#6b7280">No staff performance records in range.</td></tr>`}</tbody>
+              </table>
+
+              <h2>Recent Transactions (Top 40)</h2>
+              <table>
+                <thead><tr><th>Time</th><th>Order</th><th>Payment</th><th class="right">Amount</th></tr></thead>
+                <tbody>${txRows || `<tr><td colspan="4" style="color:#6b7280">No transactions in range.</td></tr>`}</tbody>
+              </table>
+
+              <div class="note">
+                This report is generated from recorded paid orders, finance ledger entries, shift reports, and shift logs for the selected period.
+                Values are shown in ETB. If a staff member is currently clocked-in, hours are calculated up to the time of export.
+              </div>
+              </div>
+            </div>
+          </div>
+          <script>window.focus(); window.print();</script>
+        </body>
+      </html>`;
+
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  };
+
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#181611] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-[1200px] mx-auto flex flex-col gap-6">
+          <div className="rounded-xl border border-[#483c23] bg-[#2c241b] p-5 flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <div className="text-2xl font-black tracking-tight">Analytics</div>
+                <div className="text-sm text-[#c9b792] mt-1">
+                  {branchName ? `${branchName} • ` : ''}
+                  {formatDateLabel(effectiveRange.start)} → {formatDateLabel(addDays(effectiveRange.end, -1))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exportCsv}
+                  className="h-10 px-4 rounded-lg border border-[#483c23] bg-[#221c10] hover:bg-[#483c23]/20 text-white font-bold"
+                >
+                  Export CSV
+                </button>
+                <button
+                  onClick={exportPdf}
+                  className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] font-extrabold"
+                >
+                  Export PDF
+                </button>
+              </div>
+            </div>
+            {remoteLoading ? <div className="text-xs text-[#c9b792] font-bold">Loading analytics…</div> : null}
+          </div>
           {remoteError === 'select_branch' ? (
             <div className="p-4 rounded-xl bg-[#221c10] border border-[#393328]">
               <div className="text-sm font-extrabold">Select a branch to view reports</div>
@@ -921,18 +1497,18 @@ export const BranchReports: React.FC = () => {
             <div className="rounded-xl bg-red-900/20 border border-red-800 px-4 py-3 text-sm text-red-200">{remoteError}</div>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#483c23] bg-[#2c241b] p-4">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-text-muted">Date Range</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Date Range</span>
               <button
                 onClick={() => setDateMode('Period')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${dateMode === 'Period' ? 'bg-primary text-[#221c10] border-primary' : 'bg-surface-light text-text-muted border-border hover:text-white'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${dateMode === 'Period' ? 'bg-[#eead2b] text-[#221c10] border-[#eead2b]' : 'bg-[#221c10] text-[#c9b792] border-[#483c23] hover:text-white hover:bg-[#483c23]/20'}`}
               >
                 Period
               </button>
               <button
                 onClick={() => setDateMode('Custom')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${dateMode === 'Custom' ? 'bg-primary text-[#221c10] border-primary' : 'bg-surface-light text-text-muted border-border hover:text-white'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${dateMode === 'Custom' ? 'bg-[#eead2b] text-[#221c10] border-[#eead2b]' : 'bg-[#221c10] text-[#c9b792] border-[#483c23] hover:text-white hover:bg-[#483c23]/20'}`}
               >
                 Custom
               </button>
@@ -940,7 +1516,7 @@ export const BranchReports: React.FC = () => {
 
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-text-muted">From</span>
+                <span className="text-xs text-[#c9b792]">From</span>
                 <input
                   type="date"
                   value={fromDate}
@@ -948,11 +1524,11 @@ export const BranchReports: React.FC = () => {
                     setFromDate(e.target.value);
                     setDateMode('Custom');
                   }}
-                  className="h-9 rounded-lg border border-border bg-surface-light px-3 text-sm text-white"
+                  className="h-9 rounded-lg border border-[#483c23] bg-[#221c10] px-3 text-sm text-white"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-text-muted">To</span>
+                <span className="text-xs text-[#c9b792]">To</span>
                 <input
                   type="date"
                   value={toDate}
@@ -960,7 +1536,7 @@ export const BranchReports: React.FC = () => {
                     setToDate(e.target.value);
                     setDateMode('Custom');
                   }}
-                  className="h-9 rounded-lg border border-border bg-surface-light px-3 text-sm text-white"
+                  className="h-9 rounded-lg border border-[#483c23] bg-[#221c10] px-3 text-sm text-white"
                 />
               </div>
               <button
@@ -970,255 +1546,73 @@ export const BranchReports: React.FC = () => {
                   setFromDate(toIsoDate(addDays(now, -7)));
                   setToDate(toIsoDate(now));
                 }}
-                className="h-9 px-3 rounded-lg border border-border bg-surface-light text-text-muted text-sm font-bold hover:text-white"
+                className="h-9 px-3 rounded-lg border border-[#483c23] bg-[#221c10] text-[#c9b792] text-sm font-bold hover:text-white hover:bg-[#483c23]/20"
               >
                 Clear
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="flex flex-col rounded-xl p-6 bg-surface border border-border shadow-sm">
-              <div className="flex justify-between items-end mb-6">
-                <div>
-                  <h3 className="text-white text-lg font-bold">Top Categories</h3>
-                  <p className="text-text-muted text-sm">By revenue (total collected)</p>
-                </div>
-              </div>
-              <div className="flex flex-col gap-4 justify-center h-full">
-                {topCategories.length ? (
-                  topCategories.map((c: any) => (
-                    <div key={c.category} className="grid grid-cols-[140px_1fr_96px] items-center gap-3">
-                      <span className="text-sm font-medium text-white truncate">{c.category}</span>
-                      <div className="h-2 w-full bg-surface-light rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${c.pct}%` }}></div>
-                      </div>
-                      <span className="text-xs font-bold text-text-muted text-right font-mono">{formatMoney(c.revenue ?? 0)}</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-sm text-text-muted">No category summary in this period.</div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col rounded-xl p-6 bg-surface border border-border shadow-sm">
-              <div className="flex justify-between items-end mb-6">
-                <div>
-                  <h3 className="text-white text-lg font-bold">Shift Reports</h3>
-                  <p className="text-text-muted text-sm">Cash reconciliation (server-driven)</p>
-                </div>
-              </div>
-              <div className="overflow-x-auto rounded-xl border border-border bg-surface">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-light">
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted">Opened</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted">Staff</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted">Status</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted text-right">Expected</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted text-right">Actual</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted text-right">Diff</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {shiftAgg.length ? (
-                      shiftAgg.slice(0, 8).map((s) => (
-                        <tr key={s.id} className="hover:bg-surface-light/50 transition-colors">
-                          <td className="px-5 py-3 text-sm text-white">{s.openedAt ? new Date(s.openedAt).toLocaleString() : ' ”'}</td>
-                          <td className="px-5 py-3 text-sm text-white">{s.staffName || ' ”'}</td>
-                          <td className="px-5 py-3 text-sm text-text-muted">{s.status || ' ”'}</td>
-                          <td className="px-5 py-3 text-sm text-right font-mono text-white">{s.expectedCash == null ? ' ”' : formatMoney(s.expectedCash)}</td>
-                          <td className="px-5 py-3 text-sm text-right font-mono text-white">{s.closingCash == null ? ' ”' : formatMoney(s.closingCash)}</td>
-                          <td className={`px-5 py-3 text-sm text-right font-mono ${s.cashDifference == null ? 'text-text-muted' : Math.abs(s.cashDifference) < 0.01 ? 'text-success' : 'text-warning'}`}>
-                            {s.cashDifference == null ? ' ”' : formatMoney(s.cashDifference)}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td className="px-5 py-6 text-sm text-text-muted" colSpan={6}>No shift reports in this period.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col rounded-xl p-6 bg-surface border border-border shadow-sm">
-            <div className="flex justify-between items-end mb-4">
-              <div>
-                <h3 className="text-white text-lg font-bold">Voids & Refunds</h3>
-                <p className="text-text-muted text-sm">Audit trail (server-driven)</p>
-              </div>
-            </div>
-            <div className="overflow-x-auto rounded-xl border border-border bg-surface">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-border bg-surface-light">
-                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted">Time</th>
-                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted">Type</th>
-                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted">Item</th>
-                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted text-right">Qty</th>
-                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted text-right">Amount</th>
-                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted">Reason</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {voidAgg.length ? (
-                    voidAgg.slice(0, 12).map((e) => (
-                      <tr key={e.id} className="hover:bg-surface-light/50 transition-colors">
-                        <td className="px-5 py-3 text-sm text-white">{e.occurredAt ? new Date(e.occurredAt).toLocaleString() : ' ”'}</td>
-                        <td className="px-5 py-3 text-sm text-text-muted">{e.type || ' ”'}</td>
-                        <td className="px-5 py-3 text-sm text-white">{e.productName || ' ”'}</td>
-                        <td className="px-5 py-3 text-sm text-right font-mono text-white">{e.qty}</td>
-                        <td className="px-5 py-3 text-sm text-right font-mono font-bold text-white">{formatMoney(e.amount)}</td>
-                        <td className="px-5 py-3 text-sm text-text-muted">{e.reason || ' ”'}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td className="px-5 py-6 text-sm text-text-muted" colSpan={6}>No void/refund events in this period.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="flex flex-col gap-2 rounded-xl p-5 bg-surface border border-border shadow-sm">
+            <div className="flex flex-col gap-2 rounded-xl p-5 bg-[#2c241b] border border-[#483c23] shadow-sm">
               <div className="flex justify-between items-start">
-                <p className="text-text-muted text-sm font-medium">Total Revenue</p>
-                <span className="material-symbols-outlined text-primary bg-primary/10 p-1 rounded">payments</span>
+                <p className="text-[#c9b792] text-sm font-medium">Total Revenue</p>
+                <span className="material-symbols-outlined text-[#eead2b] bg-[#eead2b]/10 p-1 rounded">payments</span>
               </div>
               <p className="text-white text-2xl font-bold tracking-tight font-mono">{formatMoney(totalRevenue)}</p>
               <div className="flex items-center gap-1">
-                <span className={`material-symbols-outlined text-sm ${revenueDelta >= 0 ? 'text-success' : 'text-danger'}`}>{revenueDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
-                <p className={`${revenueDelta >= 0 ? 'text-success' : 'text-danger'} text-sm font-medium`}>{revenueDelta >= 0 ? '+' : ''}{revenueDelta.toFixed(1)}% <span className="text-text-muted font-normal">vs prev</span></p>
+                <span className={`material-symbols-outlined text-sm ${revenueDelta >= 0 ? 'text-green-300' : 'text-red-300'}`}>{revenueDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
+                <p className={`${revenueDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{revenueDelta >= 0 ? '+' : ''}{revenueDelta.toFixed(1)}% <span className="text-[#c9b792] font-normal">vs prev</span></p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 rounded-xl p-5 bg-surface border border-border shadow-sm">
+            <div className="flex flex-col gap-2 rounded-xl p-5 bg-[#2c241b] border border-[#483c23] shadow-sm">
               <div className="flex justify-between items-start">
-                <p className="text-text-muted text-sm font-medium">Net Profit</p>
-                <span className="material-symbols-outlined text-primary bg-primary/10 p-1 rounded">account_balance_wallet</span>
+                <p className="text-[#c9b792] text-sm font-medium">Net Profit</p>
+                <span className="material-symbols-outlined text-[#eead2b] bg-[#eead2b]/10 p-1 rounded">account_balance_wallet</span>
               </div>
               <p className="text-white text-2xl font-bold tracking-tight font-mono">{formatMoney(netProfit)}</p>
               <div className="flex items-center gap-1">
-                <span className={`material-symbols-outlined text-sm ${profitDelta >= 0 ? 'text-success' : 'text-danger'}`}>{profitDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
-                <p className={`${profitDelta >= 0 ? 'text-success' : 'text-danger'} text-sm font-medium`}>{profitDelta >= 0 ? '+' : ''}{profitDelta.toFixed(1)}% <span className="text-text-muted font-normal">vs prev</span></p>
+                <span className={`material-symbols-outlined text-sm ${profitDelta >= 0 ? 'text-green-300' : 'text-red-300'}`}>{profitDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
+                <p className={`${profitDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{profitDelta >= 0 ? '+' : ''}{profitDelta.toFixed(1)}% <span className="text-[#c9b792] font-normal">vs prev</span></p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 rounded-xl p-5 bg-surface border border-border shadow-sm">
+            <div className="flex flex-col gap-2 rounded-xl p-5 bg-[#2c241b] border border-[#483c23] shadow-sm">
               <div className="flex justify-between items-start">
-                <p className="text-text-muted text-sm font-medium">Orders Processed</p>
-                <span className="material-symbols-outlined text-primary bg-primary/10 p-1 rounded">receipt_long</span>
+                <p className="text-[#c9b792] text-sm font-medium">Orders Processed</p>
+                <span className="material-symbols-outlined text-[#eead2b] bg-[#eead2b]/10 p-1 rounded">receipt_long</span>
               </div>
               <p className="text-white text-2xl font-bold tracking-tight">{ordersProcessed}</p>
               <div className="flex items-center gap-1">
-                <span className={`material-symbols-outlined text-sm ${ordersDelta >= 0 ? 'text-success' : 'text-danger'}`}>{ordersDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
-                <p className={`${ordersDelta >= 0 ? 'text-success' : 'text-danger'} text-sm font-medium`}>{ordersDelta >= 0 ? '+' : ''}{ordersDelta.toFixed(1)}% <span className="text-text-muted font-normal">vs prev</span></p>
+                <span className={`material-symbols-outlined text-sm ${ordersDelta >= 0 ? 'text-green-300' : 'text-red-300'}`}>{ordersDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
+                <p className={`${ordersDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{ordersDelta >= 0 ? '+' : ''}{ordersDelta.toFixed(1)}% <span className="text-[#c9b792] font-normal">vs prev</span></p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 rounded-xl p-5 bg-surface border border-border shadow-sm">
+            <div className="flex flex-col gap-2 rounded-xl p-5 bg-[#2c241b] border border-[#483c23] shadow-sm">
               <div className="flex justify-between items-start">
-                <p className="text-text-muted text-sm font-medium">Avg Order Value</p>
-                <span className="material-symbols-outlined text-primary bg-primary/10 p-1 rounded">shopping_basket</span>
+                <p className="text-[#c9b792] text-sm font-medium">Avg Order Value</p>
+                <span className="material-symbols-outlined text-[#eead2b] bg-[#eead2b]/10 p-1 rounded">shopping_basket</span>
               </div>
               <p className="text-white text-2xl font-bold tracking-tight font-mono">{formatMoney(avgOrderValue)}</p>
               <div className="flex items-center gap-1">
-                <span className={`material-symbols-outlined text-sm ${aovDelta >= 0 ? 'text-success' : 'text-danger'}`}>{aovDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
-                <p className={`${aovDelta >= 0 ? 'text-success' : 'text-danger'} text-sm font-medium`}>{aovDelta >= 0 ? '+' : ''}{aovDelta.toFixed(1)}% <span className="text-text-muted font-normal">vs prev</span></p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 flex flex-col rounded-xl p-6 bg-surface border border-border shadow-sm">
-              <div className="flex justify-between items-end mb-4">
-                <div>
-                  <h3 className="text-white text-lg font-bold">Cash & Reconciliation</h3>
-                  <p className="text-text-muted text-sm">Expected vs counted cash sessions</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <div className="text-xs text-text-muted">Expected</div>
-                    <div className="text-white font-mono font-bold">{formatMoney(cashSummary.expected)}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-text-muted">Actual</div>
-                    <div className="text-white font-mono font-bold">{formatMoney(cashSummary.actual)}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-text-muted">Discrepancy</div>
-                    <div className={`font-mono font-bold ${Math.abs(cashSummary.discrepancy) < 0.01 ? 'text-success' : 'text-warning'}`}>{formatMoney(cashSummary.discrepancy)}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="rounded-xl border border-border bg-surface-light p-4">
-                  <div className="text-xs text-text-muted uppercase tracking-wider">Sessions</div>
-                  <div className="text-white font-bold mt-1">{cashSummary.inRange.length}</div>
-                  <div className="text-text-muted text-sm">Open {cashSummary.openCount}    Closed {cashSummary.closedCount}</div>
-                </div>
-                <div className="rounded-xl border border-border bg-surface-light p-4">
-                  <div className="text-xs text-text-muted uppercase tracking-wider">Expenses</div>
-                  <div className="text-white font-mono font-bold mt-1">{formatMoney(totalExpenses)}</div>
-                  <div className="text-text-muted text-sm">{expensesInRange.length} entries</div>
-                </div>
-                <div className="rounded-xl border border-border bg-surface-light p-4">
-                  <div className="text-xs text-text-muted uppercase tracking-wider">Net Margin</div>
-                  <div className="text-white font-bold mt-1">{totalRevenue > 0 ? `${Math.max(-999, Math.min(999, (netProfit / totalRevenue) * 100)).toFixed(1)}%` : '0.0%'}</div>
-                  <div className="text-text-muted text-sm">Profit vs revenue</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col rounded-xl p-6 bg-surface border border-border shadow-sm">
-              <div className="flex justify-between items-end mb-4">
-                <div>
-                  <h3 className="text-white text-lg font-bold">Payment Mix</h3>
-                  <p className="text-text-muted text-sm">By method</p>
-                </div>
-              </div>
-              <div className="flex flex-col gap-3">
-                {paymentBreakdown.length ? (
-                  paymentBreakdown.slice(0, 6).map(([method, v]) => {
-                    const pct = totalRevenue > 0 ? Math.round((v.sum / totalRevenue) * 100) : 0;
-                    return (
-                      <div key={method} className="flex flex-col gap-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-white font-medium truncate">{method}</span>
-                          <span className="text-text-muted font-mono">{formatMoney(v.sum)}</span>
-                        </div>
-                        <div className="h-2 w-full bg-surface-light rounded-full overflow-hidden">
-                          <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-sm text-text-muted">No payments in this period.</div>
-                )}
+                <span className={`material-symbols-outlined text-sm ${aovDelta >= 0 ? 'text-green-300' : 'text-red-300'}`}>{aovDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
+                <p className={`${aovDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{aovDelta >= 0 ? '+' : ''}{aovDelta.toFixed(1)}% <span className="text-[#c9b792] font-normal">vs prev</span></p>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="flex flex-col rounded-xl p-6 bg-surface border border-border shadow-sm">
+            <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
               <div className="flex justify-between items-end mb-6">
                 <div>
                   <h3 className="text-white text-lg font-bold">Revenue Trend</h3>
-                  <p className="text-text-muted text-sm">Paid orders only</p>
+                  <p className="text-[#c9b792] text-sm">Paid orders only</p>
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-white font-mono">{formatMoney(totalRevenue)}</span>
-                  <span className="text-sm font-medium text-success">Live</span>
+                  <span className="text-sm font-medium text-green-300">Live</span>
                 </div>
               </div>
               <div className="relative w-full aspect-[2/1] min-h-[220px]">
@@ -1238,15 +1632,15 @@ export const BranchReports: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex flex-col rounded-xl p-6 bg-surface border border-border shadow-sm">
+            <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
               <div className="flex justify-between items-end mb-6">
                 <div>
                   <h3 className="text-white text-lg font-bold">Top Selling Products</h3>
-                  <p className="text-text-muted text-sm">By quantity sold</p>
+                  <p className="text-[#c9b792] text-sm">By quantity sold</p>
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-white">{topProducts.reduce((s, x) => s + x.qty, 0)}</span>
-                  <span className="text-sm font-medium text-text-muted">Items</span>
+                  <span className="text-sm font-medium text-[#c9b792]">Items</span>
                 </div>
               </div>
               <div className="flex flex-col gap-4 justify-center h-full">
@@ -1254,67 +1648,252 @@ export const BranchReports: React.FC = () => {
                   topProducts.map((p) => (
                     <div key={p.name} className="grid grid-cols-[140px_1fr_56px] items-center gap-3">
                       <span className="text-sm font-medium text-white truncate">{p.name}</span>
-                      <div className="h-2 w-full bg-surface-light rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${p.pct}%` }}></div>
+                      <div className="h-2 w-full bg-[#221c10] rounded-full overflow-hidden border border-[#483c23]">
+                        <div className="h-full bg-[#eead2b] rounded-full" style={{ width: `${p.pct}%` }}></div>
                       </div>
-                      <span className="text-xs font-bold text-text-muted text-right">{p.qty}</span>
+                      <span className="text-xs font-bold text-[#c9b792] text-right">{p.qty}</span>
                     </div>
                   ))
                 ) : (
-                  <div className="text-sm text-text-muted">No sales in this period.</div>
+                  <div className="text-sm text-[#c9b792]">No sales in this period.</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+              <div className="flex justify-between items-end mb-6">
+                <div>
+                  <h3 className="text-white text-lg font-bold">Top Categories</h3>
+                  <p className="text-[#c9b792] text-sm">By revenue (total collected)</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-4 justify-center h-full">
+                {topCategories.length ? (
+                  topCategories.map((c: any) => (
+                    <div key={c.category} className="grid grid-cols-[140px_1fr_96px] items-center gap-3">
+                      <span className="text-sm font-medium text-white truncate">{c.category}</span>
+                      <div className="h-2 w-full bg-[#221c10] rounded-full overflow-hidden border border-[#483c23]">
+                        <div
+                          className="h-full bg-[#eead2b] rounded-full"
+                          style={{ width: `${Number.isFinite(Number(c.pct)) ? Math.max(0, Math.min(100, Number(c.pct))) : 0}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-xs font-bold text-[#c9b792] text-right font-mono">{formatMoney(c.revenue ?? 0)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-[#c9b792]">No category summary in this period.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+              <div className="flex justify-between items-end mb-6">
+                <div>
+                  <h3 className="text-white text-lg font-bold">Shift Reports</h3>
+                  <p className="text-[#c9b792] text-sm">Cash reconciliation (server-driven)</p>
+                </div>
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-[#483c23] bg-[#221c10]">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-[#483c23] bg-[#2c241b]">
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Opened</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Staff</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Status</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Expected</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Actual</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Diff</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#483c23]">
+                    {shiftAgg.length ? (
+                      shiftAgg.slice(0, 8).map((s) => (
+                        <tr key={s.id} className="hover:bg-[#483c23]/20 transition-colors">
+                          <td className="px-5 py-3 text-sm text-white">{s.openedAt ? new Date(s.openedAt).toLocaleString() : ' ”'}</td>
+                          <td className="px-5 py-3 text-sm text-white">{s.staffName || ' ”'}</td>
+                          <td className="px-5 py-3 text-sm text-[#c9b792]">{s.status || ' ”'}</td>
+                          <td className="px-5 py-3 text-sm text-right font-mono text-white">{s.expectedCash == null ? ' ”' : formatMoney(s.expectedCash)}</td>
+                          <td className="px-5 py-3 text-sm text-right font-mono text-white">{s.closingCash == null ? ' ”' : formatMoney(s.closingCash)}</td>
+                          <td className={`px-5 py-3 text-sm text-right font-mono ${s.cashDifference == null ? 'text-[#c9b792]' : Math.abs(s.cashDifference) < 0.01 ? 'text-green-300' : 'text-orange-300'}`}>
+                            {s.cashDifference == null ? ' ”' : formatMoney(s.cashDifference)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="px-5 py-6 text-sm text-[#c9b792]" colSpan={6}>No shift reports in this period.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="flex justify-between items-end mb-4">
+              <div>
+                <h3 className="text-white text-lg font-bold">Voids & Refunds</h3>
+                <p className="text-[#c9b792] text-sm">Audit trail (server-driven)</p>
+              </div>
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-[#483c23] bg-[#221c10]">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-[#483c23] bg-[#2c241b]">
+                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Time</th>
+                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Type</th>
+                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Item</th>
+                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Qty</th>
+                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Amount</th>
+                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Reason</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#483c23]">
+                  {voidAgg.length ? (
+                    voidAgg.slice(0, 12).map((e) => (
+                      <tr key={e.id} className="hover:bg-[#483c23]/20 transition-colors">
+                        <td className="px-5 py-3 text-sm text-white">{e.occurredAt ? new Date(e.occurredAt).toLocaleString() : ' ”'}</td>
+                        <td className="px-5 py-3 text-sm text-[#c9b792]">{e.type || ' ”'}</td>
+                        <td className="px-5 py-3 text-sm text-white">{e.productName || ' ”'}</td>
+                        <td className="px-5 py-3 text-sm text-right font-mono text-white">{e.qty}</td>
+                        <td className="px-5 py-3 text-sm text-right font-mono font-bold text-white">{formatMoney(e.amount)}</td>
+                        <td className="px-5 py-3 text-sm text-[#c9b792]">{e.reason || ' ”'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="px-5 py-6 text-sm text-[#c9b792]" colSpan={6}>No void/refund events in this period.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+              <div className="flex justify-between items-end mb-4">
+                <div>
+                  <h3 className="text-white text-lg font-bold">Cash & Reconciliation</h3>
+                  <p className="text-[#c9b792] text-sm">Expected vs counted cash sessions</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <div className="text-xs text-[#c9b792]">Expected</div>
+                    <div className="text-white font-mono font-bold">{formatMoney(cashSummary.expected)}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-[#c9b792]">Actual</div>
+                    <div className="text-white font-mono font-bold">{formatMoney(cashSummary.actual)}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-[#c9b792]">Discrepancy</div>
+                    <div className={`font-mono font-bold ${Math.abs(cashSummary.discrepancy) < 0.01 ? 'text-green-300' : 'text-orange-300'}`}>{formatMoney(cashSummary.discrepancy)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
+                  <div className="text-xs text-[#c9b792] uppercase tracking-wider">Sessions</div>
+                  <div className="text-white font-bold mt-1">{cashSummary.inRange.length}</div>
+                  <div className="text-[#c9b792] text-sm">Open {cashSummary.openCount}    Closed {cashSummary.closedCount}</div>
+                </div>
+                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
+                  <div className="text-xs text-[#c9b792] uppercase tracking-wider">Expenses</div>
+                  <div className="text-white font-mono font-bold mt-1">{formatMoney(totalExpenses)}</div>
+                  <div className="text-[#c9b792] text-sm">{expensesInRange.length} entries</div>
+                </div>
+                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
+                  <div className="text-xs text-[#c9b792] uppercase tracking-wider">Net Margin</div>
+                  <div className="text-white font-bold mt-1">{totalRevenue > 0 ? `${Math.max(-999, Math.min(999, (netProfit / totalRevenue) * 100)).toFixed(1)}%` : '0.0%'}</div>
+                  <div className="text-[#c9b792] text-sm">Profit vs revenue</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+              <div className="flex justify-between items-end mb-4">
+                <div>
+                  <h3 className="text-white text-lg font-bold">Payment Mix</h3>
+                  <p className="text-[#c9b792] text-sm">By method</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3">
+                {paymentBreakdown.length ? (
+                  paymentBreakdown.slice(0, 6).map(([method, v]) => {
+                    const pct = totalRevenue > 0 ? Math.round((v.sum / totalRevenue) * 100) : 0;
+                    return (
+                      <div key={method} className="flex flex-col gap-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-white font-medium truncate">{method}</span>
+                          <span className="text-[#c9b792] font-mono">{formatMoney(v.sum)}</span>
+                        </div>
+                        <div className="h-2 w-full bg-[#221c10] rounded-full overflow-hidden border border-[#483c23]">
+                          <div className="h-full bg-[#eead2b] rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-sm text-[#c9b792]">No payments in this period.</div>
                 )}
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 flex flex-col rounded-xl p-6 bg-surface border border-border shadow-sm">
+            <div className="lg:col-span-2 flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
               <div className="flex justify-between items-end mb-4">
                 <div>
                   <h3 className="text-white text-lg font-bold">Staff Performance</h3>
-                  <p className="text-text-muted text-sm">Waiter & team metrics for this period</p>
+                  <p className="text-[#c9b792] text-sm">Waiter & team metrics for this period</p>
                 </div>
                 <div className="flex items-end gap-6">
                   <div className="text-right">
-                    <div className="text-xs text-text-muted">Total Hours</div>
+                    <div className="text-xs text-[#c9b792]">Total Hours</div>
                     <div className="text-white font-mono font-bold">{staffPerformance.totalHours.toFixed(1)}h</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-text-muted">Top Performer</div>
+                    <div className="text-xs text-[#c9b792]">Top Performer</div>
                     <div className="text-white font-bold">{staffPerformance.top?.name ?? ' ”'}</div>
                   </div>
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-border bg-surface">
+              <div className="overflow-x-auto rounded-xl border border-[#483c23] bg-[#221c10]">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-border bg-surface-light">
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted">Staff</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted">Role</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted text-right">Hours</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted text-right">Orders</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted text-right">Revenue</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted text-right">Rev/Hour</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-text-muted text-right">Avg Ticket</th>
+                    <tr className="border-b border-[#483c23] bg-[#2c241b]">
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Staff</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Role</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Hours</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Orders</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Revenue</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Rev/Hour</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Avg Ticket</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-[#483c23]">
                     {staffPerformance.rows.length ? (
                       staffPerformance.rows.slice(0, 12).map((r, idx) => (
-                        <tr key={r.id} className="hover:bg-surface-light/50 transition-colors">
+                        <tr key={r.id} className="hover:bg-[#483c23]/20 transition-colors">
                           <td className="px-5 py-3 text-sm text-white font-medium">
                             <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-surface-light overflow-hidden flex items-center justify-center">
-                                <span className="material-symbols-outlined text-text-muted">person</span>
+                              <div className="h-8 w-8 rounded-full bg-[#483c23]/35 overflow-hidden flex items-center justify-center">
+                                <span className="material-symbols-outlined text-[#c9b792]">person</span>
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-white">{idx === 0 ? `#1 ${r.name}` : r.name}</span>
-                                <span className="text-xs text-text-muted">{r.shifts} shifts</span>
+                                <span className="text-xs text-[#c9b792]">{r.shifts} shifts</span>
                               </div>
                             </div>
                           </td>
-                          <td className="px-5 py-3 text-sm text-text-muted">{r.role}</td>
+                          <td className="px-5 py-3 text-sm text-[#c9b792]">{r.role}</td>
                           <td className="px-5 py-3 text-sm text-right font-mono text-white">{r.hours.toFixed(1)}</td>
                           <td className="px-5 py-3 text-sm text-right font-mono text-white">{r.orderCount}</td>
                           <td className="px-5 py-3 text-sm text-right font-mono font-bold text-white">{formatMoney(r.revenue)}</td>
@@ -1324,36 +1903,36 @@ export const BranchReports: React.FC = () => {
                       ))
                     ) : (
                       <tr>
-                        <td className="px-5 py-6 text-sm text-text-muted" colSpan={7}>No staff metrics yet. Clock-in/out and order assignment will populate this.</td>
+                        <td className="px-5 py-6 text-sm text-[#c9b792]" colSpan={7}>No staff metrics yet. Clock-in/out and order assignment will populate this.</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
-              <div className="mt-4 text-xs text-text-muted">
+              <div className="mt-4 text-xs text-[#c9b792]">
                 Staff revenue uses paid orders with `createdByStaffId`. Hours use shift logs overlapping the selected period.
               </div>
             </div>
 
-            <div className="flex flex-col rounded-xl p-6 bg-surface border border-border shadow-sm">
+            <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
               <div className="flex justify-between items-end mb-4">
                 <div>
                   <h3 className="text-white text-lg font-bold">Service KPIs</h3>
-                  <p className="text-text-muted text-sm">Operational snapshot</p>
+                  <p className="text-[#c9b792] text-sm">Operational snapshot</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3">
-                <div className="rounded-xl border border-border bg-surface-light p-4">
-                  <div className="text-xs text-text-muted uppercase tracking-wider">Active Staff</div>
+                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
+                  <div className="text-xs text-[#c9b792] uppercase tracking-wider">Active Staff</div>
                   <div className="text-white font-bold mt-1">{staff.filter((s) => s.status === 'Active').length}</div>
                 </div>
-                <div className="rounded-xl border border-border bg-surface-light p-4">
-                  <div className="text-xs text-text-muted uppercase tracking-wider">On Leave</div>
+                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
+                  <div className="text-xs text-[#c9b792] uppercase tracking-wider">On Leave</div>
                   <div className="text-white font-bold mt-1">{staff.filter((s) => s.status === 'On Leave').length}</div>
                 </div>
-                <div className="rounded-xl border border-border bg-surface-light p-4">
-                  <div className="text-xs text-text-muted uppercase tracking-wider">Orders / Staff (avg)</div>
+                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
+                  <div className="text-xs text-[#c9b792] uppercase tracking-wider">Orders / Staff (avg)</div>
                   <div className="text-white font-bold mt-1">{staffPerformance.rows.length ? (ordersProcessed / staffPerformance.rows.length).toFixed(1) : '0.0'}</div>
                 </div>
               </div>
@@ -1363,37 +1942,37 @@ export const BranchReports: React.FC = () => {
           <div className="flex flex-col gap-4">
             <div className="flex justify-between items-center">
               <h3 className="text-white text-lg font-bold">Recent Transactions</h3>
-              <button onClick={() => setShowAll((s) => !s)} className="text-primary hover:text-primary-hover text-sm font-bold flex items-center gap-1">
+              <button onClick={() => setShowAll((s) => !s)} className="text-[#eead2b] hover:text-[#d49a26] text-sm font-bold flex items-center gap-1">
                 {showAll ? 'Show Less' : 'View All'} <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </button>
             </div>
-            <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-sm">
+            <div className="overflow-x-auto rounded-xl border border-[#483c23] bg-[#221c10] shadow-sm">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-border bg-surface-light">
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-text-muted">Date/Time</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-text-muted">Order ID</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-text-muted">Payment</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-text-muted text-right">Amount</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-text-muted text-center">Status</th>
+                  <tr className="border-b border-[#483c23] bg-[#2c241b]">
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Date/Time</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Order ID</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Payment</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Amount</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-center">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-[#483c23]">
                   {(showAll ? recentTransactions : recentTransactions.slice(0, 10)).length ? (
                     (showAll ? recentTransactions : recentTransactions.slice(0, 10)).map((t) => {
                       const pill =
                         t.statusTone === 'success'
-                          ? 'bg-success/10 text-success border border-success/20'
+                          ? 'bg-green-500/10 text-green-300 border border-green-500/20'
                           : t.statusTone === 'muted'
-                            ? 'bg-surface-light text-text-muted border border-border'
-                            : 'bg-warning/10 text-warning border border-warning/20';
+                            ? 'bg-[#2c241b] text-[#c9b792] border border-[#483c23]'
+                            : 'bg-orange-500/10 text-orange-300 border border-orange-500/20';
                       const icon = t.payment.toLowerCase().includes('card') ? 'credit_card' : t.payment.toLowerCase().includes('cash') ? 'payments' : 'smartphone';
                       return (
-                        <tr key={t.id} className="hover:bg-surface-light/50 transition-colors">
+                        <tr key={t.id} className="hover:bg-[#483c23]/20 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-medium">{t.date}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-text-muted font-mono">{t.id}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[#c9b792] font-mono">{t.id}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-white flex items-center gap-2">
-                            <span className="material-symbols-outlined text-lg text-text-muted">{icon}</span>
+                            <span className="material-symbols-outlined text-lg text-[#c9b792]">{icon}</span>
                             {t.payment}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-bold text-right font-mono">{formatMoney(t.amount)}</td>
@@ -1405,7 +1984,7 @@ export const BranchReports: React.FC = () => {
                     })
                   ) : (
                     <tr>
-                      <td className="px-6 py-6 text-sm text-text-muted" colSpan={5}>No transactions in this period.</td>
+                      <td className="px-6 py-6 text-sm text-[#c9b792]" colSpan={5}>No transactions in this period.</td>
                     </tr>
                   )}
                 </tbody>

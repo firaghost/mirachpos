@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Header } from '../../components/Header';
 import { Modal } from '../../components/Modal';
 import { apiFetch } from '../../api';
+import { readSession } from '../../session';
+import { Button } from '../../components/ui/button';
 
 type CustomerRow = {
   id: string;
@@ -25,6 +27,10 @@ export const ManagerCustomers: React.FC = () => {
 
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [total, setTotal] = useState(0);
+
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,30 +47,70 @@ export const ManagerCustomers: React.FC = () => {
     return () => window.clearTimeout(t);
   }, [flash]);
 
+  const resolveOwnerBranchOverride = () => {
+    try {
+      const raw = localStorage.getItem('mirachpos.owner.selectedBranchId.v1') || '';
+      return String(raw || '').trim();
+    } catch {
+      return '';
+    }
+  };
+
+  const normalizeApiError = (raw: unknown): string => {
+    const s = String(raw || '').trim();
+    if (!s) return 'Something went wrong.';
+    if (s === 'phone_in_use') return 'This phone is already registered.';
+    if (s === 'branch_required') return 'Select a branch first.';
+    if (s === 'name_required') return 'Name is required.';
+    if (s === 'phone_required') return 'Phone is required.';
+    if (s === 'not_found') return 'Customer not found.';
+    return s;
+  };
+
+  const resolveBranchIdForOwner = (): string => {
+    try {
+      const session = readSession<any>();
+      const role = typeof session?.role === 'string' ? session.role : '';
+      const tokenBranchId = typeof session?.branchId === 'string' ? session.branchId : '';
+      const branchOverride = role === 'Cafe Owner' && (!tokenBranchId || tokenBranchId === 'global') ? resolveOwnerBranchOverride() : '';
+      return branchOverride;
+    } catch {
+      return '';
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     try {
       const qs = new URLSearchParams();
-      qs.set('limit', '500');
+      qs.set('page', String(page));
+      qs.set('pageSize', String(pageSize));
       if (query.trim()) qs.set('q', query.trim());
+      const branchOverride = resolveBranchIdForOwner();
+      if (branchOverride) qs.set('branchId', branchOverride);
       const res = await apiFetch(`/api/manager/customers?${qs.toString()}`);
       const json = (await res.json().catch(() => null)) as any;
-      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(normalizeApiError(json?.error || `HTTP ${res.status}`));
       const rows = Array.isArray(json?.customers) ? (json.customers as any[]) : [];
+      setTotal(Number(json?.total ?? 0) || 0);
       const next: CustomerRow[] = rows
-        .map((c) => ({
-          id: String(c.id || ''),
-          name: String(c.name || ''),
-          phone: String(c.phone || ''),
-          loyaltyPoints: Number(c.loyaltyPoints ?? c.loyalty_points ?? 0) || 0,
-          loyaltyBalance: Number(c.loyaltyBalance ?? c.loyalty_balance ?? 0) || 0,
-          status: (String(c.status || 'Active') as any) === 'Suspended' ? 'Suspended' : 'Active',
-          updatedAt: typeof c.updatedAt === 'string' ? c.updatedAt : typeof c.updated_at === 'string' ? c.updated_at : null,
-        }))
+        .map((c) => {
+          const status: CustomerRow['status'] = String(c.status || 'Active') === 'Suspended' ? 'Suspended' : 'Active';
+          return {
+            id: String(c.id || ''),
+            name: String(c.name || ''),
+            phone: String(c.phone || ''),
+            loyaltyPoints: Number(c.loyaltyPoints ?? c.loyalty_points ?? 0) || 0,
+            loyaltyBalance: Number(c.loyaltyBalance ?? c.loyalty_balance ?? 0) || 0,
+            status,
+            updatedAt: typeof c.updatedAt === 'string' ? c.updatedAt : typeof c.updated_at === 'string' ? c.updated_at : null,
+          };
+        })
         .filter((c) => c.id && c.name);
       setCustomers(next);
     } catch (e) {
       setCustomers([]);
+      setTotal(0);
       setFlash({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to load customers.' });
     } finally {
       setLoading(false);
@@ -80,7 +126,7 @@ export const ManagerCustomers: React.FC = () => {
     const t = window.setTimeout(() => void load(), 250);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [query]);
+   }, [query, page, pageSize]);
 
   const openNew = () => {
     setEditId('__new__');
@@ -136,23 +182,27 @@ export const ManagerCustomers: React.FC = () => {
     setBusy(true);
     void (async () => {
       try {
+        const branchOverride = resolveBranchIdForOwner();
+        const qs = new URLSearchParams();
+        if (branchOverride) qs.set('branchId', branchOverride);
+        const suffix = qs.toString() ? `?${qs.toString()}` : '';
         if (editId === '__new__') {
-          const res = await apiFetch('/api/manager/customers', {
+          const res = await apiFetch(`/api/manager/customers${suffix}` , {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, phone, loyaltyPoints, loyaltyBalance, status: draftStatus }),
           });
           const json = (await res.json().catch(() => null)) as any;
-          if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+          if (!res.ok) throw new Error(normalizeApiError(json?.error || `HTTP ${res.status}`));
           setFlash({ kind: 'success', message: 'Customer created.' });
         } else if (editId) {
-          const res = await apiFetch(`/api/manager/customers/${encodeURIComponent(editId)}`, {
+          const res = await apiFetch(`/api/manager/customers/${encodeURIComponent(editId)}${suffix}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, phone, loyaltyPoints, loyaltyBalance, status: draftStatus }),
           });
           const json = (await res.json().catch(() => null)) as any;
-          if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+          if (!res.ok) throw new Error(normalizeApiError(json?.error || `HTTP ${res.status}`));
           setFlash({ kind: 'success', message: 'Customer updated.' });
         }
         closeModal();
@@ -165,19 +215,36 @@ export const ManagerCustomers: React.FC = () => {
     })();
   };
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return customers;
-    return customers.filter((c) => c.name.toLowerCase().includes(q) || c.phone.toLowerCase().includes(q) || c.id.toLowerCase().includes(q));
-  }, [customers, query]);
+  const filtered = useMemo(() => customers, [customers]);
+
+  const totalPages = useMemo(() => {
+    const ps = Math.max(1, Number(pageSize) || 1);
+    return Math.max(1, Math.ceil((Number(total) || 0) / ps));
+  }, [pageSize, total]);
+
+  const deleteTarget = useMemo(() => {
+    if (!deleteId) return null;
+    return customers.find((c) => c.id === deleteId) ?? null;
+  }, [customers, deleteId]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-none border-b border-border">
-        <Header title="Customers" subtitle="Customer contacts and loyalty" />
-      </div>
+    <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">
+      <header className="h-16 shrink-0 border-b border-[#362b18] bg-[#221c10]/95 backdrop-blur flex items-center justify-between px-8 z-10">
+        <div>
+          <h2 className="text-white text-xl font-bold">Customers</h2>
+          <p className="text-[#c9b792] text-xs">Customer contacts and loyalty</p>
+        </div>
+        <button
+          onClick={openNew}
+          disabled={busy || loading}
+          className="h-10 px-4 bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] rounded-lg font-bold text-sm flex items-center gap-2 transition-colors disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-[18px]">add</span>
+          Add Customer
+        </button>
+      </header>
 
-      <div className="flex-1 overflow-y-auto p-6 lg:p-10">
+      <div className="flex-1 overflow-y-auto p-6 lg:p-8">
         <div className="max-w-7xl mx-auto flex flex-col gap-4">
           {flash ? (
             <div
@@ -194,75 +261,113 @@ export const ManagerCustomers: React.FC = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-2 w-full md:max-w-xl">
               <div className="relative w-full">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-text-muted text-lg">search</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#c9b792] text-lg">search</span>
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-border bg-surface focus:ring-2 focus:ring-primary focus:outline-none placeholder:text-text-muted text-white"
-                  placeholder="Search by name, phone, or ID ¦"
+                  disabled={busy}
+                  className="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-[#483c23] bg-[#2c241b] focus:ring-2 focus:ring-[#eead2b]/40 focus:outline-none placeholder:text-[#c9b792]/60 text-white disabled:opacity-60"
+                  placeholder="Search by name, phone, or ID"
                   type="text"
                 />
               </div>
             </div>
-            <button
-              onClick={openNew}
-              className="px-4 py-2 bg-primary text-background font-bold rounded-lg flex items-center gap-2"
-            >
-              <span className="material-symbols-outlined text-[18px]">add</span>
-              Add Customer
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-[#c9b792]">{loading ? 'Loading...' : `${total.toLocaleString()} customers`}</div>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPage(1);
+                  setPageSize(Number(e.target.value) || 50);
+                }}
+                disabled={busy || loading}
+                className="h-9 px-2 rounded-lg border border-[#483c23] bg-[#2c241b] text-xs text-[#c9b792] disabled:opacity-60"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+              </select>
+            </div>
           </div>
 
-          <div className="bg-surface rounded-xl border border-border overflow-hidden">
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-[#c9b792]">Page {page} / {totalPages}</div>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={busy || loading || page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="h-9 px-3 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white text-xs font-bold disabled:opacity-60"
+              >
+                Prev
+              </button>
+              <button
+                disabled={busy || loading || page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="h-9 px-3 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white text-xs font-bold disabled:opacity-60"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-[#362b18] rounded-xl border border-[#483c23] overflow-hidden">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-surface-light border-b border-border">
-                  <th className="p-4 text-xs font-bold text-text-muted uppercase">Name</th>
-                  <th className="p-4 text-xs font-bold text-text-muted uppercase">Phone</th>
-                  <th className="p-4 text-xs font-bold text-text-muted uppercase text-right">Points</th>
-                  <th className="p-4 text-xs font-bold text-text-muted uppercase text-right">Balance</th>
-                  <th className="p-4 text-xs font-bold text-text-muted uppercase">Status</th>
-                  <th className="p-4 text-xs font-bold text-text-muted uppercase text-right">Action</th>
+                <tr className="bg-[#221c10] border-b border-[#483c23]">
+                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Name</th>
+                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Phone</th>
+                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase text-right">Points</th>
+                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase text-right">Balance</th>
+                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Status</th>
+                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-[#483c23]">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="p-6 text-text-muted text-sm">
-                      Loading customers ¦
+                    <td colSpan={6} className="p-6 text-[#c9b792] text-sm">
+                      Loading customers...
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-6 text-text-muted text-sm">
+                    <td colSpan={6} className="p-6 text-[#c9b792] text-sm">
                       No customers.
                     </td>
                   </tr>
                 ) : (
                   filtered.map((c) => (
-                    <tr key={c.id} className="hover:bg-surface-light/50 transition-colors">
+                    <tr key={c.id} className="hover:bg-[#42351f] transition-colors">
                       <td className="p-4">
                         <div className="flex flex-col">
                           <span className="text-sm font-bold text-white">{c.name}</span>
-                          <span className="text-xs text-text-muted">{c.id}</span>
+                          <span className="text-xs text-[#c9b792]">{c.id}</span>
                         </div>
                       </td>
-                      <td className="p-4 text-sm text-text-muted">{c.phone}</td>
+                      <td className="p-4 text-sm text-[#c9b792]">{c.phone}</td>
                       <td className="p-4 text-sm font-mono text-white text-right">{c.loyaltyPoints.toLocaleString()}</td>
                       <td className="p-4 text-sm font-mono text-white text-right">{formatMoney(c.loyaltyBalance)}</td>
                       <td className="p-4">
-                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${c.status === 'Active' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}`}>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full font-bold border ${
+                            c.status === 'Active'
+                              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                          }`}
+                        >
                           {c.status}
                         </span>
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-3">
-                          <button onClick={() => openEdit(c)} className="text-primary hover:text-primary-hover text-sm font-bold">
+                          <button disabled={busy || loading} onClick={() => openEdit(c)} className="text-[#eead2b] hover:opacity-90 text-sm font-bold disabled:opacity-60">
                             Edit
                           </button>
                           <button
                             onClick={() => setDeleteId(c.id)}
-                            className="text-red-400 hover:text-red-300 text-sm font-bold"
+                            disabled={busy || loading}
+                            className="text-red-400 hover:text-red-300 text-sm font-bold disabled:opacity-60"
                           >
                             Delete
                           </button>
@@ -285,14 +390,14 @@ export const ManagerCustomers: React.FC = () => {
           <div className="flex gap-3">
             <button
               onClick={closeModal}
-              className="flex-1 h-11 rounded-lg bg-surface-light hover:bg-border border border-border text-white font-semibold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors"
               disabled={busy}
             >
               Cancel
             </button>
             <button
               onClick={submit}
-              className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary-hover text-background font-extrabold transition-colors disabled:opacity-60"
+              className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-extrabold transition-colors disabled:opacity-60"
               disabled={busy}
             >
               {busy ? 'Saving ¦' : 'Save'}
@@ -301,28 +406,28 @@ export const ManagerCustomers: React.FC = () => {
         }
       >
         <div className="flex flex-col gap-3">
-          <label className="text-sm font-bold text-text-muted">Name</label>
-          <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" />
+          <label className="text-sm font-bold text-[#c9b792]">Name</label>
+          <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
 
-          <label className="text-sm font-bold text-text-muted">Phone</label>
-          <input value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" />
+          <label className="text-sm font-bold text-[#c9b792]">Phone</label>
+          <input value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-bold text-text-muted">Loyalty Points</label>
-              <input value={draftPoints} onChange={(e) => setDraftPoints(e.target.value)} className="mt-2 w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" />
+              <label className="text-sm font-bold text-[#c9b792]">Loyalty Points</label>
+              <input value={draftPoints} onChange={(e) => setDraftPoints(e.target.value)} className="mt-2 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
             </div>
             <div>
-              <label className="text-sm font-bold text-text-muted">Loyalty Balance (ETB)</label>
-              <input value={draftBalance} onChange={(e) => setDraftBalance(e.target.value)} className="mt-2 w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" />
+              <label className="text-sm font-bold text-[#c9b792]">Loyalty Balance (ETB)</label>
+              <input value={draftBalance} onChange={(e) => setDraftBalance(e.target.value)} className="mt-2 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
             </div>
           </div>
 
-          <label className="text-sm font-bold text-text-muted">Status</label>
+          <label className="text-sm font-bold text-[#c9b792]">Status</label>
           <select
             value={draftStatus}
             onChange={(e) => setDraftStatus(e.target.value as any)}
-            className="w-full h-10 px-2 rounded-lg border border-border bg-surface text-sm text-text-muted focus:outline-none"
+            className="w-full h-10 px-2 rounded-lg border border-[#483c23] bg-[#221c10] text-sm text-[#c9b792] focus:outline-none"
           >
             <option value="Active">Active</option>
             <option value="Suspended">Suspended</option>
@@ -338,7 +443,7 @@ export const ManagerCustomers: React.FC = () => {
           <div className="flex gap-3">
             <button
               onClick={() => setDeleteId(null)}
-              className="flex-1 h-11 rounded-lg bg-surface-light hover:bg-border border border-border text-white font-semibold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors"
               disabled={busy}
             >
               Cancel
@@ -350,9 +455,13 @@ export const ManagerCustomers: React.FC = () => {
                 setBusy(true);
                 void (async () => {
                   try {
-                    const res = await apiFetch(`/api/manager/customers/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                    const branchOverride = resolveBranchIdForOwner();
+                    const qs = new URLSearchParams();
+                    if (branchOverride) qs.set('branchId', branchOverride);
+                    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+                    const res = await apiFetch(`/api/manager/customers/${encodeURIComponent(id)}${suffix}`, { method: 'DELETE' });
                     const json = (await res.json().catch(() => null)) as any;
-                    if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+                    if (!res.ok) throw new Error(normalizeApiError(json?.error || `HTTP ${res.status}`));
                     setDeleteId(null);
                     setFlash({ kind: 'success', message: 'Customer deleted.' });
                     await load();
@@ -371,7 +480,11 @@ export const ManagerCustomers: React.FC = () => {
           </div>
         }
       >
-        <div className="text-sm text-text-muted">This will permanently remove the customer.</div>
+        <div className="text-sm text-[#c9b792]">
+          <div className="font-bold text-white">{deleteTarget?.name || 'This customer'}</div>
+          {deleteTarget?.phone ? <div className="mt-1">Phone: <span className="text-white font-mono">{deleteTarget.phone}</span></div> : null}
+          <div className="mt-3">This will permanently remove the customer.</div>
+        </div>
       </Modal>
     </div>
   );

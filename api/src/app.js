@@ -36,6 +36,7 @@ const { makeGuestsRouter } = require('./routes/guests');
 const { makeManagerFinanceRouter } = require('./routes/managerFinance');
 const { makeManagerMenuRouter } = require('./routes/managerMenu');
 const { makeManagerSuppliersRouter } = require('./routes/managerSuppliers');
+const { makeManagerPurchaseOrdersRouter } = require('./routes/managerPurchaseOrders');
 const { makeManagerAuditRouter } = require('./routes/managerAudit');
 const { makeManagerPaymentsRouter } = require('./routes/managerPayments');
 const { makeManagerCustomersRouter } = require('./routes/managerCustomers');
@@ -177,6 +178,7 @@ const createApp = () => {
   app.use('/api', makeManagerFinanceRouter());
   app.use('/api', makeManagerMenuRouter());
   app.use('/api', makeManagerSuppliersRouter());
+  app.use('/api', makeManagerPurchaseOrdersRouter());
   app.use('/api', makeManagerAuditRouter());
   app.use('/api', makeManagerPaymentsRouter());
   app.use('/api', makeManagerCustomersRouter());

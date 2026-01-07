@@ -7,6 +7,7 @@ const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 
 const { loadEntitlements, requireModule, enforceStaffLimit } = require('../middleware/entitlements');
+const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const roleKindFromName = (name) => {
   const n = String(name || '').toLowerCase();
@@ -100,27 +101,111 @@ const nextStaffCode = async (trx, { tenantId, cafeName, roleName }) => {
 
 const ensureDefaultRoles = async (trx, tenantId) => {
   const defaults = [
-    { idPrefix: 'r_owner', name: 'Cafe Owner', scope: 'global', permissions: ['*'] },
-    { idPrefix: 'r_manager', name: 'Branch Manager', scope: 'branch', permissions: ['*'] },
-    { idPrefix: 'r_waiter', name: 'Waiter', scope: 'branch', permissions: ['*'] },
-    { idPrefix: 'r_kitchen', name: 'Kitchen', scope: 'branch', permissions: ['*'] },
-    { idPrefix: 'r_barista', name: 'Barista', scope: 'branch', permissions: ['*'] },
+    {
+      idPrefix: 'r_owner',
+      name: 'Cafe Owner',
+      scope: 'global',
+      permissions: [
+        'roles.read',
+        'roles.create',
+        'roles.update',
+        'roles.delete',
+        'invites.read',
+        'invites.create',
+        'invites.delete',
+        'branches.read',
+        'branches.create',
+        'branches.update',
+        'branches.delete',
+        'staff.read',
+        'staff.create',
+        'staff.update',
+        'staff.delete',
+        'staff.activity.read',
+        'reports.read',
+        'reports.export',
+        'manager.settings.read',
+        'manager.settings.write',
+        'finance.read',
+        'finance.write',
+        'menu.manage',
+        'inventory.manage',
+        'settings.manage',
+      ],
+    },
+    {
+      idPrefix: 'r_manager',
+      name: 'Branch Manager',
+      scope: 'branch',
+      permissions: [
+        'staff.read',
+        'staff.create',
+        'staff.update',
+        'staff.delete',
+        'staff.activity.read',
+        'reports.read',
+        'reports.export',
+        'manager.settings.read',
+        'manager.settings.write',
+        'orders.read',
+        'orders.void',
+        'orders.refund',
+        'payments.read',
+        'finance.read',
+        'inventory.read',
+        'inventory.update',
+        'kds.view',
+        'kds.configure',
+      ],
+    },
+    {
+      idPrefix: 'r_waiter',
+      name: 'Waiter',
+      scope: 'branch',
+      permissions: ['orders.create', 'orders.read', 'orders.update', 'payments.process'],
+    },
+    {
+      idPrefix: 'r_kitchen',
+      name: 'Kitchen',
+      scope: 'branch',
+      permissions: ['kds.view', 'kds.update'],
+    },
+    {
+      idPrefix: 'r_barista',
+      name: 'Barista',
+      scope: 'branch',
+      permissions: ['orders.create', 'orders.read', 'kds.view'],
+    },
   ];
 
-  const existing = await trx.from('roles').where({ tenant_id: tenantId }).select(['name']);
-  const have = new Set(existing.map((x) => String(x.name || '')));
+  const existing = await trx.from('roles').where({ tenant_id: tenantId }).select(['id', 'name', 'scope', 'permissions']);
+  const existingByName = new Map(existing.map((x) => [String(x.name || ''), x]));
   const createdAt = nowIso();
 
   for (const d of defaults) {
-    if (have.has(d.name)) continue;
+    const ex = existingByName.get(d.name);
+    if (!ex) {
+      // eslint-disable-next-line no-await-in-loop
+      await trx.from('roles').insert({
+        id: makeId(d.idPrefix),
+        tenant_id: tenantId,
+        name: d.name,
+        scope: d.scope,
+        permissions: JSON.stringify(d.permissions),
+        created_at: createdAt,
+      });
+      continue;
+    }
+
+    // If a default role exists but still uses wildcard/empty permissions, upgrade it.
+    const current = Array.isArray(safeJsonParse(ex.permissions, [])) ? safeJsonParse(ex.permissions, []).map(String) : [];
+    const shouldUpgrade = current.length === 0 || (current.length === 1 && current[0] === '*');
+    if (!shouldUpgrade) continue;
+
     // eslint-disable-next-line no-await-in-loop
-    await trx.from('roles').insert({
-      id: makeId(d.idPrefix),
-      tenant_id: tenantId,
-      name: d.name,
+    await trx.from('roles').where({ tenant_id: tenantId, id: String(ex.id) }).update({
       scope: d.scope,
       permissions: JSON.stringify(d.permissions),
-      created_at: createdAt,
     });
   }
 };
@@ -128,23 +213,16 @@ const ensureDefaultRoles = async (trx, tenantId) => {
 const makeOwnerStaffRouter = () => {
   const r = express.Router();
 
-  const requireOwner = (req, res) => {
-    if (req.auth?.tenantId !== req.tenant.id) {
-      res.status(403).json({ error: 'forbidden' });
-      return false;
-    }
-    const role = String(req.auth?.role || '');
-    if (role !== 'Cafe Owner') {
-      res.status(403).json({ error: 'forbidden' });
-      return false;
-    }
-    return true;
-  };
-
-  r.get('/owner/roles', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
+  r.get(
+    '/owner/roles',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('settings'),
+    requireRole('Cafe Owner'),
+    requirePermission('roles.read'),
+    async (req, res, next) => {
     try {
-      if (!requireOwner(req, res)) return;
-
       try {
         await db().transaction(async (trx) => {
           await ensureDefaultRoles(trx, req.tenant.id);
@@ -170,12 +248,19 @@ const makeOwnerStaffRouter = () => {
     } catch (e) {
       return next(e);
     }
-  });
+    }
+  );
 
-  r.post('/owner/roles', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
+  r.post(
+    '/owner/roles',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('settings'),
+    requireRole('Cafe Owner'),
+    requirePermission('roles.create'),
+    async (req, res, next) => {
     try {
-      if (!requireOwner(req, res)) return;
-
       const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
       const scope = req.body?.scope === 'global' ? 'global' : 'branch';
       const permissions = Array.isArray(req.body?.permissions) ? req.body.permissions.map(String) : [];
@@ -206,12 +291,19 @@ const makeOwnerStaffRouter = () => {
     } catch (e) {
       return next(e);
     }
-  });
+    }
+  );
 
-  r.put('/owner/roles/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
+  r.put(
+    '/owner/roles/:id',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('settings'),
+    requireRole('Cafe Owner'),
+    requirePermission('roles.update'),
+    async (req, res, next) => {
     try {
-      if (!requireOwner(req, res)) return;
-
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'invalid_id' });
 
@@ -241,12 +333,19 @@ const makeOwnerStaffRouter = () => {
     } catch (e) {
       return next(e);
     }
-  });
+    }
+  );
 
-  r.delete('/owner/roles/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
+  r.delete(
+    '/owner/roles/:id',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('settings'),
+    requireRole('Cafe Owner'),
+    requirePermission('roles.delete'),
+    async (req, res, next) => {
     try {
-      if (!requireOwner(req, res)) return;
-
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'invalid_id' });
 
@@ -269,12 +368,19 @@ const makeOwnerStaffRouter = () => {
     } catch (e) {
       return next(e);
     }
-  });
+    }
+  );
 
-  r.get('/owner/invites', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
+  r.get(
+    '/owner/invites',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('settings'),
+    requireRole('Cafe Owner'),
+    requirePermission('invites.read'),
+    async (req, res, next) => {
     try {
-      if (!requireOwner(req, res)) return;
-
       const rows = await db()
         .select([
           'i.id',
@@ -308,12 +414,19 @@ const makeOwnerStaffRouter = () => {
     } catch (e) {
       return next(e);
     }
-  });
+    }
+  );
 
-  r.post('/owner/invites', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
+  r.post(
+    '/owner/invites',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('settings'),
+    requireRole('Cafe Owner'),
+    requirePermission('invites.create'),
+    async (req, res, next) => {
     try {
-      if (!requireOwner(req, res)) return;
-
       const roleName = typeof req.body?.roleName === 'string' ? req.body.roleName.trim() : '';
       const branchId = typeof req.body?.branchId === 'string' ? req.body.branchId.trim() : '';
       const expiresInDays = Number(req.body?.expiresInDays || 7);
@@ -335,74 +448,31 @@ const makeOwnerStaffRouter = () => {
       await db().from('owner_invites').insert({
         id,
         tenant_id: req.tenant.id,
+        code,
         role_name: roleName,
         branch_id: branchId || null,
-        code,
-        expires_at: exp,
         created_at: createdAt,
+        expires_at: exp,
+        used_at: null,
+        used_by_staff_id: null,
       });
 
-      return res.status(201).json({ ok: true, invite: { id, code, roleName, branchId: branchId || '', expiresAt: exp, createdAt } });
+      await logAudit({
+        tenantId: req.tenant.id,
+        branchId: branchId || null,
+        actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+        actorRole: req.auth?.role ? String(req.auth.role) : null,
+        type: 'invite_created',
+        summary: `Created invite ${code}`,
+        payload: { inviteId: id, code, roleName, branchId: branchId || null, expiresAt: exp },
+      });
+
+      return res.status(201).json({ ok: true, invite: { id, code, roleName, branchId, createdAt, expiresAt: exp } });
     } catch (e) {
       return next(e);
     }
-  });
-
-  r.get('/owner/staff/activity', tenantMiddleware, requireAuth, loadEntitlements, requireModule('staff'), async (req, res, next) => {
-    try {
-      if (!requireOwner(req, res)) return;
-
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
-      const type = typeof req.query?.type === 'string' ? req.query.type.trim() : '';
-      const page = Math.max(1, Number(req.query?.page || 1) || 1);
-      const pageSize = Math.max(1, Math.min(50, Number(req.query?.pageSize || 10) || 10));
-      const offset = (page - 1) * pageSize;
-
-      let base = db().from({ a: 'audit_log' }).where({ 'a.tenant_id': req.tenant.id });
-      if (type) base = base.andWhere('a.type', type);
-
-      // q is best-effort: match on type/summary/payload
-      if (q) {
-        base = base.andWhere((b) => {
-          b.where('a.type', 'like', `%${q}%`).orWhere('a.summary', 'like', `%${q}%`).orWhere('a.payload_json', 'like', `%${q}%`);
-        });
-      }
-
-      const totalRow = await base.clone().count({ c: '*' }).first();
-      const total = Number(totalRow?.c ?? totalRow?.count ?? totalRow?.['count(*)'] ?? 0) || 0;
-
-      const rows = await base
-        .clone()
-        .leftJoin({ s: 'staff' }, function joinStaff() {
-          this.on('s.id', '=', 'a.actor_staff_id').andOn('s.tenant_id', '=', 'a.tenant_id');
-        })
-        .select(['a.id', 'a.type', 'a.branch_id', 'a.actor_staff_id', 'a.actor_role', 'a.summary', 'a.payload_json', 'a.created_at', 's.name as actor_name', 's.email as actor_email'])
-        .orderBy('a.created_at', 'desc')
-        .limit(pageSize)
-        .offset(offset);
-
-      const events = rows.map((x) => {
-        const payload = safeJsonParse(x.payload_json, {});
-        const actor = {
-          staffId: x.actor_staff_id ? String(x.actor_staff_id) : '',
-          role: x.actor_role ? String(x.actor_role) : '',
-          name: x.actor_name ? String(x.actor_name) : '',
-          email: x.actor_email ? String(x.actor_email) : '',
-        };
-        return {
-          id: String(x.id),
-          type: String(x.type),
-          branchId: x.branch_id ? String(x.branch_id) : 'global',
-          at: x.created_at ? new Date(x.created_at).toISOString() : '',
-          payload: { ...payload, actor, summary: String(x.summary || '') },
-        };
-      });
-
-      return res.json({ ok: true, events, page, pageSize, total });
-    } catch (e) {
-      return next(e);
     }
-  });
+  );
 
   r.get('/owner/staff', tenantMiddleware, requireAuth, loadEntitlements, requireModule('staff'), async (req, res, next) => {
     try {

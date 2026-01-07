@@ -15,6 +15,7 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const {
     getDailySalesSummary,
@@ -51,7 +52,7 @@ const makeEnhancedReportsRouter = () => {
     const r = express.Router();
 
     // Get hourly sales heatmap
-    r.get('/owner/reports/hourly', tenantMiddleware, requireAuth, async (req, res, next) => {
+    r.get('/owner/reports/hourly', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
         try {
             if (!requireOwnerAuth(req, res)) return;
 
@@ -98,7 +99,7 @@ const makeEnhancedReportsRouter = () => {
     });
 
     // Get product performance
-    r.get('/owner/reports/products', tenantMiddleware, requireAuth, async (req, res, next) => {
+    r.get('/owner/reports/products', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
         try {
             if (!requireOwnerAuth(req, res)) return;
 
@@ -147,7 +148,7 @@ const makeEnhancedReportsRouter = () => {
     });
 
     // Get shift reports list
-    r.get('/owner/reports/shifts', tenantMiddleware, requireAuth, async (req, res, next) => {
+    r.get('/owner/reports/shifts', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
         try {
             if (!requireOwnerAuth(req, res)) return;
 
@@ -231,7 +232,7 @@ const makeEnhancedReportsRouter = () => {
     });
 
     // Get single shift report
-    r.get('/owner/reports/shifts/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+    r.get('/owner/reports/shifts/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
         try {
             if (!requireOwnerAuth(req, res)) return;
 
@@ -290,7 +291,7 @@ const makeEnhancedReportsRouter = () => {
     });
 
     // Get void/refund analysis
-    r.get('/owner/reports/voids-refunds', tenantMiddleware, requireAuth, async (req, res, next) => {
+    r.get('/owner/reports/voids-refunds', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
         try {
             if (!requireOwnerAuth(req, res)) return;
 
@@ -388,7 +389,7 @@ const makeEnhancedReportsRouter = () => {
     });
 
     // Trigger report aggregation (manual)
-    r.post('/owner/reports/aggregate', tenantMiddleware, requireAuth, async (req, res, next) => {
+    r.post('/owner/reports/aggregate', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
         try {
             if (!requireOwnerAuth(req, res)) return;
 
@@ -431,7 +432,7 @@ const makeEnhancedReportsRouter = () => {
     });
 
     // Export report data as CSV
-    r.get('/owner/reports/export/csv', tenantMiddleware, requireAuth, async (req, res, next) => {
+    r.get('/owner/reports/export/csv', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
         try {
             if (!requireOwnerAuth(req, res)) return;
 
@@ -502,7 +503,7 @@ const makeEnhancedReportsRouter = () => {
     });
 
     // Export report data as PDF
-    r.get('/owner/reports/export/pdf', tenantMiddleware, requireAuth, async (req, res, next) => {
+    r.get('/owner/reports/export/pdf', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
         try {
             if (!requireOwnerAuth(req, res)) return;
 

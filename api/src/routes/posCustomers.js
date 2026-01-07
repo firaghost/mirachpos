@@ -4,6 +4,7 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { uid } = require('../utils/ids');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const normalizeIso = (raw) => {
   const s = String(raw || '').trim();
@@ -44,7 +45,7 @@ const makePosCustomersRouter = () => {
   });
 
   // Lightweight customer search for POS flows
-  r.get('/pos/customers', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/pos/customers', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
@@ -69,7 +70,7 @@ const makePosCustomersRouter = () => {
   });
 
   // Create customer (POS)
-  r.post('/pos/customers', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/pos/customers', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
@@ -107,7 +108,7 @@ const makePosCustomersRouter = () => {
   });
 
   // Update loyalty or profile (POS)
-  r.put('/pos/customers/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/pos/customers/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 

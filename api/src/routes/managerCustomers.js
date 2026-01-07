@@ -4,6 +4,8 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { uid } = require('../utils/ids');
+const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const normalizeIso = (raw) => {
   const s = String(raw || '').trim();
@@ -15,15 +17,6 @@ const normalizeIso = (raw) => {
 
 const makeManagerCustomersRouter = () => {
   const r = express.Router();
-
-  const resolveBranchId = (req) => {
-    const role = String(req.auth?.role || '');
-    const fromToken = String(req.auth?.branchId || '');
-    const q = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
-
-    if (role === 'Cafe Owner' && (!fromToken || fromToken === 'global')) return q || '';
-    return fromToken;
-  };
 
   const requireManagerOrOwner = (req, res) => {
     if (req.auth?.tenantId !== req.tenant.id) {
@@ -49,14 +42,15 @@ const makeManagerCustomersRouter = () => {
     updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
   });
 
-  r.get('/manager/customers', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/manager/customers', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
-      const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 200) || 200));
+      const page = Math.max(1, Number(req.query?.page || 1) || 1);
+      const pageSize = Math.max(1, Math.min(200, Number(req.query?.pageSize || req.query?.limit || 50) || 50));
+      const offset = (page - 1) * pageSize;
       const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
 
       let query = db().from('customers').where({ tenant_id: req.tenant.id, branch_id: branchId });
@@ -66,19 +60,26 @@ const makeManagerCustomersRouter = () => {
         });
       }
 
-      const rows = await query.select(['id', 'name', 'phone', 'loyalty_points', 'loyalty_balance', 'status', 'created_at', 'updated_at']).orderBy('updated_at', 'desc').limit(limit);
-      return res.json({ ok: true, branchId, customers: rows.map(mapCustomer) });
+      const totalRow = await query.clone().count({ c: '*' }).first();
+      const total = Number(totalRow?.c ?? totalRow?.count ?? totalRow?.['count(*)'] ?? 0) || 0;
+
+      const rows = await query
+        .select(['id', 'name', 'phone', 'loyalty_points', 'loyalty_balance', 'status', 'created_at', 'updated_at'])
+        .orderBy('updated_at', 'desc')
+        .limit(pageSize)
+        .offset(offset);
+
+      return res.json({ ok: true, branchId, page, pageSize, total, customers: rows.map(mapCustomer) });
     } catch (e) {
       return next(e);
     }
   });
 
-  r.post('/manager/customers', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/manager/customers', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const name = String(req.body?.name || '').trim();
       const phone = String(req.body?.phone || '').trim();
@@ -115,12 +116,11 @@ const makeManagerCustomersRouter = () => {
     }
   });
 
-  r.put('/manager/customers/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/manager/customers/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });
@@ -148,12 +148,11 @@ const makeManagerCustomersRouter = () => {
     }
   });
 
-  r.delete('/manager/customers/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.delete('/manager/customers/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });

@@ -5,6 +5,7 @@ const { db } = require('../db');
 
 const { loadEntitlements, requireModule, enforceBranchLimit } = require('../middleware/entitlements');
 const { makeId } = require('../utils/ids');
+const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const makeBranchesRouter = () => {
   const r = express.Router();
@@ -84,10 +85,17 @@ const makeBranchesRouter = () => {
   });
 
   // Owner creates new branch (used by OwnerBranches screen)
-  r.post('/branches/register', tenantMiddleware, requireAuth, loadEntitlements, requireModule('branches'), enforceBranchLimit, async (req, res, next) => {
+  r.post(
+    '/branches/register',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('branches'),
+    requireRole('Cafe Owner'),
+    requirePermission('branches.create'),
+    enforceBranchLimit,
+    async (req, res, next) => {
     try {
-      if (!requireOwner(req, res)) return;
-
       const body = req.body && typeof req.body === 'object' ? req.body : null;
       const name = typeof body?.name === 'string' ? body.name.trim() : '';
       if (!name) return res.status(400).json({ error: 'name_required' });
@@ -124,15 +132,23 @@ const makeBranchesRouter = () => {
         payload: { id, name, status },
       });
 
-      return res.status(201).json({ ok: true, id });
+      return res.status(201).json({ ok: true, branch: { id, name, status, rating: safeRating } });
     } catch (e) {
       return next(e);
     }
-  });
+    }
+  );
 
-  r.put('/branches/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('branches'), async (req, res, next) => {
+  r.put(
+    '/branches/:id',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('branches'),
+    requireRole('Cafe Owner'),
+    requirePermission('branches.update'),
+    async (req, res, next) => {
     try {
-      if (!requireOwner(req, res)) return;
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'invalid_id' });
 
@@ -172,11 +188,19 @@ const makeBranchesRouter = () => {
     } catch (e) {
       return next(e);
     }
-  });
+    }
+  );
 
-  r.delete('/branches/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('branches'), async (req, res, next) => {
+  r.delete(
+    '/branches/:id',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('branches'),
+    requireRole('Cafe Owner'),
+    requirePermission('branches.delete'),
+    async (req, res, next) => {
     try {
-      if (!requireOwner(req, res)) return;
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'invalid_id' });
 
@@ -200,7 +224,8 @@ const makeBranchesRouter = () => {
     } catch (e) {
       return next(e);
     }
-  });
+    }
+  );
 
   r.post('/branches/:id/events', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), async (req, res, next) => {
     try {

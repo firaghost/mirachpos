@@ -4,6 +4,7 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -18,7 +19,7 @@ const safeJsonParse = (raw, fallback) => {
 const makeSyncRouter = () => {
   const r = express.Router();
 
-  r.post('/sync/push', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/sync/push', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
@@ -150,7 +151,7 @@ const makeSyncRouter = () => {
     }
   });
 
-  r.get('/sync/pull', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/sync/pull', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
@@ -184,7 +185,7 @@ const makeSyncRouter = () => {
     }
   });
 
-  r.get('/sync/drafts/inbox', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/sync/drafts/inbox', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 

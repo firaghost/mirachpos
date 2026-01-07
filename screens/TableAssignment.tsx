@@ -5,6 +5,7 @@ import { Header } from '../components/Header';
 import { Screen } from '../types';
 import { usePos } from '../PosContext';
 import { apiFetch } from '../api';
+import { readSession } from '../session';
 
 type StaffRow = { id: string; name: string; roleName?: string; roleId?: string; status?: string };
 
@@ -45,6 +46,13 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
   const [remoteStaff, setRemoteStaff] = useState<StaffRow[]>([]);
 
   useEffect(() => {
+    try {
+      const s = readSession<any>();
+      const role = typeof s?.role === 'string' ? s.role : '';
+      if (role !== 'Branch Manager' && role !== 'Cafe Owner') return;
+    } catch {
+      return;
+    }
     let mounted = true;
     const run = async () => {
       try {
@@ -167,13 +175,15 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
               onClick={() => {
                 const id = deleteTargetId;
                 if (!id) return;
-                const res = deleteTable(id);
-                if (!res.ok) {
-                  setActionBanner(res.error === 'table_has_open_order' ? 'Cannot delete a table with an open order.' : 'Failed to delete table.');
+                const t = tables.find((x) => x.id === id) as any;
+                if (t && t.openOrderId) {
+                  setActionBanner('Cannot delete a table with an open order.');
                   setDeleteOpen(false);
                   setDeleteTargetId('');
                   return;
                 }
+
+                deleteTable(id);
                 setActionBanner('Table deleted.');
                 setDeleteOpen(false);
                 setDeleteTargetId('');
@@ -304,10 +314,18 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                             const isSelected = selectedTableIds.has(table.id);
                             const assigned = table.assignedStaffId ? staffById.get(table.assignedStaffId) : null;
                             return (
-                                <button
+                                <div
                                     key={table.id}
                                     onDoubleClick={() => openTable(table.id)}
                                     onClick={() => toggleTableSelection(table.id)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        toggleTableSelection(table.id);
+                                      }
+                                    }}
+                                    role="button"
+                                    tabIndex={0}
                                     className={`
                                         relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 transition-all duration-200 group
                                         ${isSelected 
@@ -367,7 +385,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                             {table.status}
                                         </span>
                                     </div>
-                                </button>
+                                </div>
                             );
                         })}
                     </div>

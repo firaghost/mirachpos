@@ -4,28 +4,20 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { resolveBranchId, resolveBranchIdFromBody, requireBranchId, requireBranchIdFromBody } = require('../middleware/branchScope');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const makeStaffRouter = () => {
   const r = express.Router();
 
-  const resolveBranchId = (req, fromBody) => {
-    const role = String(req.auth?.role || '');
-    const fromToken = String(req.auth?.branchId || '');
-    const fromOverride = fromBody && typeof fromBody.branchId === 'string' ? fromBody.branchId.trim() : '';
-
-    if (role === 'Cafe Owner' && (!fromToken || fromToken === 'global')) return fromOverride || '';
-    return fromToken;
-  };
-
-  r.get('/staff/shifts', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/staff/shifts', tenantMiddleware, requireAuth, loadEntitlements, requireModule('staff'), requireBranchId(), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
       const role = String(req.auth?.role || '');
       if (role !== 'Branch Manager' && role !== 'Cafe Owner') return res.status(403).json({ error: 'forbidden' });
 
-      const branchId = resolveBranchId(req, { branchId: typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '' });
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const status = typeof req.query?.status === 'string' ? req.query.status.trim().toLowerCase() : '';
       const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 50) || 50));
@@ -62,7 +54,7 @@ const makeStaffRouter = () => {
     }
   });
 
-  r.post('/staff/shifts', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/staff/shifts', tenantMiddleware, requireAuth, loadEntitlements, requireModule('staff'), requireBranchIdFromBody(), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
@@ -75,8 +67,7 @@ const makeStaffRouter = () => {
       if (!staffId) return res.status(400).json({ error: 'staff_id_required' });
       if (action !== 'clock_in' && action !== 'clock_out') return res.status(400).json({ error: 'invalid_action' });
 
-      const branchId = resolveBranchId(req, body);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchIdFromBody(req, body);
 
       const b = await db().select(['id']).from('branches').where({ tenant_id: req.tenant.id, id: branchId }).first();
       if (!b) return res.status(404).json({ error: 'branch_not_found' });

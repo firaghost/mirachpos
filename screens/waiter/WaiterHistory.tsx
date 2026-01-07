@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Screen } from '../../types';
 import { usePos } from '../../PosContext';
 import { apiFetch } from '../../api';
+import { readSession } from '../../session';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -10,6 +11,20 @@ interface Props {
 
 export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
   const { selectOrder } = usePos();
+  const canRefundFromHere = useMemo(() => {
+    try {
+      const s = readSession<any>();
+      const role = typeof s?.role === 'string' ? s.role : '';
+      return role === 'Branch Manager' || role === 'Cafe Owner';
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const openOrder = (orderId: string) => {
+    selectOrder(orderId);
+    onNavigate(canRefundFromHere ? Screen.MANAGER_ORDER_DETAILS : Screen.WAITER_RECEIPT);
+  };
   const todayLabel = useMemo(() => new Date().toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' }), []);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Completed' | 'Open' | 'Voided'>('All');
   const [query, setQuery] = useState('');
@@ -157,7 +172,11 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
                   </tr>
                 ) : null}
                 {rows.map((r) => (
-                  <tr key={r.id} className="hover:bg-[#3a2e22]/40 transition-colors cursor-pointer">
+                  <tr
+                    key={r.id}
+                    className="hover:bg-[#3a2e22]/40 transition-colors cursor-pointer"
+                    onClick={() => openOrder(r.id)}
+                  >
                     <td className="px-6 py-4 font-mono text-[#eead2b]">{r.number}</td>
                     <td className="px-6 py-4 text-white">{r.table}</td>
                     <td className="px-6 py-4 text-[#c9b792]">{r.time}</td>
@@ -176,8 +195,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          selectOrder(r.id);
-                          onNavigate(Screen.WAITER_RECEIPT);
+                          openOrder(r.id);
                         }}
                         className="text-[#c9b792] hover:text-white p-1 rounded hover:bg-white/10 transition-colors"
                       >

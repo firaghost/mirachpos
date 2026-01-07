@@ -5,6 +5,7 @@ import type { InventoryItem, Recipe, Product } from '../../types';
 import { Screen } from '../../types';
 import { apiFetch } from '../../api';
 import { readSession } from '../../session';
+import { usePersistedNullableString } from '../../usePersistedState';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -39,13 +40,13 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
 
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(STORAGE_SELECTED_PRODUCT);
-    } catch {
-      return null;
-    }
-  });
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyErr, setHistoryErr] = useState<string>('');
+  const [historyEvents, setHistoryEvents] = useState<
+    Array<{ id: string; at: string; type: string; summary: string; actorName?: string; actorRole?: string }>
+  >([]);
+
+  const [selectedProductId, setSelectedProductId] = usePersistedNullableString(STORAGE_SELECTED_PRODUCT, null);
 
   const resolveBranchId = () => {
     try {
@@ -78,7 +79,76 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
   const [draftImage, setDraftImage] = useState('https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&q=80&w=200');
   const [draftDescription, setDraftDescription] = useState('');
 
+  const [draftImageUploading, setDraftImageUploading] = useState(false);
+  const [editImageUploading, setEditImageUploading] = useState(false);
+
   const selectedProduct = useMemo(() => products.find((p) => p.id === selectedProductId) ?? null, [products, selectedProductId]);
+
+  useEffect(() => {
+    if (!historyOpen) return;
+    if (!selectedProduct) {
+      setHistoryEvents([]);
+      setHistoryErr('');
+      return;
+    }
+    let mounted = true;
+    const run = async () => {
+      setHistoryLoading(true);
+      setHistoryErr('');
+      try {
+        const qs = new URLSearchParams();
+        qs.set('limit', '200');
+        const bid = resolveBranchId();
+        if (bid) qs.set('branchId', bid);
+        const res = await apiFetch(`/api/manager/audit/list?${qs.toString()}`);
+        const json = (await res.json().catch(() => null)) as any;
+        if (!res.ok) throw new Error(String(json?.error || json?.message || res.status));
+
+        const rows = Array.isArray(json?.audit) ? json.audit : [];
+        const pid = selectedProduct.id;
+        const productName = selectedProduct.name;
+        const relevant = rows
+          .filter((r: any) => {
+            const type = String(r?.type || '');
+            if (!type.startsWith('menu_')) return false;
+            const payload = r?.payload && typeof r.payload === 'object' ? r.payload : {};
+            const payloadProductId = String((payload as any)?.productId || (payload as any)?.id || '');
+            return payloadProductId === pid;
+          })
+          .slice(0, 20)
+          .map((r: any) => ({
+            id: String(r?.id || ''),
+            at: String(r?.at || ''),
+            type: String(r?.type || ''),
+            summary: (() => {
+              const t = String(r?.type || '');
+              const raw = String(r?.summary || '').trim();
+              const replaced = raw ? raw.replaceAll(pid, productName) : '';
+              if (replaced) return replaced;
+              if (t === 'menu_recipe.upserted') return `Updated recipe for: ${productName}`;
+              if (t === 'menu_product.updated') return `Updated menu item: ${productName}`;
+              if (t === 'menu_product.created') return `Created menu item: ${productName}`;
+              if (t === 'menu_product.deleted') return `Deleted menu item: ${productName}`;
+              return t || 'Update';
+            })(),
+            actorName: typeof r?.actorName === 'string' ? r.actorName : '',
+            actorRole: typeof r?.actorRole === 'string' ? r.actorRole : '',
+          }));
+        if (!mounted) return;
+        setHistoryEvents(relevant);
+      } catch (e) {
+        if (!mounted) return;
+        setHistoryEvents([]);
+        setHistoryErr(e instanceof Error ? e.message : 'Failed to load history');
+      } finally {
+        if (mounted) setHistoryLoading(false);
+      }
+    };
+    void run();
+    return () => {
+      mounted = false;
+    };
+  }, [historyOpen, selectedProduct]);
 
   useEffect(() => {
     if (!flash) return;
@@ -97,15 +167,9 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
       invQs.set('limit', '500');
       if (bid) invQs.set('branchId', bid);
 
-      const [prodRes, invRes] = await Promise.all([
-        apiFetch(`/api/manager/menu/products?${prodQs.toString()}`),
-        apiFetch(`/api/inventory/items?${invQs.toString()}`),
-      ]);
-
+      const prodRes = await apiFetch(`/api/manager/menu/products?${prodQs.toString()}`);
       const prodJson = (await prodRes.json().catch(() => null)) as any;
-      const invJson = (await invRes.json().catch(() => null)) as any;
       if (!prodRes.ok) throw new Error(prodJson?.error || `HTTP ${prodRes.status}`);
-      if (!invRes.ok) throw new Error(invJson?.error || `HTTP ${invRes.status}`);
 
       const rows = Array.isArray(prodJson?.products) ? (prodJson.products as any[]) : [];
       const nextProducts: Product[] = rows.map((p) => ({
@@ -120,8 +184,45 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
       }));
       setProducts(nextProducts.filter((p) => p.id && p.name));
 
-      const invRows = Array.isArray(invJson?.items) ? (invJson.items as any[]) : [];
-      setInventoryItems(mapInventoryItems(invRows));
+      // Inventory is optional for this screen (used for cost/stock warnings). Don't fail the whole load.
+      try {
+        const invRes = await apiFetch(`/api/inventory/items?${invQs.toString()}`);
+        const invJson = (await invRes.json().catch(() => null)) as any;
+        if (invRes.ok) {
+          const invRows = Array.isArray(invJson?.items) ? (invJson.items as any[]) : [];
+          setInventoryItems(mapInventoryItems(invRows));
+        } else {
+          throw new Error(String(invJson?.error || invJson?.message || invRes.status));
+        }
+      } catch {
+        // Fallback for Cafe Owner sessions (when using manager menu builder while owner is logged in)
+        try {
+          const s = readSession<any>();
+          const role = typeof s?.role === 'string' ? s.role : '';
+          if (role === 'Cafe Owner') {
+            const qs = new URLSearchParams();
+            if (bid) qs.set('branchId', bid);
+            const res2 = await apiFetch(`/api/owner/inventory?${qs.toString()}`);
+            const json2 = (await res2.json().catch(() => null)) as any;
+            const rows2 = Array.isArray(json2?.items) ? json2.items : [];
+            const mapped = rows2.map((it: any) => ({
+              id: String(it?.sku || it?.id || ''),
+              name: String(it?.name || ''),
+              category: String(it?.category || 'Raw Material'),
+              stock: Number(it?.globalQty ?? 0) || 0,
+              unit: String(it?.unit || ''),
+              minStock: Number(it?.minQty ?? 0) || 0,
+              price: Number(it?.cost ?? it?.price ?? 0) || 0,
+              status: String(it?.status || 'In Stock'),
+            }));
+            setInventoryItems(mapInventoryItems(mapped));
+          } else {
+            setInventoryItems([]);
+          }
+        } catch {
+          setInventoryItems([]);
+        }
+      }
 
       const ids = nextProducts.map((p) => p.id).filter(Boolean);
       if (ids.length) {
@@ -167,13 +268,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    try {
-      if (selectedProductId) localStorage.setItem(STORAGE_SELECTED_PRODUCT, selectedProductId);
-    } catch {
-      // ignore
-    }
-  }, [selectedProductId]);
+  // selectedProductId is persisted via usePersistedState
 
   const selectedRecipe = useMemo(() => {
     if (!selectedProduct) return null;
@@ -230,6 +325,50 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
     setEditImage(selectedProduct.image);
     setEditDescription(selectedProduct.description ?? '');
   }, [selectedProduct]);
+
+  const uploadImage = async (file: File) => {
+    const readAsDataUrl = (f: File) =>
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Failed to read file.'));
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.readAsDataURL(f);
+      });
+
+    const loadImage = (src: string) =>
+      new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Invalid image.'));
+        img.src = src;
+      });
+
+    const original = await readAsDataUrl(file);
+    const img = await loadImage(original);
+    const max = 640;
+    const scale = Math.min(1, max / Math.max(img.width || 1, img.height || 1));
+    const w = Math.max(1, Math.round((img.width || 1) * scale));
+    const h = Math.max(1, Math.round((img.height || 1) * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('canvas_not_supported');
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const dataUrl = canvas.toDataURL('image/webp', 0.45);
+
+    const res = await apiFetch('/api/owner/uploads/image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataUrl, filename: file.name.replace(/\.[^.]+$/, '.webp') }),
+    });
+    const json = (await res.json().catch(() => null)) as any;
+    if (!res.ok) throw new Error(json?.error || String(res.status));
+    const url = String(json?.url || '').trim();
+    if (!url) throw new Error('upload_failed');
+    return url;
+  };
 
   const saveEdits = () => {
     if (!selectedProduct) return;
@@ -827,7 +966,42 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
           <input value={draftPrice} onChange={(e) => setDraftPrice(e.target.value)} className="w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
 
           <label className="text-sm font-bold text-white/70">Image URL</label>
-          <input value={draftImage} onChange={(e) => setDraftImage(e.target.value)} className="w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+          <div className="flex gap-2">
+            <input value={draftImage} onChange={(e) => setDraftImage(e.target.value)} className="flex-1 bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+            <label className={`shrink-0 px-3 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors cursor-pointer ${
+              draftImageUploading ? 'opacity-50 pointer-events-none' : ''
+            }`}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={draftImageUploading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  setDraftImageUploading(true);
+                  try {
+                    const url = await uploadImage(file);
+                    setDraftImage(url);
+                    setFlash({ kind: 'success', message: 'Image uploaded.' });
+                  } catch (err) {
+                    setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Upload failed.' });
+                  } finally {
+                    setDraftImageUploading(false);
+                  }
+                }}
+              />
+              Upload
+            </label>
+          </div>
+
+          {draftImage ? (
+            <div className="mt-2">
+              <img src={draftImage} alt="" className="h-20 w-20 rounded-lg object-cover border border-[#483c23]" />
+            </div>
+          ) : null}
 
           <label className="text-sm font-bold text-white/70">Description</label>
           <textarea value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} className="min-h-[90px] w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
@@ -860,7 +1034,42 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
           <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
 
           <label className="text-sm font-bold text-white/70">Image URL</label>
-          <input value={editImage} onChange={(e) => setEditImage(e.target.value)} className="w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+          <div className="flex gap-2">
+            <input value={editImage} onChange={(e) => setEditImage(e.target.value)} className="flex-1 bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+            <label className={`shrink-0 px-3 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors cursor-pointer ${
+              editImageUploading ? 'opacity-50 pointer-events-none' : ''
+            }`}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={editImageUploading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  setEditImageUploading(true);
+                  try {
+                    const url = await uploadImage(file);
+                    setEditImage(url);
+                    setFlash({ kind: 'success', message: 'Image uploaded.' });
+                  } catch (err) {
+                    setFlash({ kind: 'error', message: err instanceof Error ? err.message : 'Upload failed.' });
+                  } finally {
+                    setEditImageUploading(false);
+                  }
+                }}
+              />
+              Upload
+            </label>
+          </div>
+
+          {editImage ? (
+            <div className="mt-2">
+              <img src={editImage} alt="" className="h-20 w-20 rounded-lg object-cover border border-[#483c23]" />
+            </div>
+          ) : null}
 
           <label className="text-sm font-bold text-white/70">Description</label>
           <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="min-h-[90px] w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
@@ -900,13 +1109,33 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
         }
       >
         <div className="text-white/70 text-sm space-y-3">
-          <div>This section will show recent recipe/menu changes and recent orders for this item.</div>
           <div className="rounded-lg border border-[#483c23] bg-[#2d2616] p-3">
             <div className="text-white/50 text-xs uppercase tracking-wider">Selected Item</div>
             <div className="mt-1 text-white font-semibold">{selectedProduct?.name ?? '  '}</div>
             <div className="text-white/40 text-xs font-mono">Code: {selectedProduct?.code ?? '  '}    SKU: {selectedProduct ? selectedProduct.id.slice(0, 12) : '  '}</div>
           </div>
-          <div className="text-white/50 text-xs">(Not yet connected to order logs in this screen.)</div>
+          {historyLoading ? <div className="text-white/50 text-xs">Loading history ¦</div> : null}
+          {historyErr ? <div className="text-red-300 text-xs">{historyErr}</div> : null}
+          {!historyLoading && !historyErr && historyEvents.length === 0 ? (
+            <div className="text-white/50 text-xs">No recent menu/recipe changes for this item.</div>
+          ) : null}
+
+          {historyEvents.length ? (
+            <div className="rounded-lg border border-[#483c23] bg-[#2d2616] overflow-hidden">
+              <div className="px-3 py-2 border-b border-[#483c23] text-white/50 text-xs uppercase tracking-wider">Recent Changes</div>
+              <div className="divide-y divide-[#483c23]">
+                {historyEvents.map((e) => (
+                  <div key={e.id} className="px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-white font-semibold text-xs">{e.summary || e.type}</div>
+                      <div className="text-white/40 text-[10px] font-mono">{e.at ? new Date(e.at).toLocaleString() : ''}</div>
+                    </div>
+                    <div className="mt-1 text-white/50 text-[10px]">{e.actorName ? `${e.actorName} (${e.actorRole || '  '})` : e.actorRole || ''}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </Modal>
 

@@ -3,6 +3,9 @@ const express = require('express');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
+const { requirePermission } = require('../middleware/permissions');
+const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const startOfDayIso = (d) => {
   const x = new Date(d);
@@ -18,18 +21,6 @@ const endOfDayIso = (d) => {
 
 const makeManagerRouter = () => {
   const r = express.Router();
-
-  const resolveBranchId = (req) => {
-    const role = String(req.auth?.role || '');
-    const fromToken = String(req.auth?.branchId || '');
-    const q = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
-
-    // Cafe Owner can manage a specific branch via query override when token branchId is global.
-    if (role === 'Cafe Owner' && (!fromToken || fromToken === 'global')) {
-      return q || '';
-    }
-    return fromToken;
-  };
 
   const requireManagerOrOwner = (req, res) => {
     if (req.auth?.tenantId !== req.tenant.id) {
@@ -59,18 +50,21 @@ const makeManagerRouter = () => {
     return Number.isFinite(n) ? n : fallback;
   };
 
-  r.get('/manager/overview', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/overview',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('reports'),
+    requirePermission('reports.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const role = String(req.auth?.role || '');
       if (role !== 'Branch Manager' && role !== 'Cafe Owner') return res.status(403).json({ error: 'forbidden' });
 
-      let branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') {
-        const first = await db().select(['id']).from('branches').where({ tenant_id: req.tenant.id }).orderBy('created_at', 'asc').first();
-        branchId = first?.id ? String(first.id) : '';
-      }
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const range = typeof req.query?.range === 'string' ? req.query.range.trim() : 'Daily';
       const now = new Date();
@@ -187,16 +181,19 @@ const makeManagerRouter = () => {
     }
   });
 
-  r.get('/manager/settings', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/settings',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('manager.settings.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
-      let branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') {
-        const first = await db().select(['id']).from('branches').where({ tenant_id: req.tenant.id }).orderBy('created_at', 'asc').first();
-        branchId = first?.id ? String(first.id) : '';
-      }
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const row = await db()
         .select(['settings_json'])
@@ -218,16 +215,19 @@ const makeManagerRouter = () => {
     }
   });
 
-  r.put('/manager/settings', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put(
+    '/manager/settings',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('manager.settings.write'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
-      let branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') {
-        const first = await db().select(['id']).from('branches').where({ tenant_id: req.tenant.id }).orderBy('created_at', 'asc').first();
-        branchId = first?.id ? String(first.id) : '';
-      }
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const body = req.body && typeof req.body === 'object' ? req.body : null;
       const settings = body && body.settings && typeof body.settings === 'object' ? body.settings : null;
@@ -260,12 +260,65 @@ const makeManagerRouter = () => {
     }
   });
 
-  r.get('/manager/reports', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/reports',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('reports'),
+    requirePermission('reports.export'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
+
+      const parseIso = (raw) => {
+        const s = typeof raw === 'string' ? raw.trim() : '';
+        if (!s) return null;
+        const d = new Date(s);
+        return Number.isNaN(d.getTime()) ? null : d;
+      };
+
+      const fromAt = parseIso(req.query?.from);
+      const toAt = parseIso(req.query?.to);
+
+      const businessHeader = (() => {
+        return {
+          businessName: '',
+          legalName: '',
+          tin: '',
+          phone: '',
+          email: '',
+          address: '',
+          receipt: { showTin: true, logoDataUrl: '' },
+        };
+      })();
+
+      try {
+        const row = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: req.tenant.id }).first();
+        let settings;
+        try {
+          settings = row?.settings_json ? JSON.parse(String(row.settings_json)) : {};
+        } catch {
+          settings = {};
+        }
+        const business = settings?.business && typeof settings.business === 'object' ? settings.business : {};
+        const receipt = settings?.receipt && typeof settings.receipt === 'object' ? settings.receipt : {};
+        businessHeader.businessName = String(business.businessName || '').trim();
+        businessHeader.legalName = String(business.legalName || '').trim();
+        businessHeader.tin = String(business.tin || '').trim();
+        businessHeader.phone = String(business.phone || '').trim();
+        businessHeader.email = String(business.email || '').trim();
+        businessHeader.address = String(business.address || '').trim();
+        businessHeader.receipt = {
+          showTin: typeof receipt.showTin === 'boolean' ? receipt.showTin : true,
+          logoDataUrl: typeof receipt.logoDataUrl === 'string' ? receipt.logoDataUrl : '',
+        };
+      } catch {
+        // ignore
+      }
 
       const staffRows = await db()
         .from('staff')
@@ -283,12 +336,26 @@ const makeManagerRouter = () => {
         avatar: '',
       }));
 
-      const shiftRows = await db()
+      let shiftQ = db()
         .from('shift_logs')
-        .where({ tenant_id: req.tenant.id, branch_id: branchId })
-        .orderBy('clock_in_at', 'desc')
-        .limit(200)
-        .select(['id', 'staff_id', 'clock_in_at', 'clock_out_at']);
+        .where({ tenant_id: req.tenant.id, branch_id: branchId });
+
+      // If a range is provided, fetch shifts overlapping the range.
+      if (fromAt && toAt && toAt.getTime() >= fromAt.getTime()) {
+        const fromIso = fromAt.toISOString();
+        const toIso = toAt.toISOString();
+        shiftQ = shiftQ
+          .andWhere('clock_in_at', '<=', toIso)
+          .andWhere(function () {
+            this.whereNull('clock_out_at').orWhere('clock_out_at', '>=', fromIso);
+          })
+          .orderBy('clock_in_at', 'asc')
+          .limit(2000);
+      } else {
+        shiftQ = shiftQ.orderBy('clock_in_at', 'desc').limit(200);
+      }
+
+      const shiftRows = await shiftQ.select(['id', 'staff_id', 'clock_in_at', 'clock_out_at']);
 
       const shiftLogs = shiftRows.map((l) => ({
         id: String(l.id),
@@ -356,18 +423,25 @@ const makeManagerRouter = () => {
         };
       });
 
-      return res.json({ ok: true, branchId, staff, shiftLogs, cashSessions, expenses });
+      return res.json({ ok: true, branchId, businessHeader, staff, shiftLogs, cashSessions, expenses });
     } catch (e) {
       return next(e);
     }
   });
 
   // Aggregated daily sales summary (fast reports)
-  r.get('/manager/reports/daily', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/reports/daily',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('reports'),
+    requirePermission('reports.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const from = toIsoDateOnly(req.query?.from);
       const to = toIsoDateOnly(req.query?.to);
@@ -441,11 +515,18 @@ const makeManagerRouter = () => {
   });
 
   // Hourly sales summary (heatmap / peak hours)
-  r.get('/manager/reports/hourly', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/reports/hourly',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('reports'),
+    requirePermission('reports.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const date = toIsoDateOnly(req.query?.date);
       if (!date) return res.status(400).json({ error: 'date_required' });
@@ -472,11 +553,18 @@ const makeManagerRouter = () => {
   });
 
   // Product performance (uses product_sales_summary)
-  r.get('/manager/reports/products', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/reports/products',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('reports'),
+    requirePermission('reports.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const from = toIsoDateOnly(req.query?.from);
       const to = toIsoDateOnly(req.query?.to);
@@ -521,11 +609,18 @@ const makeManagerRouter = () => {
   });
 
   // Category performance (uses category_sales_summary)
-  r.get('/manager/reports/categories', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/reports/categories',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('reports'),
+    requirePermission('reports.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const from = toIsoDateOnly(req.query?.from);
       const to = toIsoDateOnly(req.query?.to);
@@ -562,11 +657,18 @@ const makeManagerRouter = () => {
   });
 
   // Shift reports (uses shift_reports)
-  r.get('/manager/reports/shifts', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/reports/shifts',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('reports'),
+    requirePermission('reports.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const fromIso = String(req.query?.from || '').trim();
       const toIso = String(req.query?.to || '').trim();
@@ -650,11 +752,18 @@ const makeManagerRouter = () => {
   });
 
   // Void/refund detailed log (uses void_refund_log)
-  r.get('/manager/reports/voids', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/reports/voids',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('reports'),
+    requirePermission('reports.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const fromIso = String(req.query?.from || '').trim();
       const toIso = String(req.query?.to || '').trim();

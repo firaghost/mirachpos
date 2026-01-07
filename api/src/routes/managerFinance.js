@@ -4,6 +4,9 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { uid } = require('../utils/ids');
+const { requirePermission } = require('../middleware/permissions');
+const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -22,15 +25,6 @@ const normalizePaymentMethod = (v) => {
 
 const makeManagerFinanceRouter = () => {
   const r = express.Router();
-
-  const resolveBranchId = (req) => {
-    const role = String(req.auth?.role || '');
-    const fromToken = String(req.auth?.branchId || '');
-    const q = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
-
-    if (role === 'Cafe Owner' && (!fromToken || fromToken === 'global')) return q || '';
-    return fromToken;
-  };
 
   const requireManagerOrOwner = (req, res) => {
     if (req.auth?.tenantId !== req.tenant.id) {
@@ -124,12 +118,19 @@ const makeManagerFinanceRouter = () => {
   };
 
   // Expenses (branch scoped)
-  r.get('/manager/finance/expenses', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/finance/expenses',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('finance.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 200) || 200));
       const fromIso = normalizeIso(req.query?.from);
@@ -146,12 +147,19 @@ const makeManagerFinanceRouter = () => {
     }
   });
 
-  r.post('/manager/finance/expenses', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post(
+    '/manager/finance/expenses',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('finance.write'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const title = String(req.body?.title || '').trim();
       const vendor = String(req.body?.vendor || '').trim();
@@ -185,12 +193,19 @@ const makeManagerFinanceRouter = () => {
     }
   });
 
-  r.put('/manager/finance/expenses/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put(
+    '/manager/finance/expenses/:id',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('finance.write'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });
@@ -236,12 +251,19 @@ const makeManagerFinanceRouter = () => {
     }
   });
 
-  r.delete('/manager/finance/expenses/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.delete(
+    '/manager/finance/expenses/:id',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('finance.write'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });
@@ -256,12 +278,19 @@ const makeManagerFinanceRouter = () => {
   });
 
   // Cash sessions (branch scoped)
-  r.get('/manager/finance/cash-sessions', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/finance/cash-sessions',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('finance.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 200) || 200));
       const fromIso = normalizeIso(req.query?.from);
@@ -295,12 +324,18 @@ const makeManagerFinanceRouter = () => {
     }
   });
 
-  r.post('/manager/finance/cash-sessions', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post(
+    '/manager/finance/cash-sessions',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('finance'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const register = String(req.body?.register || '').trim() || 'POS';
       const openingCash = Number(req.body?.openingCash ?? 0);
@@ -344,12 +379,18 @@ const makeManagerFinanceRouter = () => {
     }
   });
 
-  r.put('/manager/finance/cash-sessions/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put(
+    '/manager/finance/cash-sessions/:id',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('finance'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });
@@ -395,12 +436,18 @@ const makeManagerFinanceRouter = () => {
     }
   });
 
-  r.delete('/manager/finance/cash-sessions/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.delete(
+    '/manager/finance/cash-sessions/:id',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('finance'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });

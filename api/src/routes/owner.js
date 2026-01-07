@@ -7,6 +7,8 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { uid } = require('../utils/ids');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { computeTenantEntitlements, normalizeModules, upsertTenantEntitlementsSnapshot } = require('../services/entitlements');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -304,7 +306,7 @@ const normalizeOwnerSettings = (body, prev) => {
 const makeOwnerRouter = () => {
   const r = express.Router();
 
-  r.get('/owner/plans', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/plans', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
@@ -342,7 +344,7 @@ const makeOwnerRouter = () => {
     return true;
   };
 
-  r.post('/owner/system/hard-reset', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/owner/system/hard-reset', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -463,7 +465,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.get('/owner/profile', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/profile', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -495,7 +497,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.put('/owner/profile', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/owner/profile', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -526,7 +528,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.get('/owner/onboarding', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/onboarding', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -572,7 +574,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.post('/owner/onboarding/complete', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/owner/onboarding/complete', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -589,7 +591,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.get('/owner/settings', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/settings', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -617,7 +619,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.put('/owner/settings', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/owner/settings', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -649,7 +651,46 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.get('/owner/overview', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/owner/modules', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
+    try {
+      if (!requireOwnerAuth(req, res)) return;
+
+      const role = String(req.auth?.role || '');
+      if (role !== 'Cafe Owner') return res.status(403).json({ error: 'forbidden' });
+
+      const body = req.body && typeof req.body === 'object' ? req.body : null;
+      const modsRaw = Array.isArray(body?.modules) ? body.modules : null;
+      const normalized0 = modsRaw ? normalizeModules(modsRaw) : [];
+      const normalized = normalized0.includes('settings') ? normalized0 : [...normalized0, 'settings'];
+
+      const nextOverride = normalized.length ? JSON.stringify(normalized) : null;
+      const nowIso = new Date().toISOString();
+
+      await db().from('tenants').where({ id: req.tenant.id }).update({ enabled_modules_json: nextOverride, updated_at: nowIso });
+
+      const refreshedTenant = await db().select(['id', 'name', 'status', 'trial_ends_at', 'created_at', 'enabled_modules_json']).from('tenants').where({ id: req.tenant.id }).first();
+      const tenantForEntitlements = refreshedTenant ? { ...req.tenant, ...refreshedTenant } : req.tenant;
+
+      const ent = await computeTenantEntitlements({ tenant: tenantForEntitlements });
+      if (ent) await upsertTenantEntitlementsSnapshot({ tenantId: req.tenant.id, entitlements: ent });
+
+      await logAudit({
+        tenantId: req.tenant.id,
+        branchId: null,
+        actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+        actorRole: req.auth?.role ? String(req.auth.role) : null,
+        type: 'owner.modules.updated',
+        summary: 'Updated enabled modules',
+        payload: { modules: normalized },
+      });
+
+      return res.json({ ok: true, modules: normalized, entitlements: ent });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.get('/owner/overview', tenantMiddleware, requireAuth, loadEntitlements, requireModule('owner_dashboard'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -905,7 +946,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.get('/owner/reports', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/reports', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -1153,7 +1194,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.get('/owner/inventory', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/inventory', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -1255,7 +1296,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.get('/owner/finance', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/finance', tenantMiddleware, requireAuth, loadEntitlements, requireModule('finance'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -1577,7 +1618,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.post('/owner/finance/expenses', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/owner/finance/expenses', tenantMiddleware, requireAuth, loadEntitlements, requireModule('finance'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -1638,7 +1679,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.post('/owner/uploads/image', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/owner/uploads/image', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -1687,7 +1728,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.put('/owner/finance/expenses/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/owner/finance/expenses/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('finance'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -1768,7 +1809,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.delete('/owner/finance/expenses/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.delete('/owner/finance/expenses/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('finance'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -1793,7 +1834,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.get('/owner/menu/products', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/menu/products', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -1891,7 +1932,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.get('/owner/menu/kpis', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/menu/kpis', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -1979,7 +2020,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.post('/owner/menu/products', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/owner/menu/products', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -2025,7 +2066,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.put('/owner/menu/products/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/owner/menu/products/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -2072,7 +2113,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.delete('/owner/menu/products/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.delete('/owner/menu/products/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
@@ -2097,7 +2138,7 @@ const makeOwnerRouter = () => {
     }
   });
 
-  r.post('/owner/menu/products/bulk', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/owner/menu/products/bulk', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), async (req, res, next) => {
     try {
       if (!requireOwnerAuth(req, res)) return;
       const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String).filter(Boolean) : [];

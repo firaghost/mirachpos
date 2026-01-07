@@ -65,7 +65,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
     }
   }, []);
 
-  const isImpersonationEnabled = sessionRole === 'Branch Manager';
+  const isImpersonationEnabled = sessionRole === 'Branch Manager' || sessionRole === 'Cafe Owner';
   const [area, setArea] = useState<'All Areas' | 'Main Hall' | 'Patio' | 'Bar Area' | 'Private Room'>('All Areas');
   const [filter, setFilter] = useState<'All' | 'Free' | 'Occupied' | 'Action'>('All');
   const [now, setNow] = useState<Date>(() => new Date());
@@ -123,9 +123,17 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
   const [remoteStaff, setRemoteStaff] = useState<Array<{ id: string; name: string; roleName?: string }>>([]);
 
   useEffect(() => {
+    if (!isImpersonationEnabled) return;
     let mounted = true;
     const run = async () => {
       try {
+        try {
+          const s = readSession<any>();
+          const role = typeof s?.role === 'string' ? s.role : '';
+          if (role !== 'Branch Manager' && role !== 'Cafe Owner') return;
+        } catch {
+          return;
+        }
         if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
         const res = await apiFetch('/api/manager/staff?pageSize=200');
         const json = (await res.json().catch(() => null)) as any;
@@ -153,7 +161,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [isImpersonationEnabled]);
 
   useEffect(() => {
     const refresh = () => {

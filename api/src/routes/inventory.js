@@ -4,6 +4,7 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -52,7 +53,7 @@ const resolveBranchId = async (req) => {
 const makeInventoryRouter = () => {
   const r = express.Router();
 
-  r.get('/inventory/items', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/inventory/items', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
@@ -101,7 +102,7 @@ const makeInventoryRouter = () => {
     }
   });
 
-  r.post('/inventory/items', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/inventory/items', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
@@ -160,7 +161,7 @@ const makeInventoryRouter = () => {
     }
   });
 
-  r.put('/inventory/items/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/inventory/items/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
@@ -251,7 +252,7 @@ const makeInventoryRouter = () => {
     }
   });
 
-  r.delete('/inventory/items/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.delete('/inventory/items/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 

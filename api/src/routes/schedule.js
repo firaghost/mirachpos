@@ -4,6 +4,8 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { resolveBranchId, requireBranchId, requireBranchIdFromBody } = require('../middleware/branchScope');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const normalizeBranchId = (v) => {
   const s = String(v || '').trim();
@@ -43,32 +45,17 @@ const makeScheduleRouter = () => {
     return [s];
   };
 
-  const resolveBranchId = (req, from) => {
-    const role = String(req.auth?.role || '');
-    const fromToken = normalizeBranchId(req.auth?.branchId);
-
-    const fromQuery = typeof req.query?.branchId === 'string' ? normalizeBranchId(req.query.branchId) : '';
-    const fromBody = from && typeof from.branchId === 'string' ? normalizeBranchId(from.branchId) : '';
-
-    // Cafe Owner can manage a specific branch via override when token branchId is global.
-    if (role === 'Cafe Owner' && (!fromToken || fromToken === 'global')) {
-      return fromBody || fromQuery || '';
-    }
-
-    return fromToken;
-  };
 
   const canWrite = (role) => role === 'Cafe Owner' || role === 'Branch Manager';
 
-  r.get('/schedule', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/schedule', tenantMiddleware, requireAuth, loadEntitlements, requireModule('staff'), requireBranchId(), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
       const weekStart = isoDay(req.query?.weekStart);
       if (!weekStart) return res.status(400).json({ error: 'week_start_required' });
 
-      const branchId = resolveBranchId(req);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const candidateIds = branchIdAlternates(branchId);
       const branch = await db()
@@ -149,7 +136,7 @@ const makeScheduleRouter = () => {
     }
   });
 
-  r.put('/schedule', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/schedule', tenantMiddleware, requireAuth, loadEntitlements, requireModule('staff'), requireBranchIdFromBody(), async (req, res, next) => {
     try {
       if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
 
@@ -160,8 +147,7 @@ const makeScheduleRouter = () => {
       const weekStart = isoDay(body?.weekStart);
       if (!weekStart) return res.status(400).json({ error: 'week_start_required' });
 
-      const branchId = resolveBranchId(req, body);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const candidateIds = branchIdAlternates(branchId);
       const branch = await db()

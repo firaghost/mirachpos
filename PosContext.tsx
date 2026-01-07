@@ -86,12 +86,20 @@ const mergeTablesPreservingAssignments = (currentTables: PosTable[], incomingTab
 
 const mergeBranchState = (current: PersistedState, incoming: any): PersistedState => {
   if (!incoming || typeof incoming !== 'object') return current;
+
+  const incomingTables = (incoming as any).tables;
+  const incomingProducts = (incoming as any).products;
+
   const next: PersistedState = {
     ...current,
     ...incoming,
     version: 1,
   };
-  next.tables = mergeTablesPreservingAssignments(current.tables, (incoming as any).tables);
+
+  // Avoid wiping tables/products if server/state contains empty arrays (common when state is partially saved).
+  if (Array.isArray(incomingProducts) && incomingProducts.length > 0) next.products = incomingProducts as any;
+  if (Array.isArray(incomingTables) && incomingTables.length > 0) next.tables = mergeTablesPreservingAssignments(current.tables, incomingTables);
+  else next.tables = current.tables;
   return next;
 };
 
@@ -224,6 +232,7 @@ type PosContextType = {
   selectTable: (tableId: string | null) => void;
   selectOrder: (orderId: string | null) => void;
   addTable: (table: { name: string; seats: number; area?: PosTable['area'] }) => string;
+  deleteTable: (tableId: string) => void;
   setTableAssignment: (tableIds: string[], staffId: string | null, staffName?: string | null) => void;
   getCartItems: (tableId: string) => PosOrderItem[];
   addToCart: (tableId: string, productId: string) => void;
@@ -758,6 +767,46 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (st && typeof st === 'object') {
             setState((prev) => mergeBranchState(prev, st));
           }
+
+          const hasTables = st && typeof st === 'object' && Array.isArray((st as any).tables) && (st as any).tables.length > 0;
+          if (!hasTables) {
+            try {
+              // Create default tables for this branch if the POS state was wiped or never initialized.
+              await apiFetch(withBranchQuery('/api/pos/initialize'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+              const res2 = await apiFetch(withBranchQuery('/api/pos/state'));
+              if (res2.ok) {
+                const json2 = (await res2.json().catch(() => null)) as any;
+                const st2 = json2?.state;
+                if (st2 && typeof st2 === 'object') setState((prev) => mergeBranchState(prev, st2));
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // 1b) Refresh authoritative menu products for waiter/manager ordering UI.
+      // (POS state may not include full menu catalog; this keeps waiter menu in sync with manager-created items.)
+      try {
+        const res = await apiFetch(withBranchQuery('/api/pos/menu/products?limit=500'));
+        const json = (await res.json().catch(() => null)) as any;
+        if (res.ok) {
+          const rows = Array.isArray(json?.products) ? (json.products as any[]) : [];
+          const nextProducts = rows
+            .map((p) => ({
+              id: String(p?.id || ''),
+              code: String(p?.code || ''),
+              name: String(p?.name || ''),
+              price: Number(p?.price ?? 0) || 0,
+              category: String(p?.category || ''),
+              image: String(p?.image || ''),
+              stock: Number(p?.stock ?? 0) || 0,
+            }))
+            .filter((p) => p.id && p.name);
+          if (nextProducts.length) setState((prev) => ({ ...prev, products: nextProducts }));
         }
       } catch {
         // ignore
@@ -949,6 +998,44 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (st && typeof st === 'object') {
           setState((prev) => mergeBranchState(prev, st));
         }
+
+        const hasTables = st && typeof st === 'object' && Array.isArray((st as any).tables) && (st as any).tables.length > 0;
+        if (!hasTables) {
+          try {
+            await apiFetch(withBranchQuery('/api/pos/initialize'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+            const res2 = await apiFetch(withBranchQuery('/api/pos/state'));
+            if (res2.ok) {
+              const json2 = (await res2.json().catch(() => null)) as any;
+              const st2 = json2?.state;
+              if (mounted && st2 && typeof st2 === 'object') setState((prev) => mergeBranchState(prev, st2));
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        // Load authoritative branch menu products for ordering UI.
+        try {
+          const pres = await apiFetch(withBranchQuery('/api/pos/menu/products?limit=500'));
+          const pjson = (await pres.json().catch(() => null)) as any;
+          if (mounted && pres.ok) {
+            const rows = Array.isArray(pjson?.products) ? (pjson.products as any[]) : [];
+            const nextProducts = rows
+              .map((p) => ({
+                id: String(p?.id || ''),
+                code: String(p?.code || ''),
+                name: String(p?.name || ''),
+                price: Number(p?.price ?? 0) || 0,
+                category: String(p?.category || ''),
+                image: String(p?.image || ''),
+                stock: Number(p?.stock ?? 0) || 0,
+              }))
+              .filter((p) => p.id && p.name);
+            if (nextProducts.length) setState((prev) => ({ ...prev, products: nextProducts }));
+          }
+        } catch {
+          // ignore
+        }
         setRemoteReady(true);
       } catch {
         // ignore
@@ -1011,7 +1098,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const payload = item?.payload;
               if (!id) continue;
               try {
-                const res = await apiFetch('/api/pos/state', {
+                const res = await apiFetch(withBranchQuery('/api/pos/state'), {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(payload ?? {}),
@@ -1052,7 +1139,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const serialized = JSON.stringify({ state: snapshot });
         if (serialized && lastSentRef.current === serialized) return;
-        const res = await apiFetch('/api/pos/state', {
+        const res = await apiFetch(withBranchQuery('/api/pos/state'), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ state: snapshot }),
@@ -1103,20 +1190,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const scopeKey = getBranchScopeKey();
           if (!scopeKey) return;
 
-          if (!remoteReady) {
-            if (electronApis.outboxEnqueue) {
-              void electronApis
-                .outboxEnqueue({
-                  scopeKey,
-                  kind: 'pos.state',
-                  payload: { state: snapshot },
-                })
-                .catch(() => {
-                  // ignore
-                });
-            }
-            return;
-          }
+          // Don't block state persistence on remoteReady; if the server is reachable, persist now.
+          // If persistence fails, fall back to Electron outbox.
 
           const serialized = JSON.stringify({ state: snapshot });
           if (serialized && lastSentRef.current === serialized) return;
@@ -1197,6 +1272,31 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return nextState;
     });
     return id;
+  };
+
+  const deleteTable: PosContextType['deleteTable'] = (tableId) => {
+    const id = String(tableId || '').trim();
+    if (!id) return;
+    setState((s) => {
+      if (!s.tables.some((t) => t.id === id)) return s;
+
+      const nextCartByTableId = { ...s.cartByTableId };
+      delete nextCartByTableId[id];
+
+      const nextTables = updateTableComputed(
+        s.tables.filter((t) => t.id !== id),
+        nextCartByTableId,
+      );
+
+      const nextState = {
+        ...s,
+        tables: nextTables,
+        cartByTableId: nextCartByTableId,
+        selectedTableId: s.selectedTableId === id ? null : s.selectedTableId,
+      };
+      queueMicrotask(() => syncStateNow(nextState));
+      return nextState;
+    });
   };
 
   const setTableAssignment = (tableIds: string[], staffId: string | null, staffNameInput?: string | null) => {
@@ -1817,7 +1917,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((s) => {
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
-      if (order.status === 'Paid' || order.status === 'Voided') return s;
+      if (order.status === 'Paid' || order.status === 'Voided' || order.status === 'Refunded') return s;
 
       if (order.status === status) return s;
 
@@ -1885,7 +1985,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((s) => {
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
-      if (order.status === 'Paid' || order.status === 'Voided') return s;
+      if (order.status === 'Paid' || order.status === 'Voided' || order.status === 'Refunded') return s;
       if (!reason?.trim()) return s;
 
       if (order.inventoryDeducted) {
@@ -1948,7 +2048,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((s) => {
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
-      if (order.status === 'Paid' || order.status === 'Voided') return s;
+      if (order.status === 'Paid' || order.status === 'Voided' || order.status === 'Refunded') return s;
       if (!reason?.trim()) return s;
       if (qty <= 0) return s;
 
@@ -2235,6 +2335,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     selectTable,
     selectOrder,
     addTable,
+    deleteTable,
     setTableAssignment,
     getCartItems,
     addToCart,

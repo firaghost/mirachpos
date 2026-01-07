@@ -249,6 +249,9 @@ export const canAccessScreenWithSubscription = (
 ): boolean => {
   if (!canAccessScreen(role, screen)) return false;
   if (role === UserRole.SUPER_ADMIN) return true;
+  // Only Cafe Owner screens are module-gated by subscription.
+  // Waiter/Branch Manager should never be blocked by missing subscription payload.
+  if (role !== UserRole.CAFE_OWNER) return true;
   const required = screenRequiredModule(screen);
   if (!required) return true;
   const mods = normalizedModules(subscription);

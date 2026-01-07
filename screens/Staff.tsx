@@ -199,6 +199,18 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
   const loadRemoteStaff = async () => {
     setLoadingRemote(true);
     try {
+      try {
+        const s = readSession<any>();
+        const role = typeof s?.role === 'string' ? s.role : '';
+        if (role !== 'Branch Manager' && role !== 'Cafe Owner') {
+          setStaff([]);
+          return;
+        }
+      } catch {
+        setStaff([]);
+        return;
+      }
+
       const branchId = resolveBranchIdOverride();
       const qs = new URLSearchParams({ pageSize: '200' });
       if (branchId) qs.set('branchId', branchId);
@@ -770,6 +782,18 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
     const email = draftEmail.trim().toLowerCase();
     const password = draftPassword;
     if (!name || !role || !shift) return;
+
+    try {
+      const s = readSession<any>();
+      const sessRole = typeof s?.role === 'string' ? s.role : '';
+      if (sessRole !== 'Branch Manager' && sessRole !== 'Cafe Owner') {
+        setFlash({ kind: 'error', message: 'forbidden' });
+        return;
+      }
+    } catch {
+      setFlash({ kind: 'error', message: 'forbidden' });
+      return;
+    }
 
     setBusy(true);
     void (async () => {
@@ -1818,6 +1842,17 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
               onClick={() => {
                 if (!deleteId) return;
                 const id = deleteId;
+                try {
+                  const s = readSession<any>();
+                  const sessRole = typeof s?.role === 'string' ? s.role : '';
+                  if (sessRole !== 'Branch Manager' && sessRole !== 'Cafe Owner') {
+                    setFlash({ kind: 'error', message: 'forbidden' });
+                    return;
+                  }
+                } catch {
+                  setFlash({ kind: 'error', message: 'forbidden' });
+                  return;
+                }
                 setBusy(true);
                 void (async () => {
                   try {

@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const makeWaiterRouter = () => {
   const r = express.Router();
@@ -26,7 +27,7 @@ const makeWaiterRouter = () => {
     return true;
   };
 
-  r.put('/waiter/account', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/waiter/account', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
 
@@ -78,7 +79,7 @@ const makeWaiterRouter = () => {
     }
   });
 
-  r.get('/waiter/history', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/waiter/history', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
 
@@ -139,7 +140,7 @@ const makeWaiterRouter = () => {
     }
   });
 
-  r.get('/waiter/order/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/waiter/order/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
 
@@ -181,6 +182,7 @@ const makeWaiterRouter = () => {
         tax: Number(row.tax || 0),
         tip: Number(row.tip || 0),
         discount: Number(row.discount || 0),
+        discountPct: payload?.discountPct == null ? 0 : Number(payload.discountPct || 0) || 0,
         createdAt: row.created_at ? new Date(row.created_at).toISOString() : '',
         payload,
       };
@@ -191,7 +193,7 @@ const makeWaiterRouter = () => {
     }
   });
 
-  r.get('/waiter/shift-report', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/waiter/shift-report', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
 

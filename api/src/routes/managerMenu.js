@@ -5,6 +5,8 @@ const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { uid } = require('../utils/ids');
 const { makeId } = require('../utils/ids');
+const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -35,14 +37,6 @@ const makeManagerMenuRouter = () => {
     return [s];
   };
 
-  const resolveBranchId = (req) => {
-    const role = String(req.auth?.role || '');
-    const fromToken = normalizeBranchId(req.auth?.branchId);
-    const q = typeof req.query?.branchId === 'string' ? normalizeBranchId(req.query.branchId) : '';
-
-    if (role === 'Cafe Owner' && (!fromToken || fromToken === 'global')) return q || '';
-    return fromToken;
-  };
 
   const requireManagerOrOwner = (req, res) => {
     if (req.auth?.tenantId !== req.tenant.id) {
@@ -104,12 +98,11 @@ const makeManagerMenuRouter = () => {
   };
 
   // Products
-  r.get('/manager/menu/products', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/manager/menu/products', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const branchIds = branchIdAlternates(branchId);
 
@@ -148,12 +141,11 @@ const makeManagerMenuRouter = () => {
     }
   });
 
-  r.post('/manager/menu/products', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/manager/menu/products', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const name = String(req.body?.name || '').trim();
       if (!name) return res.status(400).json({ error: 'name_required' });
@@ -202,12 +194,11 @@ const makeManagerMenuRouter = () => {
     }
   });
 
-  r.put('/manager/menu/products/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/manager/menu/products/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });
@@ -276,12 +267,11 @@ const makeManagerMenuRouter = () => {
     }
   });
 
-  r.delete('/manager/menu/products/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.delete('/manager/menu/products/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });
@@ -318,12 +308,11 @@ const makeManagerMenuRouter = () => {
   });
 
   // Recipes
-  r.get('/manager/menu/recipes', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/manager/menu/recipes', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const branchIds = branchIdAlternates(branchId);
 
@@ -368,12 +357,11 @@ const makeManagerMenuRouter = () => {
     }
   });
 
-  r.put('/manager/menu/recipes/:productId', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/manager/menu/recipes/:productId', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const branchIds = branchIdAlternates(branchId);
 
@@ -433,12 +421,11 @@ const makeManagerMenuRouter = () => {
     }
   });
 
-  r.delete('/manager/menu/recipes/:productId', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.delete('/manager/menu/recipes/:productId', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const branchIds = branchIdAlternates(branchId);
 

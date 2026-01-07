@@ -143,13 +143,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
     if (!canAccess) return null;
 
     return (
-      <button
-        onClick={() => setScreen(screen)}
+      <div
+        role="button"
+        tabIndex={0}
+        onPointerDown={(e) => {
+          // Some environments swallow click events inside scroll containers.
+          // PointerDown is more reliable and still respects user intent.
+          e.preventDefault();
+          setScreen(screen);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setScreen(screen);
+          }
+        }}
         className={cn(
           'group relative flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all w-full text-left',
           active
             ? 'bg-[#eead2b] text-[#221c10]'
-            : 'text-[#c9b792] hover:bg-[#2c241b] hover:text-white'
+            : 'text-[#c9b792] hover:bg-[#2c241b] hover:text-white',
+          'cursor-pointer select-none'
         )}
       >
         <span className={cn('material-symbols-outlined text-[20px]', active ? 'text-[#221c10]' : 'text-[#c9b792] group-hover:text-white')}>
@@ -163,7 +177,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
             {badge}
           </Badge>
         )}
-      </button>
+      </div>
     );
   };
 
@@ -177,7 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
   const ownerActsAsManager = role === UserRole.CAFE_OWNER && !(Array.isArray(subscription?.modules) ? subscription.modules : []).includes('owner_dashboard');
 
   return (
-    <aside className="w-64 h-full bg-[#1e1910] border-r border-[#483c23] flex flex-col shrink-0 z-50">
+    <aside className="w-64 h-full bg-[#1e1910] border-r border-[#483c23] flex flex-col shrink-0 relative z-[200] pointer-events-auto">
       <div className="p-6 pb-4">
         <div className="flex items-center gap-3">
           <div className="relative">

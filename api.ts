@@ -27,6 +27,19 @@ const tenantFromHostname = (): string => {
 };
 
 const tenantSlug = (): string => {
+  // Prefer the tenant slug stored in the authenticated session.
+  // This prevents mismatches where localStorage.lastWorkspace drifts from the JWT tenant.
+  try {
+    initTabSession();
+    const sess = readSession<any>();
+    const s1 = typeof sess?.tenantSlug === 'string' ? sess.tenantSlug.trim().toLowerCase() : '';
+    if (s1) return s1;
+    const s2 = typeof sess?.tenant?.slug === 'string' ? sess.tenant.slug.trim().toLowerCase() : '';
+    if (s2) return s2;
+  } catch {
+    // ignore
+  }
+
   try {
     const envSlug = (import.meta as any)?.env?.VITE_TENANT_SLUG;
     const s = typeof envSlug === 'string' ? envSlug.trim().toLowerCase() : '';
@@ -132,7 +145,26 @@ export const apiFetch = async (input: RequestInfo | URL, init: ApiFetchOptions =
     // ignore
   }
   if (res.status === 401) {
-    logoutAndReload();
+    // Do NOT log out on business-rule 401s like PIN challenges.
+    // Only force logout when the token is truly invalid/expired.
+    const urlStr = typeof input === 'string' ? input : '';
+    const isMeCheck = urlStr === '/api/auth/me' || urlStr === '/api/me';
+    if (isMeCheck) {
+      logoutAndReload();
+      return res;
+    }
+
+    try {
+      const cloned = res.clone();
+      const json = (await cloned.json().catch(() => null)) as any;
+      const err = String(json?.error || json?.message || '').trim().toLowerCase();
+      if (err === 'unauthorized' || err === 'invalid_token' || err === 'token_expired' || err === 'jwt_expired') {
+        logoutAndReload();
+        return res;
+      }
+    } catch {
+      // ignore
+    }
   }
   return res;
 };

@@ -3,6 +3,9 @@ const express = require('express');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
+const { requirePermission } = require('../middleware/permissions');
+const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -42,15 +45,6 @@ const isoDateTime = (raw) => {
 const makeManagerPaymentsRouter = () => {
   const r = express.Router();
 
-  const resolveBranchId = (req) => {
-    const role = String(req.auth?.role || '');
-    const fromToken = String(req.auth?.branchId || '');
-    const q = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
-
-    if (role === 'Cafe Owner' && (!fromToken || fromToken === 'global')) return q || '';
-    return fromToken;
-  };
-
   const requireManagerOrOwner = (req, res) => {
     if (req.auth?.tenantId !== req.tenant.id) {
       res.status(403).json({ error: 'forbidden' });
@@ -64,12 +58,19 @@ const makeManagerPaymentsRouter = () => {
     return true;
   };
 
-  r.get('/manager/payments', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get(
+    '/manager/payments',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('payments.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId || branchId === 'global') return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const from = isoDateTime(req.query?.from);
       const to = isoDateTime(req.query?.to);
@@ -93,6 +94,7 @@ const makeManagerPaymentsRouter = () => {
 
           const paymentReference = typeof payload?.paymentReference === 'string' ? payload.paymentReference : '';
           const tenderedAmount = payload?.tenderedAmount != null ? Number(payload.tenderedAmount || 0) || 0 : null;
+          const discountPct = payload?.discountPct != null ? Number(payload.discountPct || 0) || 0 : 0;
 
           const createdByStaffId = typeof payload?.createdByStaffId === 'string' ? payload.createdByStaffId : '';
           const createdByName = typeof payload?.createdByName === 'string' ? payload.createdByName : '';
@@ -111,6 +113,7 @@ const makeManagerPaymentsRouter = () => {
             tax: Number(row.tax || 0) || 0,
             tip: Number(row.tip || 0) || 0,
             discount: Number(row.discount || 0) || 0,
+            discountPct,
             createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
             paidAt: row.paid_at ? new Date(row.paid_at).toISOString() : null,
             method: paymentMethod || 'Unknown',

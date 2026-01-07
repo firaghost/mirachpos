@@ -131,7 +131,7 @@ export interface Table {
   time?: string;
 }
 
-export type PosOrderStatus = 'Pending' | 'Cooking' | 'Ready' | 'Served' | 'Paid' | 'Voided';
+export type PosOrderStatus = 'Pending' | 'Cooking' | 'Ready' | 'Served' | 'Paid' | 'Voided' | 'Refunded';
 
 export interface PosOrderItem {
   productId: string;
@@ -204,7 +204,7 @@ export interface Order {
   table: string;
   items: string;
   total: number;
-  status: 'Pending' | 'Cooking' | 'Ready' | 'Served' | 'Paid';
+  status: 'Pending' | 'Cooking' | 'Ready' | 'Served' | 'Paid' | 'Refunded';
   time: string;
   staff: string;
 }

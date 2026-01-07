@@ -4,6 +4,8 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -17,17 +19,6 @@ const safeJsonParse = (raw, fallback) => {
 
 const makeGuestsRouter = () => {
   const r = express.Router();
-
-  const resolveBranchId = (req) => {
-    const role = String(req.auth?.role || '');
-    const fromToken = String(req.auth?.branchId || '');
-    const q = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
-
-    if (role === 'Cafe Owner' && (!fromToken || fromToken === 'global')) {
-      return q || '';
-    }
-    return fromToken;
-  };
 
   const requireManagerOrOwner = (req, res) => {
     if (req.auth?.tenantId !== req.tenant.id) {
@@ -49,12 +40,11 @@ const makeGuestsRouter = () => {
     return { start, end };
   };
 
-  r.get('/manager/guests', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/manager/guests', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
       const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
@@ -105,12 +95,11 @@ const makeGuestsRouter = () => {
     }
   });
 
-  r.post('/manager/guests', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/manager/guests', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
       const role = typeof req.body?.role === 'string' ? req.body.role.trim() : '';
@@ -143,12 +132,11 @@ const makeGuestsRouter = () => {
     }
   });
 
-  r.put('/manager/guests/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/manager/guests/:id', tenantMiddleware, requireAuth, requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params.id || '');
       if (!id) return res.status(400).json({ error: 'id_required' });
@@ -187,12 +175,11 @@ const makeGuestsRouter = () => {
     }
   });
 
-  r.delete('/manager/guests/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.delete('/manager/guests/:id', tenantMiddleware, requireAuth, requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params.id || '');
       if (!id) return res.status(400).json({ error: 'id_required' });
@@ -210,12 +197,11 @@ const makeGuestsRouter = () => {
     }
   });
 
-  r.get('/manager/guests/transactions', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/manager/guests/transactions', tenantMiddleware, requireAuth, requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
       const guestId = typeof req.query?.guestId === 'string' ? req.query.guestId.trim() : '';
@@ -265,12 +251,11 @@ const makeGuestsRouter = () => {
     }
   });
 
-  r.post('/manager/guests/:id/transactions', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/manager/guests/:id/transactions', tenantMiddleware, requireAuth, requireBranchId(), async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
-      const branchId = resolveBranchId(req);
-      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+      const branchId = req.branchId || resolveBranchId(req);
 
       const guestId = String(req.params.id || '');
       if (!guestId) return res.status(400).json({ error: 'guest_required' });

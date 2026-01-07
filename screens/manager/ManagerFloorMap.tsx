@@ -4,6 +4,7 @@ import { usePos } from '../../PosContext';
 import { Screen } from '../../types';
 import { apiFetch } from '../../api';
 import { InitializePosModal } from '../../components/InitializePosModal';
+import { readSession } from '../../session';
 
 const readStaffNameCache = (): Record<string, string> => {
   try {
@@ -44,6 +45,13 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
     let mounted = true;
     const run = async () => {
       try {
+        try {
+          const s = readSession<any>();
+          const role = typeof s?.role === 'string' ? s.role : '';
+          if (role !== 'Branch Manager' && role !== 'Cafe Owner') return;
+        } catch {
+          return;
+        }
         if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
         const res = await apiFetch('/api/manager/staff?pageSize=200');
         const json = (await res.json().catch(() => null)) as any;

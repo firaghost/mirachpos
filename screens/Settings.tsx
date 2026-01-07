@@ -251,6 +251,7 @@ type TabKey =
   | 'security'
   | 'payments'
   | 'branch_defaults'
+  | 'modules'
   | 'policies'
   | 'notifications';
 
@@ -274,6 +275,9 @@ export const Settings: React.FC = () => {
   const [subLoading, setSubLoading] = useState(false);
   const [subError, setSubError] = useState<string | null>(null);
   const [sub, setSub] = useState<SubscriptionResp | null>(null);
+
+  const [modulesSaving, setModulesSaving] = useState(false);
+  const [moduleOverride, setModuleOverride] = useState<string[] | null>(null);
 
 
   const [planCatalog, setPlanCatalog] = useState<Array<{ tier: string; pricing: { monthlyEtb: number; yearlyEtb: number }; modules: string[]; limits: any }> | null>(null);
@@ -305,6 +309,45 @@ export const Settings: React.FC = () => {
     return m1.length ? m1 : m2;
   }, [sessionSubscription?.modules, sub?.subscription?.modules]);
 
+  useEffect(() => {
+    if (!Array.isArray(modules)) return;
+    setModuleOverride(modules.map(String));
+  }, [modules]);
+
+  const saveModules = async () => {
+    if (modulesSaving) return;
+    setModulesSaving(true);
+    setBanner(null);
+    try {
+      const payloadModules0 = Array.isArray(moduleOverride) ? moduleOverride : [];
+      const payloadModules = payloadModules0.includes('settings') ? payloadModules0 : [...payloadModules0, 'settings'];
+      const res = await apiFetch('/api/owner/modules', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modules: payloadModules }),
+      });
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+
+      const ent = json?.entitlements;
+      if (ent && typeof ent === 'object') {
+        setSub(ent as any);
+        setModuleOverride(Array.isArray(ent?.subscription?.modules) ? ent.subscription.modules.map(String) : []);
+        try {
+          updateSession({ subscription: { tier: ent?.subscription?.tier, modules: ent?.subscription?.modules } });
+          window.dispatchEvent(new Event('mirachpos-session-changed'));
+        } catch {
+        }
+      }
+
+      setBanner({ kind: 'success', message: 'Modules updated.' });
+    } catch (e) {
+      setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to update modules.' });
+    } finally {
+      setModulesSaving(false);
+    }
+  };
+
   const requiredModuleForTab = useMemo(() => {
     const m: Record<TabKey, string | null> = {
       business: 'settings',
@@ -314,6 +357,7 @@ export const Settings: React.FC = () => {
       security: 'settings',
       payments: 'settings',
       branch_defaults: 'settings',
+      modules: 'settings',
       policies: 'settings',
       notifications: 'settings',
     };
@@ -518,6 +562,7 @@ export const Settings: React.FC = () => {
         { key: 'taxes' as const, label: 'Taxes & Service', icon: 'percent' },
         { key: 'preferences' as const, label: 'Preferences', icon: 'tune' },
         { key: 'security' as const, label: 'Security', icon: 'security' },
+        { key: 'modules' as const, label: 'Modules', icon: 'widgets' },
         { key: 'policies' as const, label: 'User/Role Policies', icon: 'policy' },
         { key: 'notifications' as const, label: 'Notifications', icon: 'notifications' },
       ] as const,
@@ -655,6 +700,124 @@ export const Settings: React.FC = () => {
                         <Field label="Timezone">
                           <Input value={s.business.timezone} onChange={(e) => setDraft({ ...s, business: { ...s.business, timezone: e.target.value } })} />
                         </Field>
+                      </div>
+                    ) : null}
+
+                    {activeTab === 'modules' ? (
+                      <div className="flex flex-col gap-6">
+                        <div className="p-4 border border-border rounded-lg bg-[#1f1a10]">
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex flex-col">
+                              <div className="text-white font-extrabold text-sm">Your plan modules</div>
+                              <div className="text-xs text-text-muted mt-1">
+                                Enabled modules are enforced server-side. Disabled modules will return <span className="font-mono">402 module_not_enabled</span>.
+                              </div>
+                            </div>
+                            <div className="text-xs text-text-muted">Tier: <span className="text-white font-bold">{tier}</span></div>
+                          </div>
+                          {subLoading ? <div className="text-xs text-text-muted mt-3">Loading ¦</div> : null}
+                          {subError ? <div className="text-xs text-danger mt-3">{subError}</div> : null}
+                          {!subLoading && !subError ? (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {(Array.isArray(moduleOverride) ? moduleOverride : []).length ? (
+                                (moduleOverride as any[]).map((m) => (
+                                  <span key={String(m)} className="px-2 py-1 rounded-md border border-border bg-[#2c241b] text-xs text-white font-bold">
+                                    {String(m)}
+                                  </span>
+                                ))
+                              ) : (
+                                <div className="text-xs text-text-muted">No modules enabled.</div>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="p-4 border border-border rounded-lg">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex flex-col">
+                              <div className="text-white font-extrabold text-sm">Available modules</div>
+                              <div className="text-xs text-text-muted mt-1">Toggle modules and save. Upgrades are managed in Subscription & Billing.</div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={saveModules}
+                              disabled={modulesSaving || lockedBySubscription}
+                              className={cx(
+                                'px-4 h-10 rounded-lg text-sm font-extrabold transition-colors shadow-lg',
+                                modulesSaving || lockedBySubscription
+                                  ? 'bg-border text-text-muted cursor-not-allowed'
+                                  : 'bg-primary text-background hover:bg-primary-hover shadow-primary/20',
+                              )}
+                            >
+                              {modulesSaving ? 'Saving ¦' : 'Save Modules'}
+                            </button>
+                          </div>
+
+                          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {(
+                              [
+                                'pos',
+                                'orders',
+                                'tables',
+                                'guests',
+                                'inventory',
+                                'menu',
+                                'staff',
+                                'reports',
+                                'finance',
+                                'branches',
+                                'owner_dashboard',
+                                'settings',
+                              ] as const
+                            ).map((key) => {
+                              const enabled = Array.isArray(moduleOverride)
+                                ? (moduleOverride as any[]).map(String).includes(String(key))
+                                : Array.isArray(modules)
+                                  ? (modules as any[]).map(String).includes(String(key))
+                                  : false;
+
+                              const requiredAlwaysOn = String(key) === 'settings';
+
+                              const inAnyPlan = Array.isArray(planCatalog)
+                                ? planCatalog.some((p) => Array.isArray((p as any)?.modules) && (p as any).modules.map(String).includes(String(key)))
+                                : true;
+
+                              return (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  disabled={lockedBySubscription || modulesSaving || !inAnyPlan || requiredAlwaysOn}
+                                  onClick={() => {
+                                    const cur = Array.isArray(moduleOverride) ? moduleOverride.map(String) : Array.isArray(modules) ? (modules as any[]).map(String) : [];
+                                    const next = new Set(cur);
+                                    if (next.has(String(key))) next.delete(String(key));
+                                    else next.add(String(key));
+                                    setModuleOverride(Array.from(next.values()));
+                                  }}
+                                  className={cx(
+                                    'p-4 border rounded-lg flex items-start justify-between gap-4 text-left transition-colors',
+                                    'border-border hover:bg-[#2c241b]',
+                                    (lockedBySubscription || modulesSaving || !inAnyPlan || requiredAlwaysOn) && 'opacity-60 cursor-not-allowed hover:bg-transparent',
+                                  )}
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <span className={cx('material-symbols-outlined text-[20px]', enabled ? 'text-success' : 'text-text-muted')}
+                                      >{enabled ? 'check_circle' : 'lock'}</span>
+                                    <div className="flex flex-col">
+                                      <div className="text-white font-bold text-sm">{key}</div>
+                                      <div className="text-xs text-text-muted mt-1">
+                                        {enabled ? (requiredAlwaysOn ? 'Required' : 'Enabled') : inAnyPlan ? 'Not enabled on your plan' : 'Not available'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className={cx('text-xs font-bold px-2 py-1 rounded-md border', enabled ? 'border-success/40 bg-success/10 text-success' : 'border-border bg-[#2c241b] text-text-muted')}>
+                                    {enabled ? 'ON' : 'OFF'}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
                     ) : null}
 

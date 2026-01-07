@@ -464,7 +464,7 @@ const AppContent: React.FC = () => {
 
       <main className="flex-1 h-full overflow-hidden bg-gray-50 dark:bg-background relative transition-colors duration-200 pb-8">
         {shouldShowUpgradeModal ? (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="fixed top-0 bottom-0 right-0 left-64 z-[120] flex items-center justify-center p-4">
             <div
               className="absolute inset-0 bg-black/60"
               onClick={() => {
