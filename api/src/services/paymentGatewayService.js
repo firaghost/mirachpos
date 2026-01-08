@@ -152,6 +152,21 @@ const getGatewayConfig = async (gateway) => {
 
 const CHAPA_API_URL = 'https://api.chapa.co/v1';
 
+const safeErrMsg = (val) => {
+    if (typeof val === 'string') return val;
+    if (val instanceof Error) return String(val.message || 'error');
+    try {
+        if (val === null || val === undefined) return '';
+        return JSON.stringify(val);
+    } catch {
+        try {
+            return String(val);
+        } catch {
+            return '';
+        }
+    }
+};
+
 const chapaInitialize = async ({
     amount,
     currency = 'ETB',
@@ -193,10 +208,11 @@ const chapaInitialize = async ({
             body: JSON.stringify(payload),
         });
 
-        const data = await response.json();
+        const data = await response.json().catch(() => null);
 
-        if (!response.ok || data.status !== 'success') {
-            throw new Error(data.message || 'Chapa initialization failed');
+        if (!response.ok || data?.status !== 'success') {
+            const msg = safeErrMsg(data?.message) || safeErrMsg(data) || `Chapa initialization failed (${response.status})`;
+            throw new Error(msg);
         }
 
         return {
@@ -224,10 +240,11 @@ const chapaVerify = async (txRef) => {
             },
         });
 
-        const data = await response.json();
+        const data = await response.json().catch(() => null);
 
         if (!response.ok) {
-            throw new Error(data.message || 'Chapa verification failed');
+            const msg = safeErrMsg(data?.message) || safeErrMsg(data) || `Chapa verification failed (${response.status})`;
+            throw new Error(msg);
         }
 
         return {

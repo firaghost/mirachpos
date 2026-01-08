@@ -229,6 +229,12 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
                   <span className="text-[#c9b792]">Service (5%)</span>
                   <span className="text-white font-medium">ETB {order.serviceCharge.toFixed(2)}</span>
                 </div>
+                {Number((order as any).tip ?? 0) > 0 ? (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-[#c9b792]">Tip</span>
+                    <span className="text-white font-medium">ETB {Number((order as any).tip ?? 0).toFixed(2)}</span>
+                  </div>
+                ) : null}
               </div>
               <div className="p-5 bg-[#3a2e22]/30">
                 <div className="flex justify-between items-end">

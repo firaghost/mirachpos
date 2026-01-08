@@ -192,6 +192,9 @@ export const ManagerTableDetails: React.FC<Props> = ({ onNavigate }) => {
                     <div className="flex justify-between"><span className="text-[#c8ad93]">Subtotal</span><span className="text-white font-bold">ETB {order.subtotal.toFixed(2)}</span></div>
                     <div className="flex justify-between"><span className="text-[#c8ad93]">Tax</span><span className="text-white font-bold">ETB {order.tax.toFixed(2)}</span></div>
                     <div className="flex justify-between"><span className="text-[#c8ad93]">Service</span><span className="text-white font-bold">ETB {order.serviceCharge.toFixed(2)}</span></div>
+                    {Number((order as any).tip ?? 0) > 0 ? (
+                      <div className="flex justify-between"><span className="text-[#c8ad93]">Tip</span><span className="text-white font-bold">ETB {Number((order as any).tip ?? 0).toFixed(2)}</span></div>
+                    ) : null}
                     <div className="flex justify-between text-base"><span className="text-[#c8ad93] font-bold">Total</span><span className="text-white font-black">ETB {order.total.toFixed(2)}</span></div>
                   </>
                 ) : null}

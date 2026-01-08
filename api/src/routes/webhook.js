@@ -9,6 +9,7 @@
 
 const express = require('express');
 const crypto = require('crypto');
+const net = require('net');
 const { db } = require('../db');
 const { verifyPayment } = require('../services/invoiceService');
 const { makeId } = require('../utils/ids');
@@ -17,6 +18,164 @@ const { handleStandingOrderWebhook } = require('../services/telebirrStandingOrde
 const { logger } = require('../utils/logger');
 
 const log = logger.child({ service: 'webhooks' });
+
+const safeJsonParse = (raw, fallback) => {
+    try {
+        if (!raw) return fallback;
+        const parsed = JSON.parse(String(raw));
+        return parsed ?? fallback;
+    } catch {
+        return fallback;
+    }
+};
+
+const escInit = Buffer.from([0x1b, 0x40]);
+const escAlignCenter = Buffer.from([0x1b, 0x61, 0x01]);
+const escAlignLeft = Buffer.from([0x1b, 0x61, 0x00]);
+const escBoldOn = Buffer.from([0x1b, 0x45, 0x01]);
+const escBoldOff = Buffer.from([0x1b, 0x45, 0x00]);
+const escCut = Buffer.from([0x1d, 0x56, 0x00]);
+const txt = (s) => Buffer.from(String(s ?? ''), 'utf8');
+const nl = () => Buffer.from('\n', 'utf8');
+
+const sendTcp = async ({ host, port, data, timeoutMs }) => {
+    const p = Number(port);
+    if (!host || !Number.isFinite(p) || p <= 0 || p > 65535) throw new Error('invalid_printer_address');
+
+    return await new Promise((resolve, reject) => {
+        const sock = new net.Socket();
+        let done = false;
+
+        const finish = (err) => {
+            if (done) return;
+            done = true;
+            try {
+                sock.destroy();
+            } catch {
+                // ignore
+            }
+            if (err) reject(err);
+            else resolve();
+        };
+
+        const t = setTimeout(() => finish(new Error('printer_timeout')), Math.max(500, Number(timeoutMs) || 7000));
+
+        sock.once('error', (e) => {
+            clearTimeout(t);
+            finish(e);
+        });
+
+        sock.connect(p, host, () => {
+            sock.write(data, (e) => {
+                clearTimeout(t);
+                if (e) return finish(e);
+                try {
+                    sock.end();
+                } catch {
+                    // ignore
+                }
+                finish();
+            });
+        });
+    });
+};
+
+const makeReceiptPayloadFromOrder = ({ orderRow }) => {
+    const payload = safeJsonParse(orderRow?.payload, {});
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    const number = String(payload?.number || payload?.orderNumber || orderRow?.id || '').trim();
+    const tableName = String(payload?.tableName || payload?.table || '').trim();
+    const cashier = String(payload?.createdByName || payload?.cashierName || '').trim();
+
+    const total = Number(orderRow?.total || 0) || 0;
+    const tax = Number(orderRow?.tax || 0) || 0;
+    const discount = Number(orderRow?.discount || 0) || 0;
+    const tip = Number(orderRow?.tip || 0) || 0;
+
+    const paidAt = orderRow?.paid_at ? new Date(orderRow.paid_at) : null;
+
+    const lines = [];
+    lines.push(escInit);
+    lines.push(escAlignCenter);
+    lines.push(escBoldOn);
+    lines.push(txt('CASH INVOICE'));
+    lines.push(escBoldOff);
+    lines.push(nl());
+    lines.push(nl());
+
+    lines.push(escAlignLeft);
+    lines.push(txt(`Order: ${number || String(orderRow?.id || '')}`));
+    lines.push(nl());
+    if (tableName) {
+        lines.push(txt(`Table: ${tableName}`));
+        lines.push(nl());
+    }
+    if (cashier) {
+        lines.push(txt(`Cashier: ${cashier}`));
+        lines.push(nl());
+    }
+    if (paidAt) {
+        lines.push(txt(`Paid: ${paidAt.toLocaleString()}`));
+        lines.push(nl());
+    }
+    lines.push(nl());
+
+    lines.push(txt('Item            Qty   Price'));
+    lines.push(nl());
+    lines.push(txt('----------------------------'));
+    lines.push(nl());
+
+    for (const it of items.slice(0, 200)) {
+        const name = String(it?.name || it?.productName || it?.productId || '').trim();
+        const qty = Number(it?.qty ?? 0) || 0;
+        const unitPrice = Number(it?.unitPrice ?? it?.price ?? 0) || 0;
+        const line = `${name}`.slice(0, 14).padEnd(14) + String(qty).slice(0, 3).padStart(4) + String(unitPrice.toFixed(2)).slice(0, 8).padStart(8);
+        lines.push(txt(line));
+        lines.push(nl());
+    }
+
+    lines.push(txt('----------------------------'));
+    lines.push(nl());
+    lines.push(txt(`Subtotal            ${(total - tax - tip + discount).toFixed(2)}`));
+    lines.push(nl());
+    if (discount > 0.0001) {
+        lines.push(txt(`Discount            ${discount.toFixed(2)}`));
+        lines.push(nl());
+    }
+    if (tax > 0.0001) {
+        lines.push(txt(`Tax                 ${tax.toFixed(2)}`));
+        lines.push(nl());
+    }
+    if (tip > 0.0001) {
+        lines.push(txt(`Tip                 ${tip.toFixed(2)}`));
+        lines.push(nl());
+    }
+    lines.push(escBoldOn);
+    lines.push(txt(`TOTAL               ${total.toFixed(2)}`));
+    lines.push(escBoldOff);
+    lines.push(nl());
+    lines.push(nl());
+
+    lines.push(escAlignCenter);
+    lines.push(txt('Powered by Mirach POS'));
+    lines.push(nl());
+    lines.push(nl());
+    lines.push(nl());
+    lines.push(escCut);
+
+    return Buffer.concat(lines);
+};
+
+const loadBranchSettings = async ({ tenantId, branchId }) => {
+    try {
+        if (!branchId) return {};
+        const row = await db().select(['settings_json']).from('manager_settings').where({ tenant_id: tenantId, branch_id: branchId }).first();
+        const parsed = safeJsonParse(row?.settings_json, {});
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+        return {};
+    }
+};
 
 const makeWebhookRouter = () => {
     const r = express.Router();
@@ -80,8 +239,100 @@ const makeWebhookRouter = () => {
             log.info({ requestId, tx_ref, status, amount, currency }, 'Chapa webhook payload');
 
             if (status === 'success') {
+                const txRef = String(tx_ref || '').trim();
+
+                const posTx = txRef
+                    ? await db()
+                        .select(['*'])
+                        .from('pos_payment_gateway_transactions')
+                        .where({ tx_ref: txRef, gateway: 'chapa' })
+                        .first()
+                    : null;
+
+                if (posTx?.id) {
+                    const tenantId = String(posTx.tenant_id || '').trim();
+                    const branchId = String(posTx.branch_id || '').trim();
+                    const orderId = String(posTx.order_id || '').trim();
+
+                    if (!tenantId || !branchId || !orderId) {
+                        log.warn({ requestId, txRef, tenantId, branchId, orderId }, 'POS Chapa tx missing scope');
+                        return res.status(200).send('OK');
+                    }
+
+                    const orderRow = await db()
+                        .from('orders')
+                        .where({ tenant_id: tenantId, branch_id: branchId, id: orderId })
+                        .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'paid_at', 'payload', 'created_at'])
+                        .first();
+
+                    if (!orderRow) {
+                        log.warn({ requestId, tenantId, branchId, orderId, txRef }, 'Order not found for POS Chapa tx');
+                        return res.status(200).send('OK');
+                    }
+
+                    if (String(orderRow.status || '') === 'Paid') {
+                        await db()
+                            .from('pos_payment_gateway_transactions')
+                            .where({ id: posTx.id })
+                            .update({ status: 'completed', paid_at: orderRow.paid_at || new Date().toISOString(), webhook_payload_json: JSON.stringify(req.body), updated_at: new Date().toISOString() });
+
+                        log.info({ requestId, tenantId, branchId, orderId, txRef }, 'Order already paid (idempotent)');
+                        return res.status(200).send('Already Paid');
+                    }
+
+                    const nowIso = new Date().toISOString();
+                    const payload = safeJsonParse(orderRow.payload, {});
+                    payload.paidAt = nowIso;
+                    payload.paymentMethod = 'Mobile Money';
+                    payload.paymentReference = txRef;
+                    payload.chapaWebhook = req.body;
+
+                    await db().from('orders').where({ tenant_id: tenantId, branch_id: branchId, id: orderId }).update({
+                        status: 'Paid',
+                        paid_at: nowIso,
+                        payload: JSON.stringify(payload),
+                    });
+
+                    await db().from('pos_payment_gateway_transactions').where({ id: posTx.id }).update({
+                        status: 'completed',
+                        paid_at: nowIso,
+                        webhook_payload_json: JSON.stringify(req.body),
+                        updated_at: nowIso,
+                    });
+
+                    try {
+                        const branchRaw = await loadBranchSettings({ tenantId, branchId });
+                        const enabled = branchRaw?.receipt?.autoPrintReceipts === true || branchRaw?.autoPrintReceipts === true;
+                        const deviceId = String(branchRaw?.defaultReceiptPrinterId || '').trim();
+                        if (enabled && deviceId) {
+                            const devices = Array.isArray(branchRaw?.devices) ? branchRaw.devices : [];
+                            const device = devices.find((d) => String(d?.id || '') === deviceId);
+                            if (device && String(device?.connection || '') === 'LAN') {
+                                const host = String(device?.ip || '').trim();
+                                const port = String(device?.port || '9100').trim();
+                                const orderRow2 = await db()
+                                    .from('orders')
+                                    .where({ tenant_id: tenantId, branch_id: branchId, id: orderId })
+                                    .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'paid_at', 'created_at', 'payload'])
+                                    .first();
+
+                                if (orderRow2) {
+                                    const printPayload = makeReceiptPayloadFromOrder({ orderRow: orderRow2 });
+                                    await sendTcp({ host, port, data: printPayload, timeoutMs: 8000 });
+                                }
+                            }
+                        }
+                    } catch (printErr) {
+                        log.error({ requestId, tenantId, branchId, orderId, error: String(printErr?.message || printErr || '') }, 'Auto-print receipt failed for POS Chapa payment');
+                    }
+
+                    const duration = Date.now() - startTime;
+                    log.info({ requestId, tenantId, branchId, orderId, txRef, amount, duration }, 'POS Chapa payment processed successfully');
+                    return res.status(200).send('OK');
+                }
+
                 // tx_ref format: invoiceId_timestamp
-                const [invoiceId] = (tx_ref || '').split('_');
+                const [invoiceId] = (txRef || '').split('_');
 
                 if (!invoiceId) {
                     log.warn({ requestId, tx_ref }, 'Invalid tx_ref format');
@@ -104,7 +355,7 @@ const makeWebhookRouter = () => {
                 const existingPayment = await db()
                     .select(['id'])
                     .from('payments')
-                    .where({ invoice_id: invoiceId, reference: reference || tx_ref })
+                    .where({ invoice_id: invoiceId, reference: reference || txRef })
                     .first();
 
                 if (existingPayment) {
@@ -124,7 +375,7 @@ const makeWebhookRouter = () => {
                     status: 'verified',
                     amount_etb: amount,
                     currency: currency || 'ETB',
-                    reference: reference || tx_ref,
+                    reference: reference || txRef,
                     gateway_response_json: JSON.stringify(req.body),
                     gateway_tx_id: reference,
                     verified_by: 'system',

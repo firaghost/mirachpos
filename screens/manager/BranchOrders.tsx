@@ -108,6 +108,7 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
                         <th className="px-6 py-4">Table/Channel</th>
                         <th className="px-6 py-4">Placed By</th>
                         <th className="px-6 py-4">Items</th>
+                        <th className="px-6 py-4 text-right">Tip</th>
                         <th className="px-6 py-4 text-right">Total</th>
                         <th className="px-6 py-4">Status</th>
                     </tr>
@@ -121,6 +122,7 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
                             <td className="px-6 py-4">{order.tableName}</td>
                             <td className="px-6 py-4 text-[#c9b792]">{order.createdByName ?? (order.createdByStaffId ?? ' ”')}</td>
                             <td className="px-6 py-4 text-[#c9b792] truncate max-w-[200px]">{order.items.map((x) => `${x.qty} — ${x.name}`).join(', ')}</td>
+                            <td className="px-6 py-4 text-right font-bold">ETB {Number((order as any).tip ?? 0).toFixed(2)}</td>
                             <td className="px-6 py-4 text-right font-bold">ETB {order.total.toFixed(2)}</td>
                             <td className="px-6 py-4 relative overflow-hidden">
                                  {order.status === 'Voided' ? (

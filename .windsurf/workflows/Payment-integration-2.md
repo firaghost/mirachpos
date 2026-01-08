@@ -1,3 +1,6 @@
+---
+auto_execution_mode: 1
+---
 # 🇪🇹 ETHIOPIA MOBILE PAYMENT QR CODE - ADVANCED IMPLEMENTATION GUIDE (PART 2)
 
 **Continuation from Part 1**  

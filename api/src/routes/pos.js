@@ -681,6 +681,15 @@ const resolveBranchId = async (req) => {
 const makePosRouter = () => {
   const r = express.Router();
 
+  const sanitizeChapaText = (v) => {
+    const s = String(v || '').trim();
+    if (!s) return '';
+    return s
+      .replace(/[^A-Za-z0-9\-_. ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   const mapPrintError = (e) => {
     const msg = String(e?.message || '').trim().toLowerCase();
     const code = String(e?.code || '').trim().toUpperCase();
@@ -1158,7 +1167,7 @@ const makePosRouter = () => {
     requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
     loadEntitlements,
     requireModule('pos'),
-    requirePermission('orders.update'),
+    requirePermission('orders.read'),
     async (req, res, next) => {
     try {
       const branchId = await resolveBranchId(req);
@@ -1808,6 +1817,221 @@ const makePosRouter = () => {
     }
   });
 
+  r.post(
+    '/pos/orders/:id/pay-chapa',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('payments.process'),
+    async (req, res, next) => {
+    try {
+      const branchId = await resolveBranchId(req);
+      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const role = String(req.auth?.role || '').trim();
+      const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
+
+      const id = String(req.params.id || '').trim();
+      if (!id) return res.status(400).json({ error: 'id_required' });
+
+      const orderRow = await db()
+        .from('orders')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
+        .select(['id', 'status', 'total', 'payload'])
+        .first();
+
+      if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+      if (orderRow.status === 'Paid') return res.status(400).json({ error: 'order_already_paid' });
+
+      if (role === 'Waiter') {
+        if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+        const payload = safeJsonParse(orderRow.payload, {});
+        const createdBy = typeof payload?.createdByStaffId === 'string' ? String(payload.createdByStaffId) : '';
+        if (!createdBy || createdBy !== staffId) return res.status(403).json({ error: 'forbidden' });
+      }
+
+      const staff = staffId
+        ? await db().select(['name', 'email']).from('staff').where({ tenant_id: req.tenant.id, id: staffId }).first()
+        : null;
+
+      const email = (() => {
+        const e = String(staff?.email || '').trim();
+        if (e) return e;
+        const slug = String(req.tenant?.slug || '').trim().toLowerCase();
+        const tid = String(req.tenant?.id || '').trim().toLowerCase();
+        const hint = slug || (tid ? tid.slice(0, 8) : 'tenant');
+        return `pos-${hint}@mirachpos.local`;
+      })();
+
+      const fullName = String(staff?.name || '').trim();
+      const firstName = fullName ? fullName.split(' ')[0] : 'Customer';
+      const lastName = fullName ? fullName.split(' ').slice(1).join(' ') || 'Customer' : 'Customer';
+
+      const baseUrl = req.protocol + '://' + req.get('host');
+      const callbackUrl = `${baseUrl}/api/webhooks/payment/chapa`;
+      const returnUrl = `${baseUrl}/waiter/pos?orderId=${id}&chapa=success`;
+
+      const settings = await resolveEffectivePosSettings({ tenantId: req.tenant.id, branchId });
+      const orderPayload = safeJsonParse(orderRow.payload, {});
+      const orderNumber = typeof orderPayload?.number === 'string' && orderPayload.number.trim() ? String(orderPayload.number).trim() : '';
+      const cafeName = typeof settings?.business?.businessName === 'string' && settings.business.businessName.trim() ? String(settings.business.businessName).trim() : '';
+
+      // Chapa requires tx_ref <= 50 characters.
+      // Keep it deterministic enough to associate to the order, but compact.
+      const shortOrder = String(id).replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || String(id).slice(0, 12);
+      const rand = Math.random().toString(16).slice(2, 10);
+      const txRef = `pos_${shortOrder}_${rand}`;
+      const init = await paymentGatewayService.chapaInitialize({
+        amount: orderRow.total,
+        currency: 'ETB',
+        email,
+        firstName,
+        lastName,
+        txRef,
+        callbackUrl,
+        returnUrl,
+        customization: {
+          title: sanitizeChapaText(cafeName) || 'MirachPOS',
+          description:
+            sanitizeChapaText(orderNumber ? `Order ${orderNumber}` : `Order ${id}`) +
+            ' . Powered by MirachPOS',
+        },
+      });
+
+      const nowIso = new Date().toISOString();
+      const expiryMs = 5 * 60 * 1000;
+      const expiresAt = new Date(Date.now() + expiryMs).toISOString();
+
+      await db().from('pos_payment_gateway_transactions').insert({
+        id: uid('pgt'),
+        tenant_id: req.tenant.id,
+        branch_id: branchId,
+        order_id: id,
+        gateway: 'chapa',
+        method: 'mobile_money',
+        tx_ref: txRef,
+        gateway_tx_id: null,
+        checkout_url: init.checkoutUrl,
+        amount: orderRow.total,
+        currency: 'ETB',
+        status: 'pending',
+        expires_at: expiresAt,
+        paid_at: null,
+        init_response_json: JSON.stringify(init),
+        verify_response_json: null,
+        webhook_payload_json: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      });
+
+      return res.json({ ok: true, checkoutUrl: init.checkoutUrl, txRef });
+    } catch (e) {
+      console.error('POS Chapa pay error:', e);
+      const msg = (() => {
+        const raw = e && typeof e === 'object' ? e.message : '';
+        if (typeof raw === 'string' && raw.trim()) return raw;
+        try {
+          return JSON.stringify(raw);
+        } catch {
+          try {
+            return String(raw || 'gateway_error');
+          } catch {
+            return 'gateway_error';
+          }
+        }
+      })();
+      return res.status(400).json({ error: 'gateway_error', message: msg });
+    }
+  });
+
+  r.post(
+    '/pos/orders/:id/pay-chapa-link',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('payments.process'),
+    async (req, res, next) => {
+    try {
+      const branchId = await resolveBranchId(req);
+      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const role = String(req.auth?.role || '').trim();
+      const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
+
+      const id = String(req.params.id || '').trim();
+      if (!id) return res.status(400).json({ error: 'id_required' });
+
+      const orderRow = await db()
+        .from('orders')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
+        .select(['id', 'status', 'total', 'payload', 'paid_at'])
+        .first();
+
+      if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+      if (orderRow.status === 'Paid') return res.status(400).json({ error: 'order_already_paid' });
+
+      if (role === 'Waiter') {
+        if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+        const payload = safeJsonParse(orderRow.payload, {});
+        const createdBy = typeof payload?.createdByStaffId === 'string' ? String(payload.createdByStaffId) : '';
+        if (!createdBy || createdBy !== staffId) return res.status(403).json({ error: 'forbidden' });
+      }
+
+      const settings = await resolveEffectivePosSettings({ tenantId: req.tenant.id, branchId });
+      const orderPayload = safeJsonParse(orderRow.payload, {});
+      const orderNumber = typeof orderPayload?.number === 'string' && orderPayload.number.trim() ? String(orderPayload.number).trim() : '';
+      const cafeName = typeof settings?.business?.businessName === 'string' && settings.business.businessName.trim() ? String(settings.business.businessName).trim() : '';
+
+      const baseUrl = req.protocol + '://' + req.get('host');
+
+      const payerToken = uid('pay');
+      const receiptToken = uid('rcp');
+      const nowIso = new Date().toISOString();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+      await db().from('pos_public_order_links').insert([
+        {
+          id: uid('pol'),
+          tenant_id: req.tenant.id,
+          branch_id: branchId,
+          order_id: id,
+          token: payerToken,
+          purpose: 'payer',
+          expires_at: expiresAt,
+          meta_json: JSON.stringify({ createdByRole: role, createdByStaffId: staffId || null }),
+          created_at: nowIso,
+          updated_at: nowIso,
+        },
+        {
+          id: uid('pol'),
+          tenant_id: req.tenant.id,
+          branch_id: branchId,
+          order_id: id,
+          token: receiptToken,
+          purpose: 'receipt',
+          expires_at: expiresAt,
+          meta_json: JSON.stringify({ createdByRole: role, createdByStaffId: staffId || null }),
+          created_at: nowIso,
+          updated_at: nowIso,
+        },
+      ]);
+
+      return res.json({
+        ok: true,
+        payerUrl: `${baseUrl}/p/${encodeURIComponent(payerToken)}`,
+        receiptUrl: `${baseUrl}/r/${encodeURIComponent(receiptToken)}`,
+        cafeName: cafeName || 'MirachPOS',
+        orderNumber: orderNumber || id,
+      });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
   r.get(
     '/pos/orders/:id/payment-status',
     tenantMiddleware,
@@ -1870,6 +2094,96 @@ const makePosRouter = () => {
         }
       } catch (verifyError) {
         console.error('Telebirr verify error in POS route:', verifyError);
+      }
+
+      return res.json({ ok: true, paid: false });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.get(
+    '/pos/orders/:id/payment-status-chapa',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
+    try {
+      const branchId = await resolveBranchId(req);
+      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const role = String(req.auth?.role || '').trim();
+      const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
+
+      const id = String(req.params.id || '').trim();
+      if (!id) return res.status(400).json({ error: 'id_required' });
+
+      const orderRow = await db()
+        .from('orders')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
+        .select(['id', 'status', 'payload'])
+        .first();
+
+      if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+
+      if (role === 'Waiter') {
+        if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+        const payload = safeJsonParse(orderRow.payload, {});
+        const createdBy = typeof payload?.createdByStaffId === 'string' ? String(payload.createdByStaffId) : '';
+        if (!createdBy || createdBy !== staffId) return res.status(403).json({ error: 'forbidden' });
+      }
+
+      if (orderRow.status === 'Paid') {
+        return res.json({ ok: true, paid: true });
+      }
+
+      const tx = await db()
+        .from('pos_payment_gateway_transactions')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id, gateway: 'chapa' })
+        .orderBy('created_at', 'desc')
+        .select(['tx_ref', 'status', 'expires_at', 'paid_at'])
+        .first();
+
+      if (!tx?.tx_ref) return res.json({ ok: true, paid: false });
+      if (String(tx.status || '') === 'completed') return res.json({ ok: true, paid: true });
+
+      try {
+        const verify = await paymentGatewayService.chapaVerify(String(tx.tx_ref));
+        if (verify?.success && String(verify?.status || '').toLowerCase() === 'success') {
+          // Update order + transaction (webhook may not reach localhost in dev)
+          const nowIso = new Date().toISOString();
+          const payload = safeJsonParse(orderRow.payload, {});
+          payload.paidAt = nowIso;
+          payload.paymentMethod = 'Mobile Pay';
+          payload.chapaTxRef = String(tx.tx_ref);
+          payload.chapaVerifyResponse = verify.rawResponse;
+
+          await db()
+            .from('orders')
+            .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
+            .update({
+              status: 'Paid',
+              paid_at: nowIso,
+              payload: JSON.stringify(payload),
+            });
+
+          await db()
+            .from('pos_payment_gateway_transactions')
+            .where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id, gateway: 'chapa', tx_ref: String(tx.tx_ref) })
+            .update({
+              status: 'completed',
+              paid_at: nowIso,
+              verify_response_json: JSON.stringify(verify),
+              updated_at: nowIso,
+            });
+
+          return res.json({ ok: true, paid: true });
+        }
+      } catch {
+        // ignore
       }
 
       return res.json({ ok: true, paid: false });

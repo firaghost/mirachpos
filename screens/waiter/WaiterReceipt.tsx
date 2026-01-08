@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Screen } from '../../types';
 import { usePos, useSelectedOrder } from '../../PosContext';
 import { apiFetch } from '../../api';
+import { readSession } from '../../session';
 
 type PosSettingsResponse = {
   ok?: boolean;
@@ -14,6 +15,26 @@ type PosSettingsResponse = {
 };
 
 const RECEIPT_SPLIT_KEY = 'mirachpos.receipt.splitId.v1';
+
+const withBranchQuery = (url: string) => {
+  try {
+    const s = readSession<any>();
+    const role = typeof s?.role === 'string' ? s.role : '';
+    const tokenBranch = typeof s?.branchId === 'string' ? s.branchId.trim() : '';
+    if (role !== 'Cafe Owner') return url;
+    if (tokenBranch && tokenBranch !== 'global') return url;
+    const selected =
+      (localStorage.getItem('mirachpos.owner.selectedBranchId.v1') ||
+        localStorage.getItem('mirachpos.manager.selectedBranchId.v1') ||
+        localStorage.getItem('mirachpos.waiter.selectedBranchId.v1') ||
+        '')
+        .trim();
+    if (!selected || selected === 'global') return url;
+    return url.includes('?') ? `${url}&branchId=${encodeURIComponent(selected)}` : `${url}?branchId=${encodeURIComponent(selected)}`;
+  } catch {
+    return url;
+  }
+};
 
 const escapeHtml = (s: string) =>
   s
@@ -151,6 +172,8 @@ const receiptHtml = (
   const taxRateLabel = settings.vatEnabled ? `${settings.vatRate.toFixed(2)}%` : '';
   const serviceLabel = settings.serviceEnabled ? `SERVICE CHARGE +${settings.serviceRate.toFixed(0)}%` : 'SERVICE CHARGE';
 
+  const tip = Number((order as any)?.tip ?? (order as any)?.payload?.tip ?? 0) || 0;
+
   const tendered = Number((order as any)?.tenderedAmount ?? 0) || 0;
   const change = Math.max(0, tendered - Number(order.total || 0));
   const payMethod = String((order as any)?.paymentMethod || order.paymentMethod || 'CASH').toUpperCase();
@@ -268,6 +291,8 @@ const receiptHtml = (
       <div class="meta"><span class="b">TXBL 1</span><span class="b">${cur} ${taxableBase.toFixed(2)}</span></div>
       <div class="meta" style="margin-top:6px"><span class="b">TAX 1${taxRateLabel ? `(${escapeHtml(taxRateLabel)})` : ''}</span><span class="b">${cur} ${Number(order.tax || 0).toFixed(2)}</span></div>
       <div class="hr"></div>
+      ${tip > 0 ? `<div class="meta" style="margin-top:6px"><span class="b">TIP</span><span class="b">${cur} ${tip.toFixed(2)}</span></div>` : ''}
+      ${tip > 0 ? `<div class="hr"></div>` : ''}
       <div class="meta tot"><span>TOTAL</span><span>${cur} ${Number(order.total || 0).toFixed(2)}</span></div>
       <div class="meta" style="margin-top:6px"><span class="b">${escapeHtml(payMethod)}</span><span class="b">${cur} ${Number(order.total || 0).toFixed(2)}</span></div>
       ${showTendered ? `<div class="meta" style="margin-top:6px"><span class="b">TENDERED</span><span class="b">${cur} ${tendered.toFixed(2)}</span></div>` : ''}
@@ -364,7 +389,7 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
 
       try {
         setRemoteError(null);
-        const res = await apiFetch(`/api/pos/orders/${encodeURIComponent(selectedOrderId)}`);
+        const res = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(selectedOrderId)}`));
         const json = (await res.json().catch(() => null)) as any;
         if (!res.ok) throw new Error(json?.error || String(res.status));
         if (!mounted) return;
@@ -544,7 +569,7 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
       const deviceId = typeof settingsUi.defaultReceiptPrinterId === 'string' ? settingsUi.defaultReceiptPrinterId : null;
       if (deviceId) {
         const t = window.setTimeout(() => {
-          void apiFetch(`/api/pos/print/receipt/${encodeURIComponent(String(displayOrder.id))}`, {
+          void apiFetch(withBranchQuery(`/api/pos/print/receipt/${encodeURIComponent(String(displayOrder.id))}`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deviceId }),
@@ -622,7 +647,7 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
               try {
                 const deviceId = typeof settingsUi.defaultReceiptPrinterId === 'string' ? settingsUi.defaultReceiptPrinterId : null;
                 if (deviceId && !receiptSplitId) {
-                  void apiFetch(`/api/pos/print/receipt/${encodeURIComponent(String(effectiveOrderTyped.id))}`, {
+                  void apiFetch(withBranchQuery(`/api/pos/print/receipt/${encodeURIComponent(String(effectiveOrderTyped.id))}`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ deviceId }),
@@ -719,6 +744,12 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
                 <span>{settingsUi.serviceEnabled ? `Service (${settingsUi.serviceRate}%)` : 'Service (disabled)'}</span>
                 <span className="text-white font-medium">{settingsUi.currency} {effectiveOrderTyped.serviceCharge.toFixed(2)}</span>
               </div>
+              {Number((effectiveOrderTyped as any).tip ?? 0) > 0 ? (
+                <div className="flex justify-between text-sm text-[#c9b792] mt-2">
+                  <span>Tip</span>
+                  <span className="text-white font-medium">{settingsUi.currency} {Number((effectiveOrderTyped as any).tip ?? 0).toFixed(2)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between items-center mt-4 pt-4 border-t border-dashed border-[#483c23]">
                 <span className="text-white font-bold text-lg">Total</span>
                 <span className="text-[#eead2b] font-black text-2xl">{settingsUi.currency} {effectiveOrderTyped.total.toFixed(2)}</span>

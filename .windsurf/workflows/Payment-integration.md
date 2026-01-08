@@ -1,3 +1,7 @@
+---
+auto_execution_mode: 1
+description: excute auto 
+---
 # 🇪🇹 ETHIOPIA MOBILE PAYMENT QR CODE INTEGRATION - ADVANCED IMPLEMENTATION GUIDE
 
 **Status:** Production-Ready  

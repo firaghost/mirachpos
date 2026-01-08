@@ -831,10 +831,13 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const tableName = typeof payload?.tableName === 'string' ? payload.tableName : '';
             const items = Array.isArray(payload?.items) ? (payload.items as any[]) : [];
 
-            const total = Number(r?.total ?? payload?.total ?? 0) || 0;
+            const tipFromBreakdown =
+              (Number(payload?.tipAmount ?? 0) || 0) + (Number(payload?.tipPctAmount ?? 0) || 0);
+            const tip = Number(r?.tip ?? payload?.tip ?? tipFromBreakdown ?? 0) || 0;
+
+            const total = Number(r?.total ?? payload?.totalWithTip ?? payload?.paidTotal ?? payload?.total ?? 0) || 0;
             const tax = Number(r?.tax ?? payload?.tax ?? 0) || 0;
             const discount = Number(r?.discount ?? payload?.discount ?? 0) || 0;
-            const tip = Number(r?.tip ?? payload?.tip ?? 0) || 0;
             const subtotal = Number(payload?.subtotal ?? Math.max(0, total - tax - tip)) || 0;
             const serviceCharge = Number(payload?.serviceCharge ?? 0) || 0;
 
@@ -1625,7 +1628,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const food = allLines.filter((l) => !isDrinkLine(l.name));
 
           if (food.length > 0) {
-            void apiFetch(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`, {
+            void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ lines: food, beep }),
@@ -1652,7 +1655,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
 
           if (drinks.length > 0) {
-            void apiFetch(`/api/pos/print/bar/${encodeURIComponent(String(orderId))}`, {
+            void apiFetch(withBranchQuery(`/api/pos/print/bar/${encodeURIComponent(String(orderId))}`), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ lines: drinks, beep }),
@@ -1678,7 +1681,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
           }
         } else {
-          void apiFetch(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`, {
+          void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ lines: allLines, beep }),
@@ -1829,7 +1832,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const food = allLines.filter((l) => !isDrinkLine(l.name));
 
           if (food.length > 0) {
-            void apiFetch(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`, {
+            void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ lines: food, beep }),
@@ -1856,7 +1859,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
 
           if (drinks.length > 0) {
-            void apiFetch(`/api/pos/print/bar/${encodeURIComponent(String(orderId))}`, {
+            void apiFetch(withBranchQuery(`/api/pos/print/bar/${encodeURIComponent(String(orderId))}`), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ lines: drinks, beep }),
@@ -1882,7 +1885,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
           }
         } else {
-          void apiFetch(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`, {
+          void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ lines: allLines, beep }),

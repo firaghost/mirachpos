@@ -4,6 +4,7 @@ import { Screen } from '../../types';
 import { usePos, useSelectedOrder } from '../../PosContext';
 import { apiFetch } from '../../api';
 import { Modal } from '../../components/Modal';
+import { readSession } from '../../session';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -39,7 +40,7 @@ const RECEIPT_SPLIT_KEY = 'mirachpos.receipt.splitId.v1';
 export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const { confirmPayment, refreshFromServer, products } = usePos();
   const order = useSelectedOrder();
-  const [method, setMethod] = useState<'Cash' | 'Telebirr' | 'Bank Transfer' | 'Loyalty'>('Cash');
+  const [method, setMethod] = useState<'Cash' | 'Telebirr' | 'Bank Transfer' | 'Loyalty' | 'Mobile Pay'>('Cash');
   const [tendered, setTendered] = useState('');
   const [selectedSplitId, setSelectedSplitId] = useState<string>('');
   const [paymentReference, setPaymentReference] = useState<string>('');
@@ -58,6 +59,38 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const [telebirrOnlineActive, setTelebirrOnlineActive] = useState(false);
   const pollRef = React.useRef<any>(null);
 
+  // Chapa Online (Mobile Pay) States
+  const [chapaOnlineLoading, setChapaOnlineLoading] = useState(false);
+  const [chapaCheckoutUrl, setChapaCheckoutUrl] = useState<string | null>(null);
+  const [chapaOnlineActive, setChapaOnlineActive] = useState(false);
+  const chapaPollRef = React.useRef<any>(null);
+  const chapaInitAttemptRef = React.useRef<string>('');
+
+  const withBranchQuery = (url: string) => {
+    try {
+      const s = readSession<any>();
+      const role = typeof s?.role === 'string' ? s.role : '';
+      const tokenBranch = typeof s?.branchId === 'string' ? s.branchId.trim() : '';
+
+      // Branch-scoped tokens (Waiter/Manager or Owner already bound to a branch)
+      if (tokenBranch && tokenBranch !== 'global') return url;
+
+      // Owner "global" token must provide branchId in query for branch-scoped endpoints
+      if (role !== 'Cafe Owner') return url;
+
+      const selected =
+        (localStorage.getItem('mirachpos.owner.selectedBranchId.v1') ||
+          localStorage.getItem('mirachpos.manager.selectedBranchId.v1') ||
+          localStorage.getItem('mirachpos.waiter.selectedBranchId.v1') ||
+          '')
+          .trim();
+      if (!selected || selected === 'global') return url;
+      return url.includes('?') ? `${url}&branchId=${encodeURIComponent(selected)}` : `${url}?branchId=${encodeURIComponent(selected)}`;
+    } catch {
+      return url;
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     const run = async () => {
@@ -75,6 +108,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
     return () => {
       mounted = false;
       if (pollRef.current) clearInterval(pollRef.current);
+      if (chapaPollRef.current) clearInterval(chapaPollRef.current);
     };
   }, []);
 
@@ -87,6 +121,38 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       }
     }
   }, [method, telebirrOnlineActive]);
+
+  useEffect(() => {
+    // Stop polling if we switch away from Mobile Pay or close online mode
+    if (method !== 'Mobile Pay' || !chapaOnlineActive) {
+      if (chapaPollRef.current) {
+        clearInterval(chapaPollRef.current);
+        chapaPollRef.current = null;
+      }
+    }
+  }, [method, chapaOnlineActive]);
+
+  useEffect(() => {
+    // Reset attempt tracking when leaving Mobile Pay or changing order.
+    const oid = order?.id ? String(order.id) : '';
+    if (method !== 'Mobile Pay') {
+      chapaInitAttemptRef.current = '';
+      setChapaOnlineActive(false);
+      setChapaCheckoutUrl(null);
+      return;
+    }
+
+    // Auto-generate QR on selection (once per order, no spam retries).
+    const attemptKey = oid ? `order:${oid}` : '';
+    if (!attemptKey) return;
+    if (chapaOnlineLoading) return;
+    if (chapaOnlineActive && chapaCheckoutUrl) return;
+    if (chapaInitAttemptRef.current === attemptKey) return;
+    if (selectedSplitId) return;
+
+    chapaInitAttemptRef.current = attemptKey;
+    void initiateChapaOnline();
+  }, [method, order?.id, chapaOnlineLoading, chapaOnlineActive, chapaCheckoutUrl, selectedSplitId]);
 
   const initiateTelebirrOnline = async () => {
     if (!order) return;
@@ -120,6 +186,59 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       setActionErr(e.message || 'Telebirr Online Error');
     } finally {
       setTelebirrOnlineLoading(false);
+    }
+  };
+
+  const initiateChapaOnline = async () => {
+    if (!order) return;
+    if (selectedSplitId) {
+      setActionErr('Mobile Pay is not available for split payments yet. Please pay the full bill.');
+      return;
+    }
+    setChapaOnlineLoading(true);
+    setActionErr('');
+    try {
+      const res = await apiFetch(withBranchQuery(`/api/pos/orders/${order.id}/pay-chapa-link`), { method: 'POST' });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        const err = String(json?.error || '').trim();
+        const msg = String(json?.message || '').trim();
+        throw new Error(msg || err || 'Failed to initiate Mobile Pay');
+      }
+
+      const payerUrl = String(json?.payerUrl || '');
+      if (!payerUrl) throw new Error('Missing payer URL from server');
+
+      setChapaCheckoutUrl(payerUrl);
+      setChapaOnlineActive(true);
+
+      // Start polling
+      if (chapaPollRef.current) clearInterval(chapaPollRef.current);
+      chapaPollRef.current = setInterval(async () => {
+        try {
+          const sRes = await apiFetch(withBranchQuery(`/api/pos/orders/${order.id}/payment-status-chapa`));
+          const sJson = await sRes.json().catch(() => null);
+          if (sRes.ok && sJson && sJson.paid) {
+            clearInterval(chapaPollRef.current);
+            chapaPollRef.current = null;
+
+            // Pull authoritative status so the order becomes Paid locally.
+            try {
+              await refreshFromServer();
+            } catch {
+              // ignore
+            }
+
+            onNavigate(Screen.WAITER_RECEIPT);
+          }
+        } catch {
+          // ignore polling errors
+        }
+      }, 3000);
+    } catch (e: any) {
+      setActionErr(e?.message || 'Mobile Pay Error');
+    } finally {
+      setChapaOnlineLoading(false);
     }
   };
 
@@ -166,13 +285,25 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   }, [posSettings]);
 
   const requireReference = useMemo(() => {
-    const id = method === 'Telebirr' ? 'mobile_money' : method === 'Bank Transfer' ? 'bank_transfer' : method === 'Card' ? 'card' : method === 'Loyalty' ? 'loyalty' : 'cash';
+    const id =
+      method === 'Telebirr'
+        ? 'mobile_money'
+        : method === 'Mobile Pay'
+          ? 'chapa'
+          : method === 'Bank Transfer'
+            ? 'bank_transfer'
+            : method === 'Card'
+              ? 'card'
+              : method === 'Loyalty'
+                ? 'loyalty'
+                : 'cash';
     return requireRefList.includes(id);
   }, [method, requireRefList]);
 
   const qrSrc = useMemo(() => {
     const q = posSettings?.branchPayments?.qrCodes;
     const d = posSettings?.branchPayments?.qrDetails;
+    if (method === 'Mobile Pay') return '';
     if (method === 'Telebirr') return typeof q?.telebirr === 'string' ? q.telebirr : '';
     if (method === 'Bank Transfer') return typeof q?.bank_transfer === 'string' ? q.bank_transfer : '';
     if (method === 'Card') return typeof q?.card === 'string' ? q.card : '';
@@ -224,6 +355,10 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       };
     }
 
+    if (method === 'Mobile Pay') {
+      return { title: 'Mobile Pay', image: '', rows: [] as Array<{ k: string; v: string }> };
+    }
+
     return { title: '', image: '', rows: [] as Array<{ k: string; v: string }> };
   }, [posSettings, method]);
 
@@ -265,6 +400,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
     const defs: Array<{ id: string; label: string; icon: string; value: any }> = [
       { id: 'cash', label: 'Cash', icon: 'payments', value: 'Cash' },
       { id: 'mobile_money', label: 'Telebirr', icon: 'qr_code', value: 'Telebirr' },
+      { id: 'chapa', label: 'Mobile Pay', icon: 'qr_code_2', value: 'Mobile Pay' },
       { id: 'bank_transfer', label: 'Bank Transfer', icon: 'account_balance', value: 'Bank Transfer' },
     ];
 
@@ -343,6 +479,12 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
   const handleConfirm = () => {
     setActionErr('');
+
+    if (method === 'Mobile Pay') {
+      void initiateChapaOnline();
+      return;
+    }
+
     const tenderedValue = Number.parseFloat(tendered);
     const tenderedAmount = Number.isFinite(tenderedValue) ? tenderedValue : undefined;
     const splitId = selectedSplitId || undefined;
@@ -369,7 +511,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
         const key = `mirachpos.printedReceipt.${order.id}.full`;
         if (sessionStorage.getItem(key) !== '1') {
           sessionStorage.setItem(key, '1');
-          void apiFetch(`/api/pos/print/receipt/${encodeURIComponent(String(order.id))}`, {
+          void apiFetch(withBranchQuery(`/api/pos/print/receipt/${encodeURIComponent(String(order.id))}`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deviceId }),
@@ -405,6 +547,8 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       ? tenderedAmount >= totalDue
       : method === 'Loyalty'
         ? Boolean(order.customer) && loyaltyBalance + 1e-9 >= totalDue
+        : method === 'Mobile Pay'
+          ? false
         : requireReference
           ? Boolean(paymentReference.trim())
           : true;
@@ -579,7 +723,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 ) : null}
                 <div>
                   <h4 className="text-sm font-bold text-[#c9b792] mb-3 uppercase tracking-wider">Payment Method</h4>
-                  <div className={`grid gap-3 ${order.customer ? 'grid-cols-1 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
+                  <div className={`grid gap-3 ${order.customer ? 'grid-cols-1 sm:grid-cols-5' : 'grid-cols-1 sm:grid-cols-4'}`}>
                     {methodButtons.map((b) => {
                       const selected = method === b.value;
                       const disabled = b.enabled === false;
@@ -610,6 +754,48 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                       <div className="mt-3 flex items-center justify-center">
                         <img src={qrImage} alt="QR" className="max-h-56 max-w-full rounded-lg border border-[#483c23] bg-white p-2" />
                       </div>
+                    </div>
+                  ) : method === 'Mobile Pay' ? (
+                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Mobile Pay (Chapa)</div>
+                          <div className="mt-1 text-sm text-[#c9b792]">Generate a QR for this order and wait for confirmation.</div>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={chapaOnlineLoading || chapaOnlineActive}
+                          onClick={() => void initiateChapaOnline()}
+                          className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] disabled:bg-[#3a2e22] disabled:text-[#c9b792] text-[#221c11] font-extrabold transition-colors"
+                        >
+                          {chapaOnlineLoading ? 'Generating...' : chapaOnlineActive ? 'Waiting…' : 'Generate QR'}
+                        </button>
+                      </div>
+
+                      {chapaOnlineActive && chapaCheckoutUrl ? (
+                        <div className="mt-4 flex flex-col items-center gap-3">
+                          <div className="bg-white p-3 rounded-xl">
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(chapaCheckoutUrl)}`}
+                              alt="Mobile Pay QR"
+                              className="w-56 h-56"
+                            />
+                          </div>
+                          <div className="text-center text-xs text-[#c9b792]">
+                            Keep this screen open. Once the customer pays, the receipt will open automatically.
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setChapaOnlineActive(false);
+                              setChapaCheckoutUrl(null);
+                            }}
+                            className="h-10 px-4 rounded-lg border border-[#483c23] bg-[#221c11] hover:bg-[#2c241b] text-[#c9b792] font-bold transition-colors"
+                          >
+                            Cancel Mobile Pay
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   ) : method === 'Telebirr' ? (
                     <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
@@ -721,9 +907,19 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
           <div className="shrink-0 border-t border-[#483c23] bg-[#2c241b] px-4 md:px-6 py-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="w-full sm:w-1/3 h-12 rounded-xl border border-[#483c23] bg-transparent hover:bg-[#3a2e22] text-white font-bold transition-colors flex items-center justify-center gap-2">Cancel</button>
-              <button disabled={!canConfirm} onClick={handleConfirm} className="w-full sm:flex-1 h-12 rounded-xl bg-[#eead2b] hover:bg-[#d49619] disabled:bg-[#3a2e22] disabled:text-[#c9b792] text-[#221c11] font-extrabold shadow-lg shadow-black/20 transition-all transform active:scale-[0.99] flex items-center justify-center gap-3 disabled:cursor-not-allowed">
-                <span className="material-symbols-outlined icon-filled">check_circle</span> Confirm Payment
-              </button>
+              {method === 'Mobile Pay' ? (
+                <button
+                  disabled={chapaOnlineLoading || chapaOnlineActive}
+                  onClick={handleConfirm}
+                  className="w-full sm:flex-1 h-12 rounded-xl bg-[#eead2b] hover:bg-[#d49619] disabled:bg-[#3a2e22] disabled:text-[#c9b792] text-[#221c11] font-extrabold shadow-lg shadow-black/20 transition-all transform active:scale-[0.99] flex items-center justify-center gap-3 disabled:cursor-not-allowed"
+                >
+                  <span className="material-symbols-outlined icon-filled">qr_code_2</span> {chapaOnlineLoading ? 'Generating…' : chapaOnlineActive ? 'Waiting…' : 'Generate QR'}
+                </button>
+              ) : (
+                <button disabled={!canConfirm} onClick={handleConfirm} className="w-full sm:flex-1 h-12 rounded-xl bg-[#eead2b] hover:bg-[#d49619] disabled:bg-[#3a2e22] disabled:text-[#c9b792] text-[#221c11] font-extrabold shadow-lg shadow-black/20 transition-all transform active:scale-[0.99] flex items-center justify-center gap-3 disabled:cursor-not-allowed">
+                  <span className="material-symbols-outlined icon-filled">check_circle</span> Confirm Payment
+                </button>
+              )}
             </div>
           </div>
         </section>
@@ -791,7 +987,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                     notes: (order as any).notes ?? null,
                   };
 
-                  const res = await apiFetch(`/api/pos/orders/${encodeURIComponent(order.id)}`, {
+                  const res = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -800,7 +996,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                       pin: discountPin.trim() || undefined,
                     }),
                   });
-                  const json = (await res.json().catch(() => null)) as any;
+                  const json = await res.json().catch(() => null);
                   if (!res.ok) {
                     const err = String(json?.error || json?.message || 'discount_failed');
                     if (err === 'pin_required') setDiscountErr('PIN required or incorrect.');
