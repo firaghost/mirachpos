@@ -897,7 +897,55 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const byId = new Map<string, PosOrder>();
           for (const o of prev.orders) byId.set(o.id, o);
           for (const o of serverOrders) byId.set(o.id, o);
-          return { ...prev, orders: Array.from(byId.values()) };
+
+          const mergedOrders = Array.from(byId.values());
+          const orderById = new Map<string, PosOrder>();
+          for (const o of mergedOrders) orderById.set(o.id, o);
+
+          const openOrderByTableId = new Map<string, string>();
+          for (const o of mergedOrders) {
+            if (!o || typeof o !== 'object') continue;
+            const st = String((o as any).status || '');
+            if (st === 'Paid' || st === 'Voided' || st === 'Refunded') continue;
+            const tableId = String((o as any).tableId || '').trim();
+            if (!tableId) continue;
+            // Keep the most recently created order as the open one.
+            const prevId = openOrderByTableId.get(tableId);
+            if (!prevId) {
+              openOrderByTableId.set(tableId, o.id);
+              continue;
+            }
+            const prevOrder = orderById.get(prevId);
+            const a = String((prevOrder as any)?.createdAt || '');
+            const b = String((o as any)?.createdAt || '');
+            if (b && (!a || b > a)) openOrderByTableId.set(tableId, o.id);
+          }
+
+          const nextTables = prev.tables.map((t) => {
+            const tid = String((t as any)?.id || '').trim();
+            if (!tid) return t;
+
+            const serverOpenId = openOrderByTableId.get(tid) || null;
+            const currentOpenId = (t as any).openOrderId ? String((t as any).openOrderId) : null;
+            const openId = serverOpenId || currentOpenId;
+
+            if (!openId) {
+              if ((t as any).status === 'Free' && !(t as any).openOrderId) return t;
+              return { ...t, status: 'Free', openOrderId: null } as any;
+            }
+
+            const o = orderById.get(openId);
+            const st = String((o as any)?.status || '');
+            if (st === 'Paid' || st === 'Voided' || st === 'Refunded') {
+              return { ...t, status: 'Free', openOrderId: null, lastOrderId: openId } as any;
+            }
+            if (st === 'Served') {
+              return { ...t, status: 'Payment', openOrderId: openId } as any;
+            }
+            return { ...t, status: 'Occupied', openOrderId: openId } as any;
+          });
+
+          return { ...prev, orders: mergedOrders, tables: updateTableComputed(nextTables as any, prev.cartByTableId) };
         });
       } catch {
         // ignore

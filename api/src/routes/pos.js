@@ -9,6 +9,7 @@ const { uid } = require('../utils/ids');
 const { makeInitialPosState } = require('./posInitPreset');
 const paymentGatewayService = require('../services/paymentGatewayService');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -702,9 +703,16 @@ const makePosRouter = () => {
     return { status: 500, error: 'print_failed' };
   };
 
-  r.get('/pos/menu/products', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), async (req, res, next) => {
+  r.get(
+    '/pos/menu/products',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('menu'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -758,9 +766,15 @@ const makePosRouter = () => {
     }
   });
 
-  r.get('/pos/settings', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
+  r.get(
+    '/pos/settings',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('settings'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -785,9 +799,16 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/initialize', tenantMiddleware, requireAuth, loadEntitlements, requireModule('pos'), async (req, res, next) => {
+  r.post(
+    '/pos/initialize',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('pos'),
+    requirePermission('manager.settings.write'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -821,11 +842,21 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/print/receipt/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
+  r.post(
+    '/pos/print/receipt/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const role = String(req.auth?.role || '').trim();
+      const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
 
       const orderId = String(req.params?.id || '').trim();
       if (!orderId) return res.status(400).json({ error: 'order_required' });
@@ -851,6 +882,13 @@ const makePosRouter = () => {
 
       if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
 
+      if (role === 'Waiter') {
+        if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+        const p = safeJsonParse(orderRow.payload, {});
+        const createdBy = typeof p?.createdByStaffId === 'string' ? String(p.createdByStaffId) : '';
+        if (!createdBy || createdBy !== staffId) return res.status(403).json({ error: 'forbidden' });
+      }
+
       const payload = makeReceiptPayloadFromOrder({ orderRow });
       try {
         await sendTcp({ host, port, data: payload, timeoutMs: 8000 });
@@ -865,9 +903,16 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/orders/:id/refund', tenantMiddleware, requireAuth, loadEntitlements, requireModule('finance'), async (req, res, next) => {
+  r.post(
+    '/pos/orders/:id/refund',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('orders.refund'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -976,9 +1021,16 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/print/kitchen/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
+  r.post(
+    '/pos/print/kitchen/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -1021,9 +1073,16 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/print/bar/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('settings'), async (req, res, next) => {
+  r.post(
+    '/pos/print/bar/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -1066,9 +1125,16 @@ const makePosRouter = () => {
     }
   });
 
-  r.get('/pos/state', tenantMiddleware, requireAuth, loadEntitlements, requireModule('pos'), async (req, res, next) => {
+  r.get(
+    '/pos/state',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('pos'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -1085,9 +1151,16 @@ const makePosRouter = () => {
     }
   });
 
-  r.put('/pos/state', tenantMiddleware, requireAuth, loadEntitlements, requireModule('pos'), async (req, res, next) => {
+  r.put(
+    '/pos/state',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('pos'),
+    requirePermission('orders.update'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -1108,9 +1181,16 @@ const makePosRouter = () => {
     }
   });
 
-  r.get('/pos/orders', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.get(
+    '/pos/orders',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -1145,9 +1225,16 @@ const makePosRouter = () => {
     }
   });
 
-  r.get('/pos/orders/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.get(
+    '/pos/orders/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -1185,9 +1272,16 @@ const makePosRouter = () => {
     }
   });
 
-  r.get('/pos/notifications', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.get(
+    '/pos/notifications',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
       const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
@@ -1253,9 +1347,16 @@ const makePosRouter = () => {
     }
   });
 
-  r.put('/pos/notifications/:id/read', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.put(
+    '/pos/notifications/:id/read',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
       const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
@@ -1291,9 +1392,16 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/notifications/read_all', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.post(
+    '/pos/notifications/read_all',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
       const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
@@ -1327,15 +1435,49 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/orders', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.post(
+    '/pos/orders',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.create'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const role = String(req.auth?.role || '').trim();
+      const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
 
       const body = req.body && typeof req.body === 'object' ? req.body : null;
       const payload = body?.payload && typeof body.payload === 'object' ? body.payload : {};
       const status = typeof body?.status === 'string' && body.status.trim() ? body.status.trim() : 'Pending';
+
+      if (role === 'Waiter') {
+        if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+
+        const tableId = typeof payload?.tableId === 'string' ? payload.tableId.trim() : typeof payload?.table_id === 'string' ? payload.table_id.trim() : '';
+        if (!tableId) return res.status(400).json({ error: 'table_required' });
+
+        const stateRow = await db().select(['state_json']).from('pos_state').where({ tenant_id: req.tenant.id, branch_id: branchId }).first();
+        const state = safeJsonParse(stateRow?.state_json, null);
+        const tables = Array.isArray(state?.tables) ? state.tables : [];
+        const table = tables.find((t) => t && String(t.id || '') === tableId) || null;
+        if (!table) return res.status(404).json({ error: 'table_not_found' });
+
+        const assigned = typeof table?.assignedStaffId === 'string' ? String(table.assignedStaffId) : '';
+        if (assigned && assigned !== staffId) return res.status(403).json({ error: 'table_assigned_to_other' });
+
+        const staffRow = await db().select(['name']).from('staff').where({ tenant_id: req.tenant.id, branch_id: branchId, id: staffId }).first();
+        const waiterName = staffRow?.name ? String(staffRow.name) : '';
+
+        payload.tableId = tableId;
+        if (!payload.tableName && table?.name) payload.tableName = String(table.name);
+        payload.createdByStaffId = staffId;
+        payload.createdByName = waiterName || payload.createdByName || null;
+      }
 
       const tip = Number(body?.tip || 0) || 0;
       const discount = Number(body?.discount || 0) || 0;
@@ -1438,11 +1580,21 @@ const makePosRouter = () => {
     }
   });
 
-  r.put('/pos/orders/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.put(
+    '/pos/orders/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.update'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const role = String(req.auth?.role || '').trim();
+      const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
 
       const id = String(req.params.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });
@@ -1450,11 +1602,46 @@ const makePosRouter = () => {
       const body = req.body && typeof req.body === 'object' ? req.body : null;
       const patch = {};
 
+      let existingPayload = null;
+      let waiterIsOwner = true;
+      if (role === 'Waiter') {
+        if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+
+        const existingRow = await db().select(['payload']).from('orders').where({ tenant_id: req.tenant.id, branch_id: branchId, id }).first();
+        if (!existingRow) return res.status(404).json({ error: 'order_not_found' });
+        existingPayload = safeJsonParse(existingRow?.payload, {});
+
+        const existingOwner = typeof existingPayload?.createdByStaffId === 'string' ? String(existingPayload.createdByStaffId) : '';
+        waiterIsOwner = Boolean(existingOwner && existingOwner === staffId);
+      }
+
       const settings = await resolveEffectivePosSettings({ tenantId: req.tenant.id, branchId });
 
       if (typeof body?.status === 'string' && body.status.trim()) {
         patch.status = body.status.trim();
         if (patch.status === 'Paid') patch.paid_at = new Date().toISOString();
+      }
+
+      // If a waiter is not the creator of the order, only allow status-only updates for KDS flow.
+      // Prevent cross-waiter modifications of payload, discounts, or payment-related fields.
+      if (role === 'Waiter' && !waiterIsOwner) {
+        const incomingPayload = body?.payload && typeof body.payload === 'object' ? body.payload : null;
+        const hasNonStatusMutation =
+          Boolean(incomingPayload) ||
+          body?.tip != null ||
+          body?.discount != null ||
+          body?.discountPct != null ||
+          body?.pin != null ||
+          body?.paymentReference != null ||
+          body?.paymentMethod != null ||
+          body?.tenderedAmount != null;
+
+        const nextStatus = typeof patch.status === 'string' ? patch.status : '';
+        const allowedStatusOnly = nextStatus === 'Cooking' || nextStatus === 'Ready' || nextStatus === 'Served';
+
+        if (hasNonStatusMutation || !allowedStatusOnly) {
+          return res.status(403).json({ error: 'forbidden' });
+        }
       }
 
       const incomingPayload = body?.payload && typeof body.payload === 'object' ? body.payload : null;
@@ -1474,6 +1661,28 @@ const makePosRouter = () => {
       }
 
       if (incomingPayload) {
+        if (role === 'Waiter') {
+          const nextTableId = typeof incomingPayload?.tableId === 'string' ? incomingPayload.tableId.trim() : typeof incomingPayload?.table_id === 'string' ? incomingPayload.table_id.trim() : '';
+          const existingTableId = typeof existingPayload?.tableId === 'string' ? String(existingPayload.tableId).trim() : '';
+          if (nextTableId && existingTableId && nextTableId !== existingTableId) return res.status(403).json({ error: 'forbidden' });
+
+          const stateRow = await db().select(['state_json']).from('pos_state').where({ tenant_id: req.tenant.id, branch_id: branchId }).first();
+          const state = safeJsonParse(stateRow?.state_json, null);
+          const tables = Array.isArray(state?.tables) ? state.tables : [];
+          const table = tables.find((t) => t && String(t.id || '') === (existingTableId || nextTableId)) || null;
+          if (!table) return res.status(404).json({ error: 'table_not_found' });
+          const assigned = typeof table?.assignedStaffId === 'string' ? String(table.assignedStaffId) : '';
+          if (assigned && assigned !== staffId) return res.status(403).json({ error: 'table_assigned_to_other' });
+
+          const staffRow = await db().select(['name']).from('staff').where({ tenant_id: req.tenant.id, branch_id: branchId, id: staffId }).first();
+          const waiterName = staffRow?.name ? String(staffRow.name) : '';
+
+          incomingPayload.createdByStaffId = staffId;
+          incomingPayload.createdByName = waiterName || incomingPayload.createdByName || null;
+          if (existingTableId) incomingPayload.tableId = existingTableId;
+          if (table?.name && !incomingPayload.tableName) incomingPayload.tableName = String(table.name);
+        }
+
         // Normalize reference early so it is persisted into payload JSON.
         if (typeof incomingPayload?.paymentReference === 'string' && incomingPayload.paymentReference.trim()) {
           incomingPayload.paymentReference = normalizePaymentReference(incomingPayload.paymentReference);
@@ -1541,11 +1750,21 @@ const makePosRouter = () => {
     }
   });
 
-  r.post('/pos/orders/:id/pay-telebirr', tenantMiddleware, requireAuth, loadEntitlements, requireModule('finance'), async (req, res, next) => {
+  r.post(
+    '/pos/orders/:id/pay-telebirr',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('payments.process'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const role = String(req.auth?.role || '').trim();
+      const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
 
       const id = String(req.params.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });
@@ -1558,6 +1777,13 @@ const makePosRouter = () => {
 
       if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
       if (orderRow.status === 'Paid') return res.status(400).json({ error: 'order_already_paid' });
+
+      if (role === 'Waiter') {
+        if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+        const payload = safeJsonParse(orderRow.payload, {});
+        const createdBy = typeof payload?.createdByStaffId === 'string' ? String(payload.createdByStaffId) : '';
+        if (!createdBy || createdBy !== staffId) return res.status(403).json({ error: 'forbidden' });
+      }
 
       const baseUrl = req.protocol + '://' + req.get('host');
       const notifyUrl = `${baseUrl}/api/webhooks/payment/telebirr`;
@@ -1582,11 +1808,21 @@ const makePosRouter = () => {
     }
   });
 
-  r.get('/pos/orders/:id/payment-status', tenantMiddleware, requireAuth, loadEntitlements, requireModule('finance'), async (req, res, next) => {
+  r.get(
+    '/pos/orders/:id/payment-status',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const role = String(req.auth?.role || '').trim();
+      const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
 
       const id = String(req.params.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });
@@ -1598,6 +1834,13 @@ const makePosRouter = () => {
         .first();
 
       if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+
+      if (role === 'Waiter') {
+        if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+        const payload = safeJsonParse(orderRow.payload, {});
+        const createdBy = typeof payload?.createdByStaffId === 'string' ? String(payload.createdByStaffId) : '';
+        if (!createdBy || createdBy !== staffId) return res.status(403).json({ error: 'forbidden' });
+      }
 
       if (orderRow.status === 'Paid') {
         return res.json({ ok: true, paid: true });

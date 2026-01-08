@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal } from '../../components/Modal';
 import { apiFetch } from '../../api';
+import { readSession } from '../../session';
 
 type SettingsTab = 'hardware' | 'general' | 'branch' | 'hours' | 'taxes';
 
@@ -496,6 +497,29 @@ export const BranchSettings: React.FC = () => {
   const [saved, setSaved] = useState<BranchSettingsState>(() => defaultState);
   const [draft, setDraft] = useState<BranchSettingsState>(() => defaultState);
 
+  const resolveBranchId = () => {
+    try {
+      const s = readSession<any>();
+      const bid = String(s?.branchId || '').trim();
+      if (bid && bid !== 'global') return bid;
+    } catch {
+      // ignore
+    }
+    try {
+      const raw = String(localStorage.getItem('mirachpos.manager.selectedBranchId.v1') || '').trim();
+      if (raw && raw !== 'global') return raw;
+    } catch {
+      // ignore
+    }
+    return '';
+  };
+
+  const withBranchQuery = (url: string) => {
+    const branchId = resolveBranchId();
+    if (!branchId) return url;
+    return url.includes('?') ? `${url}&branchId=${encodeURIComponent(branchId)}` : `${url}?branchId=${encodeURIComponent(branchId)}`;
+  };
+
   const readFileAsDataUrl = (file: File) =>
     new Promise<string>((resolve, reject) => {
       const r = new FileReader();
@@ -503,6 +527,23 @@ export const BranchSettings: React.FC = () => {
       r.onload = () => resolve(typeof r.result === 'string' ? r.result : '');
       r.readAsDataURL(file);
     });
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const dataUrl = await readFileAsDataUrl(file);
+    const res = await apiFetch(withBranchQuery('/api/manager/uploads/image'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataUrl, filename: file.name }),
+    });
+    const json = (await res.json().catch(() => null)) as any;
+    if (!res.ok) {
+      const msg = typeof json?.error === 'string' ? json.error : `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    const url = typeof json?.url === 'string' ? json.url.trim() : '';
+    if (!url) throw new Error('upload_failed');
+    return url;
+  };
 
   const dirty = useMemo(() => !deepEqual(draft, saved), [draft, saved]);
 
@@ -556,7 +597,7 @@ export const BranchSettings: React.FC = () => {
 
     setDraft(normalized);
 
-    const res = await apiFetch('/api/manager/settings', {
+    const res = await apiFetch(withBranchQuery('/api/manager/settings'), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ settings: normalized }),
@@ -575,7 +616,7 @@ export const BranchSettings: React.FC = () => {
     setDraft(merged);
 
     try {
-      const rr = await apiFetch('/api/manager/settings');
+      const rr = await apiFetch(withBranchQuery('/api/manager/settings'));
       const jj = (await rr.json().catch(() => null)) as any;
       if (rr.ok) {
         setRemoteTenantId(String(jj?.tenantId || remoteTenantId || ''));
@@ -648,7 +689,7 @@ export const BranchSettings: React.FC = () => {
       setLoadingRemote(true);
       setRemoteError(null);
       try {
-        const res = await apiFetch('/api/manager/settings');
+        const res = await apiFetch(withBranchQuery('/api/manager/settings'));
         const json = (await res.json().catch(() => null)) as any;
         if (!res.ok) {
           const msg = typeof json?.error === 'string' ? json.error : `HTTP ${res.status}`;
@@ -1285,19 +1326,19 @@ export const BranchSettings: React.FC = () => {
                               const f = e.target.files?.[0];
                               if (!f) return;
                               try {
-                                const dataUrl = await readFileAsDataUrl(f);
+                                const url = await uploadImage(f);
                                 setDraft((p) => ({
                                   ...p,
                                   payments: {
                                     ...p.payments,
                                     qrDetails: {
                                       ...p.payments.qrDetails,
-                                      telebirr: { ...p.payments.qrDetails.telebirr, image: dataUrl },
+                                      telebirr: { ...p.payments.qrDetails.telebirr, image: url },
                                     },
                                   },
                                 }));
-                              } catch {
-                                // ignore
+                              } catch (err) {
+                                setRemoteError(err instanceof Error ? err.message : 'Upload failed');
                               }
                             }}
                             className="block w-full text-xs text-[#b9b09d] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#393328] file:text-white hover:file:bg-[#4a4234]"
@@ -1419,19 +1460,19 @@ export const BranchSettings: React.FC = () => {
                               const f = e.target.files?.[0];
                               if (!f) return;
                               try {
-                                const dataUrl = await readFileAsDataUrl(f);
+                                const url = await uploadImage(f);
                                 setDraft((p) => ({
                                   ...p,
                                   payments: {
                                     ...p.payments,
                                     qrDetails: {
                                       ...p.payments.qrDetails,
-                                      bank_transfer: { ...p.payments.qrDetails.bank_transfer, image: dataUrl },
+                                      bank_transfer: { ...p.payments.qrDetails.bank_transfer, image: url },
                                     },
                                   },
                                 }));
-                              } catch {
-                                // ignore
+                              } catch (err) {
+                                setRemoteError(err instanceof Error ? err.message : 'Upload failed');
                               }
                             }}
                             className="block w-full text-xs text-[#b9b09d] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#393328] file:text-white hover:file:bg-[#4a4234]"
@@ -1573,19 +1614,19 @@ export const BranchSettings: React.FC = () => {
                               const f = e.target.files?.[0];
                               if (!f) return;
                               try {
-                                const dataUrl = await readFileAsDataUrl(f);
+                                const url = await uploadImage(f);
                                 setDraft((p) => ({
                                   ...p,
                                   payments: {
                                     ...p.payments,
                                     qrDetails: {
                                       ...p.payments.qrDetails,
-                                      card: { ...p.payments.qrDetails.card, image: dataUrl },
+                                      card: { ...p.payments.qrDetails.card, image: url },
                                     },
                                   },
                                 }));
-                              } catch {
-                                // ignore
+                              } catch (err) {
+                                setRemoteError(err instanceof Error ? err.message : 'Upload failed');
                               }
                             }}
                             className="block w-full text-xs text-[#b9b09d] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#393328] file:text-white hover:file:bg-[#4a4234]"
@@ -2192,11 +2233,33 @@ export const BranchSettings: React.FC = () => {
 
                   // Fallback (Bluetooth/Cloud): keep browser print preview for now.
                   if (device.profile === 'Kitchen') {
-                    openPrintWindow(kitchenSampleHtml('Kitchen Ticket', 'Table 1', '#0001', 'Sarah Jenkins'));
+                    openPrintWindow(
+                      kitchenSampleHtml({
+                        title: 'Kitchen Ticket',
+                        tableName: 'Table 1',
+                        orderNumber: '#0001',
+                        placedBy: 'Sarah Jenkins',
+                        lines: [
+                          { name: 'Cappuccino', qty: 1 },
+                          { name: 'Sandwich', qty: 1 },
+                        ],
+                      }),
+                    );
                     return;
                   }
                   if (device.profile === 'Bar') {
-                    openPrintWindow(kitchenSampleHtml('Bar Ticket', 'Table 1', '#0001', 'Sarah Jenkins'));
+                    openPrintWindow(
+                      kitchenSampleHtml({
+                        title: 'Bar Ticket',
+                        tableName: 'Table 1',
+                        orderNumber: '#0001',
+                        placedBy: 'Sarah Jenkins',
+                        lines: [
+                          { name: 'Cappuccino', qty: 1 },
+                          { name: 'Sandwich', qty: 1 },
+                        ],
+                      }),
+                    );
                     return;
                   }
 
@@ -2209,6 +2272,20 @@ export const BranchSettings: React.FC = () => {
                       showTin: true,
                       footer1: draft.receipt.footer1,
                       footer2: draft.receipt.footer2,
+                      currency: draft.general.currency,
+                      vatEnabled: draft.taxes.vatEnabled,
+                      vatRate: draft.taxes.vatRate,
+                      serviceEnabled: draft.taxes.serviceChargeEnabled,
+                      serviceRate: draft.taxes.serviceChargeRate,
+                      orderNumber: '#0001',
+                      tableName: 'Table 1',
+                      paymentMethod: 'Cash',
+                      cashier: draft.managerName || 'Cashier',
+                      waiter: draft.managerName || 'Waiter',
+                      items: [
+                        { name: 'Cappuccino', qty: 1, unitPrice: 120 },
+                        { name: 'Sandwich', qty: 1, unitPrice: 180 },
+                      ],
                     }),
                   );
                 }}
@@ -2244,6 +2321,20 @@ export const BranchSettings: React.FC = () => {
                     showTin: true,
                     footer1: draft.receipt.footer1,
                     footer2: draft.receipt.footer2,
+                    currency: draft.general.currency,
+                    vatEnabled: draft.taxes.vatEnabled,
+                    vatRate: draft.taxes.vatRate,
+                    serviceEnabled: draft.taxes.serviceChargeEnabled,
+                    serviceRate: draft.taxes.serviceChargeRate,
+                    orderNumber: '#0001',
+                    tableName: 'Table 1',
+                    paymentMethod: 'Cash',
+                    cashier: draft.managerName || 'Cashier',
+                    waiter: draft.managerName || 'Waiter',
+                    items: [
+                      { name: 'Cappuccino', qty: 1, unitPrice: 120 },
+                      { name: 'Sandwich', qty: 1, unitPrice: 180 },
+                    ],
                   });
                   openPrintWindow(html);
                 }}

@@ -4,6 +4,7 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { requireRole } = require('../middleware/permissions');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -18,10 +19,8 @@ const safeJsonParse = (raw, fallback) => {
 const makeAuditRouter = () => {
   const r = express.Router();
 
-  r.post('/audit/log', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/audit/log', tenantMiddleware, requireAuth, requireRole('Cafe Owner', 'Branch Manager', 'Waiter'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const body = req.body && typeof req.body === 'object' ? req.body : null;
       const type = typeof body?.type === 'string' ? body.type.trim() : '';
       const summary = typeof body?.summary === 'string' ? body.summary.trim() : '';
@@ -51,10 +50,8 @@ const makeAuditRouter = () => {
     }
   });
 
-  r.get('/audit/list', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/audit/list', tenantMiddleware, requireAuth, requireRole('Cafe Owner', 'Branch Manager', 'Waiter'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 50) || 50));
       const branchId = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
       const includeSystem = String(req.query?.includeSystem || '').trim() === '1';

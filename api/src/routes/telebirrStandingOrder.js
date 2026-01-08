@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { enqueueJob } = require('../services/jobService');
+const { requireRole, requirePermission } = require('../middleware/permissions');
 const {
   createSubscription,
   getSubscriptionStatus,
@@ -14,10 +15,8 @@ const makeTelebirrStandingOrderRouter = () => {
   const r = express.Router();
 
   // 3-click subscribe: Select plan -> Phone -> Confirm
-  r.post('/telebirr/subscribe', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/telebirr/subscribe', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const phone = String(req.body?.phone || '').trim();
       const planAmount = Number(req.body?.plan_amount || req.body?.planAmount || 0);
       const cycle = String(req.body?.cycle || 'MONTHLY').trim();
@@ -73,18 +72,16 @@ const makeTelebirrStandingOrderRouter = () => {
     }
   });
 
-  r.get('/telebirr/subscription/status', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/telebirr/subscription/status', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       return res.json(await getSubscriptionStatus({ tenantId: req.tenant.id }));
     } catch (e) {
       return next(e);
     }
   });
 
-  r.post('/telebirr/subscription/:id/cancel', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/telebirr/subscription/:id/cancel', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       const id = String(req.params?.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });
 

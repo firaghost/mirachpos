@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -53,10 +54,16 @@ const resolveBranchId = async (req) => {
 const makeInventoryRouter = () => {
   const r = express.Router();
 
-  r.get('/inventory/items', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), async (req, res, next) => {
+  r.get(
+    '/inventory/items',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('inventory'),
+    requirePermission('inventory.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -102,10 +109,16 @@ const makeInventoryRouter = () => {
     }
   });
 
-  r.post('/inventory/items', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), async (req, res, next) => {
+  r.post(
+    '/inventory/items',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('inventory'),
+    requirePermission('inventory.update'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -161,10 +174,16 @@ const makeInventoryRouter = () => {
     }
   });
 
-  r.put('/inventory/items/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), async (req, res, next) => {
+  r.put(
+    '/inventory/items/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('inventory'),
+    requirePermission('inventory.update'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -252,10 +271,16 @@ const makeInventoryRouter = () => {
     }
   });
 
-  r.delete('/inventory/items/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), async (req, res, next) => {
+  r.delete(
+    '/inventory/items/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('inventory'),
+    requirePermission('inventory.update'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 

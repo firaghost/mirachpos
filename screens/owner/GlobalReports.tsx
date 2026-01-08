@@ -438,6 +438,16 @@ export const GlobalReports: React.FC = () => {
     return { total, list, primary, pct };
   }, [soldCategories]);
 
+  const maxSoldCategoryRevenue = useMemo(() => {
+    const list = Array.isArray(soldCategories) ? soldCategories : [];
+    let max = 0;
+    for (const c of list) {
+      const v = Number((c as any).revenue || 0) || 0;
+      if (v > max) max = v;
+    }
+    return max;
+  }, [soldCategories]);
+
   const donutColors = ['#eead2b', '#8d764e', '#483c23', '#2a2316'];
 
   const topBranch = useMemo(() => {
@@ -603,15 +613,6 @@ export const GlobalReports: React.FC = () => {
               </button>
             </div>
           ) : null}
-
-          <div className="flex items-center gap-2 text-sm text-[#c9b792]">
-            <span>Home</span>
-            <span className="text-[#483c23]">›</span>
-            <span>Reports</span>
-            <span className="text-[#483c23]">›</span>
-            <span className="text-white font-medium">Global Reports</span>
-            <span className="ml-auto text-xs text-[#c9b792]">{lastUpdatedAt ? `Updated: ${fmtDateTime(lastUpdatedAt)}` : ''}</span>
-          </div>
 
           {scheduleOpen ? (
             <div
@@ -805,11 +806,6 @@ export const GlobalReports: React.FC = () => {
                 ))}
               </select>
             </div>
-            </div>
-
-            <div className="lg:col-span-5 hidden lg:flex items-center justify-end gap-2 text-xs text-[#c9b792]">
-              <span className="text-primary font-bold">Updated:</span>
-              <span>{lastUpdatedAt ? fmtDateTime(lastUpdatedAt) : '—'}</span>
             </div>
           </div>
 
@@ -1086,28 +1082,59 @@ export const GlobalReports: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-4 rounded-2xl border border-[#483c23] bg-[#2a2316] p-6">
-                <div>
-                  <p className="text-white text-lg font-bold">Revenue Breakdown</p>
-                  <p className="text-[#c9b792] text-sm">Net sales, tax, tips, discounts</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+            <div className="flex flex-col gap-4 rounded-2xl border border-[#483c23] bg-gradient-to-br from-[#2a2316] to-[#221c11] p-6 shadow-sm hover:shadow-[0_0_18px_rgba(238,173,43,0.12)] hover:border-[#eead2b]/40 transition-all h-full overflow-hidden">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-white text-lg font-bold">Revenue Summary</p>
+                  <p className="text-[#c9b792] text-sm truncate" title={`${rangeLabel} • ${locationLabel}`}>{rangeLabel} • {locationLabel}</p>
                 </div>
-                <div className="grid grid-cols-1 gap-3">
-                  {financialCats.length ? (
-                    financialCats.map((c) => (
-                      <div key={c.name} className="flex items-center justify-between rounded-lg border border-[#483c23] bg-[#221c11] px-4 py-3">
-                        <div className="text-white font-bold">{c.name}</div>
-                        <div className="text-[#c9b792] font-mono">{money.format(Number(c.value || 0) || 0)}</div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-[#c9b792] text-sm">No revenue breakdown available.</div>
-                  )}
+                <div className="shrink-0 size-10 rounded-xl border border-[#483c23] bg-[#221c11] flex items-center justify-center">
+                  <span className="material-symbols-outlined text-primary text-[20px]">monitoring</span>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[#483c23] bg-[#2a2316] p-6">
-                <div className="text-[#c9b792] text-xs uppercase tracking-wider font-bold">What's Sold (Categories)</div>
-                <div className="mt-3 flex items-center justify-center relative">
+              <div className="rounded-2xl border border-[#483c23] bg-[#221c11]/60 p-4">
+                <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Total Collected</div>
+                <div className="mt-1 text-white font-black text-2xl md:text-3xl tracking-tight font-mono">{money.format(Number(totals.totalCollected || 0) || 0)}</div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Net Sales</div>
+                    <div className="text-white font-black text-sm font-mono truncate">{money.format(Number(totals.netSales || 0) || 0)}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Tax</div>
+                    <div className="text-white font-black text-sm font-mono truncate">{money.format(Number(totals.tax || 0) || 0)}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Tips</div>
+                    <div className="text-white font-black text-sm font-mono truncate">{money.format(Number(totals.tips || 0) || 0)}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold text-red-300">Discounts</div>
+                    <div className="text-red-200 font-black text-sm font-mono truncate">-{money.format(Math.abs(Number(totals.discounts || 0) || 0))}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#483c23] bg-gradient-to-br from-[#2a2316] to-[#221c11] p-6 shadow-sm hover:shadow-[0_0_18px_rgba(238,173,43,0.12)] hover:border-[#eead2b]/40 transition-all h-full overflow-hidden">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-[#c9b792] text-xs uppercase tracking-wider font-bold">What's Sold (Categories)</div>
+                  <div className="text-white font-black mt-1">Top mix share</div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Total</div>
+                  <div className="text-white font-black">{money.format(Number(donut.total || 0) || 0)}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                <div className="flex items-center justify-center">
                   <div className="relative size-40">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -1131,29 +1158,73 @@ export const GlobalReports: React.FC = () => {
                         />
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="absolute inset-0 m-auto size-28 rounded-full bg-[#2a2316] flex flex-col items-center justify-center">
+                    <div className="absolute inset-0 m-auto size-28 rounded-full bg-[#2a2316] border border-[#483c23] flex flex-col items-center justify-center">
                       <span className="text-2xl font-bold text-white">{donut.pct}%</span>
-                      <span className="text-xs text-[#c9b792] uppercase tracking-widest">{donut.primary.name}</span>
+                      <span className="text-xs text-[#c9b792] uppercase tracking-widest truncate max-w-[92px]" title={donut.primary.name}>{donut.primary.name}</span>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="rounded-2xl border border-[#483c23] bg-[#2a2316] p-6">
-                <div className="text-white font-black">Top Categories</div>
-                <div className="text-[#c9b792] text-sm mt-1">By revenue</div>
-                <div className="mt-4 grid grid-cols-1 gap-3">
-                  {(Array.isArray(soldCategories) ? soldCategories : []).slice(0, 6).map((c) => (
-                    <div key={c.name} className="flex items-center justify-between rounded-xl border border-[#483c23] bg-[#221c11] px-4 py-3">
-                      <div className="min-w-0">
-                        <div className="text-white font-bold truncate">{c.name || 'Uncategorized'}</div>
-                        <div className="text-[#c9b792] text-xs">Qty: {Number(c.qty || 0).toLocaleString()}</div>
-                      </div>
-                      <div className="text-primary font-black whitespace-nowrap">{money.format(Number(c.revenue || 0) || 0)}</div>
-                    </div>
-                  ))}
-                  {!soldCategories.length ? <div className="text-[#c9b792] text-sm">No category sales yet.</div> : null}
+                <div className="space-y-3 min-w-0">
+                  {donut.list.length ? (
+                    donut.list.slice(0, 4).map((x, idx) => {
+                      const pct = donut.total > 0 ? Math.round(((Number(x.value) || 0) / donut.total) * 100) : 0;
+                      return (
+                        <div key={x.name} className="rounded-xl border border-[#483c23] bg-[#221c11]/60 px-4 py-3 min-w-0 overflow-hidden">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex items-center gap-2">
+                              <span className="inline-block size-2.5 rounded-full" style={{ backgroundColor: donutColors[idx % donutColors.length] }} />
+                              <div className="text-white font-bold truncate" title={x.name}>{x.name}</div>
+                            </div>
+                            <div className="text-[#c9b792] text-xs font-bold whitespace-nowrap">{pct}%</div>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-2 min-w-0">
+                            <div className="text-[#c9b792] text-xs whitespace-nowrap">Revenue</div>
+                            <div className="text-primary font-black whitespace-nowrap truncate">{money.format(Number(x.value || 0) || 0)}</div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-[#c9b792] text-sm">No category sales yet.</div>
+                  )}
                 </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#483c23] bg-gradient-to-br from-[#2a2316] to-[#221c11] p-6 shadow-sm hover:shadow-[0_0_18px_rgba(238,173,43,0.12)] hover:border-[#eead2b]/40 transition-all h-full overflow-hidden">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-white font-black">Top Categories</div>
+                  <div className="text-[#c9b792] text-sm mt-1">By revenue</div>
+                </div>
+                <div className="shrink-0 size-10 rounded-xl border border-[#483c23] bg-[#221c11] flex items-center justify-center">
+                  <span className="material-symbols-outlined text-primary text-[20px]">leaderboard</span>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-1 gap-3">
+                {(Array.isArray(soldCategories) ? soldCategories : []).slice(0, 6).map((c, idx) => {
+                  const revenue = Number((c as any).revenue || 0) || 0;
+                  const pct = maxSoldCategoryRevenue > 0 ? Math.round((revenue / maxSoldCategoryRevenue) * 100) : 0;
+                  return (
+                    <div key={c.name} className="rounded-xl border border-[#483c23] bg-[#221c11] px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex items-center gap-3">
+                          <div className="size-8 rounded-lg border border-[#483c23] bg-[#2a2316] flex items-center justify-center text-[#c9b792] font-black">{idx + 1}</div>
+                          <div className="min-w-0">
+                            <div className="text-white font-bold truncate">{c.name || 'Uncategorized'}</div>
+                            <div className="text-[#c9b792] text-xs">Qty: {Number(c.qty || 0).toLocaleString()}</div>
+                          </div>
+                        </div>
+                        <div className="text-primary font-black whitespace-nowrap">{money.format(revenue)}</div>
+                      </div>
+                      <div className="mt-3 h-2 rounded-full bg-[#2a2316] border border-[#483c23] overflow-hidden">
+                        <div className="h-full bg-primary/90" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {!soldCategories.length ? <div className="text-[#c9b792] text-sm">No category sales yet.</div> : null}
               </div>
             </div>
           </div>

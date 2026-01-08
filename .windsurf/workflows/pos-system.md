@@ -2766,7 +2766,7 @@ Files to create: auth.service.ts, auth.controller.ts, auth.test.ts"
 
 
 
-# 🔥 SHARED WALTER PORTAL SPECIFICATION (ETHIOPIA-SPECIFIC)
+# 🔥 SHARED WAITER PORTAL SPECIFICATION (ETHIOPIA-SPECIFIC)
 
 ## EXECUTIVE SUMMARY
 

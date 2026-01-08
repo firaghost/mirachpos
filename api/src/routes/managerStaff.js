@@ -7,7 +7,7 @@ const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 
 const { loadEntitlements, requireModule, enforceStaffLimit } = require('../middleware/entitlements');
-const { requirePermission } = require('../middleware/permissions');
+const { requirePermission, requireRole } = require('../middleware/permissions');
 const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
 
 const safeJsonParse = (raw, fallback) => {
@@ -202,6 +202,7 @@ const makeManagerStaffRouter = () => {
     '/manager/staff',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('staff'),
     requirePermission('staff.read'),
@@ -254,6 +255,7 @@ const makeManagerStaffRouter = () => {
     '/manager/staff',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('staff'),
     requirePermission('staff.create'),
@@ -358,6 +360,7 @@ const makeManagerStaffRouter = () => {
     '/manager/staff/:id',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('staff'),
     requirePermission('staff.update'),
@@ -432,6 +435,7 @@ const makeManagerStaffRouter = () => {
     '/manager/staff/:id',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('staff'),
     requirePermission('staff.delete'),
@@ -474,6 +478,7 @@ const makeManagerStaffRouter = () => {
     '/manager/staff/activity',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('staff'),
     requirePermission('staff.activity.read'),

@@ -6,6 +6,7 @@ const { db } = require('../db');
 const { uid } = require('../utils/ids');
 const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { requireRole } = require('../middleware/permissions');
 
 const normalizeIso = (raw) => {
   const s = String(raw || '').trim();
@@ -18,19 +19,6 @@ const normalizeIso = (raw) => {
 const makeManagerCustomersRouter = () => {
   const r = express.Router();
 
-  const requireManagerOrOwner = (req, res) => {
-    if (req.auth?.tenantId !== req.tenant.id) {
-      res.status(403).json({ error: 'forbidden' });
-      return false;
-    }
-    const role = String(req.auth?.role || '');
-    if (role !== 'Branch Manager' && role !== 'Cafe Owner') {
-      res.status(403).json({ error: 'forbidden' });
-      return false;
-    }
-    return true;
-  };
-
   const mapCustomer = (row) => ({
     id: String(row.id),
     name: String(row.name || ''),
@@ -42,10 +30,16 @@ const makeManagerCustomersRouter = () => {
     updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
   });
 
-  r.get('/manager/customers', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), requireBranchId(), async (req, res, next) => {
+  r.get(
+    '/manager/customers',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
+    loadEntitlements,
+    requireModule('guests'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
-      if (!requireManagerOrOwner(req, res)) return;
-
       const branchId = req.branchId || resolveBranchId(req);
 
       const page = Math.max(1, Number(req.query?.page || 1) || 1);
@@ -75,10 +69,16 @@ const makeManagerCustomersRouter = () => {
     }
   });
 
-  r.post('/manager/customers', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), requireBranchId(), async (req, res, next) => {
+  r.post(
+    '/manager/customers',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
+    loadEntitlements,
+    requireModule('guests'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
-      if (!requireManagerOrOwner(req, res)) return;
-
       const branchId = req.branchId || resolveBranchId(req);
 
       const name = String(req.body?.name || '').trim();
@@ -116,10 +116,16 @@ const makeManagerCustomersRouter = () => {
     }
   });
 
-  r.put('/manager/customers/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), requireBranchId(), async (req, res, next) => {
+  r.put(
+    '/manager/customers/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
+    loadEntitlements,
+    requireModule('guests'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
-      if (!requireManagerOrOwner(req, res)) return;
-
       const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params?.id || '').trim();
@@ -148,10 +154,16 @@ const makeManagerCustomersRouter = () => {
     }
   });
 
-  r.delete('/manager/customers/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), requireBranchId(), async (req, res, next) => {
+  r.delete(
+    '/manager/customers/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
+    loadEntitlements,
+    requireModule('guests'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
-      if (!requireManagerOrOwner(req, res)) return;
-
       const branchId = req.branchId || resolveBranchId(req);
 
       const id = String(req.params?.id || '').trim();

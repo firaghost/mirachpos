@@ -82,7 +82,7 @@ import { Screen, UserRole } from './types';
 
 import { clearSession, initTabSession, readSession, updateSession } from './session';
 
-import { canAccessScreenWithSubscription, homeForRoleWithSubscription } from './rbac';
+import { canAccessScreenWithPermissions, canAccessScreenWithSubscription, homeForRoleWithSubscription } from './rbac';
 
 const LAST_SCREEN_KEY = 'mirachpos.lastScreen.v1';
 
@@ -93,6 +93,15 @@ const parseScreen = (raw: unknown): Screen | null => {
   if (!s) return null;
   const values = Object.values(Screen) as string[];
   return values.includes(s) ? (s as Screen) : null;
+};
+
+const readSessionPermissions = () => {
+  try {
+    const parsed = readSession<any>();
+    return Array.isArray(parsed?.permissions) ? parsed.permissions : [];
+  } catch {
+    return [];
+  }
 };
 
 const readHashScreen = (): Screen | null => {
@@ -160,6 +169,7 @@ const AppContent: React.FC = () => {
 
   const [subscription, setSubscription] = useState(() => readSessionSubscription());
   const [billing, setBilling] = useState(() => readSessionBilling());
+  const [permissions, setPermissions] = useState(() => readSessionPermissions());
 
   const [currentScreen, setCurrentScreen] = useState<Screen>(() => {
     try {
@@ -291,6 +301,7 @@ const AppContent: React.FC = () => {
     const onChanged = () => {
       setSubscription(readSessionSubscription());
       setBilling(readSessionBilling());
+      setPermissions(readSessionPermissions());
       try {
         const parsed = readSession<any>();
         const nextRole = (parsed?.role as UserRole) ?? null;
@@ -309,6 +320,8 @@ const AppContent: React.FC = () => {
   }, []);
 
   const [upgradeModalDismissed, setUpgradeModalDismissed] = useState(false);
+  const [moduleBlocked, setModuleBlocked] = useState<{ error: string; module: string; path: string } | null>(null);
+  const [accessDenied, setAccessDenied] = useState<{ error: string; path: string } | null>(null);
   const upgradeModalKey = (() => {
     if (userRole !== UserRole.CAFE_OWNER) return '';
     if (currentScreen === Screen.LOGIN) return '';
@@ -337,6 +350,31 @@ const AppContent: React.FC = () => {
       setUpgradeModalDismissed(false);
     }
   }, [upgradeModalKey]);
+
+  useEffect(() => {
+    const onBlocked = (ev: any) => {
+      const d = ev?.detail && typeof ev.detail === 'object' ? ev.detail : null;
+      const error = typeof d?.error === 'string' ? d.error : '';
+      const moduleKey = typeof d?.module === 'string' ? d.module : '';
+      const path = typeof d?.path === 'string' ? d.path : '';
+      if (!error) return;
+      setModuleBlocked({ error, module: moduleKey, path });
+    };
+    window.addEventListener('mirachpos-module-blocked', onBlocked as any);
+    return () => window.removeEventListener('mirachpos-module-blocked', onBlocked as any);
+  }, []);
+
+  useEffect(() => {
+    const onDenied = (ev: any) => {
+      const d = ev?.detail && typeof ev.detail === 'object' ? ev.detail : null;
+      const error = typeof d?.error === 'string' ? d.error : '';
+      const path = typeof d?.path === 'string' ? d.path : '';
+      if (!error) return;
+      setAccessDenied({ error, path });
+    };
+    window.addEventListener('mirachpos-access-denied', onDenied as any);
+    return () => window.removeEventListener('mirachpos-access-denied', onDenied as any);
+  }, []);
 
   const shouldShowUpgradeModal = Boolean(upgradeModalKey) && !upgradeModalDismissed;
 
@@ -409,11 +447,11 @@ const AppContent: React.FC = () => {
     if (currentScreen === Screen.LOGIN) return;
     // Avoid redirecting to home while subscription is still loading (prevents refresh jumping).
     if (userRole === UserRole.CAFE_OWNER && subscription == null) return;
-    if (!canAccessScreenWithSubscription(userRole, currentScreen, subscription)) {
+    if (!canAccessScreenWithPermissions(userRole, currentScreen, subscription, permissions)) {
       navigate(homeForRoleWithSubscription(userRole, subscription));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentScreen, userRole, ownerOnboardingComplete, subscription]);
+  }, [currentScreen, userRole, ownerOnboardingComplete, subscription, permissions]);
 
   if (currentScreen === Screen.LOGIN || !userRole) {
     const path = (() => {
@@ -463,6 +501,80 @@ const AppContent: React.FC = () => {
       />
 
       <main className="flex-1 h-full overflow-hidden bg-gray-50 dark:bg-background relative transition-colors duration-200 pb-8">
+        {moduleBlocked ? (
+          <div className="absolute top-0 left-0 right-0 z-[110] p-3">
+            <div className="mx-auto max-w-5xl rounded-xl border border-[#483c23] bg-[#221c11] text-[#c9b792] px-4 py-3 flex items-start justify-between gap-4 shadow-xl">
+              <div className="flex flex-col">
+                <div className="text-white font-extrabold text-sm">
+                  {moduleBlocked.error === 'module_not_enabled'
+                    ? `Module disabled${moduleBlocked.module ? `: ${moduleBlocked.module}` : ''}`
+                    : moduleBlocked.error === 'subscription_pending_verify'
+                      ? 'Subscription pending verification'
+                      : moduleBlocked.error === 'subscription_inactive'
+                        ? 'Subscription inactive'
+                        : 'Access blocked'}
+                </div>
+                <div className="text-xs mt-1">
+                  {moduleBlocked.error === 'module_not_enabled'
+                    ? 'This feature is not enabled for your tenant. Update modules or upgrade your plan.'
+                    : moduleBlocked.error === 'subscription_pending_verify'
+                      ? 'Your upgrade request is awaiting verification. Premium modules are temporarily locked.'
+                      : moduleBlocked.error === 'subscription_inactive'
+                        ? 'Your subscription is due or canceled. Renew to restore access.'
+                        : 'This action is blocked by your subscription/entitlements.'}
+                </div>
+                {moduleBlocked.path ? <div className="text-[10px] mt-1 opacity-75 font-mono">{moduleBlocked.path}</div> : null}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {userRole === UserRole.CAFE_OWNER ? (
+                  <button
+                    type="button"
+                    className="h-9 px-3 rounded-lg bg-[#eead2b] text-[#221c11] text-xs font-black hover:bg-[#d6961b]"
+                    onClick={() => {
+                      if (moduleBlocked.error === 'module_not_enabled') navigate(Screen.OWNER_SETTINGS);
+                      else navigate(Screen.OWNER_BILLING);
+                      setModuleBlocked(null);
+                    }}
+                  >
+                    {moduleBlocked.error === 'module_not_enabled' ? 'Open Modules' : 'Upgrade / Renew'}
+                  </button>
+                ) : null}
+
+                <button
+                  type="button"
+                  className="h-9 px-3 rounded-lg border border-[#483c23] bg-[#2d261a] text-[#c9b792] text-xs font-bold hover:text-white hover:bg-[#362e21]"
+                  onClick={() => setModuleBlocked(null)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {accessDenied ? (
+          <div className="absolute top-0 left-0 right-0 z-[109] p-3">
+            <div className="mx-auto max-w-5xl rounded-xl border border-red-500/30 bg-red-500/10 text-red-100 px-4 py-3 flex items-start justify-between gap-4 shadow-xl">
+              <div className="flex flex-col">
+                <div className="text-white font-extrabold text-sm">Access denied</div>
+                <div className="text-xs mt-1">You do not have permission to perform this action.</div>
+                {accessDenied.path ? <div className="text-[10px] mt-1 opacity-75 font-mono">{accessDenied.path}</div> : null}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="h-9 px-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-100 text-xs font-bold hover:bg-red-500/20"
+                  onClick={() => setAccessDenied(null)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {shouldShowUpgradeModal ? (
           <div className="fixed top-0 bottom-0 right-0 left-64 z-[120] flex items-center justify-center p-4">
             <div
@@ -538,69 +650,69 @@ const AppContent: React.FC = () => {
           </div>
         ) : null}
         {/* SHARED / OLDER SCREENS */}
-        {currentScreen === Screen.DASHBOARD && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <Dashboard role={userRole!} />}
-        {currentScreen === Screen.POS_FLOOR && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterDashboard onNavigate={navigate} />}
-        {currentScreen === Screen.ORDERS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <Orders />}
-        {currentScreen === Screen.TABLE_ASSIGNMENT && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <TableAssignment onNavigate={navigate} />}
-        {currentScreen === Screen.GUESTS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <Guests />}
+        {currentScreen === Screen.DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Dashboard role={userRole!} />}
+        {currentScreen === Screen.POS_FLOOR && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDashboard onNavigate={navigate} />}
+        {currentScreen === Screen.ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Orders />}
+        {currentScreen === Screen.TABLE_ASSIGNMENT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <TableAssignment onNavigate={navigate} />}
+        {currentScreen === Screen.GUESTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Guests />}
 
         {/* WAITER SPECIFIC SCREENS */}
-        {currentScreen === Screen.WAITER_DASHBOARD && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterDashboard onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_MENU && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterMenu onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_REVIEW && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterOrderReview onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_PAYMENT && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterPayment onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_RECEIPT && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterReceipt onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_ACTIVE_ORDERS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterActiveOrders onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_STATUS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterOrderStatus onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_KDS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterKDS onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_HISTORY && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterHistory onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_NOTIFICATIONS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterNotifications onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_SYSTEM && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterSystemStatus onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_DRAFT_SIM && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterDraftSim onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_SETTINGS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterSettings onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_SHIFT_REPORT && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <WaiterShiftReport onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_SCHEDULE && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <ShiftSchedule readOnly />}
+        {currentScreen === Screen.WAITER_DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDashboard onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_MENU && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterMenu onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_REVIEW && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterOrderReview onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_PAYMENT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterPayment onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_RECEIPT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterReceipt onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_ACTIVE_ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterActiveOrders onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_STATUS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterOrderStatus onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_KDS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterKDS onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_HISTORY && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterHistory onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_NOTIFICATIONS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterNotifications onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_SYSTEM && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterSystemStatus onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_DRAFT_SIM && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDraftSim onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_SETTINGS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterSettings onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_SHIFT_REPORT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterShiftReport onNavigate={navigate} />}
+        {currentScreen === Screen.WAITER_SCHEDULE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ShiftSchedule readOnly />}
 
         {/* CAFE OWNER (GLOBAL) SCREENS */}
-        {currentScreen === Screen.OWNER_DASHBOARD && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <OwnerDashboard />}
-        {currentScreen === Screen.OWNER_FINANCE && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <OwnerFinance />}
-        {currentScreen === Screen.OWNER_INVENTORY && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <OwnerInventory />}
-        {currentScreen === Screen.OWNER_REPORTS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <GlobalReports />}
-        {currentScreen === Screen.OWNER_BRANCHES && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <OwnerBranches />}
-        {currentScreen === Screen.OWNER_STAFF && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <OwnerStaffManagement />}
-        {currentScreen === Screen.OWNER_AUDIT && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <OwnerAudit />}
-        {currentScreen === Screen.OWNER_MENU && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <MenuManagement />}
-        {currentScreen === Screen.OWNER_SETTINGS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <Settings />}
-        {currentScreen === Screen.OWNER_BILLING && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <OwnerBilling />}
-        {currentScreen === Screen.SUPPORT_REQUEST && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SupportRequest />}
+        {currentScreen === Screen.OWNER_DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerDashboard />}
+        {currentScreen === Screen.OWNER_FINANCE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerFinance />}
+        {currentScreen === Screen.OWNER_INVENTORY && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerInventory />}
+        {currentScreen === Screen.OWNER_REPORTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <GlobalReports />}
+        {currentScreen === Screen.OWNER_BRANCHES && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerBranches />}
+        {currentScreen === Screen.OWNER_STAFF && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerStaffManagement />}
+        {currentScreen === Screen.OWNER_AUDIT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerAudit />}
+        {currentScreen === Screen.OWNER_MENU && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <MenuManagement />}
+        {currentScreen === Screen.OWNER_SETTINGS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Settings />}
+        {currentScreen === Screen.OWNER_BILLING && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerBilling />}
+        {currentScreen === Screen.SUPPORT_REQUEST && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SupportRequest />}
 
-        {currentScreen === Screen.STAFF_SCHEDULE && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <ShiftSchedule />}
+        {currentScreen === Screen.STAFF_SCHEDULE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ShiftSchedule />}
 
         {/* BRANCH MANAGER (LOCAL) SCREENS */}
-        {currentScreen === Screen.MANAGER_DASHBOARD && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <BranchDashboard onNavigate={navigate} />}
-        {currentScreen === Screen.DESKTOP_DRAFT_INBOX && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <DraftInbox />}
-        {currentScreen === Screen.MANAGER_ORDERS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <BranchOrders onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_ORDER_DETAILS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <BranchOrderDetails onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_FLOOR_MAP && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <ManagerFloorMap onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_TABLE_DETAILS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <ManagerTableDetails onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_CUSTOMERS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <ManagerCustomers />}
-        {currentScreen === Screen.MANAGER_INVENTORY && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <Inventory onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_RECIPE_BUILDER && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <RecipeBuilder onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_MENU_BUILDER && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <MenuBuilder onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_STAFF && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <ManagerTeam />}
-        {currentScreen === Screen.MANAGER_FINANCE && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <Finance />}
-        {currentScreen === Screen.MANAGER_REPORTS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <BranchReports />}
-        {currentScreen === Screen.MANAGER_SETTINGS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <BranchSettings />}
-        {currentScreen === Screen.SUPPORT_REQUEST && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SupportRequest />}
+        {currentScreen === Screen.MANAGER_DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchDashboard onNavigate={navigate} />}
+        {currentScreen === Screen.DESKTOP_DRAFT_INBOX && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <DraftInbox />}
+        {currentScreen === Screen.MANAGER_ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchOrders onNavigate={navigate} />}
+        {currentScreen === Screen.MANAGER_ORDER_DETAILS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchOrderDetails onNavigate={navigate} />}
+        {currentScreen === Screen.MANAGER_FLOOR_MAP && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ManagerFloorMap onNavigate={navigate} />}
+        {currentScreen === Screen.MANAGER_TABLE_DETAILS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ManagerTableDetails onNavigate={navigate} />}
+        {currentScreen === Screen.MANAGER_CUSTOMERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ManagerCustomers />}
+        {currentScreen === Screen.MANAGER_INVENTORY && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Inventory onNavigate={navigate} />}
+        {currentScreen === Screen.MANAGER_RECIPE_BUILDER && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <RecipeBuilder onNavigate={navigate} />}
+        {currentScreen === Screen.MANAGER_MENU_BUILDER && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <MenuBuilder onNavigate={navigate} />}
+        {currentScreen === Screen.MANAGER_STAFF && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ManagerTeam />}
+        {currentScreen === Screen.MANAGER_FINANCE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Finance />}
+        {currentScreen === Screen.MANAGER_REPORTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchReports />}
+        {currentScreen === Screen.MANAGER_SETTINGS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchSettings />}
+        {currentScreen === Screen.SUPPORT_REQUEST && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SupportRequest />}
 
         {/* SUPER ADMIN SCREENS */}
-        {currentScreen === Screen.SA_OVERVIEW && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Overview onNavigate={navigate} />}
-        {currentScreen === Screen.SA_TENANTS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Tenants onNavigate={navigate} />}
-        {currentScreen === Screen.SA_TENANT_DETAILS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && (
+        {currentScreen === Screen.SA_OVERVIEW && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SA_Overview onNavigate={navigate} />}
+        {currentScreen === Screen.SA_TENANTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SA_Tenants onNavigate={navigate} />}
+        {currentScreen === Screen.SA_TENANT_DETAILS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && (
           <SA_TenantDetails onBack={navigateBackToTenants} onNavigate={navigate} />
         )}
-        {currentScreen === Screen.SA_DEMO_REQUESTS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_DemoRequests />}
-        {currentScreen === Screen.SA_ONBOARDING && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_OnboardingDesign onNavigate={navigate} />}
+        {currentScreen === Screen.SA_DEMO_REQUESTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SA_DemoRequests />}
+        {currentScreen === Screen.SA_ONBOARDING && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SA_OnboardingDesign onNavigate={navigate} />}
         {currentScreen === Screen.SA_BILLING && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Billing />}
         {currentScreen === Screen.SA_PAYMENT_CONFIG && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <PaymentConfig />}
         {currentScreen === Screen.SA_SYSTEM_HEALTH && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_SystemHealth />}

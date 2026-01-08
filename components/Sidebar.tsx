@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Screen, UserRole } from '../types';
 import { useTheme } from '../ThemeContext';
 import { usePos } from '../PosContext';
-import { canAccessScreenWithSubscription } from '../rbac';
+import { canAccessScreenWithPermissions } from '../rbac';
 import { apiFetch } from '../api';
 import { readSession, updateSession } from '../session';
 import { cn } from './lib/utils';
@@ -53,10 +53,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
 
   const [subscription, setSubscription] = useState(() => readSubscription());
 
-  const showItem = (screen: Screen) => canAccessScreenWithSubscription(role, screen, subscription);
+  const readPermissions = () => {
+    try {
+      const parsed = readSession<any>();
+      return parsed?.permissions || [];
+    } catch {
+      return [];
+    }
+  };
+
+  const [permissions, setPermissions] = useState(() => readPermissions());
+
+  const showItem = (screen: Screen) => canAccessScreenWithPermissions(role, screen, subscription, permissions);
 
   useEffect(() => {
-    const onChanged = () => setSubscription(readSubscription());
+    const onChanged = () => {
+      setSubscription(readSubscription());
+      setPermissions(readPermissions());
+    };
     window.addEventListener('mirachpos-session-changed', onChanged);
     return () => window.removeEventListener('mirachpos-session-changed', onChanged);
   }, []);
@@ -139,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
 
   const NavItem = ({ screen, icon, label, badge }: { screen: Screen; icon: string; label: string, badge?: string }) => {
     const active = currentScreen === screen;
-    const canAccess = canAccessScreenWithSubscription(role, screen, subscription);
+    const canAccess = canAccessScreenWithPermissions(role, screen, subscription, permissions);
     if (!canAccess) return null;
 
     return (

@@ -63,6 +63,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const staffId = typeof json?.staffId === 'string' ? json.staffId : '';
       const staffName = typeof json?.staffName === 'string' ? json.staffName : '';
       const branchId = typeof json?.branchId === 'string' ? json.branchId : 'global';
+      const permissions = Array.isArray(json?.permissions) ? (json.permissions as any[]).map(String).filter(Boolean) : [];
 
       if (!token || !role || !tenantId) throw new Error('login_failed');
 
@@ -74,6 +75,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             : role === UserRole.CAFE_OWNER
               ? UserRole.CAFE_OWNER
               : (role as any);
+
+      const initialScreen = (() => {
+        if (mappedRole === UserRole.WAITER) return Screen.WAITER_DASHBOARD;
+        if (mappedRole === UserRole.BRANCH_MANAGER) return Screen.MANAGER_DASHBOARD;
+        if (mappedRole === UserRole.SUPER_ADMIN) return Screen.SA_OVERVIEW;
+        if (mappedRole === UserRole.CAFE_OWNER) return Screen.OWNER_DASHBOARD;
+        return Screen.DASHBOARD;
+      })();
 
       const subscription = json?.subscription ?? null;
       const billing = json?.billing ?? null;
@@ -87,9 +96,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         staffId,
         staffName,
         branchId,
+        permissions,
         subscription,
         billing,
-        screen: Screen.LOGIN,
+        screen: initialScreen,
       });
 
       try {

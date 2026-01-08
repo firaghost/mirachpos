@@ -5,17 +5,13 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const makeWaiterRouter = () => {
   const r = express.Router();
 
   const requireWaiter = (req, res) => {
     if (req.auth?.tenantId !== req.tenant.id) {
-      res.status(403).json({ error: 'forbidden' });
-      return false;
-    }
-    const role = String(req.auth?.role || '');
-    if (role !== 'Waiter') {
       res.status(403).json({ error: 'forbidden' });
       return false;
     }
@@ -27,7 +23,15 @@ const makeWaiterRouter = () => {
     return true;
   };
 
-  r.put('/waiter/account', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.put(
+    '/waiter/account',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
 
@@ -79,7 +83,15 @@ const makeWaiterRouter = () => {
     }
   });
 
-  r.get('/waiter/history', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.get(
+    '/waiter/history',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
 
@@ -126,6 +138,10 @@ const makeWaiterRouter = () => {
           };
         })
         .filter((o) => {
+          const createdBy = String(o.createdByStaffId || '').trim();
+          return createdBy && createdBy === staffId;
+        })
+        .filter((o) => {
           if (!q) return true;
           return String(o.number || '').toLowerCase().includes(q) || String(o.tableName || '').toLowerCase().includes(q);
         });
@@ -140,7 +156,15 @@ const makeWaiterRouter = () => {
     }
   });
 
-  r.get('/waiter/order/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.get(
+    '/waiter/order/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
 
@@ -187,13 +211,23 @@ const makeWaiterRouter = () => {
         payload,
       };
 
+      if (String(order.createdByStaffId || '').trim() !== staffId) return res.status(403).json({ error: 'forbidden' });
+
       return res.json({ ok: true, branchId, order });
     } catch (e) {
       return next(e);
     }
   });
 
-  r.get('/waiter/shift-report', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.get(
+    '/waiter/shift-report',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
 

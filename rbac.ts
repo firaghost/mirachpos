@@ -3,6 +3,20 @@ import { Screen, UserRole } from './types';
 
 export type SubscriptionInfo = { tier: string; modules: string[] };
 
+export type PermissionList = string[];
+
+export const normalizePermissions = (raw: unknown): PermissionList => {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(String).map((s) => s.trim()).filter(Boolean);
+};
+
+export const hasPermission = (permissions: unknown, required: string): boolean => {
+  const perm = String(required || '').trim();
+  if (!perm) return true;
+  const list = normalizePermissions(permissions);
+  return list.includes('*') || list.includes(perm);
+};
+
 const defaultModulesForTier = (tier: string): string[] => {
   const t = String(tier || '')
     .trim()
@@ -256,4 +270,81 @@ export const canAccessScreenWithSubscription = (
   if (!required) return true;
   const mods = normalizedModules(subscription);
   return mods.includes(required);
+};
+
+const screenRequiredPermission = (screen: Screen): string | null => {
+  switch (screen) {
+    // Waiter core
+    case Screen.WAITER_DASHBOARD:
+    case Screen.WAITER_MENU:
+    case Screen.WAITER_REVIEW:
+    case Screen.WAITER_PAYMENT:
+    case Screen.WAITER_RECEIPT:
+    case Screen.WAITER_ACTIVE_ORDERS:
+    case Screen.WAITER_STATUS:
+    case Screen.WAITER_KDS:
+    case Screen.WAITER_HISTORY:
+    case Screen.WAITER_NOTIFICATIONS:
+    case Screen.WAITER_SYSTEM:
+    case Screen.WAITER_SETTINGS:
+    case Screen.WAITER_SHIFT_REPORT:
+    case Screen.WAITER_SCHEDULE:
+    case Screen.POS_FLOOR:
+    case Screen.POS_MENU:
+      return 'orders.read';
+
+    // Manager
+    case Screen.MANAGER_ORDERS:
+    case Screen.MANAGER_ORDER_DETAILS:
+    case Screen.DESKTOP_DRAFT_INBOX:
+      return 'orders.read';
+    case Screen.MANAGER_REPORTS:
+      return 'reports.read';
+    case Screen.MANAGER_FINANCE:
+      return 'finance.read';
+    case Screen.MANAGER_INVENTORY:
+      return 'inventory.read';
+    case Screen.MANAGER_STAFF:
+    case Screen.STAFF_SCHEDULE:
+      return 'staff.read';
+    case Screen.MANAGER_SETTINGS:
+      return 'manager.settings.read';
+    case Screen.MANAGER_CUSTOMERS:
+    case Screen.GUESTS:
+      return 'orders.read';
+
+    // Owner
+    case Screen.OWNER_DASHBOARD:
+    case Screen.OWNER_REPORTS:
+      return 'reports.read';
+    case Screen.OWNER_FINANCE:
+      return 'finance.read';
+    case Screen.OWNER_INVENTORY:
+      return 'inventory.read';
+    case Screen.OWNER_STAFF:
+      return 'staff.read';
+    case Screen.OWNER_AUDIT:
+    case Screen.OWNER_SETTINGS:
+    case Screen.OWNER_BILLING:
+      return 'settings.manage';
+    case Screen.OWNER_MENU:
+      return 'menu.manage';
+    case Screen.OWNER_BRANCHES:
+      return 'branches.read';
+
+    default:
+      return null;
+  }
+};
+
+export const canAccessScreenWithPermissions = (
+  role: UserRole,
+  screen: Screen,
+  subscription: SubscriptionInfo | null | undefined,
+  permissions: unknown,
+): boolean => {
+  if (!canAccessScreenWithSubscription(role, screen, subscription)) return false;
+  const required = screenRequiredPermission(screen);
+  if (!required) return true;
+  return hasPermission(permissions, required);
 };

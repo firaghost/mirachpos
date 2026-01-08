@@ -4,13 +4,13 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { uid } = require('../utils/ids');
+const { requireRole } = require('../middleware/permissions');
 
 const makeSupportRouter = () => {
   const r = express.Router();
 
-  r.get('/support/tickets', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/support/tickets', tenantMiddleware, requireAuth, requireRole('Cafe Owner', 'Branch Manager', 'Waiter'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       if (!req.auth?.staffId) return res.status(401).json({ error: 'unauthorized' });
 
       const rows = await db()
@@ -34,9 +34,8 @@ const makeSupportRouter = () => {
     }
   });
 
-  r.post('/support/tickets', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/support/tickets', tenantMiddleware, requireAuth, requireRole('Cafe Owner', 'Branch Manager', 'Waiter'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       if (!req.auth?.staffId) return res.status(401).json({ error: 'unauthorized' });
 
       const severity = typeof req.body?.severity === 'string' ? req.body.severity.trim() : '';
@@ -65,9 +64,8 @@ const makeSupportRouter = () => {
     }
   });
 
-  r.put('/support/tickets/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/support/tickets/:id', tenantMiddleware, requireAuth, requireRole('Cafe Owner', 'Branch Manager', 'Waiter'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       if (!req.auth?.staffId) return res.status(401).json({ error: 'unauthorized' });
 
       const id = typeof req.params?.id === 'string' ? req.params.id.trim() : '';

@@ -24,13 +24,13 @@ export const Header: React.FC<{ title: string; subtitle?: string; action?: React
   })();
 
   return (
-    <header className="h-16 shrink-0 border-b border-border bg-surface/95 backdrop-blur flex items-center justify-between px-8 z-10">
-      <div>
-        <h2 className="text-white text-xl font-bold tracking-tight">{title}</h2>
-        {subtitle && <p className="text-text-muted text-xs mt-0.5">{subtitle}</p>}
+    <header className="shrink-0 border-b border-border bg-surface/95 backdrop-blur flex flex-col sm:flex-row sm:items-center items-start sm:justify-between px-4 sm:px-8 py-3 sm:py-0 min-h-16 z-10 gap-3">
+      <div className="min-w-0">
+        <h2 className="text-white text-xl font-bold tracking-tight truncate">{title}</h2>
+        {subtitle && <p className="text-text-muted text-xs mt-0.5 truncate">{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-4">
-        {action ? <div className="hidden sm:flex items-center">{action}</div> : null}
+      <div className="w-full sm:w-auto flex flex-wrap items-center justify-end gap-3">
+        {action ? <div className="w-full sm:w-auto flex flex-wrap items-center justify-end gap-2">{action}</div> : null}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-light rounded-full border border-border">
           <span className="w-2 h-2 rounded-full bg-success animate-pulse"></span>
           <span className="text-xs font-medium text-success">System Operational</span>

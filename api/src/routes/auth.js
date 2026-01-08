@@ -17,6 +17,30 @@ const safeIso = (v) => {
   }
 };
 
+const safeJsonParse = (raw, fallback) => {
+  try {
+    if (!raw) return fallback;
+    const parsed = JSON.parse(String(raw));
+    return parsed ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const normalizePermissions = (raw) => {
+  const parsed = safeJsonParse(raw, []);
+  return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
+};
+
+const readRolePermissions = async ({ tenantId, roleName }) => {
+  const tn = String(tenantId || '').trim();
+  const rn = String(roleName || '').trim();
+  if (!tn || !rn) return [];
+  const row = await db().select(['permissions']).from('roles').where({ tenant_id: tn, name: rn }).first();
+  if (!row) return [];
+  return normalizePermissions(row.permissions);
+};
+
 const maybeDowngradeDueSubscription = async (tenantId) => {
   const sub = await db().select(['tenant_id', 'tier', 'status', 'next_bill_at']).from('tenant_subscription').where({ tenant_id: tenantId }).first();
   if (!sub) return;
@@ -108,6 +132,8 @@ const makeAuthRouter = () => {
       const ent = await computeTenantEntitlements({ tenant });
       if (ent) await upsertTenantEntitlementsSnapshot({ tenantId: tenant.id, entitlements: ent });
 
+      const permissions = role ? await readRolePermissions({ tenantId: tenant.id, roleName: role }) : [];
+
       return res.json({
         ok: true,
         me: {
@@ -116,6 +142,7 @@ const makeAuthRouter = () => {
           staffId,
           role,
           staffName,
+          permissions,
         },
         tenant: { id: String(tenant.id), slug: String(tenant.slug || ''), name: String(tenant.name || '') },
         branch,

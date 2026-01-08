@@ -6,6 +6,7 @@ import type { Product, Recipe } from '../types';
 import { apiFetch, serverNowMs } from '../api';
 import { usePersistedState } from '../usePersistedState';
 import { readSession } from '../session';
+import { hasPermission } from '../rbac';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -71,6 +72,16 @@ type PurchaseOrderItemRow = {
 };
 
 export const Inventory: React.FC<Props> = ({ onNavigate }) => {
+  const permissions = (() => {
+    try {
+      const s = readSession<any>();
+      return Array.isArray(s?.permissions) ? s.permissions : [];
+    } catch {
+      return [];
+    }
+  })();
+  const canUpdateInventory = hasPermission(permissions, 'inventory.update');
+
   const [activeTab, setActiveTab] = usePersistedState<'stock' | 'recipes' | 'suppliers' | 'audit'>(STORAGE_ACTIVE_TAB, 'stock', {
     validate: (v): v is 'stock' | 'recipes' | 'suppliers' | 'audit' => v === 'stock' || v === 'recipes' || v === 'suppliers' || v === 'audit',
     serialize: (v) => v,
@@ -594,6 +605,10 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
   }, [items, selectedProduct, selectedRecipe]);
 
   const openAdd = () => {
+    if (!canUpdateInventory) {
+      setFlash({ kind: 'error', message: 'Access denied: missing permission inventory.update' });
+      return;
+    }
     setEditId('__new__');
     setDraftName('');
     setDraftCategory('Raw Material');
@@ -604,6 +619,10 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
   };
 
   const openEdit = (id: string) => {
+    if (!canUpdateInventory) {
+      setFlash({ kind: 'error', message: 'Access denied: missing permission inventory.update' });
+      return;
+    }
     const it = items.find((x) => x.id === id);
     if (!it) return;
     setEditId(it.id);
@@ -798,6 +817,10 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
   };
 
   const saveModal = () => {
+    if (!canUpdateInventory) {
+      setFlash({ kind: 'error', message: 'Access denied: missing permission inventory.update' });
+      return;
+    }
     const stock = Number.parseFloat(draftStock);
     const minStock = Number.parseFloat(draftMinStock);
     const price = Number.parseFloat(draftPrice);
@@ -904,7 +927,11 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                         <p className="text-[#c9b792] text-xs font-medium">Inventory Value</p>
                         <h3 className="text-2xl font-bold text-white">ETB {stats.inventoryValue.toFixed(0)}</h3>
                     </div>
-                    <button onClick={openAdd} className="bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-bold rounded-lg flex flex-col items-center justify-center transition-colors">
+                    <button
+                      onClick={openAdd}
+                      disabled={!canUpdateInventory}
+                      className="bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-bold rounded-lg flex flex-col items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
                         <span className="material-symbols-outlined mb-1">add_circle</span>
                         <span>Add Stock Item</span>
                     </button>
@@ -975,10 +1002,23 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                                     </td>
                                     <td className="p-4 text-right">
                                         <div className="flex items-center justify-end gap-3">
-                                          <button onClick={() => openEdit(item.id)} className="text-[#eead2b] hover:text-[#eead2b]/90 text-sm font-bold">Edit</button>
                                           <button
-                                            onClick={() => setDeleteId(item.id)}
-                                            className="text-red-400 hover:text-red-300 text-sm font-bold"
+                                            onClick={() => openEdit(item.id)}
+                                            disabled={!canUpdateInventory}
+                                            className="text-[#eead2b] hover:text-[#eead2b]/90 text-sm font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+                                          >
+                                            Edit
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              if (!canUpdateInventory) {
+                                                setFlash({ kind: 'error', message: 'Access denied: missing permission inventory.update' });
+                                                return;
+                                              }
+                                              setDeleteId(item.id);
+                                            }}
+                                            disabled={!canUpdateInventory}
+                                            className="text-red-400 hover:text-red-300 text-sm font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                                           >
                                             Delete
                                           </button>
@@ -1908,7 +1948,13 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
           footer={
             <div className="flex gap-3">
               <button onClick={closeModal} className="flex-1 h-11 rounded-lg bg-surface-light hover:bg-border border border-border text-white font-semibold transition-colors">Cancel</button>
-              <button onClick={saveModal} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary-hover text-background font-extrabold transition-colors">Save</button>
+              <button
+                onClick={saveModal}
+                disabled={!canUpdateInventory}
+                className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary-hover text-background font-extrabold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                Save
+              </button>
             </div>
           }
         >
@@ -1959,6 +2005,10 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
               <button
                 onClick={() => {
                   if (!deleteId) return;
+                  if (!canUpdateInventory) {
+                    setFlash({ kind: 'error', message: 'Access denied: missing permission inventory.update' });
+                    return;
+                  }
                   const id = deleteId;
                   setBusy(true);
                   (async () => {
@@ -1977,7 +2027,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                   })();
                 }}
                 className="flex-1 h-11 rounded-lg bg-red-600 hover:bg-red-500 text-white font-extrabold transition-colors disabled:opacity-60"
-                disabled={busy}
+                disabled={busy || !canUpdateInventory}
               >
                 {busy ? 'Deleting ¦' : 'Delete'}
               </button>

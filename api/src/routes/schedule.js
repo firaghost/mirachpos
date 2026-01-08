@@ -6,6 +6,7 @@ const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 const { resolveBranchId, requireBranchId, requireBranchIdFromBody } = require('../middleware/branchScope');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const normalizeBranchId = (v) => {
   const s = String(v || '').trim();
@@ -48,10 +49,17 @@ const makeScheduleRouter = () => {
 
   const canWrite = (role) => role === 'Cafe Owner' || role === 'Branch Manager';
 
-  r.get('/schedule', tenantMiddleware, requireAuth, loadEntitlements, requireModule('staff'), requireBranchId(), async (req, res, next) => {
+  r.get(
+    '/schedule',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('staff'),
+    requirePermission('staff.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const weekStart = isoDay(req.query?.weekStart);
       if (!weekStart) return res.status(400).json({ error: 'week_start_required' });
 
@@ -136,13 +144,17 @@ const makeScheduleRouter = () => {
     }
   });
 
-  r.put('/schedule', tenantMiddleware, requireAuth, loadEntitlements, requireModule('staff'), requireBranchIdFromBody(), async (req, res, next) => {
+  r.put(
+    '/schedule',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('staff'),
+    requirePermission('staff.update'),
+    requireBranchIdFromBody(),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
-      const role = String(req.auth?.role || '');
-      if (!canWrite(role)) return res.status(403).json({ error: 'forbidden' });
-
       const body = req.body && typeof req.body === 'object' ? req.body : null;
       const weekStart = isoDay(body?.weekStart);
       if (!weekStart) return res.status(400).json({ error: 'week_start_required' });

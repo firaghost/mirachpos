@@ -116,8 +116,19 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
   }, [impersonateWaiterId]);
 
   const visibleTables = useMemo(() => {
-    return tables;
-  }, [tables]);
+    const effectiveWaiterId = impersonateWaiterId || staffId;
+
+    // Shared-device waiter portal behavior:
+    // - Waiters should only see their assigned tables + unassigned tables.
+    // - Managers/owners can see all tables unless they are impersonating.
+    if (isImpersonationEnabled && !impersonateWaiterId) return tables;
+
+    return tables.filter((t) => {
+      const assigned = typeof (t as any).assignedStaffId === 'string' ? String((t as any).assignedStaffId) : '';
+      if (!assigned) return true;
+      return assigned === effectiveWaiterId;
+    });
+  }, [impersonateWaiterId, isImpersonationEnabled, staffId, tables]);
 
   const [staffNameCache, setStaffNameCache] = useState<Record<string, string>>(() => readStaffNameCache());
   const [remoteStaff, setRemoteStaff] = useState<Array<{ id: string; name: string; roleName?: string }>>([]);
@@ -263,20 +274,46 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
     return { all: tablesInArea.length, free, occupied, action };
   }, [tablesInArea, ordersById]);
 
+  const sortedTablesInArea = useMemo(() => {
+    const list = [...tablesInArea];
+    const numFromName = (name: string): number => {
+      const n = String(name || '').trim();
+      const m = n.match(/(\d+)/);
+      return m ? Number(m[1]) || 0 : 0;
+    };
+    return list.sort((a, b) => {
+      const areaA = String((a as any).area || '').trim();
+      const areaB = String((b as any).area || '').trim();
+      if (areaA !== areaB) return areaA.localeCompare(areaB);
+      const na = numFromName(String(a.name || a.id || ''));
+      const nb = numFromName(String(b.name || b.id || ''));
+      if (na !== nb) return na - nb;
+      return String(a.name || a.id || '').localeCompare(String(b.name || b.id || ''));
+    });
+  }, [tablesInArea]);
+
   const filteredTables = useMemo(() => {
-    if (filter === 'All') return tablesInArea;
-    if (filter === 'Free') return tablesInArea.filter((t) => t.openOrderId == null);
-    if (filter === 'Occupied') return tablesInArea.filter((t) => t.openOrderId != null);
-    return tablesInArea.filter((t) => {
+    if (filter === 'All') return sortedTablesInArea;
+    if (filter === 'Free') return sortedTablesInArea.filter((t) => t.openOrderId == null);
+    if (filter === 'Occupied') return sortedTablesInArea.filter((t) => t.openOrderId != null);
+    return sortedTablesInArea.filter((t) => {
       if (!t.openOrderId) return false;
       const o = ordersById.get(t.openOrderId);
       return t.status === 'Payment' || o?.status === 'Ready';
     });
-  }, [tablesInArea, filter, ordersById]);
+  }, [sortedTablesInArea, filter, ordersById]);
 
   const handleTableClick = (tableId: string) => {
     const table = tables.find((t) => t.id === tableId);
     if (!table) return;
+
+    const effectiveWaiterId = impersonateWaiterId || staffId;
+    const assigned = typeof (table as any).assignedStaffId === 'string' ? String((table as any).assignedStaffId) : '';
+    const isAssignedToOther = assigned && effectiveWaiterId && assigned !== effectiveWaiterId;
+    if (!isImpersonationEnabled && isAssignedToOther) {
+      setActionErr('This table is assigned to another waiter. Ask a manager to reassign it.');
+      return;
+    }
 
     selectTable(table.id);
 
@@ -292,7 +329,12 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
 
     if (table.openOrderId) {
       selectOrder(table.openOrderId);
-      onNavigate(Screen.WAITER_REVIEW);
+      const o = ordersById.get(table.openOrderId);
+      if (table.status === 'Payment' || o?.status === 'Served') {
+        onNavigate(Screen.WAITER_PAYMENT);
+      } else {
+        onNavigate(Screen.WAITER_REVIEW);
+      }
       return;
     }
 
@@ -320,6 +362,14 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
     const free = tables.find((t) => t.openOrderId == null);
     if (!free) {
       setActionErr('No free tables available.');
+      return;
+    }
+
+    const effectiveWaiterId = impersonateWaiterId || staffId;
+    const assigned = typeof (free as any).assignedStaffId === 'string' ? String((free as any).assignedStaffId) : '';
+    const isAssignedToOther = assigned && effectiveWaiterId && assigned !== effectiveWaiterId;
+    if (!isImpersonationEnabled && isAssignedToOther) {
+      setActionErr('No unassigned/free tables available. Ask a manager to reassign a table.');
       return;
     }
     selectTable(free.id);

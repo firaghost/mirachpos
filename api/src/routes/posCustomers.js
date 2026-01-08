@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { uid } = require('../utils/ids');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const normalizeIso = (raw) => {
   const s = String(raw || '').trim();
@@ -45,10 +46,16 @@ const makePosCustomersRouter = () => {
   });
 
   // Lightweight customer search for POS flows
-  r.get('/pos/customers', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), async (req, res, next) => {
+  r.get(
+    '/pos/customers',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -70,10 +77,16 @@ const makePosCustomersRouter = () => {
   });
 
   // Create customer (POS)
-  r.post('/pos/customers', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), async (req, res, next) => {
+  r.post(
+    '/pos/customers',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -108,10 +121,16 @@ const makePosCustomersRouter = () => {
   });
 
   // Update loyalty or profile (POS)
-  r.put('/pos/customers/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('guests'), async (req, res, next) => {
+  r.put(
+    '/pos/customers/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 

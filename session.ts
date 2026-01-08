@@ -75,6 +75,12 @@ export const writeSession = (session: any) => {
   if (store) safeSet(store, SESSION_KEY, payload);
   // Keep legacy localStorage copy in sync for older screens still reading it directly.
   safeSet(getLegacyStore(), SESSION_KEY, payload);
+
+  try {
+    window.dispatchEvent(new Event('mirachpos-session-changed'));
+  } catch {
+    // ignore
+  }
 };
 
 export const updateSession = (patch: Record<string, any>) => {

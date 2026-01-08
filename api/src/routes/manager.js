@@ -1,9 +1,13 @@
 const express = require('express');
 
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
-const { requirePermission } = require('../middleware/permissions');
+const { requirePermission, requireRole } = require('../middleware/permissions');
 const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
@@ -21,19 +25,6 @@ const endOfDayIso = (d) => {
 
 const makeManagerRouter = () => {
   const r = express.Router();
-
-  const requireManagerOrOwner = (req, res) => {
-    if (req.auth?.tenantId !== req.tenant.id) {
-      res.status(403).json({ error: 'forbidden' });
-      return false;
-    }
-    const role = String(req.auth?.role || '');
-    if (role !== 'Branch Manager' && role !== 'Cafe Owner') {
-      res.status(403).json({ error: 'forbidden' });
-      return false;
-    }
-    return true;
-  };
 
   const toIsoDateOnly = (raw) => {
     const s = String(raw || '').trim();
@@ -54,16 +45,13 @@ const makeManagerRouter = () => {
     '/manager/overview',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('reports'),
     requirePermission('reports.read'),
     requireBranchId(),
     async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-      const role = String(req.auth?.role || '');
-      if (role !== 'Branch Manager' && role !== 'Cafe Owner') return res.status(403).json({ error: 'forbidden' });
-
       const branchId = req.branchId || resolveBranchId(req);
 
       const range = typeof req.query?.range === 'string' ? req.query.range.trim() : 'Daily';
@@ -185,14 +173,13 @@ const makeManagerRouter = () => {
     '/manager/settings',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('settings'),
     requirePermission('manager.settings.read'),
     requireBranchId(),
     async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const branchId = req.branchId || resolveBranchId(req);
 
       const row = await db()
@@ -219,14 +206,13 @@ const makeManagerRouter = () => {
     '/manager/settings',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('settings'),
     requirePermission('manager.settings.write'),
     requireBranchId(),
     async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const branchId = req.branchId || resolveBranchId(req);
 
       const body = req.body && typeof req.body === 'object' ? req.body : null;
@@ -260,18 +246,72 @@ const makeManagerRouter = () => {
     }
   });
 
+  r.post(
+    '/manager/uploads/image',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('manager.settings.write'),
+    requireBranchId(),
+    async (req, res, next) => {
+    try {
+      const dataUrl = String(req.body?.dataUrl || '').trim();
+      if (!dataUrl.startsWith('data:')) return res.status(400).json({ error: 'invalid_dataUrl' });
+
+      const m = dataUrl.match(/^data:([a-zA-Z0-9/+.-]+);base64,(.+)$/);
+      if (!m) return res.status(400).json({ error: 'invalid_dataUrl' });
+      const mime = String(m[1] || '').toLowerCase();
+      const b64 = String(m[2] || '');
+
+      const allowed = new Map([
+        ['image/png', 'png'],
+        ['image/jpeg', 'jpg'],
+        ['image/jpg', 'jpg'],
+        ['image/webp', 'webp'],
+        ['image/gif', 'gif'],
+      ]);
+      const ext = allowed.get(mime);
+      if (!ext) return res.status(400).json({ error: 'unsupported_image_type' });
+
+      const buf = Buffer.from(b64, 'base64');
+      if (!buf.length) return res.status(400).json({ error: 'empty_file' });
+      if (buf.length > 1024 * 1024 * 2) return res.status(400).json({ error: 'file_too_large' });
+
+      const safeTenant = String(req.tenant.id || 'tenant').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const baseDir = path.join(__dirname, '..', '..', 'uploads', safeTenant);
+      fs.mkdirSync(baseDir, { recursive: true });
+
+      const hash = crypto.createHash('sha256').update(buf).digest('hex');
+      const outName = `${hash}.${ext}`;
+      const outPath = path.join(baseDir, outName);
+
+      if (!fs.existsSync(outPath)) {
+        try {
+          fs.writeFileSync(outPath, buf, { flag: 'wx' });
+        } catch (e) {
+          if (!fs.existsSync(outPath)) throw e;
+        }
+      }
+
+      return res.status(201).json({ ok: true, url: `/api/uploads/${safeTenant}/${outName}` });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
   r.get(
     '/manager/reports',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('reports'),
     requirePermission('reports.export'),
     requireBranchId(),
     async (req, res, next) => {
     try {
-      if (!requireManagerOrOwner(req, res)) return;
-
       const branchId = req.branchId || resolveBranchId(req);
 
       const parseIso = (raw) => {
@@ -434,13 +474,13 @@ const makeManagerRouter = () => {
     '/manager/reports/daily',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('reports'),
     requirePermission('reports.read'),
     requireBranchId(),
     async (req, res, next) => {
     try {
-      if (!requireManagerOrOwner(req, res)) return;
       const branchId = req.branchId || resolveBranchId(req);
 
       const from = toIsoDateOnly(req.query?.from);
@@ -519,13 +559,13 @@ const makeManagerRouter = () => {
     '/manager/reports/hourly',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('reports'),
     requirePermission('reports.read'),
     requireBranchId(),
     async (req, res, next) => {
     try {
-      if (!requireManagerOrOwner(req, res)) return;
       const branchId = req.branchId || resolveBranchId(req);
 
       const date = toIsoDateOnly(req.query?.date);
@@ -557,13 +597,13 @@ const makeManagerRouter = () => {
     '/manager/reports/products',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('reports'),
     requirePermission('reports.read'),
     requireBranchId(),
     async (req, res, next) => {
     try {
-      if (!requireManagerOrOwner(req, res)) return;
       const branchId = req.branchId || resolveBranchId(req);
 
       const from = toIsoDateOnly(req.query?.from);
@@ -613,13 +653,13 @@ const makeManagerRouter = () => {
     '/manager/reports/categories',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('reports'),
     requirePermission('reports.read'),
     requireBranchId(),
     async (req, res, next) => {
     try {
-      if (!requireManagerOrOwner(req, res)) return;
       const branchId = req.branchId || resolveBranchId(req);
 
       const from = toIsoDateOnly(req.query?.from);
@@ -661,13 +701,13 @@ const makeManagerRouter = () => {
     '/manager/reports/shifts',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('reports'),
     requirePermission('reports.read'),
     requireBranchId(),
     async (req, res, next) => {
     try {
-      if (!requireManagerOrOwner(req, res)) return;
       const branchId = req.branchId || resolveBranchId(req);
 
       const fromIso = String(req.query?.from || '').trim();
@@ -756,13 +796,13 @@ const makeManagerRouter = () => {
     '/manager/reports/voids',
     tenantMiddleware,
     requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
     loadEntitlements,
     requireModule('reports'),
     requirePermission('reports.read'),
     requireBranchId(),
     async (req, res, next) => {
     try {
-      if (!requireManagerOrOwner(req, res)) return;
       const branchId = req.branchId || resolveBranchId(req);
 
       const fromIso = String(req.query?.from || '').trim();

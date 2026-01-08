@@ -7,6 +7,7 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -83,10 +84,8 @@ const makeSubscriptionRouter = () => {
   const r = express.Router();
 
   // Get current subscription and entitlements
-  r.get('/owner/subscription', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/subscription', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       await getOrCreateTenantSubscription(req.tenant);
       const ent = await computeTenantEntitlements({ tenant: req.tenant });
       if (ent) await upsertTenantEntitlementsSnapshot({ tenantId: req.tenant.id, entitlements: ent });
@@ -97,10 +96,8 @@ const makeSubscriptionRouter = () => {
   });
 
   // List available subscription plans
-  r.get('/owner/plans', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/plans', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const rows = await db()
         .select(['tier', 'modules_json', 'limits_json', 'price_monthly_etb', 'price_yearly_etb'])
         .from('plans')
@@ -123,10 +120,8 @@ const makeSubscriptionRouter = () => {
   });
 
   // Request subscription change (creates invoice)
-  r.post('/owner/subscription', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/owner/subscription', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       await getOrCreateTenantSubscription(req.tenant);
       const subRow = await db().select(['status', 'tier', 'cycle', 'amount_etb', 'next_bill_at']).from('tenant_subscription').where({ tenant_id: req.tenant.id }).first();
       const curStatus = String(subRow?.status || '').toLowerCase().replace(/\s+/g, '_');
@@ -236,10 +231,8 @@ const makeSubscriptionRouter = () => {
   });
 
   // Get payment instructions and available methods
-  r.get('/owner/payment-instructions', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/payment-instructions', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const methods = await getAvailablePaymentMethods();
 
       return res.json({
@@ -252,10 +245,8 @@ const makeSubscriptionRouter = () => {
   });
 
   // List invoices for tenant
-  r.get('/owner/invoices', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/invoices', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const limit = Math.min(100, Math.max(1, parseInt(req.query?.limit, 10) || 50));
       const offset = Math.max(0, parseInt(req.query?.offset, 10) || 0);
 
@@ -272,10 +263,8 @@ const makeSubscriptionRouter = () => {
   });
 
   // Get single invoice details
-  r.get('/owner/invoices/:id', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/invoices/:id', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const invoiceId = String(req.params?.id || '').trim();
       if (!invoiceId) return res.status(400).json({ error: 'invoice_id_required' });
 
@@ -296,10 +285,8 @@ const makeSubscriptionRouter = () => {
   });
 
   // Download Invoice PDF
-  r.get('/owner/invoices/:id/pdf', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/invoices/:id/pdf', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const invoiceId = String(req.params?.id || '').trim();
       if (!invoiceId) return res.status(400).json({ error: 'invoice_id_required' });
 
@@ -326,10 +313,15 @@ const makeSubscriptionRouter = () => {
   });
 
   // Submit payment proof (bank transfer)
-  r.post('/owner/invoices/:id/pay', tenantMiddleware, requireAuth, upload.single('proof'), async (req, res, next) => {
+  r.post(
+    '/owner/invoices/:id/pay',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner'),
+    requirePermission('settings.manage'),
+    upload.single('proof'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const invoiceId = String(req.params?.id || '').trim();
       if (!invoiceId) return res.status(400).json({ error: 'invoice_id_required' });
 
@@ -393,10 +385,8 @@ const makeSubscriptionRouter = () => {
   });
 
   // Initialize payment gateway (Chapa, Telebirr, CBE Birr)
-  r.post('/owner/invoices/:id/pay-online', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.post('/owner/invoices/:id/pay-online', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const invoiceId = String(req.params?.id || '').trim();
       const gateway = String(req.body?.gateway || '').trim(); // chapa, telebirr, cbe_birr
 
@@ -486,10 +476,8 @@ const makeSubscriptionRouter = () => {
   });
 
   // Get tenant payment preferences
-  r.get('/owner/payment-prefs', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.get('/owner/payment-prefs', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const prefs = await db()
         .select(['*'])
         .from('tenant_payment_prefs')
@@ -527,10 +515,8 @@ const makeSubscriptionRouter = () => {
   });
 
   // Update tenant payment preferences
-  r.put('/owner/payment-prefs', tenantMiddleware, requireAuth, async (req, res, next) => {
+  r.put('/owner/payment-prefs', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const nowIso = new Date().toISOString();
       const body = req.body || {};
 

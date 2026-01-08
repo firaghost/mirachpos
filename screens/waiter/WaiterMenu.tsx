@@ -252,9 +252,17 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                     >
                       <span className="material-symbols-outlined text-[16px]">edit_note</span> Edit
                     </button>
+                    <button
+                      onClick={() => setCartQty(tableId, item.productId, 0)}
+                      className="h-9 w-9 rounded-xl border border-[#483c23] bg-[#2c241b] text-red-300 hover:text-white hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
+                      title="Remove"
+                      type="button"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
                     <div className="flex items-center bg-[#2c241b] rounded-xl border border-[#483c23] h-9 overflow-hidden">
                       <button
-                        onClick={() => setCartQty(tableId, item.productId, Math.max(1, item.qty - 1))}
+                        onClick={() => setCartQty(tableId, item.productId, Math.max(0, item.qty - 1))}
                         className="w-9 h-full flex items-center justify-center text-[#c9b792] hover:text-white hover:bg-[#3a2e22] transition-colors"
                       >
                         <span className="material-symbols-outlined text-[18px]">remove</span>

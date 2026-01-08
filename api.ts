@@ -135,6 +135,50 @@ export const apiFetch = async (input: RequestInfo | URL, init: ApiFetchOptions =
 
   const res = await fetch(finalInput, { ...rest, headers: mergedHeaders });
 
+  if (res.status === 402) {
+    try {
+      const cloned = res.clone();
+      const json = (await cloned.json().catch(() => null)) as any;
+      const error = typeof json?.error === 'string' ? json.error : '';
+      const moduleKey = typeof json?.module === 'string' ? json.module : '';
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('mirachpos-module-blocked', {
+            detail: {
+              status: 402,
+              error,
+              module: moduleKey,
+              path: typeof input === 'string' ? input : '',
+            },
+          }),
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (res.status === 403) {
+    try {
+      const cloned = res.clone();
+      const json = (await cloned.json().catch(() => null)) as any;
+      const error = typeof json?.error === 'string' ? json.error : '';
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('mirachpos-access-denied', {
+            detail: {
+              status: 403,
+              error: error || 'forbidden',
+              path: typeof input === 'string' ? input : '',
+            },
+          }),
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   try {
     const dateHdr = res.headers.get('date');
     const serverMs = dateHdr ? Date.parse(dateHdr) : NaN;

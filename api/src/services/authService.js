@@ -4,6 +4,30 @@ const { db } = require('../db');
 
 const { computeTenantEntitlements, upsertTenantEntitlementsSnapshot } = require('./entitlements');
 
+const safeJsonParse = (raw, fallback) => {
+  try {
+    if (!raw) return fallback;
+    const parsed = JSON.parse(String(raw));
+    return parsed ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const normalizePermissions = (raw) => {
+  const parsed = safeJsonParse(raw, []);
+  return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
+};
+
+const readRolePermissions = async ({ tenantId, roleName }) => {
+  const tn = String(tenantId || '').trim();
+  const rn = String(roleName || '').trim();
+  if (!tn || !rn) return [];
+  const row = await db().select(['permissions']).from('roles').where({ tenant_id: tn, name: rn }).first();
+  if (!row) return [];
+  return normalizePermissions(row.permissions);
+};
+
 const safeIso = (v) => {
   try {
     if (!v) return '';
@@ -91,10 +115,13 @@ const loginWithEmailPassword = async ({ tenantId, email, password, jwtSecret }) 
   const ent = await computeTenantEntitlements({ tenant });
   if (ent) await upsertTenantEntitlementsSnapshot({ tenantId: tenant.id, entitlements: ent });
 
+  const permissions = await readRolePermissions({ tenantId: tenant.id, roleName: staff.role_name });
+
   return {
     ok: true,
     token,
     role: staff.role_name,
+    permissions,
     branchId,
     tenantId: String(staff.tenant_id),
     staffId: String(staff.id),

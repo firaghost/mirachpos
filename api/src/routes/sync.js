@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -19,10 +20,16 @@ const safeJsonParse = (raw, fallback) => {
 const makeSyncRouter = () => {
   const r = express.Router();
 
-  r.post('/sync/push', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.post(
+    '/sync/push',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.update'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const body = req.body && typeof req.body === 'object' ? req.body : null;
       const events = Array.isArray(body?.events) ? body.events : [];
       if (events.length === 0) return res.json({ ok: true, acked_event_ids: [], rejected: [], new_cursor: null });
@@ -151,10 +158,16 @@ const makeSyncRouter = () => {
     }
   });
 
-  r.get('/sync/pull', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.get(
+    '/sync/pull',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const cursor = Number(req.query?.cursor || 0);
       const limitRaw = Number(req.query?.limit || 200);
       const limit = Math.min(500, Math.max(10, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 200));
@@ -185,10 +198,16 @@ const makeSyncRouter = () => {
     }
   });
 
-  r.get('/sync/drafts/inbox', tenantMiddleware, requireAuth, loadEntitlements, requireModule('orders'), async (req, res, next) => {
+  r.get(
+    '/sync/drafts/inbox',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const branchId = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
       const status = typeof req.query?.status === 'string' ? req.query.status.trim() : 'SUBMITTED';
 

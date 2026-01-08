@@ -6,17 +6,22 @@ const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 const { resolveBranchId, resolveBranchIdFromBody, requireBranchId, requireBranchIdFromBody } = require('../middleware/branchScope');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const makeStaffRouter = () => {
   const r = express.Router();
 
-  r.get('/staff/shifts', tenantMiddleware, requireAuth, loadEntitlements, requireModule('staff'), requireBranchId(), async (req, res, next) => {
+  r.get(
+    '/staff/shifts',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
+    loadEntitlements,
+    requireModule('staff'),
+    requirePermission('staff.read'),
+    requireBranchId(),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
-      const role = String(req.auth?.role || '');
-      if (role !== 'Branch Manager' && role !== 'Cafe Owner') return res.status(403).json({ error: 'forbidden' });
-
       const branchId = req.branchId || resolveBranchId(req);
 
       const status = typeof req.query?.status === 'string' ? req.query.status.trim().toLowerCase() : '';
@@ -54,13 +59,17 @@ const makeStaffRouter = () => {
     }
   });
 
-  r.post('/staff/shifts', tenantMiddleware, requireAuth, loadEntitlements, requireModule('staff'), requireBranchIdFromBody(), async (req, res, next) => {
+  r.post(
+    '/staff/shifts',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
+    loadEntitlements,
+    requireModule('staff'),
+    requirePermission('staff.update'),
+    requireBranchIdFromBody(),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
-      const role = String(req.auth?.role || '');
-      if (role !== 'Branch Manager' && role !== 'Cafe Owner') return res.status(403).json({ error: 'forbidden' });
-
       const body = req.body && typeof req.body === 'object' ? req.body : null;
       const action = typeof body?.action === 'string' ? body.action.trim() : '';
       const staffId = typeof body?.staffId === 'string' ? body.staffId.trim() : '';

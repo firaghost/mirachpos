@@ -709,9 +709,7 @@ export const Settings: React.FC = () => {
                           <div className="flex items-center justify-between gap-4">
                             <div className="flex flex-col">
                               <div className="text-white font-extrabold text-sm">Your plan modules</div>
-                              <div className="text-xs text-text-muted mt-1">
-                                Enabled modules are enforced server-side. Disabled modules will return <span className="font-mono">402 module_not_enabled</span>.
-                              </div>
+                              
                             </div>
                             <div className="text-xs text-text-muted">Tier: <span className="text-white font-bold">{tier}</span></div>
                           </div>
@@ -736,7 +734,6 @@ export const Settings: React.FC = () => {
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex flex-col">
                               <div className="text-white font-extrabold text-sm">Available modules</div>
-                              <div className="text-xs text-text-muted mt-1">Toggle modules and save. Upgrades are managed in Subscription & Billing.</div>
                             </div>
                             <button
                               type="button"

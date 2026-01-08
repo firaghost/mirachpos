@@ -28,23 +28,16 @@ const makeBranchesRouter = () => {
     }
   };
 
-  const requireOwner = (req, res) => {
-    if (req.auth?.tenantId !== req.tenant.id) {
-      res.status(403).json({ error: 'forbidden' });
-      return false;
-    }
-    const role = String(req.auth?.role || '');
-    if (role !== 'Cafe Owner') {
-      res.status(403).json({ error: 'forbidden' });
-      return false;
-    }
-    return true;
-  };
-
-  r.get('/branches', tenantMiddleware, requireAuth, loadEntitlements, async (req, res, next) => {
+  r.get(
+    '/branches',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('branches'),
+    requirePermission('branches.read'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
-
       const rows = await db()
         .select(['b.id', 'b.name', 'b.status', 'b.city', 'b.address', 'b.phone', 'b.manager_name', 'b.region', 'b.rating'])
         .from({ b: 'branches' })
@@ -227,13 +220,17 @@ const makeBranchesRouter = () => {
     }
   );
 
-  r.post('/branches/:id/events', tenantMiddleware, requireAuth, loadEntitlements, requireModule('inventory'), async (req, res, next) => {
+  r.post(
+    '/branches/:id/events',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('inventory'),
+    requirePermission('inventory.update'),
+    async (req, res, next) => {
     try {
-      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
       if (!req.auth?.staffId) return res.status(401).json({ error: 'unauthorized' });
-
-      const role = String(req.auth?.role || '');
-      if (role !== 'Cafe Owner' && role !== 'Branch Manager') return res.status(403).json({ error: 'forbidden' });
 
       const branchId = String(req.params?.id || '').trim();
       if (!branchId) return res.status(400).json({ error: 'invalid_branch_id' });
