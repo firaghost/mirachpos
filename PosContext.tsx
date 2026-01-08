@@ -686,7 +686,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const fromToken = typeof s?.branchId === 'string' ? s.branchId : '';
       const tokenBranch = fromToken && fromToken.trim() ? fromToken.trim() : '';
 
-      if (role === 'Cafe Owner') {
+      if (role === 'Cafe Owner' || role === 'Waiter Manager') {
         if (tokenBranch && tokenBranch !== 'global') return tokenBranch;
         try {
           const selected =
@@ -711,8 +711,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const s = readSession<any>();
       const role = typeof s?.role === 'string' ? s.role : '';
       const tokenBranch = typeof s?.branchId === 'string' ? s.branchId : '';
-      if (role !== 'Cafe Owner') return url;
-      if (tokenBranch && tokenBranch.trim() && tokenBranch.trim() !== 'global') return url;
+      const needsQueryBranch = (role === 'Cafe Owner' || role === 'Waiter Manager') && (!tokenBranch || !tokenBranch.trim() || tokenBranch.trim() === 'global');
+      if (!needsQueryBranch) return url;
       const branchId = getEffectiveBranchIdForApi();
       if (!branchId || branchId === 'global') return url;
       return url.includes('?') ? `${url}&branchId=${encodeURIComponent(branchId)}` : `${url}?branchId=${encodeURIComponent(branchId)}`;
@@ -740,7 +740,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const s = readSession<any>();
       if (!s) return false;
       const role = String(s?.role || '');
-      if (role === 'Branch Manager' || role === 'Waiter') return true;
+      if (role === 'Branch Manager' || role === 'Waiter' || role === 'Waiter Manager') return true;
       if (role === 'Cafe Owner') {
         const branchId = getEffectiveBranchIdForApi();
         return Boolean(branchId && branchId !== 'global');
@@ -895,13 +895,22 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           })
           .filter((o) => o.id);
 
-        if (serverOrders.length === 0) return;
         setState((prev) => {
-          const byId = new Map<string, PosOrder>();
-          for (const o of prev.orders) byId.set(o.id, o);
-          for (const o of serverOrders) byId.set(o.id, o);
+          // DB is authoritative, but do NOT overwrite newer local edits that haven't synced yet.
+          // If a local order has syncedToServer=false, prefer it over the server copy while it syncs.
+          const localById = new Map<string, PosOrder>();
+          for (const o of prev.orders) localById.set(o.id, o);
 
-          const mergedOrders = Array.from(byId.values());
+          const mergedFromServer = serverOrders.map((so) => {
+            const lo = localById.get(so.id);
+            if (lo && (lo as any)?.syncedToServer === false) return lo;
+            return so;
+          });
+
+          const serverIds = new Set(serverOrders.map((o) => o.id));
+          const unsyncedLocal = prev.orders.filter((o) => (o as any)?.syncedToServer === false && !serverIds.has(o.id));
+          const mergedOrders = [...mergedFromServer, ...unsyncedLocal];
+
           const orderById = new Map<string, PosOrder>();
           for (const o of mergedOrders) orderById.set(o.id, o);
 
@@ -1609,13 +1618,20 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    queueMicrotask(() => {
+    // Persist early so subsequent status changes + kitchen print don't race DB insertion.
+    void (async () => {
       try {
-        void persistOrder(newOrder);
+        const ok = await persistOrder(newOrder);
+        if (!ok) return;
+        const nowIso = new Date().toISOString();
+        setState((s) => ({
+          ...s,
+          orders: s.orders.map((o) => (o.id === orderId ? { ...o, syncedToServer: true, syncedAt: nowIso } : o)),
+        }));
       } catch {
         // ignore
       }
-    });
+    })();
 
     try {
       const { autoKitchen, separateDrinkTickets, hasBarRoute, beep } = readKitchenPrintSettings();
@@ -1623,17 +1639,78 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const order = newOrder;
         const allLines = order.items.map((i) => ({ name: i.name, qty: i.qty, note: i.note }));
 
-        if (separateDrinkTickets && hasBarRoute) {
-          const drinks = allLines.filter((l) => isDrinkLine(l.name));
-          const food = allLines.filter((l) => !isDrinkLine(l.name));
+        // Ensure the order exists in DB before attempting to print (print endpoint loads order from DB).
+        void (async () => {
+          try {
+            await persistOrder(order);
+          } catch {
+            // ignore
+          }
 
-          if (food.length > 0) {
+          if (separateDrinkTickets && hasBarRoute) {
+            const drinks = allLines.filter((l) => isDrinkLine(l.name));
+            const food = allLines.filter((l) => !isDrinkLine(l.name));
+
+            if (food.length > 0) {
+              void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lines: food, beep }),
+              }).catch(() => {
+                const ok = openPrintWindow(kitchenTicketHtml('Kitchen Ticket', order, food));
+                if (!ok) {
+                  setState((s) => ({
+                    ...s,
+                    notifications: [
+                      {
+                        id: generateId(),
+                        type: 'Kitchen',
+                        title: 'Printing blocked',
+                        message: 'Popup blocked. Allow popups to print kitchen tickets.',
+                        orderId,
+                        createdAt: new Date().toISOString(),
+                        read: false,
+                      },
+                      ...s.notifications,
+                    ],
+                  }));
+                }
+              });
+            }
+
+            if (drinks.length > 0) {
+              void apiFetch(withBranchQuery(`/api/pos/print/bar/${encodeURIComponent(String(orderId))}`), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lines: drinks, beep }),
+              }).catch(() => {
+                const ok = openPrintWindow(kitchenTicketHtml('Bar Ticket', order, drinks));
+                if (!ok) {
+                  setState((s) => ({
+                    ...s,
+                    notifications: [
+                      {
+                        id: generateId(),
+                        type: 'Kitchen',
+                        title: 'Printing blocked',
+                        message: 'Popup blocked. Allow popups to print kitchen tickets.',
+                        orderId,
+                        createdAt: new Date().toISOString(),
+                        read: false,
+                      },
+                      ...s.notifications,
+                    ],
+                  }));
+                }
+              });
+            }
+          } else {
             void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ lines: food, beep }),
+              body: JSON.stringify({ lines: allLines, beep }),
             }).catch(() => {
-              const ok = openPrintWindow(kitchenTicketHtml('Kitchen Ticket', order, food));
+              const ok = openPrintWindow(kitchenTicketHtml('Kitchen Ticket', order, allLines));
               if (!ok) {
                 setState((s) => ({
                   ...s,
@@ -1653,59 +1730,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               }
             });
           }
-
-          if (drinks.length > 0) {
-            void apiFetch(withBranchQuery(`/api/pos/print/bar/${encodeURIComponent(String(orderId))}`), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ lines: drinks, beep }),
-            }).catch(() => {
-              const ok = openPrintWindow(kitchenTicketHtml('Bar Ticket', order, drinks));
-              if (!ok) {
-                setState((s) => ({
-                  ...s,
-                  notifications: [
-                    {
-                      id: generateId(),
-                      type: 'Kitchen',
-                      title: 'Printing blocked',
-                      message: 'Popup blocked. Allow popups to print kitchen tickets.',
-                      orderId,
-                      createdAt: new Date().toISOString(),
-                      read: false,
-                    },
-                    ...s.notifications,
-                  ],
-                }));
-              }
-            });
-          }
-        } else {
-          void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lines: allLines, beep }),
-          }).catch(() => {
-            const ok = openPrintWindow(kitchenTicketHtml('Kitchen Ticket', order, allLines));
-            if (!ok) {
-              setState((s) => ({
-                ...s,
-                notifications: [
-                  {
-                    id: generateId(),
-                    type: 'Kitchen',
-                    title: 'Printing blocked',
-                    message: 'Popup blocked. Allow popups to print kitchen tickets.',
-                    orderId,
-                    createdAt: new Date().toISOString(),
-                    read: false,
-                  },
-                  ...s.notifications,
-                ],
-              }));
-            }
-          });
-        }
+        })();
       }
     } catch {
       // ignore
@@ -1973,8 +1998,9 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (order.status === status) return s;
 
       const allowed: Record<string, PosOrder['status'][]> = {
-        Pending: ['Cooking', 'Voided'],
-        Cooking: ['Ready', 'Voided'],
+        // Be tolerant: allow skipping intermediate states so UI can't get "stuck".
+        Pending: ['Cooking', 'Ready', 'Served', 'Voided'],
+        Cooking: ['Ready', 'Served', 'Voided'],
         Ready: ['Served', 'Voided'],
         Served: ['Paid', 'Voided'],
       };
@@ -2016,7 +2042,31 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     queueMicrotask(() => {
       try {
-        if (updatedOrder) void persistOrder(updatedOrder);
+        if (!updatedOrder) return;
+
+        // Persist status-only updates to avoid backend rejecting full payload updates
+        // for non-owner waiter workflows.
+        if (updatedOrder.status === 'Cooking' || updatedOrder.status === 'Ready' || updatedOrder.status === 'Served') {
+          void (async () => {
+            try {
+              const res = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(updatedOrder!.id)}`), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: updatedOrder!.status }),
+              });
+              if (res.ok) return;
+              if (res.status === 404) {
+                // Fallback: order might not exist yet, attempt full persist.
+                await persistOrder(updatedOrder!);
+              }
+            } catch {
+              // ignore
+            }
+          })();
+          return;
+        }
+
+        void persistOrder(updatedOrder);
       } catch {
         // ignore
       }

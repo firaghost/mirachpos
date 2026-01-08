@@ -138,8 +138,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
     ? (branding.platformName && branding.platformName.trim() ? branding.platformName.trim() : tenantName)
     : tenantName;
 
-  const readyBadge = role === UserRole.WAITER ? orders.filter((o) => o.status === 'Ready').length : 0;
-  const unreadBadge = role === UserRole.WAITER ? notifications.filter((n) => !n.read).length : 0;
+  const readyBadge = role === UserRole.WAITER || role === UserRole.WAITER_MANAGER ? orders.filter((o) => o.status === 'Ready').length : 0;
+  const unreadBadge = role === UserRole.WAITER || role === UserRole.WAITER_MANAGER ? notifications.filter((n) => !n.read).length : 0;
 
   const getRoleLabel = () => {
     switch (role) {
@@ -147,6 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
       case UserRole.CAFE_OWNER: return "Owner";
       case UserRole.BRANCH_MANAGER: return "Manager";
       case UserRole.WAITER: return "Waiter";
+      case UserRole.WAITER_MANAGER: return "Waiter Manager";
       default: return "Staff";
     }
   };
@@ -228,7 +229,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
       </div>
 
       <ScrollArea className="flex-1 px-4 py-4">
-        {role === UserRole.WAITER && (
+        {(role === UserRole.WAITER || role === UserRole.WAITER_MANAGER) && (
           <>
             <Section title="Live Operations">
               <NavItem screen={Screen.WAITER_DASHBOARD} icon="grid_view" label="Floor Map" />

@@ -65,7 +65,8 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
     }
   }, []);
 
-  const isImpersonationEnabled = sessionRole === 'Branch Manager' || sessionRole === 'Cafe Owner';
+  const isImpersonationEnabled = sessionRole === 'Branch Manager' || sessionRole === 'Cafe Owner' || sessionRole === 'Waiter Manager';
+  const isWaiterManager = sessionRole === 'Waiter Manager';
   const [area, setArea] = useState<'All Areas' | 'Main Hall' | 'Patio' | 'Bar Area' | 'Private Room'>('All Areas');
   const [filter, setFilter] = useState<'All' | 'Free' | 'Occupied' | 'Action'>('All');
   const [now, setNow] = useState<Date>(() => new Date());
@@ -87,6 +88,11 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
   const [auditErr, setAuditErr] = useState('');
   const [auditRows, setAuditRows] = useState<AuditRec[]>([]);
   const [actionErr, setActionErr] = useState('');
+  const [switchOpen, setSwitchOpen] = useState(false);
+  const [switchWaiterId, setSwitchWaiterId] = useState<string>('');
+  const [switchPin, setSwitchPin] = useState('');
+  const [switchErr, setSwitchErr] = useState('');
+  const [switching, setSwitching] = useState(false);
   const [impersonateWaiterId, setImpersonateWaiterId] = useState<string | null>(() => {
     try {
       if (!isImpersonationEnabled) return null;
@@ -95,6 +101,9 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
       return null;
     }
   });
+
+  const [staffNameCache, setStaffNameCache] = useState<Record<string, string>>(() => readStaffNameCache());
+  const [remoteStaff, setRemoteStaff] = useState<Array<{ id: string; name: string; roleName?: string }>>([]);
 
   useEffect(() => {
     if (isImpersonationEnabled) return;
@@ -130,8 +139,9 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
     });
   }, [impersonateWaiterId, isImpersonationEnabled, staffId, tables]);
 
-  const [staffNameCache, setStaffNameCache] = useState<Record<string, string>>(() => readStaffNameCache());
-  const [remoteStaff, setRemoteStaff] = useState<Array<{ id: string; name: string; roleName?: string }>>([]);
+  const remoteWaiters = useMemo(() => {
+    return remoteStaff.filter((s) => String(s.roleName || '').trim() === 'Waiter');
+  }, [remoteStaff]);
 
   useEffect(() => {
     if (!isImpersonationEnabled) return;
@@ -141,7 +151,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
         try {
           const s = readSession<any>();
           const role = typeof s?.role === 'string' ? s.role : '';
-          if (role !== 'Branch Manager' && role !== 'Cafe Owner') return;
+          if (role !== 'Branch Manager' && role !== 'Cafe Owner' && role !== 'Waiter Manager') return;
         } catch {
           return;
         }
@@ -319,9 +329,9 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
 
     // Assign the table to the current waiter on first interaction.
     try {
-      if (staffId && !table.assignedStaffId) {
-        const name = staffById.get(staffId)?.name || staffNameCache[staffId] || '';
-        setTableAssignment([table.id], staffId, name || null);
+      if (effectiveWaiterId && !table.assignedStaffId) {
+        const name = staffById.get(effectiveWaiterId)?.name || staffNameCache[effectiveWaiterId] || '';
+        setTableAssignment([table.id], effectiveWaiterId, name || null);
       }
     } catch {
       // ignore
@@ -375,9 +385,9 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
     selectTable(free.id);
 
     try {
-      if (staffId && !free.assignedStaffId) {
-        const name = staffById.get(staffId)?.name || staffNameCache[staffId] || '';
-        setTableAssignment([free.id], staffId, name || null);
+      if (effectiveWaiterId && !free.assignedStaffId) {
+        const name = staffById.get(effectiveWaiterId)?.name || staffNameCache[effectiveWaiterId] || '';
+        setTableAssignment([free.id], effectiveWaiterId, name || null);
       }
     } catch {
       // ignore
@@ -388,6 +398,129 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
+      {switchOpen ? (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[#483c23] bg-[#221c11] shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#483c23] bg-[#2c2417] flex items-center justify-between">
+              <div>
+                <div className="text-lg font-black">Active Waiter</div>
+                <div className="text-xs text-[#c9b792] mt-0.5">Switch without logging out</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSwitchOpen(false);
+                  setSwitchErr('');
+                  setSwitchPin('');
+                }}
+                className="h-9 px-3 rounded-lg border border-[#483c23] bg-[#221c11] text-[#c9b792] hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-[#b9b09d]">Select waiter</label>
+                <select
+                  value={switchWaiterId}
+                  onChange={(e) => setSwitchWaiterId(e.target.value)}
+                  className="mt-2 w-full h-11 rounded-lg border border-[#393328] bg-[#181611] px-3 text-white"
+                >
+                  <option value="">Choose waiter…</option>
+                  {remoteWaiters.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {!isWaiterManager ? (
+                <div>
+                  <label className="text-xs font-bold text-[#b9b09d]">Waiter PIN</label>
+                  <input
+                    type="password"
+                    value={switchPin}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, '');
+                      setSwitchPin(v);
+                    }}
+                    placeholder="1234"
+                    className="mt-2 w-full h-11 rounded-lg border border-[#393328] bg-[#181611] px-3 text-white"
+                  />
+                </div>
+              ) : null}
+              {switchErr ? <div className="text-xs text-red-300 font-semibold">{switchErr}</div> : null}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={switching}
+                  onClick={() => {
+                    try {
+                      localStorage.removeItem('mirachpos.manager.impersonate.waiterId');
+                    } catch {
+                      // ignore
+                    }
+                    setImpersonateWaiterId(null);
+                    setSwitchOpen(false);
+                    setSwitchErr('');
+                    setSwitchPin('');
+                  }}
+                  className="h-11 px-4 rounded-lg border border-[#483c23] bg-[#221c11] text-[#c9b792] hover:text-white font-bold"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  disabled={switching || !switchWaiterId || (!isWaiterManager && switchPin.trim().length < 3)}
+                  onClick={async () => {
+                    if (switching) return;
+                    setSwitchErr('');
+                    setSwitching(true);
+                    try {
+                      if (!isWaiterManager) {
+                        const res = await apiFetch('/api/pos/staff/verify-pin', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ staffId: switchWaiterId, pin: switchPin.trim() }),
+                        });
+                        const json = (await res.json().catch(() => null)) as any;
+                        if (!res.ok) {
+                          const err = String(json?.error || 'forbidden');
+                          if (err === 'pin_required') setSwitchErr('PIN required or incorrect.');
+                          else if (err === 'staff_not_found') setSwitchErr('Waiter not found.');
+                          else setSwitchErr('Failed to switch waiter.');
+                          return;
+                        }
+                      }
+                      try {
+                        localStorage.setItem('mirachpos.manager.impersonate.waiterId', switchWaiterId);
+                      } catch {
+                        // ignore
+                      }
+                      setImpersonateWaiterId(switchWaiterId);
+                      setSwitchOpen(false);
+                      setSwitchErr('');
+                      setSwitchPin('');
+                      try {
+                        await refreshFromServer();
+                      } catch {
+                        // ignore
+                      }
+                    } catch {
+                      setSwitchErr('Failed to switch waiter.');
+                    } finally {
+                      setSwitching(false);
+                    }
+                  }}
+                  className="h-11 px-5 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c11] font-extrabold disabled:opacity-50"
+                >
+                  {switching ? 'Switching…' : 'Set Active Waiter'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {isImpersonationEnabled && impersonateWaiterId && (
         <div className="px-6 py-2 bg-[#2c2417] border-b border-[#483c23] flex items-center justify-between">
           <div className="text-xs text-[#c9b792]">
@@ -436,11 +569,16 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
           <div className="flex items-center gap-3">
             {isImpersonationEnabled && (
               <button
-                onClick={() => onNavigate(Screen.DESKTOP_DRAFT_INBOX)}
+                onClick={() => {
+                  setSwitchErr('');
+                  setSwitchPin('');
+                  setSwitchWaiterId(impersonateWaiterId || '');
+                  setSwitchOpen(true);
+                }}
                 className="hidden md:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-[#221c11] border border-[#483c23] text-[#c9b792] hover:text-white hover:border-[#eead2b]/40 transition-colors text-sm font-bold"
               >
-                <span className="material-symbols-outlined text-lg">inbox</span>
-                Draft Inbox
+                <span className="material-symbols-outlined text-lg">badge</span>
+                Active Waiter
               </button>
             )}
             {!isImpersonationEnabled && (

@@ -894,12 +894,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                       </button>
                     </div>
                   </>
-                ) : (
-                  <div className="rounded-xl border border-[#483c23] bg-[#2c241b] p-4">
-                    <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Receipt</div>
-                    <div className="mt-2 text-sm text-white">Confirm payment to generate receipt.</div>
-                  </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>

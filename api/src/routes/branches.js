@@ -32,7 +32,7 @@ const makeBranchesRouter = () => {
     '/branches',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
     loadEntitlements,
     requireModule('branches'),
     requirePermission('branches.read'),

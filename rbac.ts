@@ -59,6 +59,7 @@ const normalizedModules = (subscription: SubscriptionInfo | null | undefined): s
 
 export const homeForRole = (role: UserRole): Screen => {
   if (role === UserRole.WAITER) return Screen.WAITER_DASHBOARD;
+  if (role === UserRole.WAITER_MANAGER) return Screen.WAITER_DASHBOARD;
   if (role === UserRole.BRANCH_MANAGER) return Screen.MANAGER_DASHBOARD;
   if (role === UserRole.CAFE_OWNER) return Screen.OWNER_DASHBOARD;
   return Screen.SA_OVERVIEW;
@@ -78,7 +79,7 @@ export const canAccessScreen = (role: UserRole, screen: Screen): boolean => {
   if (screen === Screen.LOGIN) return true;
   if (screen === Screen.BRANCH_SELECT) return role === UserRole.CAFE_OWNER || role === UserRole.SUPER_ADMIN;
 
-  if (role === UserRole.WAITER) {
+  if (role === UserRole.WAITER || role === UserRole.WAITER_MANAGER) {
     return (
       screen === Screen.WAITER_DASHBOARD ||
       screen === Screen.WAITER_MENU ||

@@ -12,16 +12,11 @@ export default defineConfig(({ mode }) => {
         strictPort: true,
         host: '0.0.0.0',
         proxy: {
-          '/api': {
+          '^/api(/|$)': {
             target: apiTarget,
             changeOrigin: true,
           },
         },
-      },
-      plugins: [react()],
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
       },
       resolve: {
         alias: {

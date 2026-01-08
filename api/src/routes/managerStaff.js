@@ -136,6 +136,12 @@ const ensureDefaultRoles = async (trx, tenantId) => {
       permissions: ['orders.create', 'orders.read', 'orders.update', 'payments.process'],
     },
     {
+      idPrefix: 'r_waiter_manager',
+      name: 'Waiter Manager',
+      scope: 'branch',
+      permissions: ['staff.read', 'orders.read', 'orders.create', 'orders.update', 'payments.process', 'tables.manage', 'branches.read', 'finance.read', 'pos.write', 'pos.read'],
+    },
+    {
       idPrefix: 'r_kitchen',
       name: 'Kitchen',
       scope: 'branch',
@@ -169,13 +175,16 @@ const ensureDefaultRoles = async (trx, tenantId) => {
     }
 
     const current = Array.isArray(safeJsonParse(ex.permissions, [])) ? safeJsonParse(ex.permissions, []).map(String) : [];
-    const shouldUpgrade = current.length === 0 || (current.length === 1 && current[0] === '*');
-    if (!shouldUpgrade) continue;
+    const base = current.length === 0 || (current.length === 1 && current[0] === '*') ? [] : current;
+    const nextPerms = Array.from(new Set([...(base || []), ...(Array.isArray(d.permissions) ? d.permissions : [])]));
+    const nextScope = d.scope;
+    const changed = String(ex.scope || '') !== String(nextScope) || JSON.stringify(current) !== JSON.stringify(nextPerms);
+    if (!changed) continue;
 
     // eslint-disable-next-line no-await-in-loop
     await trx.from('roles').where({ tenant_id: tenantId, id: String(ex.id) }).update({
-      scope: d.scope,
-      permissions: JSON.stringify(d.permissions),
+      scope: nextScope,
+      permissions: JSON.stringify(nextPerms),
     });
   }
 };
@@ -202,7 +211,7 @@ const makeManagerStaffRouter = () => {
     '/manager/staff',
     tenantMiddleware,
     requireAuth,
-    requireRole('Branch Manager', 'Cafe Owner'),
+    requireRole('Branch Manager', 'Cafe Owner', 'Waiter Manager'),
     loadEntitlements,
     requireModule('staff'),
     requirePermission('staff.read'),

@@ -665,7 +665,8 @@ const resolveBranchId = async (req) => {
 
   const role = String(req.auth?.role || '');
   const isOwnerGlobal = role === 'Cafe Owner' && (!fromToken || fromToken === 'global');
-  if (!isOwnerGlobal) return fromToken;
+  const isWaiterManagerGlobal = role === 'Waiter Manager' && (!fromToken || fromToken === 'global');
+  if (!isOwnerGlobal && !isWaiterManagerGlobal) return fromToken;
 
   if (q) return q;
 
@@ -716,7 +717,7 @@ const makePosRouter = () => {
     '/pos/menu/products',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('menu'),
     requirePermission('orders.read'),
@@ -779,7 +780,7 @@ const makePosRouter = () => {
     '/pos/settings',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('settings'),
     async (req, res, next) => {
@@ -1034,7 +1035,7 @@ const makePosRouter = () => {
     '/pos/print/kitchen/:id',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('settings'),
     requirePermission('orders.read'),
@@ -1086,7 +1087,7 @@ const makePosRouter = () => {
     '/pos/print/bar/:id',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('settings'),
     requirePermission('orders.read'),
@@ -1138,7 +1139,7 @@ const makePosRouter = () => {
     '/pos/state',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('pos'),
     requirePermission('orders.read'),
@@ -1160,11 +1161,48 @@ const makePosRouter = () => {
     }
   });
 
+  r.post(
+    '/pos/staff/verify-pin',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('pos'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
+    try {
+      const branchId = await resolveBranchId(req);
+      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const staffId = String(body?.staffId || body?.waiterId || '').trim();
+      const pin = typeof body?.pin === 'string' ? body.pin : '';
+      if (!staffId) return res.status(400).json({ error: 'staff_required' });
+      if (!pin.trim()) return res.status(401).json({ error: 'pin_required' });
+
+      const staffRow = await db()
+        .from('staff')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id: staffId })
+        .select(['id', 'name', 'role_name'])
+        .first();
+
+      if (!staffRow) return res.status(404).json({ error: 'staff_not_found' });
+      if (String(staffRow.role_name || '').trim() !== 'Waiter') return res.status(403).json({ error: 'forbidden' });
+
+      const ok = await verifyStaffPin({ tenantId: req.tenant.id, branchId, staffId, pin });
+      if (!ok) return res.status(401).json({ error: 'pin_required' });
+
+      return res.json({ ok: true, staff: { id: String(staffRow.id), name: String(staffRow.name || ''), roleName: String(staffRow.role_name || '') } });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
   r.put(
     '/pos/state',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('pos'),
     requirePermission('orders.read'),
@@ -1194,7 +1232,7 @@ const makePosRouter = () => {
     '/pos/orders',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.read'),
@@ -1238,7 +1276,7 @@ const makePosRouter = () => {
     '/pos/orders/:id',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.read'),
@@ -1448,7 +1486,7 @@ const makePosRouter = () => {
     '/pos/orders',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.create'),
@@ -1593,7 +1631,7 @@ const makePosRouter = () => {
     '/pos/orders/:id',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.update'),

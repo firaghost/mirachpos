@@ -86,7 +86,7 @@ import { canAccessScreenWithPermissions, canAccessScreenWithSubscription, homeFo
 
 const LAST_SCREEN_KEY = 'mirachpos.lastScreen.v1';
 
-const isPosRole = (role: string | null) => role === UserRole.WAITER || role === UserRole.BRANCH_MANAGER;
+const isPosRole = (role: string | null) => role === UserRole.WAITER || role === UserRole.WAITER_MANAGER || role === UserRole.BRANCH_MANAGER;
 
 const parseScreen = (raw: unknown): Screen | null => {
   const s = String(raw ?? '').trim();
@@ -147,7 +147,52 @@ const writeLastScreen = (screen: Screen) => {
 };
 
 const AppContent: React.FC = () => {
-  initTabSession();
+  useEffect(() => {
+    const onError = (ev: any) => {
+      try {
+        const msg = String(ev?.message || ev?.error?.message || '');
+        if (msg.includes('cssRules') && msg.includes('putRootVars')) {
+          if (typeof ev?.preventDefault === 'function') ev.preventDefault();
+          return;
+        }
+      } catch {
+        // ignore
+      }
+    };
+    const onRejection = (ev: any) => {
+      try {
+        const msg = String(ev?.reason?.message || ev?.reason || '');
+        if (msg.includes('cssRules') && msg.includes('putRootVars')) {
+          if (typeof ev?.preventDefault === 'function') ev.preventDefault();
+          return;
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('error', onError as any);
+    window.addEventListener('unhandledrejection', onRejection as any);
+    initTabSession();
+    const onStorage = () => {
+      try {
+        const s = readSession<any>();
+        if (!s?.token) {
+          setUserRole(null);
+          setCurrentScreen(Screen.LOGIN);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('mirachpos-session-changed', onStorage as any);
+    return () => {
+      window.removeEventListener('error', onError as any);
+      window.removeEventListener('unhandledrejection', onRejection as any);
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('mirachpos-session-changed', onStorage as any);
+    };
+  }, []);
 
   const readSessionSubscription = () => {
     try {
@@ -197,10 +242,6 @@ const AppContent: React.FC = () => {
   // POS security: idle session timeout (waiter/manager only)
   const [posTimeoutMs, setPosTimeoutMs] = useState(0);
   const [lastActivityMs, setLastActivityMs] = useState(() => Date.now());
-
-  useEffect(() => {
-    initTabSession();
-  }, []);
 
   useEffect(() => {
     if (!userRole || !isPosRole(userRole)) {
@@ -418,7 +459,7 @@ const AppContent: React.FC = () => {
   const handleLogin = (role: UserRole) => {
     setUserRole(role);
     // Redirect based on role
-    if (role === UserRole.WAITER) {
+    if (role === UserRole.WAITER || role === UserRole.WAITER_MANAGER) {
       navigate(Screen.WAITER_DASHBOARD);
     } else if (role === UserRole.SUPER_ADMIN) {
       navigate(Screen.SA_OVERVIEW);

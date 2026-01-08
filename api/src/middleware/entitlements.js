@@ -1,5 +1,6 @@
 const { db } = require('../db');
 const { computeTenantEntitlements, upsertTenantEntitlementsSnapshot } = require('../services/entitlements');
+const { config } = require('../config');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -85,6 +86,18 @@ const loadEntitlements = async (req, res, next) => {
     // Requires tenantMiddleware + requireAuth before this middleware.
     if (!req.tenant || !req.tenant.id) return res.status(500).json({ error: 'tenant_missing' });
 
+    if (config.devBypassAuth) {
+      req.entitlements = {
+        ok: true,
+        tenantId: String(req.tenant.id),
+        subscription: { tier: 'Dev', modules: ['pos', 'orders', 'tables', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'] },
+        billing: { status: 'active', graceEndsAt: '' },
+        limits: {},
+        computedAt: new Date().toISOString(),
+      };
+      return next();
+    }
+
     const tenantId = String(req.tenant.id);
 
     // Server-side billing enforcement: auto-downgrade on due date.
@@ -142,6 +155,8 @@ const isPastDueBlocked = (ent) => {
 const requireModule = (moduleKey) => (req, res, next) => {
   const ent = req.entitlements;
   if (!ent) return res.status(500).json({ error: 'entitlements_missing' });
+
+  if (config.devBypassAuth) return next();
 
   if (isPendingVerifyBlocked(ent)) return res.status(402).json({ error: 'subscription_pending_verify' });
   if (isPastDueBlocked(ent)) return res.status(402).json({ error: 'subscription_inactive' });

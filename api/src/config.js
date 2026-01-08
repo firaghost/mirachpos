@@ -18,6 +18,7 @@ const config = {
   jwtSecret: String(process.env.JWT_SECRET || ''),
   provisionKey: String(process.env.PROVISION_KEY || ''),
   corsOrigins: parseList(process.env.CORS_ORIGINS),
+  devBypassAuth: process.env.NODE_ENV !== 'production' && String(process.env.DEV_BYPASS_AUTH || '') === '1',
 };
 
 module.exports = { config };

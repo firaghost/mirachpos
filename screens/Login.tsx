@@ -70,6 +70,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const mappedRole =
         role === UserRole.WAITER
           ? UserRole.WAITER
+          : role === UserRole.WAITER_MANAGER
+            ? UserRole.WAITER_MANAGER
           : role === UserRole.BRANCH_MANAGER
             ? UserRole.BRANCH_MANAGER
             : role === UserRole.CAFE_OWNER
@@ -78,6 +80,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       const initialScreen = (() => {
         if (mappedRole === UserRole.WAITER) return Screen.WAITER_DASHBOARD;
+        if (mappedRole === UserRole.WAITER_MANAGER) return Screen.WAITER_DASHBOARD;
         if (mappedRole === UserRole.BRANCH_MANAGER) return Screen.MANAGER_DASHBOARD;
         if (mappedRole === UserRole.SUPER_ADMIN) return Screen.SA_OVERVIEW;
         if (mappedRole === UserRole.CAFE_OWNER) return Screen.OWNER_DASHBOARD;
@@ -107,6 +110,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           localStorage.setItem('mirachpos.manager.selectedBranchId.v1', branchId);
         }
         if (mappedRole === UserRole.WAITER) {
+          localStorage.setItem('mirachpos.waiter.selectedBranchId.v1', branchId);
+        }
+        if (mappedRole === UserRole.WAITER_MANAGER) {
           localStorage.setItem('mirachpos.waiter.selectedBranchId.v1', branchId);
         }
         if (mappedRole === UserRole.CAFE_OWNER && branchId && branchId !== 'global') {

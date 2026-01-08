@@ -32,7 +32,7 @@ const makeManagerFinanceRouter = () => {
       return false;
     }
     const role = String(req.auth?.role || '');
-    if (role !== 'Branch Manager' && role !== 'Cafe Owner') {
+    if (role !== 'Branch Manager' && role !== 'Cafe Owner' && role !== 'Waiter Manager') {
       res.status(403).json({ error: 'forbidden' });
       return false;
     }
