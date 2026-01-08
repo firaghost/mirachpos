@@ -1,4 +1,6 @@
 export const SESSION_KEY = 'mirachpos.session.v1';
+export const LEGACY_SESSION_KEY_PREFIX = 'mirachpos.session.v1.role.';
+export const LAST_ROLE_KEY = 'mirachpos.lastRole.v1';
 
 const safeGet = (store: Storage | null, key: string): string | null => {
   if (!store) return null;
@@ -27,6 +29,14 @@ const safeRemove = (store: Storage | null, key: string) => {
   }
 };
 
+const normalizeRoleKey = (role: unknown): string => {
+  const r = String(role ?? '').trim();
+  if (!r) return 'unknown';
+  return r.toLowerCase().replace(/\s+/g, '_');
+};
+
+const legacyKeyForRole = (role: unknown): string => `${LEGACY_SESSION_KEY_PREFIX}${normalizeRoleKey(role)}`;
+
 const getSessionStore = (): Storage | null => {
   try {
     return sessionStorage;
@@ -50,11 +60,23 @@ export const initTabSession = () => {
   const existing = safeGet(store, SESSION_KEY);
   if (existing && existing.trim()) return;
 
+  // 1) Migrate old global legacy session key (pre role scoping)
   const legacyRaw = safeGet(legacy, SESSION_KEY);
-  if (!legacyRaw || !legacyRaw.trim()) return;
+  if (legacyRaw && legacyRaw.trim()) {
+    safeSet(store, SESSION_KEY, legacyRaw);
+    safeRemove(legacy, SESSION_KEY);
+    return;
+  }
 
-  safeSet(store, SESSION_KEY, legacyRaw);
-  safeRemove(legacy, SESSION_KEY);
+  // 2) Restore from the last role-scoped legacy key
+  const lastRole = safeGet(legacy, LAST_ROLE_KEY);
+  if (lastRole && lastRole.trim()) {
+    const byRole = safeGet(legacy, legacyKeyForRole(lastRole));
+    if (byRole && byRole.trim()) {
+      safeSet(store, SESSION_KEY, byRole);
+      return;
+    }
+  }
 };
 
 export const readSession = <T = any>(): T | null => {
@@ -73,8 +95,16 @@ export const writeSession = (session: any) => {
   const store = getSessionStore();
   const payload = JSON.stringify(session ?? {});
   if (store) safeSet(store, SESSION_KEY, payload);
-  // Keep legacy localStorage copy in sync for older screens still reading it directly.
-  safeSet(getLegacyStore(), SESSION_KEY, payload);
+
+  // Keep legacy localStorage copy in sync for older screens still reading it directly,
+  // but isolate it per role to avoid cross-role/session collisions.
+  const legacy = getLegacyStore();
+  const role = session && typeof session === 'object' ? (session as any).role : '';
+  safeSet(legacy, legacyKeyForRole(role), payload);
+  safeSet(legacy, LAST_ROLE_KEY, String(role || ''));
+
+  // Ensure the old global key is removed so other tabs/roles don't hijack on refresh.
+  safeRemove(legacy, SESSION_KEY);
 
   try {
     window.dispatchEvent(new Event('mirachpos-session-changed'));
@@ -90,5 +120,12 @@ export const updateSession = (patch: Record<string, any>) => {
 
 export const clearSession = () => {
   safeRemove(getSessionStore(), SESSION_KEY);
-  safeRemove(getLegacyStore(), SESSION_KEY);
+  const legacy = getLegacyStore();
+  safeRemove(legacy, SESSION_KEY);
+  try {
+    const cur = readSession<any>() || {};
+    safeRemove(legacy, legacyKeyForRole(cur?.role));
+  } catch {
+    // ignore
+  }
 };

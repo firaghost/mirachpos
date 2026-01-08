@@ -322,12 +322,13 @@ const sendTcp = async ({ host, port, data, timeoutMs }) => {
   });
 };
 
-const makeReceiptPayloadFromOrder = ({ orderRow }) => {
+const makeReceiptPayloadFromOrder = ({ orderRow, operatorName }) => {
   const payload = safeJsonParse(orderRow?.payload, {});
   const items = Array.isArray(payload?.items) ? payload.items : [];
   const number = String(payload?.number || payload?.orderNumber || orderRow?.id || '').trim();
   const tableName = String(payload?.tableName || payload?.table || '').trim();
-  const cashier = String(payload?.createdByName || payload?.cashierName || '').trim();
+  const waiterName = String(payload?.createdByName || payload?.cashierName || '').trim();
+  const operator = String(payload?.paidByName || operatorName || payload?.paidByStaffId || '').trim();
 
   const total = Number(orderRow?.total || 0) || 0;
   const tax = Number(orderRow?.tax || 0) || 0;
@@ -336,70 +337,133 @@ const makeReceiptPayloadFromOrder = ({ orderRow }) => {
 
   const paidAt = orderRow?.paid_at ? new Date(orderRow.paid_at) : null;
 
+  const cols = 32;
+  const padR = (s, n) => {
+    const t = String(s ?? '');
+    if (t.length >= n) return t.slice(0, n);
+    return t + ' '.repeat(n - t.length);
+  };
+  const padL = (s, n) => {
+    const t = String(s ?? '');
+    if (t.length >= n) return t.slice(t.length - n);
+    return ' '.repeat(n - t.length) + t;
+  };
+  const center = (s, n) => {
+    const t = String(s ?? '').trim();
+    if (!t) return '';
+    if (t.length >= n) return t.slice(0, n);
+    const left = Math.floor((n - t.length) / 2);
+    const right = n - t.length - left;
+    return ' '.repeat(left) + t + ' '.repeat(right);
+  };
+  const twoCol = (a, b) => {
+    const left = String(a ?? '').trim();
+    const right = String(b ?? '').trim();
+    if (!right) return padR(left, cols);
+    const maxLeft = Math.max(0, cols - right.length - 1);
+    return padR(left.slice(0, maxLeft), maxLeft) + ' ' + padL(right, cols - maxLeft - 1);
+  };
+  const dash = '-'.repeat(cols);
+  const fmt = (n) => (Number.isFinite(Number(n)) ? Number(n).toFixed(2) : '0.00');
+  const wrap = (s, width) => {
+    const t = String(s ?? '').trim();
+    if (!t) return [''];
+    const out = [];
+    for (let i = 0; i < t.length; i += width) out.push(t.slice(i, i + width));
+    return out;
+  };
+
   const lines = [];
   lines.push(escInit);
   lines.push(escAlignCenter);
-  lines.push(escBoldOn);
-  lines.push(txt('CASH INVOICE'));
-  lines.push(escBoldOff);
-  lines.push(nl());
+  const header1 = String(payload?.businessName || payload?.branchName || '').trim();
+  const header2 = String(payload?.address || '').trim();
+  const header3 = String(payload?.phone || '').trim();
+  const headerTin = String(payload?.tin || '').trim();
+
+  if (headerTin) lines.push(txt(center(`TIN: ${headerTin}`, cols)));
+  if (header1) lines.push(txt(center(header1, cols)));
+  if (header2) lines.push(txt(center(header2, cols)));
+  if (header3) lines.push(txt(center(`TEL: ${header3}`, cols)));
   lines.push(nl());
 
   lines.push(escAlignLeft);
-  lines.push(txt(`Order: ${number || String(orderRow?.id || '')}`));
+  const dateStr = paidAt
+    ? paidAt.toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' })
+    : new Date(orderRow?.created_at || Date.now()).toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const timeStr = paidAt
+    ? paidAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
+    : new Date(orderRow?.created_at || Date.now()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  lines.push(txt(twoCol(dateStr, timeStr)));
   lines.push(nl());
-  if (tableName) {
-    lines.push(txt(`Table: ${tableName}`));
-    lines.push(nl());
-  }
-  if (cashier) {
-    lines.push(txt(`Cashier: ${cashier}`));
-    lines.push(nl());
-  }
-  if (paidAt) {
-    lines.push(txt(`Paid: ${paidAt.toLocaleString()}`));
-    lines.push(nl());
-  }
   lines.push(nl());
 
-  lines.push(txt('Item            Qty   Price'));
+  lines.push(txt(padR(`Order: ${number || String(orderRow?.id || '')}`, cols)));
+  const ref = String(payload?.paymentReference || payload?.ref || '').trim();
+  if (ref) {
+    lines.push(nl());
+    lines.push(txt(padR(`Ref: ${ref}`, cols)));
+  }
+  if (operator) {
+    lines.push(nl());
+    lines.push(txt(padR(`Operator: ${operator}`, cols)));
+  }
+  if (waiterName) {
+    lines.push(nl());
+    lines.push(txt(padR(`Waiter: ${waiterName}`, cols)));
+  }
+  if (tableName) {
+    lines.push(nl());
+    lines.push(txt(padR(`Table: ${tableName}`, cols)));
+  }
   lines.push(nl());
-  lines.push(txt('----------------------------'));
+  lines.push(txt(dash));
+  lines.push(nl());
+  lines.push(txt(twoCol('Description', 'Amount')));
+  lines.push(nl());
+  lines.push(txt(dash));
   lines.push(nl());
 
   for (const it of items.slice(0, 200)) {
     const name = String(it?.name || it?.productName || it?.productId || '').trim();
     const qty = Number(it?.qty ?? 0) || 0;
     const unitPrice = Number(it?.unitPrice ?? it?.price ?? 0) || 0;
-    const line = `${name}`.slice(0, 14).padEnd(14) + String(qty).slice(0, 3).padStart(4) + String(unitPrice.toFixed(2)).slice(0, 8).padStart(8);
-    lines.push(txt(line));
+    const lineTotal = qty * unitPrice;
+
+    for (const w of wrap(name || '-', cols)) {
+      lines.push(txt(padR(w, cols)));
+      lines.push(nl());
+    }
+    lines.push(txt(twoCol(`${qty} x ${fmt(unitPrice)}`, fmt(lineTotal))));
     lines.push(nl());
   }
 
-  lines.push(txt('----------------------------'));
+  lines.push(txt(dash));
   lines.push(nl());
-  lines.push(txt(`Subtotal            ${(total - tax - tip + discount).toFixed(2)}`));
+  lines.push(txt(twoCol('SUBTOTAL', fmt(Math.max(0, total - tax - tip + discount)))));
   lines.push(nl());
   if (discount > 0.0001) {
-    lines.push(txt(`Discount            ${discount.toFixed(2)}`));
+    lines.push(txt(twoCol('DISCOUNT', fmt(discount))));
     lines.push(nl());
   }
   if (tax > 0.0001) {
-    lines.push(txt(`Tax                 ${tax.toFixed(2)}`));
+    lines.push(txt(twoCol('TAX', fmt(tax))));
     lines.push(nl());
   }
   if (tip > 0.0001) {
-    lines.push(txt(`Tip                 ${tip.toFixed(2)}`));
+    lines.push(txt(twoCol('TIP', fmt(tip))));
     lines.push(nl());
   }
+  lines.push(txt(dash));
+  lines.push(nl());
   lines.push(escBoldOn);
-  lines.push(txt(`TOTAL               ${total.toFixed(2)}`));
+  lines.push(txt(twoCol('TOTAL', fmt(total))));
   lines.push(escBoldOff);
   lines.push(nl());
   lines.push(nl());
 
   lines.push(escAlignCenter);
-  lines.push(txt('Powered by Mirach POS'));
+  lines.push(txt('Powered by MirachPOS'));
   lines.push(nl());
   lines.push(nl());
   lines.push(nl());
@@ -856,7 +920,7 @@ const makePosRouter = () => {
     '/pos/print/receipt/:id',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('settings'),
     requirePermission('orders.read'),
@@ -899,7 +963,17 @@ const makePosRouter = () => {
         if (!createdBy || createdBy !== staffId) return res.status(403).json({ error: 'forbidden' });
       }
 
-      const payload = makeReceiptPayloadFromOrder({ orderRow });
+      let operatorName = '';
+      if (staffId) {
+        try {
+          const staff = await db().select(['name']).from('staff').where({ tenant_id: req.tenant.id, id: staffId }).first();
+          operatorName = String(staff?.name || '').trim();
+        } catch {
+          operatorName = '';
+        }
+      }
+
+      const payload = makeReceiptPayloadFromOrder({ orderRow, operatorName });
       try {
         await sendTcp({ host, port, data: payload, timeoutMs: 8000 });
       } catch (e) {

@@ -489,18 +489,7 @@ const createApp = () => {
       body{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#111827; margin:0; padding:14px; color:#111;}
       .paper{max-width:420px; margin:0 auto; background:#fff; border-radius:10px; box-shadow:0 14px 36px rgba(0,0,0,.35); overflow:hidden}
       .pad{padding:12px 12px}
-      .c{text-align:center}
-      .b{font-weight:900}
-      .mut{color:#555}
-      .hr{border-top:2px dashed #444; margin:10px 0;}
-      .hr2{border-top:2px solid #444; margin:10px 0;}
-      .meta{display:flex; justify-content:space-between; gap:12px; font-size:12px;}
-      .meta span:last-child{text-align:right;}
-      .itemsHead{display:grid; grid-template-columns: 1fr 48px 72px 86px; gap:8px; font-size:12px; font-weight:900;}
-      .item{display:grid; grid-template-columns: 1fr 48px 72px 86px; gap:8px; font-size:12px; margin:4px 0;}
-      .d{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-      .q,.p,.a{text-align:right;}
-      .tot{font-size:13px; font-weight:900;}
+      pre{margin:0; font-size:12px; line-height:1.25; white-space:pre;}
       .err{max-width:420px;margin:0 auto;background:#fee2e2;border:1px solid #fecaca;color:#7f1d1d;padding:10px 12px;border-radius:12px}
       .qr{display:flex; flex-direction:column; align-items:center; gap:8px; margin-top:10px;}
       .qr img{width:160px;height:160px; image-rendering:pixelated;}
@@ -511,19 +500,11 @@ const createApp = () => {
     <div id="err" class="err" style="display:none"></div>
     <div class="paper" id="wrap" style="display:none">
       <div class="pad">
-        <div class="c b" id="biz">-</div>
-        <div class="c mut" style="font-size:12px;margin-top:4px" id="meta">-</div>
-        <div class="hr"></div>
-        <div class="itemsHead"><div>DESCRIPTION</div><div class="q">QTY</div><div class="p">PRICE</div><div class="a">AMOUNT</div></div>
-        <div class="hr"></div>
-        <div id="items"></div>
-        <div class="hr"></div>
-        <div id="totals"></div>
-        <div class="hr"></div>
+        <pre id="rcp">-</pre>
         <div class="qr">
-          <div class="mut" style="font-size:12px">Scan to view this receipt</div>
+          <div style="font-size:12px;color:#555">Scan to view this receipt</div>
           <img id="qr" alt="Receipt QR" />
-          <div class="mut" style="font-size:11px">Powered by MirachPOS</div>
+          <div style="font-size:11px;color:#555">Powered by MirachPOS</div>
         </div>
       </div>
     </div>
@@ -532,35 +513,78 @@ const createApp = () => {
       const API = ${JSON.stringify(apiBase)};
       const money = (n) => (Math.round((Number(n)||0)*100)/100).toFixed(2);
       const showErr = (t) => { const e=document.getElementById('err'); e.style.display='block'; e.textContent=t; };
+      const padR = (s,n) => { s=String(s||''); return s.length>=n ? s.slice(0,n) : s + ' '.repeat(n-s.length); };
+      const padL = (s,n) => { s=String(s||''); return s.length>=n ? s.slice(s.length-n) : ' '.repeat(n-s.length) + s; };
+      const center = (s,n) => { s=String(s||'').trim(); if(!s) return ''; if(s.length>=n) return s.slice(0,n); const left=Math.floor((n-s.length)/2); const right=n-s.length-left; return ' '.repeat(left)+s+' '.repeat(right); };
+      const twoCol = (a,b,n) => { a=String(a||'').trim(); b=String(b||'').trim(); if(!b) return padR(a,n); const maxLeft=Math.max(0,n-b.length-1); return padR(a.slice(0,maxLeft),maxLeft) + ' ' + padL(b, n-maxLeft-1); };
       const load = async () => {
         const r = await fetch(API + '/public/pos-receipt/' + encodeURIComponent(TOKEN));
         const j = await r.json().catch(()=>null);
         if (!r.ok || !j || !j.ok) throw new Error((j && (j.message || j.error)) || 'Failed to load receipt');
         document.getElementById('wrap').style.display='block';
-        document.getElementById('biz').textContent = String(j.cafeName || 'MirachPOS');
+
+        const cols = 32;
+        const cur = String(j.currency || 'ETB').toUpperCase();
         const paidAt = j.paidAt ? String(j.paidAt) : '';
-        document.getElementById('meta').textContent = 'Order ' + String(j.orderNumber || j.orderId || '') + (paidAt ? '  ' + paidAt : '');
+        const lines = [];
+        lines.push(center(String(j.cafeName || 'MirachPOS'), cols));
+        const addr = String(j.address || '').trim();
+        const phone = String(j.phone || '').trim();
+        const tin = String(j.tin || '').trim();
+        if (addr) lines.push(center(addr, cols));
+        if (phone) lines.push(center('TEL: ' + phone.replace(/^tel\s*[:\-]?\s*/i,''), cols));
+        if (tin) lines.push(center('TIN: ' + tin, cols));
+        lines.push('');
+
+        // Try to print date/time from paidAt string if present.
+        const dt = paidAt ? new Date(paidAt) : null;
+        const dateStr = dt && !Number.isNaN(dt.getTime()) ? dt.toLocaleDateString('en-GB', { year:'numeric', month:'2-digit', day:'2-digit' }) : '';
+        const timeStr = dt && !Number.isNaN(dt.getTime()) ? dt.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', hour12:false }) : '';
+        if (dateStr || timeStr) lines.push(twoCol(dateStr, timeStr, cols));
+        lines.push('');
+
+        const orderNo = String(j.orderNumber || j.orderId || '').trim();
+        if (orderNo) lines.push(padR('Order: ' + orderNo, cols));
+        const ref = String(j.paymentReference || '').trim();
+        if (ref) lines.push(padR('Ref: ' + ref, cols));
+        const operator = String(j.operatorName || '').trim();
+        const waiter = String(j.waiterName || '').trim();
+        const table = String(j.tableName || '').trim();
+        if (operator) lines.push(padR('Operator: ' + operator, cols));
+        if (waiter) lines.push(padR('Waiter: ' + waiter, cols));
+        if (table) lines.push(padR('Table: ' + table, cols));
+
+        const dash = '-'.repeat(cols);
+        lines.push(dash);
+        lines.push(twoCol('Description', 'Amount', cols));
+        lines.push(dash);
+
         const items = Array.isArray(j.items) ? j.items : [];
-        const el = document.getElementById('items');
-        el.innerHTML = items.map((it)=>{
-          const name = String(it.name||'');
+        const wrap = (s,w) => { s=String(s||'').trim(); if(!s) return ['']; const out=[]; for(let i=0;i<s.length;i+=w) out.push(s.slice(i,i+w)); return out; };
+        for (const it of items.slice(0,200)) {
+          const name = String(it.name||'').trim();
           const qty = Number(it.qty||0);
           const unit = Number(it.unitPrice||0);
-          const amount = unit * qty;
-          return '<div class="item"><div class="d">' + name + '</div><div class="q">' + String(qty) + '</div><div class="p">' + money(unit) + '</div><div class="a">' + money(amount) + '</div></div>';
-        }).join('') || '<div class="mut">No items</div>';
+          const amount = qty*unit;
+          for (const w of wrap(name || '-', cols)) lines.push(padR(w, cols));
+          lines.push(twoCol(String(qty) + ' x ' + money(unit), money(amount), cols));
+        }
 
-        const t = document.getElementById('totals');
         const tip = Number(j.tipAmount||0) + Number(j.tipPctAmount||0);
-        const cur = String(j.currency || 'ETB');
-        t.innerHTML = [
-          '<div class="meta"><span class="b">SUBTOTAL</span><span class="b">' + cur + ' ' + money(j.subtotal) + '</span></div>',
-          '<div class="meta" style="margin-top:6px"><span class="b">SERVICE</span><span class="b">' + cur + ' ' + money(j.serviceCharge) + '</span></div>',
-          '<div class="meta" style="margin-top:6px"><span class="b">TAX</span><span class="b">' + cur + ' ' + money(j.tax) + '</span></div>',
-          (tip > 0.0001 ? '<div class="meta" style="margin-top:6px"><span class="b">TIP</span><span class="b">' + cur + ' ' + money(tip) + '</span></div>' : ''),
-          '<div class="hr2"></div>',
-          '<div class="meta tot"><span>TOTAL PAID</span><span>' + cur + ' ' + money(j.total) + '</span></div>',
-        ].filter(Boolean).join('');
+        lines.push(dash);
+        lines.push(twoCol('SUBTOTAL', money(j.subtotal), cols));
+        if (Number(j.serviceCharge||0) > 0.0001) lines.push(twoCol('SERVICE', money(j.serviceCharge), cols));
+        if (Number(j.tax||0) > 0.0001) lines.push(twoCol('TAX', money(j.tax), cols));
+        if (tip > 0.0001) lines.push(twoCol('TIP', money(tip), cols));
+        lines.push(dash);
+        lines.push(twoCol('TOTAL', money(j.total) + ' ' + cur, cols));
+
+        const pm = String(j.paymentMethod || '').trim();
+        if (pm) lines.push(padR(pm.toUpperCase(), cols));
+        lines.push('');
+        lines.push(center('Powered by MirachPOS', cols));
+
+        document.getElementById('rcp').textContent = lines.join('\n');
 
         const receiptUrl = location.origin + '/r/' + encodeURIComponent(TOKEN);
         const qr = document.getElementById('qr');

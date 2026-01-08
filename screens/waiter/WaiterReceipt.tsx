@@ -21,7 +21,7 @@ const withBranchQuery = (url: string) => {
     const s = readSession<any>();
     const role = typeof s?.role === 'string' ? s.role : '';
     const tokenBranch = typeof s?.branchId === 'string' ? s.branchId.trim() : '';
-    if (role !== 'Cafe Owner') return url;
+    if (role !== 'Cafe Owner' && role !== 'Waiter Manager') return url;
     if (tokenBranch && tokenBranch !== 'global') return url;
     const selected =
       (localStorage.getItem('mirachpos.owner.selectedBranchId.v1') ||
@@ -83,32 +83,11 @@ const receiptHtml = (
     showTin: boolean;
   },
 ) => {
-  const f1 = escapeHtml(settings.footer1);
-  const f2 = escapeHtml(settings.footer2);
   const cur = escapeHtml(settings.currency);
   const biz = escapeHtml(settings.businessName);
   const tin = escapeHtml(settings.tin);
   const phone = escapeHtml(settings.phone);
   const address = escapeHtml(settings.address);
-  const items = order.items
-    .map((i) => {
-      const name = escapeHtml(i.name);
-      const qty = Number(i.qty) || 0;
-      const unit = Number(i.unitPrice) || 0;
-      const amount = unit * qty;
-      const qtyStr = String(qty);
-      const unitStr = unit.toFixed(2);
-      const amtStr = amount.toFixed(2);
-      return `
-        <div class="item">
-          <div class="d">${name}</div>
-          <div class="q">${qtyStr}</div>
-          <div class="p">${unitStr}</div>
-          <div class="a">${amtStr}</div>
-        </div>
-      `;
-    })
-    .join('');
 
   const createdAtIso = typeof (order as any)?.paidAt === 'string' && (order as any).paidAt ? (order as any).paidAt : order.createdAt;
   const dt = (() => {
@@ -161,8 +140,15 @@ const receiptHtml = (
   })();
 
   const customerLabel = order.customer ? `${escapeHtml(order.customer.name)} (${escapeHtml(order.customer.phone)})` : 'WALKING';
-  const cashier = escapeHtml((order as any)?.createdByName || (order as any)?.createdByStaffId || '');
-  const waiter = cashier;
+  const waiter = escapeHtml((order as any)?.createdByName || (order as any)?.createdByStaffId || '');
+  const operator = (() => {
+    try {
+      const s = readSession<any>();
+      return escapeHtml(String((order as any)?.paidByName || s?.staffName || (order as any)?.paidByStaffId || '').trim());
+    } catch {
+      return escapeHtml(String((order as any)?.paidByName || (order as any)?.paidByStaffId || '').trim());
+    }
+  })();
   const tableNo = escapeHtml(order.tableName || '');
 
   const discount = Number((order as any)?.discount ?? 0) || 0;
@@ -228,6 +214,86 @@ const receiptHtml = (
 
   const showTendered = payMethod === 'CASH' && tendered > 0 && (Math.abs(tendered - Number(order.total || 0)) > 0.009 || change > 0.009);
 
+  const cols = 32;
+  const padR = (s: string, n: number) => (s.length >= n ? s.slice(0, n) : s + ' '.repeat(n - s.length));
+  const padL = (s: string, n: number) => (s.length >= n ? s.slice(s.length - n) : ' '.repeat(n - s.length) + s);
+  const center = (s: string, n: number) => {
+    const t = String(s || '').trim();
+    if (!t) return '';
+    if (t.length >= n) return t.slice(0, n);
+    const left = Math.floor((n - t.length) / 2);
+    const right = n - t.length - left;
+    return ' '.repeat(left) + t + ' '.repeat(right);
+  };
+  const dash = '-'.repeat(cols);
+  const twoCol = (a: string, b: string) => {
+    const left = String(a || '').trim();
+    const right = String(b || '').trim();
+    if (!right) return padR(left, cols);
+    const maxLeft = Math.max(0, cols - right.length - 1);
+    return padR(left.slice(0, maxLeft), maxLeft) + ' ' + padL(right, cols - maxLeft - 1);
+  };
+  const fmtAmt = (n: number) => (Number.isFinite(Number(n)) ? Number(n).toFixed(2) : '0.00');
+  const wrap = (s: string, width: number) => {
+    const t = String(s || '').trim();
+    if (!t) return [''];
+    const out: string[] = [];
+    let i = 0;
+    while (i < t.length) {
+      out.push(t.slice(i, i + width));
+      i += width;
+    }
+    return out;
+  };
+
+  const receiptLines: string[] = [];
+  receiptLines.push(center(biz || '-', cols));
+  if (addressLine) receiptLines.push(center(addressLine, cols));
+  if (phoneLine) receiptLines.push(center(phoneLine, cols));
+  if (settings.showTin) receiptLines.push(center(tin ? `TIN: ${tin}` : 'TIN: -', cols));
+  receiptLines.push('');
+  receiptLines.push(twoCol(dateStr, timeStr));
+  receiptLines.push('');
+  if (String(order.number || '').trim()) receiptLines.push(padR(`Order: ${String(order.number).trim()}`, cols));
+  if ((order as any)?.paymentReference) receiptLines.push(padR(`Ref: ${String((order as any).paymentReference).trim()}`, cols));
+  if (operator) receiptLines.push(padR(`Operator: ${operator}`, cols));
+  if (waiter) receiptLines.push(padR(`Waiter: ${waiter}`, cols));
+  if (tableNo) receiptLines.push(padR(`Table: ${tableNo}`, cols));
+  if (customerLabel) receiptLines.push(padR(`Customer: ${customerLabel}`, cols));
+  receiptLines.push(dash);
+  receiptLines.push(twoCol('Description', 'Amount'));
+  receiptLines.push(dash);
+
+  for (const it of order.items.slice(0, 200)) {
+    const name = String(it?.name || '').trim();
+    const qty = Number(it?.qty ?? 0) || 0;
+    const unit = Number(it?.unitPrice ?? 0) || 0;
+    const lineTotal = qty * unit;
+
+    for (const w of wrap(name || '-', cols)) receiptLines.push(padR(w, cols));
+    const left = `${qty} x ${fmtAmt(unit)}`;
+    receiptLines.push(twoCol(left, fmtAmt(lineTotal)));
+  }
+
+  receiptLines.push(dash);
+  receiptLines.push(twoCol('SUBTOTAL', fmtAmt(Number(order.subtotal || 0))));
+  if (discount > 0.0001 || discountPct > 0.0001) {
+    const label = discountPct > 0.0001 ? `DISCOUNT ${discountPct.toFixed(0)}%` : 'DISCOUNT';
+    receiptLines.push(twoCol(label, fmtAmt(discount)));
+  }
+  if (serviceCharge > 0.0001) receiptLines.push(twoCol(serviceLabel, fmtAmt(serviceCharge)));
+  if (settings.vatEnabled) receiptLines.push(twoCol(`TAX ${taxRateLabel}`, fmtAmt(Number(order.tax || 0))));
+  if (tip > 0.0001) receiptLines.push(twoCol('TIP', fmtAmt(tip)));
+  receiptLines.push(dash);
+  receiptLines.push(twoCol('TOTAL', `${fmtAmt(Number(order.total || 0))} ${cur}`));
+  receiptLines.push(padR(payMethod, cols));
+  if (showTendered) {
+    receiptLines.push(twoCol('Tendered', fmtAmt(tendered)));
+    receiptLines.push(twoCol('Change', fmtAmt(change)));
+  }
+  receiptLines.push('');
+  receiptLines.push(center('Powered by MirachPOS', cols));
+
   return `
   <!doctype html>
   <html>
@@ -238,69 +304,12 @@ const receiptHtml = (
       <style>
         *{box-sizing:border-box;}
         body{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; margin:0; padding:12px; color:#111;}
-        .c{text-align:center;}
-        .b{font-weight:900;}
-        .muted{color:#222;}
-        .hr{border-top:2px dashed #444; margin:10px 0;}
-        .hr2{border-top:2px solid #444; margin:10px 0;}
-        .meta{display:flex; justify-content:space-between; gap:12px; font-size:12px;}
-        .meta span:last-child{text-align:right;}
-        .title{font-size:13px; font-weight:900; letter-spacing:.08em;}
-        .subt{font-size:12px; font-weight:800;}
-        .itemsHead{display:grid; grid-template-columns: 1fr 48px 72px 86px; gap:8px; font-size:12px; font-weight:900;}
-        .item{display:grid; grid-template-columns: 1fr 48px 72px 86px; gap:8px; font-size:12px; margin:4px 0;}
-        .d{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-        .q,.p,.a{text-align:right;}
-        .tot{font-size:13px; font-weight:900;}
+        pre{margin:0; font-size:12px; line-height:1.25; white-space:pre;}
         @media print{body{padding:0}}
       </style>
     </head>
     <body>
-      ${headerLines
-        .map((l, idx) => {
-          const k = normKey(l);
-          const isTin = k.startsWith('tin');
-          const isTel = k.startsWith('tel');
-          const cls = isTin ? 'c b' : isTel ? 'c muted' : idx === 0 ? 'c b' : 'c b';
-          const fs = isTin ? '12px' : isTel ? '11px' : '12px';
-          const mt = idx === 0 ? '0' : isTin ? '4px' : '2px';
-          const rendered = isTel ? phoneLine : k === normKey(addressLine) ? addressLine : escapeHtml(l);
-          return rendered ? `<div class="${cls}" style="font-size:${fs}; margin-top:${mt}">${rendered}</div>` : '';
-        })
-        .join('')}
-      <div class="hr"></div>
-      <div class="meta"><span class="b">FS NO.</span><span class="b">${escapeHtml(order.number)}</span></div>
-      <div class="meta" style="margin-top:6px"><span class="b">${escapeHtml(dateStr)}</span><span class="b">${escapeHtml(timeStr)}</span></div>
-      <div class="hr2"></div>
-      <div class="c title">=====${escapeHtml(payMethod)} INVOICE=====</div>
-      <div class="meta" style="margin-top:8px"><span class="b">CUSTOMER NAME</span><span>${customerLabel}</span></div>
-      <div class="meta" style="margin-top:6px"><span class="b">CASHIER</span><span>${cashier || '-'}</span></div>
-      <div class="meta" style="margin-top:6px"><span class="b">WAITER</span><span>${waiter || '-'}</span></div>
-      <div class="meta" style="margin-top:6px"><span class="b">TABLE NO.</span><span>${tableNo || '-'}</span></div>
-      <div class="meta" style="margin-top:6px"><span class="b">BUYER'S TIN</span><span>-</span></div>
-      ${(order as any)?.paymentReference ? `<div class="meta" style="margin-top:6px"><span class="b">REFERENCE</span><span>${escapeHtml(String((order as any).paymentReference))}</span></div>` : ''}
-      <div class="hr"></div>
-      <div class="itemsHead"><div>DESCRIPTION</div><div class="q">QTY</div><div class="p">PRICE</div><div class="a">AMOUNT</div></div>
-      <div class="hr"></div>
-      ${items}
-      <div class="hr"></div>
-      <div class="meta"><span class="b">SUBTOTAL</span><span class="b">${cur} ${Number(order.subtotal || 0).toFixed(2)}</span></div>
-      <div class="meta" style="margin-top:6px"><span class="b">${escapeHtml(serviceLabel)}</span><span class="b">${cur} ${serviceCharge.toFixed(2)}</span></div>
-      ${discount > 0 ? `<div class="meta" style="margin-top:6px"><span class="b">DISCOUNT${discountPct > 0 ? ` (${discountPct.toFixed(2)}%)` : ''}</span><span class="b">-${cur} ${discount.toFixed(2)}</span></div>` : ''}
-      <div class="hr"></div>
-      <div class="meta"><span class="b">TXBL 1</span><span class="b">${cur} ${taxableBase.toFixed(2)}</span></div>
-      <div class="meta" style="margin-top:6px"><span class="b">TAX 1${taxRateLabel ? `(${escapeHtml(taxRateLabel)})` : ''}</span><span class="b">${cur} ${Number(order.tax || 0).toFixed(2)}</span></div>
-      <div class="hr"></div>
-      ${tip > 0 ? `<div class="meta" style="margin-top:6px"><span class="b">TIP</span><span class="b">${cur} ${tip.toFixed(2)}</span></div>` : ''}
-      ${tip > 0 ? `<div class="hr"></div>` : ''}
-      <div class="meta tot"><span>TOTAL</span><span>${cur} ${Number(order.total || 0).toFixed(2)}</span></div>
-      <div class="meta" style="margin-top:6px"><span class="b">${escapeHtml(payMethod)}</span><span class="b">${cur} ${Number(order.total || 0).toFixed(2)}</span></div>
-      ${showTendered ? `<div class="meta" style="margin-top:6px"><span class="b">TENDERED</span><span class="b">${cur} ${tendered.toFixed(2)}</span></div>` : ''}
-      ${showTendered ? `<div class="meta" style="margin-top:6px"><span class="b">CHANGE</span><span class="b">${cur} ${change.toFixed(2)}</span></div>` : ''}
-      <div class="hr"></div>
-      ${f1 ? `<div class="c muted" style="font-size:12px">${f1}</div>` : ''}
-      ${f2 ? `<div class="c muted" style="font-size:12px; margin-top:4px">${f2}</div>` : ''}
-      <div class="c muted" style="font-size:11px; margin-top:6px">Powered by Mirach POS</div>
+      <pre>${escapeHtml(receiptLines.join('\\n'))}</pre>
     </body>
   </html>
   `;

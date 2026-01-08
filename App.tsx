@@ -42,7 +42,6 @@ import { WaiterKDS } from './screens/waiter/WaiterKDS';
 import { WaiterHistory } from './screens/waiter/WaiterHistory';
 import { WaiterNotifications } from './screens/waiter/WaiterNotifications';
 import { WaiterSystemStatus } from './screens/waiter/WaiterSystemStatus';
-import { WaiterDraftSim } from './screens/waiter/WaiterDraftSim';
 import { WaiterSettings } from './screens/waiter/WaiterSettings';
 import { WaiterShiftReport } from './screens/waiter/WaiterShiftReport';
 
@@ -709,7 +708,6 @@ const AppContent: React.FC = () => {
         {currentScreen === Screen.WAITER_HISTORY && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterHistory onNavigate={navigate} />}
         {currentScreen === Screen.WAITER_NOTIFICATIONS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterNotifications onNavigate={navigate} />}
         {currentScreen === Screen.WAITER_SYSTEM && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterSystemStatus onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_DRAFT_SIM && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDraftSim onNavigate={navigate} />}
         {currentScreen === Screen.WAITER_SETTINGS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterSettings onNavigate={navigate} />}
         {currentScreen === Screen.WAITER_SHIFT_REPORT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterShiftReport onNavigate={navigate} />}
         {currentScreen === Screen.WAITER_SCHEDULE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ShiftSchedule readOnly />}

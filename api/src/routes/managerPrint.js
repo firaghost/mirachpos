@@ -147,7 +147,7 @@ const makeTestPayload = ({ profile, title }) => {
 
   lines.push(nl());
   lines.push(escAlignCenter);
-  lines.push(txt('Powered by Mirach POS'));
+  lines.push(txt('Powered by MirachPOS'));
   lines.push(nl());
   lines.push(nl());
   lines.push(nl());
@@ -240,7 +240,7 @@ const makeReceiptPayloadFromOrder = ({ orderRow, profile }) => {
   lines.push(nl());
 
   lines.push(escAlignCenter);
-  lines.push(txt('Powered by Mirach POS'));
+  lines.push(txt('Powered by MirachPOS'));
   lines.push(nl());
   lines.push(nl());
   lines.push(nl());

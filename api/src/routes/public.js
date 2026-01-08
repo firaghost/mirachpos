@@ -100,6 +100,9 @@ const makePublicRouter = () => {
       const settingsRow = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: link.tenantId }).first();
       const settings = safeJsonParse(settingsRow?.settings_json, {});
       const bizName = typeof settings?.business?.businessName === 'string' ? String(settings.business.businessName).trim() : '';
+      const tin = typeof settings?.business?.tin === 'string' ? String(settings.business.tin).trim() : '';
+      const phone = typeof settings?.business?.phone === 'string' ? String(settings.business.phone).trim() : '';
+      const address = typeof settings?.business?.address === 'string' ? String(settings.business.address).trim() : '';
 
       const receiptRow = await db()
         .from('pos_public_order_links')
@@ -276,15 +279,32 @@ const makePublicRouter = () => {
       const payload = safeJsonParse(orderRow.payload, {});
       const items = Array.isArray(payload?.items) ? payload.items : [];
 
+      const tableName = typeof payload?.tableName === 'string' ? String(payload.tableName).trim() : '';
+      const waiterName = typeof payload?.createdByName === 'string' ? String(payload.createdByName).trim() : '';
+      const operatorName = typeof payload?.paidByName === 'string' ? String(payload.paidByName).trim() : '';
+      const paymentReference = typeof payload?.paymentReference === 'string' ? String(payload.paymentReference).trim() : '';
+      const paymentMethod = typeof payload?.paymentMethod === 'string' ? String(payload.paymentMethod).trim() : '';
+
       const settingsRow = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: link.tenantId }).first();
       const settings = safeJsonParse(settingsRow?.settings_json, {});
       const bizName = typeof settings?.business?.businessName === 'string' ? String(settings.business.businessName).trim() : '';
+      const tin = typeof settings?.business?.tin === 'string' ? String(settings.business.tin).trim() : '';
+      const phone = typeof settings?.business?.phone === 'string' ? String(settings.business.phone).trim() : '';
+      const address = typeof settings?.business?.address === 'string' ? String(settings.business.address).trim() : '';
 
       return res.json({
         ok: true,
         cafeName: bizName || 'MirachPOS',
+        tin,
+        phone,
+        address,
         orderId: String(orderRow.id),
         orderNumber: typeof payload?.number === 'string' && payload.number.trim() ? String(payload.number).trim() : String(orderRow.id),
+        tableName,
+        waiterName,
+        operatorName,
+        paymentReference,
+        paymentMethod,
         status: String(orderRow.status || ''),
         paidAt: payload?.paidAt || orderRow.paid_at || null,
         currency: 'ETB',

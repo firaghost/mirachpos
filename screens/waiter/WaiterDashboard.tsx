@@ -581,15 +581,6 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                 Active Waiter
               </button>
             )}
-            {!isImpersonationEnabled && (
-              <button
-                onClick={() => onNavigate(Screen.WAITER_DRAFT_SIM)}
-                className="hidden md:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-[#221c11] border border-[#483c23] text-[#c9b792] hover:text-white hover:border-[#eead2b]/40 transition-colors text-sm font-bold"
-              >
-                <span className="material-symbols-outlined text-lg">cloud_upload</span>
-                Mobile Draft
-              </button>
-            )}
             <button
               onClick={() => void handleRefresh()}
               className="hidden md:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-[#483c23] text-white hover:bg-[#5a4530] transition-colors text-sm font-bold"

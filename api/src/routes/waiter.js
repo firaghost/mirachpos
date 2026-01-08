@@ -10,12 +10,26 @@ const { requireRole, requirePermission } = require('../middleware/permissions');
 const makeWaiterRouter = () => {
   const r = express.Router();
 
+  const resolveBranchId = (req) => {
+    const role = String(req.auth?.role || '').trim();
+    const fromToken = String(req.auth?.branchId || '').trim();
+    const q = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
+
+    if (role === 'Waiter Manager') {
+      if (fromToken && fromToken !== 'global') return fromToken;
+      if (q && q !== 'global') return q;
+      return '';
+    }
+
+    return fromToken;
+  };
+
   const requireWaiter = (req, res) => {
     if (req.auth?.tenantId !== req.tenant.id) {
       res.status(403).json({ error: 'forbidden' });
       return false;
     }
-    const branchId = String(req.auth?.branchId || '');
+    const branchId = resolveBranchId(req);
     if (!branchId || branchId === 'global') {
       res.status(400).json({ error: 'branch_required' });
       return false;
@@ -27,7 +41,7 @@ const makeWaiterRouter = () => {
     '/waiter/account',
     tenantMiddleware,
     requireAuth,
-    requireRole('Waiter'),
+    requireRole('Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.read'),
@@ -36,7 +50,8 @@ const makeWaiterRouter = () => {
       if (!requireWaiter(req, res)) return;
 
       const staffId = String(req.auth?.staffId || '');
-      const branchId = String(req.auth?.branchId || '');
+      const role = String(req.auth?.role || '').trim();
+      const branchId = resolveBranchId(req);
       if (!staffId) return res.status(401).json({ error: 'unauthorized' });
 
       const body = req.body && typeof req.body === 'object' ? req.body : null;
@@ -56,7 +71,7 @@ const makeWaiterRouter = () => {
         .first();
 
       if (!staff) return res.status(404).json({ error: 'staff_not_found' });
-      if (String(staff.role_name || '') !== 'Waiter') return res.status(403).json({ error: 'forbidden' });
+      if (role === 'Waiter' && String(staff.role_name || '') !== 'Waiter') return res.status(403).json({ error: 'forbidden' });
 
       if (newPassword) {
         const match = await bcrypt.compare(String(currentPassword || ''), String(staff.password_hash || ''));
@@ -87,7 +102,7 @@ const makeWaiterRouter = () => {
     '/waiter/history',
     tenantMiddleware,
     requireAuth,
-    requireRole('Waiter'),
+    requireRole('Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.read'),
@@ -95,7 +110,8 @@ const makeWaiterRouter = () => {
     try {
       if (!requireWaiter(req, res)) return;
 
-      const branchId = String(req.auth?.branchId || '');
+      const role = String(req.auth?.role || '').trim();
+      const branchId = resolveBranchId(req);
       const staffId = String(req.auth?.staffId || '');
       if (!staffId) return res.status(401).json({ error: 'unauthorized' });
 
@@ -138,6 +154,7 @@ const makeWaiterRouter = () => {
           };
         })
         .filter((o) => {
+          if (role === 'Waiter Manager') return true;
           const createdBy = String(o.createdByStaffId || '').trim();
           return createdBy && createdBy === staffId;
         })
@@ -160,7 +177,7 @@ const makeWaiterRouter = () => {
     '/waiter/order/:id',
     tenantMiddleware,
     requireAuth,
-    requireRole('Waiter'),
+    requireRole('Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.read'),
@@ -168,7 +185,8 @@ const makeWaiterRouter = () => {
     try {
       if (!requireWaiter(req, res)) return;
 
-      const branchId = String(req.auth?.branchId || '');
+      const role = String(req.auth?.role || '').trim();
+      const branchId = resolveBranchId(req);
       const staffId = String(req.auth?.staffId || '');
       if (!staffId) return res.status(401).json({ error: 'unauthorized' });
 
@@ -211,7 +229,7 @@ const makeWaiterRouter = () => {
         payload,
       };
 
-      if (String(order.createdByStaffId || '').trim() !== staffId) return res.status(403).json({ error: 'forbidden' });
+      if (role !== 'Waiter Manager' && String(order.createdByStaffId || '').trim() !== staffId) return res.status(403).json({ error: 'forbidden' });
 
       return res.json({ ok: true, branchId, order });
     } catch (e) {
@@ -223,7 +241,7 @@ const makeWaiterRouter = () => {
     '/waiter/shift-report',
     tenantMiddleware,
     requireAuth,
-    requireRole('Waiter'),
+    requireRole('Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.read'),
@@ -231,9 +249,15 @@ const makeWaiterRouter = () => {
     try {
       if (!requireWaiter(req, res)) return;
 
-      const branchId = String(req.auth?.branchId || '');
+      const role = String(req.auth?.role || '').trim();
+      const branchId = resolveBranchId(req);
       const staffId = String(req.auth?.staffId || '');
       if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+
+      if (role === 'Waiter Manager') {
+        const staff = await db().select(['id']).from('staff').where({ tenant_id: req.tenant.id, id: staffId }).first();
+        if (!staff) return res.status(404).json({ error: 'staff_not_found' });
+      }
 
       const logs = await db()
         .select(['id', 'staff_id', 'clock_in_at', 'clock_out_at'])
