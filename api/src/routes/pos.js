@@ -120,6 +120,51 @@ const mapRestaurantTableRow = (row) => {
   };
 };
 
+const syncRestaurantTableForOrder = async ({ tenantId, branchId, tableId, orderId, nextStatus, nowIso }) => {
+  try {
+    const tid = String(tenantId || '').trim();
+    const bid = String(branchId || '').trim();
+    const tbl = String(tableId || '').trim();
+    const oid = String(orderId || '').trim();
+    const st = String(nextStatus || '').trim();
+    if (!tid || !bid || !tbl || !oid) return;
+
+    const terminal = st === 'Paid' || st === 'Voided' || st === 'Refunded';
+
+    if (!terminal) {
+      await db()
+        .from('restaurant_tables')
+        .where({ tenant_id: tid, branch_id: bid, id: tbl })
+        .update({ status: 'Occupied', open_order_id: oid, last_order_id: oid, updated_at: nowIso });
+      return;
+    }
+
+    // When finalizing an order, only clear open_order_id if it still points at this order.
+    // This avoids clobbering a newer open order if staff created another order quickly.
+    await db().transaction(async (trx) => {
+      const row = await trx('restaurant_tables')
+        .where({ tenant_id: tid, branch_id: bid, id: tbl })
+        .select(['open_order_id'])
+        .first();
+      const curOpen = row?.open_order_id ? String(row.open_order_id) : '';
+
+      const patch = {
+        status: curOpen && curOpen !== oid ? undefined : 'Free',
+        open_order_id: curOpen && curOpen !== oid ? undefined : null,
+        last_order_id: oid,
+        updated_at: nowIso,
+      };
+
+      const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+      await trx('restaurant_tables')
+        .where({ tenant_id: tid, branch_id: bid, id: tbl })
+        .update(filtered);
+    });
+  } catch {
+    // ignore
+  }
+};
+
 const verifyStaffPin = async ({ tenantId, branchId, staffId, pin }) => {
   const p = String(pin || '').trim();
   if (!p) return false;
@@ -1676,6 +1721,14 @@ const makePosRouter = () => {
       const id = String(req.params.id || '').trim();
       if (!id) return res.status(400).json({ error: 'id_required' });
 
+      const beforeRow = await db()
+        .select(['status', 'payload'])
+        .from('orders')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
+        .first();
+      if (!beforeRow) return res.status(404).json({ error: 'order_not_found' });
+      const beforeStatus = String(beforeRow.status || '').trim();
+
       const row = await db()
         .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'created_at', 'paid_at', 'payload'])
         .from('orders')
@@ -1991,31 +2044,44 @@ const makePosRouter = () => {
       const id = requestedId || uid('ord');
       const nowIso = new Date().toISOString();
 
-      await db()
-        .from('orders')
-        .insert({
-          id,
-          tenant_id: req.tenant.id,
-          branch_id: branchId,
-          status,
-          total,
-          tax,
-          tip,
-          discount: computed.discount,
-          created_at: nowIso,
-          paid_at: status === 'Paid' ? nowIso : null,
-          payload: JSON.stringify(nextPayload),
-        })
-        .onConflict(['id'])
-        .merge({
-          status,
-          total,
-          tax,
-          tip,
-          discount: computed.discount,
-          paid_at: status === 'Paid' ? nowIso : null,
-          payload: JSON.stringify(nextPayload),
-        });
+      await db().transaction(async (trx) => {
+        await trx
+          .from('orders')
+          .insert({
+            id,
+            tenant_id: req.tenant.id,
+            branch_id: branchId,
+            status,
+            total,
+            tax,
+            tip,
+            discount: computed.discount,
+            created_at: nowIso,
+            paid_at: status === 'Paid' ? nowIso : null,
+            payload: JSON.stringify(nextPayload),
+          })
+          .onConflict(['id'])
+          .merge({
+            status,
+            total,
+            tax,
+            tip,
+            discount: computed.discount,
+            paid_at: status === 'Paid' ? nowIso : null,
+            payload: JSON.stringify(nextPayload),
+          });
+
+        const tableId = typeof nextPayload?.tableId === 'string' ? nextPayload.tableId.trim() : '';
+        if (tableId) {
+          const terminal = status === 'Paid' || status === 'Voided' || status === 'Refunded';
+          const patch = terminal
+            ? { status: 'Free', open_order_id: null, last_order_id: id, updated_at: nowIso }
+            : { status: 'Occupied', open_order_id: id, last_order_id: id, updated_at: nowIso };
+          await trx('restaurant_tables')
+            .where({ tenant_id: req.tenant.id, branch_id: branchId, id: tableId })
+            .update(patch);
+        }
+      });
 
       return res.json({ ok: true, id, createdAt: nowIso });
     } catch (e) {
@@ -2050,9 +2116,7 @@ const makePosRouter = () => {
       if (role === 'Waiter') {
         if (!staffId) return res.status(401).json({ error: 'unauthorized' });
 
-        const existingRow = await db().select(['payload']).from('orders').where({ tenant_id: req.tenant.id, branch_id: branchId, id }).first();
-        if (!existingRow) return res.status(404).json({ error: 'order_not_found' });
-        existingPayload = safeJsonParse(existingRow?.payload, {});
+        existingPayload = safeJsonParse(beforeRow?.payload, {});
 
         const existingOwner = typeof existingPayload?.createdByStaffId === 'string' ? String(existingPayload.createdByStaffId) : '';
         waiterIsOwner = Boolean(existingOwner && existingOwner === staffId);
@@ -2109,12 +2173,12 @@ const makePosRouter = () => {
           const existingTableId = typeof existingPayload?.tableId === 'string' ? String(existingPayload.tableId).trim() : '';
           if (nextTableId && existingTableId && nextTableId !== existingTableId) return res.status(403).json({ error: 'forbidden' });
 
-          const stateRow = await db().select(['state_json']).from('pos_state').where({ tenant_id: req.tenant.id, branch_id: branchId }).first();
-          const state = safeJsonParse(stateRow?.state_json, null);
-          const tables = Array.isArray(state?.tables) ? state.tables : [];
-          const table = tables.find((t) => t && String(t.id || '') === (existingTableId || nextTableId)) || null;
-          if (!table) return res.status(404).json({ error: 'table_not_found' });
-          const assigned = typeof table?.assignedStaffId === 'string' ? String(table.assignedStaffId) : '';
+          const effectiveTableId = existingTableId || nextTableId;
+          if (!effectiveTableId) return res.status(400).json({ error: 'table_required' });
+
+          const tableRow = await loadRestaurantTable({ tenantId: req.tenant.id, branchId, tableId: effectiveTableId });
+          if (!tableRow) return res.status(404).json({ error: 'table_not_found' });
+          const assigned = tableRow?.assigned_staff_id ? String(tableRow.assigned_staff_id) : '';
           if (assigned && assigned !== staffId) return res.status(403).json({ error: 'table_assigned_to_other' });
 
           const staffRow = await db().select(['name']).from('staff').where({ tenant_id: req.tenant.id, branch_id: branchId, id: staffId }).first();
@@ -2123,7 +2187,7 @@ const makePosRouter = () => {
           incomingPayload.createdByStaffId = staffId;
           incomingPayload.createdByName = waiterName || incomingPayload.createdByName || null;
           if (existingTableId) incomingPayload.tableId = existingTableId;
-          if (table?.name && !incomingPayload.tableName) incomingPayload.tableName = String(table.name);
+          if (tableRow?.name && !incomingPayload.tableName) incomingPayload.tableName = String(tableRow.name);
         }
 
         // Normalize reference early so it is persisted into payload JSON.
@@ -2186,6 +2250,16 @@ const makePosRouter = () => {
 
       const updated = await db().from('orders').where({ tenant_id: req.tenant.id, branch_id: branchId, id }).update(patch);
       if (!updated) return res.status(404).json({ error: 'order_not_found' });
+
+      const afterStatus = typeof patch.status === 'string' ? String(patch.status) : beforeStatus;
+      const afterPayload = (() => {
+        if (typeof patch.payload === 'string' && patch.payload.trim()) return safeJsonParse(patch.payload, {});
+        return safeJsonParse(beforeRow?.payload, {});
+      })();
+      const tableId = typeof afterPayload?.tableId === 'string' ? afterPayload.tableId.trim() : '';
+      if (tableId && afterStatus !== beforeStatus) {
+        await syncRestaurantTableForOrder({ tenantId: req.tenant.id, branchId, tableId, orderId: id, nextStatus: afterStatus, nowIso: new Date().toISOString() });
+      }
 
       return res.json({ ok: true });
     } catch (e) {
@@ -2629,6 +2703,11 @@ const makePosRouter = () => {
               paid_at: nowIso,
               payload: JSON.stringify(payload),
             });
+
+          const tableId = typeof payload?.tableId === 'string' ? payload.tableId.trim() : '';
+          if (tableId) {
+            await syncRestaurantTableForOrder({ tenantId: req.tenant.id, branchId, tableId, orderId: id, nextStatus: 'Paid', nowIso });
+          }
 
           return res.json({ ok: true, paid: true });
         }

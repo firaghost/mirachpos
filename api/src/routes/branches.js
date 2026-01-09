@@ -32,17 +32,24 @@ const makeBranchesRouter = () => {
     '/branches',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager', 'Waiter'),
     loadEntitlements,
-    requireModule('branches'),
-    requirePermission('branches.read'),
     async (req, res, next) => {
     try {
+      const role = String(req.auth?.role || '').trim();
+      const staffBranchId = req.auth?.branchId ? String(req.auth.branchId) : '';
+
       const rows = await db()
         .select(['b.id', 'b.name', 'b.status', 'b.city', 'b.address', 'b.phone', 'b.manager_name', 'b.region', 'b.rating'])
         .from({ b: 'branches' })
         .where({ 'b.tenant_id': req.tenant.id })
         .orderBy('b.name', 'asc');
+
+      const visibleRows = (() => {
+        if (role === 'Cafe Owner') return rows;
+        if (!staffBranchId || staffBranchId === 'global') return [];
+        return rows.filter((b) => String(b.id) === staffBranchId);
+      })();
 
       const staffCounts = await db()
         .select(['branch_id'])
@@ -58,7 +65,7 @@ const makeBranchesRouter = () => {
         countByBranch.set(bid, c);
       }
 
-      const branches = rows.map((b) => ({
+      const branches = visibleRows.map((b) => ({
         id: String(b.id),
         name: String(b.name || ''),
         status: String(b.status || 'Open'),

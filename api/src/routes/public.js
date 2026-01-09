@@ -29,9 +29,49 @@ const makePublicRouter = () => {
   };
 
   const clampMoney = (v) => {
-    const n = Number(v);
+    const n = Number(v ?? 0);
     if (!Number.isFinite(n)) return 0;
-    return Math.max(0, Math.round(n * 100) / 100);
+    return Math.max(0, Math.min(1000000, Math.round(n * 100) / 100));
+  };
+
+  const syncRestaurantTableForOrder = async ({ tenantId, branchId, tableId, orderId, nextStatus, nowIso }) => {
+    try {
+      const tid = String(tenantId || '').trim();
+      const bid = String(branchId || '').trim();
+      const tbl = String(tableId || '').trim();
+      const oid = String(orderId || '').trim();
+      const st = String(nextStatus || '').trim();
+      if (!tid || !bid || !tbl || !oid) return;
+
+      const terminal = st === 'Paid' || st === 'Voided' || st === 'Refunded';
+      if (!terminal) {
+        await db()
+          .from('restaurant_tables')
+          .where({ tenant_id: tid, branch_id: bid, id: tbl })
+          .update({ status: 'Occupied', open_order_id: oid, last_order_id: oid, updated_at: nowIso });
+        return;
+      }
+
+      await db().transaction(async (trx) => {
+        const row = await trx('restaurant_tables')
+          .where({ tenant_id: tid, branch_id: bid, id: tbl })
+          .select(['open_order_id'])
+          .first();
+        const curOpen = row?.open_order_id ? String(row.open_order_id) : '';
+        const patch = {
+          status: curOpen && curOpen !== oid ? undefined : 'Free',
+          open_order_id: curOpen && curOpen !== oid ? undefined : null,
+          last_order_id: oid,
+          updated_at: nowIso,
+        };
+        const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+        await trx('restaurant_tables')
+          .where({ tenant_id: tid, branch_id: bid, id: tbl })
+          .update(filtered);
+      });
+    } catch {
+      // ignore
+    }
   };
 
   const loadLink = async ({ token, purpose }) => {
@@ -324,6 +364,11 @@ const makePublicRouter = () => {
           .from('orders')
           .where({ tenant_id: link.tenantId, branch_id: link.branchId, id: link.orderId })
           .update({ status: 'Paid', paid_at: nowIso, payload: JSON.stringify(payload) });
+
+        const tableId = typeof payload?.tableId === 'string' ? payload.tableId.trim() : '';
+        if (tableId) {
+          await syncRestaurantTableForOrder({ tenantId: link.tenantId, branchId: link.branchId, tableId, orderId: link.orderId, nextStatus: 'Paid', nowIso });
+        }
 
         if (tx?.id) {
           await trx

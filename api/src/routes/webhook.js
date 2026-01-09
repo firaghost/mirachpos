@@ -30,6 +30,46 @@ const safeJsonParse = (raw, fallback) => {
     }
 };
 
+const syncRestaurantTableForOrder = async ({ tenantId, branchId, tableId, orderId, nextStatus, nowIso }) => {
+    try {
+        const tid = String(tenantId || '').trim();
+        const bid = String(branchId || '').trim();
+        const tbl = String(tableId || '').trim();
+        const oid = String(orderId || '').trim();
+        const st = String(nextStatus || '').trim();
+        if (!tid || !bid || !tbl || !oid) return;
+
+        const terminal = st === 'Paid' || st === 'Voided' || st === 'Refunded';
+        if (!terminal) {
+            await db()
+                .from('restaurant_tables')
+                .where({ tenant_id: tid, branch_id: bid, id: tbl })
+                .update({ status: 'Occupied', open_order_id: oid, last_order_id: oid, updated_at: nowIso });
+            return;
+        }
+
+        await db().transaction(async (trx) => {
+            const row = await trx('restaurant_tables')
+                .where({ tenant_id: tid, branch_id: bid, id: tbl })
+                .select(['open_order_id'])
+                .first();
+            const curOpen = row?.open_order_id ? String(row.open_order_id) : '';
+            const patch = {
+                status: curOpen && curOpen !== oid ? undefined : 'Free',
+                open_order_id: curOpen && curOpen !== oid ? undefined : null,
+                last_order_id: oid,
+                updated_at: nowIso,
+            };
+            const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+            await trx('restaurant_tables')
+                .where({ tenant_id: tid, branch_id: bid, id: tbl })
+                .update(filtered);
+        });
+    } catch {
+        // ignore
+    }
+};
+
 const escInit = Buffer.from([0x1b, 0x40]);
 const escAlignCenter = Buffer.from([0x1b, 0x61, 0x01]);
 const escAlignLeft = Buffer.from([0x1b, 0x61, 0x00]);
@@ -311,6 +351,15 @@ const makeWebhookRouter = () => {
                         payload: JSON.stringify(payload),
                     });
 
+                    try {
+                        const tableId = typeof payload?.tableId === 'string' ? payload.tableId.trim() : '';
+                        if (tableId) {
+                            await syncRestaurantTableForOrder({ tenantId, branchId, tableId, orderId, nextStatus: 'Paid', nowIso });
+                        }
+                    } catch {
+                        // ignore
+                    }
+
                     await db().from('pos_payment_gateway_transactions').where({ id: posTx.id }).update({
                         status: 'completed',
                         paid_at: nowIso,
@@ -510,6 +559,15 @@ const makeWebhookRouter = () => {
                         paid_at: nowIso,
                         payload: JSON.stringify(payload),
                     });
+
+                    try {
+                        const tableId = typeof payload?.tableId === 'string' ? payload.tableId.trim() : '';
+                        if (tableId) {
+                            await syncRestaurantTableForOrder({ tenantId, branchId, tableId, orderId, nextStatus: 'Paid', nowIso });
+                        }
+                    } catch {
+                        // ignore
+                    }
                 }
 
                 await db().from('pos_payment_gateway_transactions').where({ id: posTx.id }).update({
