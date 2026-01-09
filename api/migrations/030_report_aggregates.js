@@ -40,7 +40,7 @@ exports.up = async (knex) => {
         t.datetime('first_order_at').nullable();
         t.datetime('last_order_at').nullable();
         t.datetime('computed_at').notNullable();
-        t.unique(['tenant_id', 'branch_id', 'report_date']);
+        t.unique(['tenant_id', 'branch_id', 'report_date'], 'uq_dss_t_b_d');
         });
     }
 
@@ -56,7 +56,7 @@ exports.up = async (knex) => {
         t.decimal('net_sales_etb', 14, 2).notNullable().defaultTo(0);
         t.decimal('total_collected_etb', 14, 2).notNullable().defaultTo(0);
         t.datetime('computed_at').notNullable();
-        t.unique(['tenant_id', 'branch_id', 'report_date', 'hour']);
+        t.unique(['tenant_id', 'branch_id', 'report_date', 'hour'], 'uq_hss_t_b_d_h');
         });
     }
 
@@ -76,7 +76,7 @@ exports.up = async (knex) => {
         t.decimal('profit_etb', 14, 2).notNullable().defaultTo(0);
         t.integer('void_qty').notNullable().defaultTo(0);
         t.datetime('computed_at').notNullable();
-        t.unique(['tenant_id', 'branch_id', 'product_id', 'report_date']);
+        t.unique(['tenant_id', 'branch_id', 'product_id', 'report_date'], 'uq_pss_t_b_p_d');
         });
     }
 
@@ -125,7 +125,7 @@ exports.up = async (knex) => {
         t.decimal('revenue_etb', 14, 2).notNullable().defaultTo(0);
         t.integer('order_count').notNullable().defaultTo(0);
         t.datetime('computed_at').notNullable();
-        t.unique(['tenant_id', 'branch_id', 'category', 'report_date']);
+        t.unique(['tenant_id', 'branch_id', 'category', 'report_date'], 'uq_css_t_b_c_d');
         });
     }
 
