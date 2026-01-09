@@ -132,6 +132,29 @@ const getOrCreateTenantSubscription = async (tenant) => {
     .first();
 };
 
+const readActiveAddonEntitlements = async (tenantId) => {
+  const rows = await db()
+    .from({ tas: 'tenant_addon_subscriptions' })
+    .leftJoin({ ap: 'addon_packages' }, 'ap.id', 'tas.addon_id')
+    .select(['tas.status', 'ap.modules_json', 'ap.limits_json'])
+    .where({ 'tas.tenant_id': tenantId, 'tas.status': 'active' });
+
+  const addonModules = [];
+  const addonLimits = {};
+
+  for (const r of rows || []) {
+    const mods = normalizeModules(safeJsonParse(r?.modules_json, []));
+    for (const m of mods) addonModules.push(m);
+    const lim = safeJsonParse(r?.limits_json, null);
+    if (lim && typeof lim === 'object') Object.assign(addonLimits, lim);
+  }
+
+  return {
+    modules: normalizeModules(addonModules),
+    limits: addonLimits,
+  };
+};
+
 const computeTenantEntitlements = async ({ tenant, subscriptionRow = null }) => {
   const tenantId = String(tenant?.id || '').trim();
   if (!tenantId) return null;
@@ -144,9 +167,12 @@ const computeTenantEntitlements = async ({ tenant, subscriptionRow = null }) => 
   const subModules = normalizeModules(safeJsonParse(sub?.modules_json, []));
   const baseModules = subModules.length ? subModules : plan.modules;
 
+  const addonEnt = await readActiveAddonEntitlements(tenantId);
+  const combinedModules = normalizeModules([...(baseModules || []), ...(addonEnt?.modules || [])]);
+
   // Optional override (treated as override only)
   const override = normalizeModules(safeJsonParse(tenant?.enabled_modules_json, null));
-  const effectiveModules = override && override.length ? baseModules.filter((m) => override.includes(m)) : baseModules;
+  const effectiveModules = override && override.length ? combinedModules.filter((m) => override.includes(m)) : combinedModules;
 
   const status = String(sub?.status || 'active');
   const graceEndsAt = sub?.grace_ends_at ? new Date(sub.grace_ends_at).toISOString() : '';
@@ -170,7 +196,7 @@ const computeTenantEntitlements = async ({ tenant, subscriptionRow = null }) => 
       amountEtb: Number(sub?.amount_etb || 0) || 0,
       graceEndsAt,
     },
-    limits: plan.limits,
+    limits: { ...(plan.limits || {}), ...(addonEnt?.limits || {}) },
     pricing: plan.pricing,
     computedAt,
   };

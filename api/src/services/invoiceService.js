@@ -17,6 +17,12 @@ const safeJsonParse = (raw, fallback) => {
     }
 };
 
+const normalizeBillingFrequency = (v) => {
+    const s = String(v || '').trim().toLowerCase();
+    if (s === 'yearly' || s === 'annual' || s === 'annually') return 'yearly';
+    return 'monthly';
+};
+
 // Get platform payment configuration
 const getPlatformPaymentConfig = async () => {
     const row = await db()
@@ -223,6 +229,7 @@ const createManualInvoice = async ({
     dueInDays = 7,
     notes = null,
     type = 'manual',
+    metadata = null,
 }) => {
     const nowIso = new Date().toISOString();
     const invoiceId = makeId('inv');
@@ -251,7 +258,7 @@ const createManualInvoice = async ({
         period_start: null,
         period_end: null,
         notes,
-        metadata_json: null,
+        metadata_json: metadata != null ? JSON.stringify(metadata) : null,
         created_at: nowIso,
         updated_at: nowIso,
     });
@@ -362,6 +369,18 @@ const verifyPayment = async ({ paymentId, verifiedBy }) => {
             }, trx);
         }
 
+        // If addon invoice, activate addon subscription
+        if (metadata.addonId) {
+            await activateAddonSubscription({
+                tenantId: payment.tenant_id,
+                addonId: String(metadata.addonId),
+                billingFrequency: normalizeBillingFrequency(metadata.billingFrequency),
+                pricePaidEtb: Number(payment.amount_etb || 0) || 0,
+                paymentId,
+                invoiceId: payment.invoice_id,
+            }, trx);
+        }
+
         // Record in subscription history
         await trx('subscription_history').insert({
             id: makeId('subh'),
@@ -381,6 +400,70 @@ const verifyPayment = async ({ paymentId, verifiedBy }) => {
 
         return { success: true };
     });
+};
+
+const activateAddonSubscription = async ({ tenantId, addonId, billingFrequency, pricePaidEtb, paymentId, invoiceId }, trx) => {
+    const query = trx || db();
+    const nowIso = new Date().toISOString();
+
+    const addon = await query('addon_packages').select(['id', 'is_available']).where({ id: addonId }).first();
+    if (!addon) return { success: false, error: 'addon_not_found' };
+
+    const freq = normalizeBillingFrequency(billingFrequency);
+    const nextRenewal = (() => {
+        const d = new Date();
+        if (freq === 'yearly') d.setFullYear(d.getFullYear() + 1);
+        else d.setMonth(d.getMonth() + 1);
+        return d.toISOString();
+    })();
+
+    // Upsert subscription row (by unique tenant_id + addon_id)
+    const id = makeId('tas');
+    await query('tenant_addon_subscriptions')
+        .insert({
+            id,
+            tenant_id: tenantId,
+            addon_id: addonId,
+            status: 'active',
+            billing_frequency: freq,
+            price_paid_etb: pricePaidEtb,
+            activation_date: nowIso,
+            next_renewal_date: nextRenewal,
+            cancellation_date: null,
+            created_at: nowIso,
+            updated_at: nowIso,
+        })
+        .onConflict(['tenant_id', 'addon_id'])
+        .merge({
+            status: 'active',
+            billing_frequency: freq,
+            price_paid_etb: pricePaidEtb,
+            activation_date: nowIso,
+            next_renewal_date: nextRenewal,
+            cancellation_date: null,
+            updated_at: nowIso,
+        });
+
+    // Track in subscription_history to reuse existing audit surface
+    await query('subscription_history').insert({
+        id: makeId('subh'),
+        tenant_id: tenantId,
+        action: 'addon_activated',
+        from_tier: null,
+        to_tier: null,
+        from_cycle: null,
+        to_cycle: null,
+        amount_etb: pricePaidEtb,
+        invoice_id: invoiceId || null,
+        payment_id: paymentId || null,
+        actor_type: 'system',
+        actor_id: null,
+        reason: null,
+        metadata_json: JSON.stringify({ addonId, billingFrequency: freq }),
+        created_at: nowIso,
+    });
+
+    return { success: true };
 };
 
 // Reject payment (super admin action)
@@ -625,6 +708,7 @@ module.exports = {
     verifyPayment,
     rejectPayment,
     activateSubscription,
+    activateAddonSubscription,
     getTenantInvoices,
     getInvoiceDetails,
     checkDueInvoices,

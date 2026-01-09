@@ -109,144 +109,128 @@ const createApp = () => {
     const safeToken = token.replace(/</g, '').replace(/>/g, '');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.status(200).send(`<!doctype html>
-<html lang="en">
+<html class="dark" lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MirachPOS Checkout</title>
-    <style>
-      :root{
-        --bg:#221c11;
-        --surface:#2c241b;
-        --surface2:#3a2e22;
-        --stroke:#483c23;
-        --text:#ffffff;
-        --text2:#c9b792;
-        --brand:#eead2b;
-        --brand2:#d49a26;
-        --ok:#22c55e;
-        --danger:#ef4444;
-      }
-      *{box-sizing:border-box}
-      body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:radial-gradient(900px 520px at 50% -120px, rgba(238,173,43,.22), transparent 60%), linear-gradient(180deg,#1a1610,var(--bg)); color:var(--text);}
-      .shell{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:14px;}
-      .phone{width:100%; max-width:480px; min-height:820px; background:var(--surface); border:1px solid rgba(255,255,255,.06); border-radius:18px; overflow:hidden; box-shadow:0 24px 70px rgba(0,0,0,.45); position:relative;}
-      .top{position:sticky; top:0; z-index:10; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:rgba(44,36,27,.92); backdrop-filter: blur(10px); border-bottom:1px solid var(--stroke);}
-      .top .left{display:flex; align-items:center; gap:10px; font-weight:900;}
-      .iconbtn{width:34px;height:34px;border-radius:999px;border:1px solid var(--stroke); background:rgba(255,255,255,.04); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center;}
-      .iconbtn:hover{background:rgba(255,255,255,.07)}
-      .brand{font-weight:900; letter-spacing:.2px;}
-      .brand span{color:var(--brand)}
-      .content{padding-bottom:132px;}
-      .headline{padding:18px 18px 8px 18px; text-align:center;}
-      .cafe{font-size:26px; font-weight:900; letter-spacing:-.02em;}
-      .meta{margin-top:8px; font-size:13px; color:var(--text2); display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap;}
-      .list{padding:10px 14px 0 14px; display:flex; flex-direction:column; gap:10px;}
-      .item{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:12px 10px; border-radius:14px; border:1px solid rgba(255,255,255,.04); background:rgba(0,0,0,.14);}
-      .item:hover{background:rgba(0,0,0,.18)}
-      .itL{display:flex; gap:12px; min-width:0;}
-      .ic{width:44px;height:44px;border-radius:12px; background:rgba(238,173,43,.10); border:1px solid rgba(238,173,43,.18); display:flex; align-items:center; justify-content:center; flex:0 0 auto; color:var(--brand); font-weight:900;}
-      .itT{min-width:0;}
-      .itName{font-weight:900; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:280px;}
-      .itSub{font-size:12px; color:var(--text2); margin-top:2px;}
-      .itP{font-weight:900; font-variant-numeric: tabular-nums; white-space:nowrap;}
-      .divider{height:1px; background:var(--stroke); margin:12px 14px;}
-      .section{padding:0 18px 6px 18px;}
-      .sectHd{display:flex; align-items:center; justify-content:space-between; margin-top:10px;}
-      .sectHd h3{margin:0; font-size:15px; font-weight:900;}
-      .pill{font-size:11px; font-weight:900; color:var(--brand); background:rgba(238,173,43,.10); border:1px solid rgba(238,173,43,.22); padding:6px 10px; border-radius:999px;}
-      .tipGrid{margin-top:10px; display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
-      .tipBtn{cursor:pointer; border-radius:14px; border:1px solid var(--stroke); background:rgba(255,255,255,.03); color:#fff; padding:10px 8px; text-align:center; font-weight:900;}
-      .tipBtn small{display:block; margin-top:4px; font-size:11px; color:var(--text2); font-weight:800;}
-      .tipBtn.active{background:rgba(238,173,43,.14); border-color:rgba(238,173,43,.40); box-shadow:0 0 0 3px rgba(238,173,43,.12) inset;}
-      .tipBtn.active small{color:#fff; opacity:.9;}
-      .tipOther{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;}
-      input{width:100%; height:44px; border-radius:14px; border:1px solid var(--stroke); background:rgba(0,0,0,.20); color:#fff; padding:0 12px; outline:none;}
-      input:focus{border-color:rgba(238,173,43,.55)}
-      .inputs{margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-      .lab{font-size:12px; color:var(--text2); margin-bottom:6px; font-weight:800;}
-      .breakdown{padding:0 18px 10px 18px;}
-      .row{display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; color:var(--text2); margin:10px 0;}
-      .row strong{color:#fff; font-weight:900; font-variant-numeric: tabular-nums;}
-      .dash{border-bottom:2px dashed var(--stroke); margin:12px 0;}
-      .total{display:flex; align-items:flex-end; justify-content:space-between;}
-      .total .l{font-size:16px; font-weight:900; color:#fff;}
-      .total .r{font-size:28px; font-weight:900; color:var(--brand); font-variant-numeric: tabular-nums;}
-      .trust{display:flex; justify-content:center; gap:8px; align-items:center; padding:14px 10px 18px 10px; color:rgba(201,183,146,.75); font-size:12px;}
-      .msg{padding:0 18px 10px 18px;}
-      .err{background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.35); border-radius:14px; padding:10px 12px; color:#fee2e2; font-size:13px;}
-      .ok{background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.35); border-radius:14px; padding:10px 12px; color:#dcfce7; font-size:13px;}
-      .bottom{position:absolute; left:0; right:0; bottom:0; padding:18px 18px 16px 18px; background:linear-gradient(180deg, transparent, rgba(44,36,27,.92) 22%, rgba(44,36,27,1)); border-top:1px solid rgba(72,60,35,.65);}
-      .payBtn{width:100%; height:54px; border:none; border-radius:16px; background:linear-gradient(180deg,var(--brand),var(--brand2)); color:#221c11; font-weight:900; font-size:16px; display:flex; align-items:center; justify-content:space-between; padding:0 18px; cursor:pointer; box-shadow:0 16px 30px rgba(238,173,43,.18);}
-      .payBtn:active{transform:scale(.99)}
-      .payBtn:disabled{opacity:.65; cursor:not-allowed;}
-      .receiptLink{display:none; margin-top:10px; text-align:center;}
-      .receiptLink a{color:var(--brand); font-weight:900; text-decoration:none;}
-      .receiptLink a:hover{text-decoration:underline;}
-      @media (max-width:520px){ .inputs{grid-template-columns:1fr} .tipGrid{grid-template-columns:repeat(2,1fr)} }
-    </style>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: '#eead2b',
+              'accent-gold': '#eead2b',
+              'background-light': '#f6f7f8',
+              'background-dark': '#101922',
+              'surface-dark': '#111a22',
+              'surface-highlight': '#233648',
+              'text-secondary': '#92adc9',
+            },
+            fontFamily: {
+              display: ['Manrope', 'Noto Sans', 'sans-serif'],
+            },
+            borderRadius: {
+              DEFAULT: '0.25rem',
+              lg: '0.5rem',
+              xl: '0.75rem',
+              full: '9999px',
+            },
+          },
+        },
+      };
+    </script>
   </head>
-  <body>
-    <div class="shell">
-      <div class="phone">
-        <header class="top">
-          <div class="left">
-            <button class="iconbtn" type="button" onclick="try{history.back()}catch{}" aria-label="Back">‹</button>
-            <div>Review Order</div>
-          </div>
-          <div class="brand">Mirach<span>POS</span></div>
-        </header>
+  <body class="bg-background-light dark:bg-background-dark font-display text-white overflow-x-hidden antialiased selection:bg-primary/30 selection:text-white">
+    <div class="relative flex min-h-screen w-full flex-col items-center justify-center py-4 sm:py-8">
+      <div class="flex h-full w-full max-w-[480px] flex-col overflow-hidden bg-surface-dark sm:rounded-2xl sm:shadow-2xl sm:ring-1 sm:ring-white/5 relative min-h-[850px]">
+        <button class="absolute top-3 right-3 z-20 flex cursor-pointer items-center justify-center rounded-full size-10 hover:bg-surface-highlight text-white transition-colors" type="button" onclick="try{window.close()}catch{};try{location.replace('about:blank')}catch{};try{setTimeout(()=>window.close(),50)}catch{}" aria-label="Close">
+          <span class="material-symbols-outlined text-[22px]">close</span>
+        </button>
 
-        <div class="content">
-          <div class="headline">
-            <div class="cafe" id="cafe">Loading…</div>
-            <div class="meta" id="meta"> </div>
+        <div class="flex-1 overflow-y-auto pb-32 no-scrollbar" id="mainScroll">
+          <div class="flex flex-col pt-6 pb-2" id="headline">
+            <h2 class="text-white tracking-tight text-[28px] font-bold leading-tight px-6 text-center" id="cafe">Loading…</h2>
+            <p class="text-text-secondary text-sm font-medium leading-normal pt-2 px-6 text-center flex items-center justify-center gap-2" id="meta"></p>
           </div>
 
-          <div class="list" id="items"></div>
+          <div class="flex flex-col px-4 mt-4 space-y-1" id="items"></div>
 
-          <div class="divider"></div>
+          <div class="w-full h-px bg-surface-highlight my-4"></div>
 
-          <div class="section" id="tipSection">
-            <div class="sectHd">
-              <h3>Tip the Team</h3>
-              <div class="pill">Thank you</div>
+          <div class="px-6 py-2" id="tipSection">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-white text-base font-bold">Tip the Team</h3>
+              <span class="text-xs font-bold text-accent-gold bg-accent-gold/10 px-2 py-1 rounded">Great Service!</span>
             </div>
-            <div class="tipGrid" aria-label="Tip percent">
-              <button class="tipBtn" type="button" data-pct="10"><span>10%</span><small id="pct10">ETB 0.00</small></button>
-              <button class="tipBtn" type="button" data-pct="15"><span>15%</span><small id="pct15">ETB 0.00</small></button>
-              <button class="tipBtn" type="button" data-pct="20"><span>20%</span><small id="pct20">ETB 0.00</small></button>
-              <button class="tipBtn" id="otherBtn" type="button"><div class="tipOther"><span>Other</span><small>Custom</small></div></button>
+            <div class="grid grid-cols-4 gap-2 mb-4" aria-label="Tip percent">
+              <button class="tipBtn flex flex-col items-center justify-center py-3 rounded-lg border border-surface-highlight bg-surface-highlight/30 text-white hover:bg-surface-highlight transition-all" type="button" data-pct="5">
+                <span class="text-sm font-bold">5%</span>
+                <span class="tipAmt text-xs text-text-secondary" id="pct5">ETB 0.00</span>
+              </button>
+              <button class="tipBtn flex flex-col items-center justify-center py-3 rounded-lg border border-surface-highlight bg-surface-highlight/30 text-white hover:bg-surface-highlight transition-all" type="button" data-pct="10">
+                <span class="text-sm font-bold">10%</span>
+                <span class="tipAmt text-xs text-text-secondary" id="pct10">ETB 0.00</span>
+              </button>
+              <button class="tipBtn flex flex-col items-center justify-center py-3 rounded-lg border border-surface-highlight bg-surface-highlight/30 text-white hover:bg-surface-highlight transition-all" type="button" data-pct="15">
+                <span class="text-sm font-bold">15%</span>
+                <span class="tipAmt text-xs text-text-secondary" id="pct15">ETB 0.00</span>
+              </button>
+              <button class="tipBtn flex flex-col items-center justify-center py-3 rounded-lg border border-surface-highlight bg-surface-highlight/30 text-white hover:bg-surface-highlight transition-all" id="otherBtn" type="button">
+                <span class="text-sm font-bold">Other</span>
+                <span class="material-symbols-outlined text-[14px] mt-0.5 text-text-secondary">edit</span>
+              </button>
             </div>
 
-            <div class="inputs" id="customInputs" style="display:none">
+            <div class="grid grid-cols-2 gap-3" id="customInputs" style="display:none">
               <div>
-                <div class="lab">Custom tip (ETB)</div>
-                <input id="tipAmt" inputmode="decimal" placeholder="0.00" />
+                <div class="text-xs font-bold text-text-secondary mb-2">Custom tip (ETB)</div>
+                <input id="tipAmt" inputmode="decimal" placeholder="0.00" class="bg-surface-dark border-surface-highlight text-white" />
               </div>
               <div>
-                <div class="lab">Custom tip (%)</div>
-                <input id="tipPct" inputmode="decimal" placeholder="0" />
+                <div class="text-xs font-bold text-text-secondary mb-2">Custom tip (%)</div>
+                <input id="tipPct" inputmode="decimal" placeholder="0" class="bg-surface-dark border-surface-highlight text-white" />
               </div>
             </div>
           </div>
 
-          <div class="breakdown">
-            <div class="row"><span>Subtotal</span><strong id="subtotal">ETB 0.00</strong></div>
-            <div class="row"><span>Tax</span><strong id="tax">ETB 0.00</strong></div>
-            <div class="row"><span>Service</span><strong id="service">ETB 0.00</strong></div>
-            <div class="row"><span id="tipLabel">Tip</span><strong id="tip">ETB 0.00</strong></div>
-            <div class="dash"></div>
-            <div class="total"><div class="l">Total</div><div class="r" id="pay">ETB 0.00</div></div>
+          <div class="px-6 py-2 space-y-3" id="breakdown">
+            <div class="flex items-center justify-between text-sm"><span class="text-text-secondary">Subtotal</span><span class="text-white font-medium" id="subtotal">ETB 0.00</span></div>
+            <div class="flex items-center justify-between text-sm"><span class="text-text-secondary">Tax</span><span class="text-white font-medium" id="tax">ETB 0.00</span></div>
+            <div class="flex items-center justify-between text-sm"><span class="text-text-secondary">Service</span><span class="text-white font-medium" id="service">ETB 0.00</span></div>
+            <div class="flex items-center justify-between text-sm"><span class="text-text-secondary" id="tipLabel">Tip</span><span class="text-white font-medium" id="tip">ETB 0.00</span></div>
+            <div class="border-b-2 border-dashed border-surface-highlight my-2"></div>
+            <div class="flex items-center justify-between">
+              <span class="text-white text-lg font-bold">Total</span>
+              <span class="text-white text-2xl font-extrabold tracking-tight" id="pay">ETB 0.00</span>
+            </div>
           </div>
 
-          <div class="msg" id="msg"></div>
-          <div class="trust">🔒 Secure checkout powered by MirachPOS</div>
+          <div class="px-6 py-2" id="msg"></div>
+
+          <div class="flex justify-center items-center gap-1.5 py-6 opacity-60" id="trust">
+            <span class="material-symbols-outlined text-[14px] text-accent-gold">lock</span>
+            <span class="text-xs text-text-secondary">Secure checkout powered by MirachPOS</span>
+          </div>
+
+          <div class="px-4 pb-6" id="receiptWrap" style="display:none">
+            <div class="bg-white rounded-xl overflow-hidden">
+              <iframe id="receiptFrame" title="Receipt" style="width:100%; border:0; height:780px;"></iframe>
+            </div>
+          </div>
         </div>
 
-        <div class="bottom">
-          <button id="payBtn" class="payBtn" type="button"><span>Pay Now</span><span id="payBtnAmt">ETB 0.00</span></button>
-          <div class="receiptLink" id="receiptLinkWrap"><a id="receiptLink" href="#">View Receipt</a></div>
+        <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-surface-dark via-surface-dark to-transparent pt-12 pb-6 px-6 z-20" id="bottomBar">
+          <button class="w-full bg-primary hover:bg-primary/90 text-black font-bold text-lg h-14 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-between px-6 transition-transform active:scale-[0.98]" id="payBtn" type="button">
+            <span>Pay Now</span>
+            <span id="payBtnAmt">ETB 0.00</span>
+          </button>
           <div id="status" style="display:none"></div>
         </div>
       </div>
@@ -260,8 +244,10 @@ const createApp = () => {
       const status = document.getElementById('status');
       const setMsg = (text, cls) => {
         const safe = String(text || '');
-        msg.className = cls || '';
-        msg.innerHTML = safe ? '<div class="' + (cls || '') + '">' + safe + '</div>' : '';
+        msg.className = '';
+        msg.innerHTML = safe
+          ? '<div class="' + (cls === 'err' ? 'rounded-xl border border-red-500/30 bg-red-500/10 text-red-100 px-4 py-3 text-sm font-medium' : 'rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-100 px-4 py-3 text-sm font-medium') + '">' + safe + '</div>'
+          : '';
       };
       const money = (n) => (Math.round((Number(n)||0)*100)/100).toFixed(2);
 
@@ -286,34 +272,36 @@ const createApp = () => {
         document.getElementById('pay').textContent = currency + ' ' + money(totalPay);
         document.getElementById('payBtnAmt').textContent = currency + ' ' + money(totalPay);
 
+        document.getElementById('pct5').textContent = currency + ' ' + money(baseBeforeTip * 0.05);
         document.getElementById('pct10').textContent = currency + ' ' + money(baseBeforeTip * 0.10);
         document.getElementById('pct15').textContent = currency + ' ' + money(baseBeforeTip * 0.15);
-        document.getElementById('pct20').textContent = currency + ' ' + money(baseBeforeTip * 0.20);
-      };
-
-      const applyReceiptLink = (receiptUrl) => {
-        if (!receiptUrl) return;
-        const a = document.getElementById('receiptLink');
-        const w = document.getElementById('receiptLinkWrap');
-        if (w) w.style.display = 'block';
-        a.style.display = 'inline';
-        a.href = receiptUrl;
       };
 
       const setPaidUi = (receiptUrl) => {
         status.textContent = 'Paid';
-        applyReceiptLink(receiptUrl || '');
-        const btn = document.getElementById('payBtn');
-        if (btn) btn.style.display = 'none';
+        const bottom = document.getElementById('bottomBar');
+        if (bottom) bottom.style.display = 'none';
         const tipSection = document.getElementById('tipSection');
         if (tipSection) tipSection.style.display = 'none';
+        const headline = document.getElementById('headline');
+        if (headline) headline.style.display = 'none';
+        const items = document.getElementById('items');
+        if (items) items.style.display = 'none';
+        const breakdown = document.getElementById('breakdown');
+        if (breakdown) breakdown.style.display = 'none';
+        const trust = document.getElementById('trust');
+        if (trust) trust.style.display = 'none';
+        const wrap = document.getElementById('receiptWrap');
+        const frame = document.getElementById('receiptFrame');
+        if (wrap) wrap.style.display = 'block';
+        if (frame && receiptUrl) frame.src = receiptUrl;
       };
 
       const load = async () => {
         const r = await fetch(API + '/public/pos-links/' + encodeURIComponent(TOKEN), { cache: 'no-store' });
         const j = await r.json().catch(()=>null);
         if (!r.ok || !j || !j.ok) throw new Error((j && (j.message || j.error)) || 'Failed to load payment');
-        currency = String(j.currency || 'ETB');
+        currency = 'ETB';
         receiptUrlGlobal = String(j.receiptUrl || '');
         document.getElementById('cafe').textContent = j.cafeName || 'MirachPOS';
 
@@ -332,9 +320,19 @@ const createApp = () => {
           const unit = Number(it && (it.unitPrice ?? it.unit_price) ? (it.unitPrice ?? it.unit_price) : 0) || 0;
           const line = unit * qty;
           const note = typeof it?.note === 'string' ? it.note.trim() : '';
-          const sub = note ? note : (qty > 0 ? ('x' + qty + ' @ ' + currency + ' ' + money(unit)) : '');
-          const initials = name ? name.trim().slice(0, 1).toUpperCase() : '•';
-          return '<div class="item"><div class="itL"><div class="ic">' + initials + '</div><div class="itT"><div class="itName">' + name + '</div><div class="itSub">' + sub + '</div></div></div><div class="itP">' + currency + ' ' + money(line) + '</div></div>';
+          const sub = note ? note : (qty > 0 ? ('x' + qty + ' @ ETB ' + money(unit)) : '');
+          const icon = '<span class="material-symbols-outlined text-text-secondary">restaurant</span>';
+          return '' +
+            '<div class="flex items-start gap-4 bg-surface-dark px-2 py-3 justify-between rounded-lg hover:bg-surface-highlight/20 transition-colors">' +
+              '<div class="flex gap-4">' +
+                '<div class="size-12 rounded-lg bg-surface-highlight flex items-center justify-center shrink-0">' + icon + '</div>' +
+                '<div class="flex flex-col justify-center">' +
+                  '<p class="text-white text-base font-bold leading-normal">' + name + '</p>' +
+                  '<p class="text-text-secondary text-sm font-medium leading-normal">' + sub + '</p>' +
+                '</div>' +
+              '</div>' +
+              '<div class="shrink-0 pt-1"><p class="text-white text-base font-semibold leading-normal">ETB ' + money(line) + '</p></div>' +
+            '</div>';
         }).join('');
 
         baseSubtotal = Number(j.subtotal || 0) || 0;
@@ -344,9 +342,7 @@ const createApp = () => {
 
         if (j.paid) {
           setPaidUi(j.receiptUrl || '');
-          setMsg('Payment completed. Opening receipt…', 'ok');
-        } else {
-          applyReceiptLink(j.receiptUrl || '');
+          setMsg('', 'ok');
         }
 
         if (j.paid) {
@@ -370,14 +366,6 @@ const createApp = () => {
           const j = await load();
           if (j && j.paid) {
             const receiptUrl = String(j.receiptUrl || '');
-            if (receiptUrl) {
-              try {
-                location.replace(receiptUrl);
-                return;
-              } catch {
-                // ignore
-              }
-            }
             return;
           }
         } catch {
@@ -402,8 +390,19 @@ const createApp = () => {
         document.querySelectorAll('.tipBtn[data-pct]').forEach((x) => {
           try {
             const v = Number(x.getAttribute('data-pct') || 0);
-            if (v === selectedPreset) x.classList.add('active');
-            else x.classList.remove('active');
+            const selected = v === selectedPreset;
+            x.classList.toggle('border-primary', selected);
+            x.classList.toggle('bg-primary', selected);
+            x.classList.toggle('text-black', selected);
+            x.classList.toggle('shadow-[0_0_15px_rgba(238,173,43,0.25)]', selected);
+            x.classList.toggle('border-surface-highlight', !selected);
+            x.classList.toggle('bg-surface-highlight/30', !selected);
+            x.classList.toggle('text-white', !selected);
+            const amtEl = x.querySelector('.tipAmt');
+            if (amtEl) {
+              amtEl.classList.toggle('text-black/80', selected);
+              amtEl.classList.toggle('text-text-secondary', !selected);
+            }
           } catch {
             // ignore
           }
@@ -486,33 +485,76 @@ const createApp = () => {
     <title>MirachPOS Receipt</title>
     <style>
       *{box-sizing:border-box}
-      body{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#111827; margin:0; padding:14px; color:#111;}
-      .paper{max-width:420px; margin:0 auto; background:#fff; border-radius:10px; box-shadow:0 14px 36px rgba(0,0,0,.35); overflow:hidden}
-      .pad{padding:12px 12px}
-      pre{margin:0; font-size:12px; line-height:1.25; white-space:pre;}
-      .err{max-width:420px;margin:0 auto;background:#fee2e2;border:1px solid #fecaca;color:#7f1d1d;padding:10px 12px;border-radius:12px}
-      .qr{display:flex; flex-direction:column; align-items:center; gap:8px; margin-top:10px;}
-      .qr img{width:160px;height:160px; image-rendering:pixelated;}
-      @media print{body{padding:0;background:#fff} .paper{box-shadow:none;border-radius:0}}
+      body{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#ffffff; margin:0; color:#111; min-height:100vh; display:flex; flex-direction:column;}
+      .topbar{position:sticky; top:0; z-index:10; background:#ffffffcc; backdrop-filter: blur(8px); border-bottom:1px solid #e5e7eb;}
+      .topbar-inner{max-width:980px; margin:0 auto; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px;}
+      .title{font-weight:800; color:#111827; letter-spacing:0.01em;}
+      .actions{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
+      .btn{height:36px; padding:0 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; color:#111827; font-weight:700; cursor:pointer;}
+      .btn:hover{background:#f9fafb}
+      .btn.primary{background:#111827; color:#fff; border-color:#111827}
+      .btn.primary:hover{background:#0b1220}
+      .page{flex:1; display:flex; justify-content:center; align-items:flex-start; padding:18px 12px 28px}
+      .paper{max-width:420px; margin:0 auto; background:#fff; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.12); overflow:hidden; border:1px solid #e5e7eb}
+      .pad{padding:14px 14px}
+      pre{margin:0; font-size:12px; line-height:1.25; white-space:pre; color:#111827;}
+      .err{max-width:420px;margin:16px auto 0;background:#fee2e2;border:1px solid #fecaca;color:#7f1d1d;padding:10px 12px;border-radius:12px}
+      .qr{display:flex; flex-direction:column; align-items:center; gap:8px; margin-top:12px; padding-top:12px; border-top:1px dashed #e5e7eb;}
+      .qr img{width:168px;height:168px; image-rendering:pixelated; background:#fff; padding:8px; border:1px solid #e5e7eb; border-radius:10px;}
+      .muted{color:#6b7280}
+      @media print{
+        body{background:#fff}
+        .topbar{display:none}
+        .page{padding:0; display:block}
+        .paper{box-shadow:none;border-radius:0;border:0;max-width:100%}
+      }
     </style>
   </head>
   <body>
-    <div id="err" class="err" style="display:none"></div>
-    <div class="paper" id="wrap" style="display:none">
-      <div class="pad">
-        <pre id="rcp">-</pre>
-        <div class="qr">
-          <div style="font-size:12px;color:#555">Scan to view this receipt</div>
-          <img id="qr" alt="Receipt QR" />
-          <div style="font-size:11px;color:#555">Powered by MirachPOS</div>
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div class="title">Receipt</div>
+        <div class="actions">
+          <button id="btnPrint" class="btn">Print</button>
+          <button id="btnDownload" class="btn primary">Download PNG</button>
+        </div>
+      </div>
+    </div>
+    <div class="page">
+      <div id="err" class="err" style="display:none"></div>
+      <div class="paper" id="wrap" style="display:none">
+        <div class="pad" id="paper">
+          <pre id="rcp">-</pre>
+          <div class="qr">
+            <div class="muted" style="font-size:12px">Scan to view this receipt</div>
+            <img id="qr" alt="Receipt QR" crossOrigin="anonymous" />
+            <div class="muted" style="font-size:11px">Powered by MirachPOS</div>
+          </div>
         </div>
       </div>
     </div>
     <script>
       const TOKEN = ${JSON.stringify(safeToken)};
       const API = ${JSON.stringify(apiBase)};
-      const money = (n) => (Math.round((Number(n)||0)*100)/100).toFixed(2);
+      const money = (n) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
       const showErr = (t) => { const e=document.getElementById('err'); e.style.display='block'; e.textContent=t; };
+      const downloadBlob = (blob, filename) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      };
+      const loadImage = (src) => new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
       const padR = (s,n) => { s=String(s||''); return s.length>=n ? s.slice(0,n) : s + ' '.repeat(n-s.length); };
       const padL = (s,n) => { s=String(s||''); return s.length>=n ? s.slice(s.length-n) : ' '.repeat(n-s.length) + s; };
       const center = (s,n) => { s=String(s||'').trim(); if(!s) return ''; if(s.length>=n) return s.slice(0,n); const left=Math.floor((n-s.length)/2); const right=n-s.length-left; return ' '.repeat(left)+s+' '.repeat(right); };
@@ -532,7 +574,7 @@ const createApp = () => {
         const phone = String(j.phone || '').trim();
         const tin = String(j.tin || '').trim();
         if (addr) lines.push(center(addr, cols));
-        if (phone) lines.push(center('TEL: ' + phone.replace(/^tel\s*[:\-]?\s*/i,''), cols));
+        if (phone) lines.push(center('TEL: ' + phone.replace(/^tel\\s*[:\\-]?\\s*/i,''), cols));
         if (tin) lines.push(center('TIN: ' + tin, cols));
         lines.push('');
 
@@ -584,12 +626,93 @@ const createApp = () => {
         lines.push('');
         lines.push(center('Powered by MirachPOS', cols));
 
-        document.getElementById('rcp').textContent = lines.join('\n');
+        document.getElementById('rcp').textContent = lines.join('\\n');
 
         const receiptUrl = location.origin + '/r/' + encodeURIComponent(TOKEN);
         const qr = document.getElementById('qr');
         const qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(receiptUrl);
         qr.src = qrSrc;
+
+        // Wire up actions
+        const btnPrint = document.getElementById('btnPrint');
+        const btnDownload = document.getElementById('btnDownload');
+        if (btnPrint) btnPrint.onclick = () => window.print();
+
+        if (btnDownload) {
+          btnDownload.onclick = async () => {
+            try {
+              const pre = document.getElementById('rcp');
+              const text = pre ? String(pre.textContent || '') : '';
+              const textNorm = text.split('\\r').join('');
+              const lines2 = textNorm.split('\\n');
+
+              const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+              const pad = 16;
+              const fontSize = 12;
+              const lineHeight = 16;
+              const font = fontSize + 'px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+
+              // Measure
+              const tmp = document.createElement('canvas');
+              const tctx = tmp.getContext('2d');
+              if (!tctx) throw new Error('canvas_not_supported');
+              tctx.font = font;
+              let maxW = 0;
+              for (const ln of lines2) maxW = Math.max(maxW, tctx.measureText(ln).width);
+
+              const qrImg = await loadImage(qrSrc);
+              const qrSize = 180;
+              const gap = 14;
+              const width = Math.ceil(Math.max(maxW, qrSize) + pad * 2);
+              const height = Math.ceil(pad + lines2.length * lineHeight + gap + 24 + qrSize + 24 + pad);
+
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.ceil(width * dpr);
+              canvas.height = Math.ceil(height * dpr);
+              const ctx = canvas.getContext('2d');
+              if (!ctx) throw new Error('canvas_not_supported');
+
+              ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, width, height);
+              ctx.fillStyle = '#111827';
+              ctx.font = font;
+
+              let y = pad + fontSize;
+              for (const ln of lines2) {
+                ctx.fillText(ln, pad, y);
+                y += lineHeight;
+              }
+
+              y += gap;
+              ctx.fillStyle = '#6b7280';
+              ctx.font = '12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+              ctx.fillText('Scan to view this receipt', pad, y);
+              y += 14;
+
+              // Center QR
+              const qx = Math.round((width - qrSize) / 2);
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(qx - 6, y - 6, qrSize + 12, qrSize + 12);
+              ctx.strokeStyle = '#e5e7eb';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(qx - 6, y - 6, qrSize + 12, qrSize + 12);
+              ctx.drawImage(qrImg, qx, y, qrSize, qrSize);
+              y += qrSize + 18;
+
+              ctx.fillStyle = '#6b7280';
+              ctx.fillText('Powered by MirachPOS', pad, y);
+
+              canvas.toBlob((blob) => {
+                if (!blob) return;
+                const name = 'receipt_' + TOKEN + '.png';
+                downloadBlob(blob, name);
+              }, 'image/png');
+            } catch (e) {
+              showErr('Failed to export receipt image');
+            }
+          };
+        }
       };
       load().catch((e)=>showErr(String(e && e.message ? e.message : e)));
     </script>

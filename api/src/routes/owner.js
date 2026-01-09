@@ -3,46 +3,20 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const { db } = require('../db');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
-const { db } = require('../db');
-const { uid } = require('../utils/ids');
+const { safeJsonParse, safeJsonStringify } = require('../utils/errors');
+const { logAudit } = require('../utils/logger');
+const { decryptConfigFields } = require('../utils/secretEncryption');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 const { requireRole, requirePermission } = require('../middleware/permissions');
 const { computeTenantEntitlements, normalizeModules, upsertTenantEntitlementsSnapshot } = require('../services/entitlements');
-
-const safeJsonParse = (raw, fallback) => {
-  try {
-    if (!raw) return fallback;
-    const parsed = JSON.parse(String(raw));
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
-};
 
 const clampInt = (n, min, max, fallback) => {
   const v = Number(n);
   if (!Number.isFinite(v)) return fallback;
   return Math.max(min, Math.min(max, Math.trunc(v)));
-};
-
-const logAudit = async ({ tenantId, branchId, actorStaffId, actorRole, type, summary, payload }) => {
-  try {
-    await db().from('audit_log').insert({
-      id: uid('aud'),
-      tenant_id: tenantId,
-      branch_id: branchId || null,
-      actor_staff_id: actorStaffId || null,
-      actor_role: actorRole || null,
-      type,
-      summary: summary || null,
-      payload_json: payload != null ? JSON.stringify(payload) : null,
-      created_at: new Date().toISOString(),
-    });
-  } catch {
-    // ignore
-  }
 };
 
 const slugCode = (name) => {
@@ -307,6 +281,379 @@ const normalizeOwnerSettings = (body, prev) => {
 const makeOwnerRouter = () => {
   const r = express.Router();
 
+  const requireOwnerAuth = (req, res) => {
+    if (!req.auth?.staffId) {
+      res.status(401).json({ error: 'unauthorized' });
+      return false;
+    }
+    return true;
+  };
+
+  // Integration Marketplace: Available + Installed
+  r.get(
+    '/owner/integrations/available',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('settings.manage'),
+    async (req, res, next) => {
+    try {
+      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
+      const category = typeof req.query?.category === 'string' ? req.query.category.trim() : '';
+
+      const base = db().from('integrations_catalog').where({ is_available: 1 });
+      if (category) base.andWhere({ category });
+      if (q) base.andWhere((qb) => qb.whereRaw('LOWER(code) LIKE ?', [`%${q}%`]).orWhereRaw('LOWER(name) LIKE ?', [`%${q}%`]).orWhereRaw('LOWER(category) LIKE ?', [`%${q}%`]));
+
+      const rows = await base
+        .select(['id', 'code', 'name', 'description', 'category', 'integration_type', 'required_tier', 'config_schema_json', 'meta_json', 'updated_at'])
+        .orderBy('updated_at', 'desc')
+        .limit(300);
+
+      const integrations = (rows || []).map((r0) => ({
+        id: String(r0.id),
+        code: String(r0.code || ''),
+        name: String(r0.name || ''),
+        description: r0.description != null ? String(r0.description) : '',
+        category: r0.category != null ? String(r0.category) : '',
+        integrationType: String(r0.integration_type || 'api_key'),
+        requiredTier: r0.required_tier != null ? String(r0.required_tier) : null,
+        configSchema: safeJsonParse(r0.config_schema_json, null),
+        meta: safeJsonParse(r0.meta_json, {}),
+        updatedAt: r0.updated_at ? new Date(r0.updated_at).toISOString() : '',
+      }));
+
+      return res.json({ ok: true, integrations });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.get(
+    '/owner/integrations',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('settings.manage'),
+    async (req, res, next) => {
+    try {
+      const rows = await db()
+        .from({ ti: 'tenant_integrations' })
+        .leftJoin({ ic: 'integrations_catalog' }, 'ic.id', 'ti.integration_id')
+        .select([
+          'ti.id',
+          'ti.integration_id',
+          'ti.status',
+          'ti.config_json',
+          'ti.installed_at',
+          'ti.updated_at',
+          'ic.code',
+          'ic.name',
+          'ic.category',
+          'ic.integration_type',
+          'ic.is_available',
+        ])
+        .where({ 'ti.tenant_id': req.tenant.id })
+        .orderBy('ti.updated_at', 'desc')
+        .limit(500);
+
+      const installed = (rows || []).map((r0) => ({
+        id: String(r0.id),
+        integrationId: String(r0.integration_id || ''),
+        code: r0.code != null ? String(r0.code) : '',
+        name: r0.name != null ? String(r0.name) : '',
+        category: r0.category != null ? String(r0.category) : '',
+        integrationType: r0.integration_type != null ? String(r0.integration_type) : '',
+        isAvailable: Boolean(r0.is_available),
+        status: String(r0.status || 'installed'),
+        config: safeJsonParse(r0.config_json, {}),
+        installedAt: r0.installed_at ? new Date(r0.installed_at).toISOString() : '',
+        updatedAt: r0.updated_at ? new Date(r0.updated_at).toISOString() : '',
+      }));
+
+      return res.json({ ok: true, installed });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.post(
+    '/owner/integrations/:id/install',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('settings.manage'),
+    async (req, res, next) => {
+    try {
+      if (!requireOwnerAuth(req, res)) return;
+
+      const integrationId = String(req.params?.id || '').trim();
+      if (!integrationId) return res.status(400).json({ error: 'id_required' });
+
+      const ic = await db().select(['id', 'is_available']).from('integrations_catalog').where({ id: integrationId }).first();
+      if (!ic) return res.status(404).json({ error: 'not_found' });
+      if (!ic.is_available) return res.status(409).json({ error: 'not_available' });
+
+      const nowIso = new Date().toISOString();
+      const id = uid('tint');
+      const configJson = safeJsonStringify(req.body?.config && typeof req.body.config === 'object' ? req.body.config : {});
+
+      try {
+        await db().from('tenant_integrations').insert({
+          id,
+          tenant_id: req.tenant.id,
+          integration_id: integrationId,
+          status: 'installed',
+          config_json: configJson,
+          secrets_json: null,
+          installed_at: nowIso,
+          updated_at: nowIso,
+        });
+      } catch (e) {
+        const msg = String(e?.message || '').toLowerCase();
+        if (msg.includes('duplicate') || msg.includes('unique')) return res.status(409).json({ error: 'already_installed' });
+        throw e;
+      }
+
+      await logAudit({
+        tenantId: req.tenant.id,
+        branchId: null,
+        actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+        actorRole: req.auth?.role ? String(req.auth.role) : null,
+        type: 'owner.integrations.install',
+        summary: 'Installed integration',
+        payload: { integrationId },
+      });
+
+      return res.status(201).json({ ok: true, id });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.put(
+    '/owner/integrations/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('settings.manage'),
+    async (req, res, next) => {
+    try {
+      if (!requireOwnerAuth(req, res)) return;
+
+      const integrationId = String(req.params?.id || '').trim();
+      if (!integrationId) return res.status(400).json({ error: 'id_required' });
+
+      const row = await db()
+        .select(['id', 'config_json', 'status'])
+        .from('tenant_integrations')
+        .where({ tenant_id: req.tenant.id, integration_id: integrationId })
+        .first();
+      if (!row) return res.status(404).json({ error: 'not_installed' });
+
+      const patch = { updated_at: new Date().toISOString() };
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, 'status')) {
+        const s = String(req.body.status || '').trim();
+        if (s) patch.status = s;
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, 'config')) {
+        const cfg = req.body.config && typeof req.body.config === 'object' ? req.body.config : {};
+        patch.config_json = safeJsonStringify(cfg);
+      }
+
+      await db().from('tenant_integrations').where({ id: String(row.id) }).update(patch);
+
+      await logAudit({
+        tenantId: req.tenant.id,
+        branchId: null,
+        actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+        actorRole: req.auth?.role ? String(req.auth.role) : null,
+        type: 'owner.integrations.update',
+        summary: 'Updated integration config',
+        payload: { integrationId, keys: Object.keys(patch).filter((k) => k !== 'updated_at') },
+      });
+
+      return res.json({ ok: true });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  // POS Payment Gateways (Tenant-owned credentials)
+  r.get(
+    '/owner/pos-payment-gateways',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('settings.manage'),
+    async (req, res, next) => {
+    try {
+      if (!requireOwnerAuth(req, res)) return;
+
+      const rows = await db()
+        .from('tenant_pos_payment_gateways')
+        .select(['gateway', 'enabled', 'config_json', 'updated_at'])
+        .where({ tenant_id: req.tenant.id })
+        .orderBy('gateway', 'asc');
+
+      const secretFieldsByGateway = {
+        chapa: ['secretKey', 'webhookSecret', 'publicKey'],
+        telebirr: ['fabricAppId', 'merchantAppId', 'merchantCode', 'privateKey'],
+        cbe_birr: ['merchantId', 'privateKey', 'publicKey'],
+        santimpay: ['merchantId', 'privateKey', 'publicKey'],
+      };
+
+      const gateways = (rows || []).map((r0) => {
+        const g = String(r0.gateway || '').trim().toLowerCase();
+        const cfg0 = safeJsonParse(r0.config_json, {});
+        const fields = Array.isArray(secretFieldsByGateway[g]) ? secretFieldsByGateway[g] : [];
+        let cfg = cfg0;
+        try {
+          cfg = decryptConfigFields(cfg0, fields);
+        } catch {
+          cfg = cfg0;
+        }
+        const secretKey = typeof cfg?.secretKey === 'string' ? cfg.secretKey : '';
+        const webhookSecret = typeof cfg?.webhookSecret === 'string' ? cfg.webhookSecret : '';
+        const mask = (s) => {
+          const v = String(s || '');
+          if (!v) return '';
+          if (v.length <= 8) return '********';
+          return `${v.slice(0, 4)}****${v.slice(-4)}`;
+        };
+        return {
+          gateway: String(r0.gateway || ''),
+          enabled: Boolean(r0.enabled),
+          updatedAt: r0.updated_at ? new Date(r0.updated_at).toISOString() : '',
+          config: {
+            secretKeyMasked: mask(secretKey),
+            webhookSecretMasked: mask(webhookSecret),
+          },
+        };
+      });
+
+      return res.json({ ok: true, gateways });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.put(
+    '/owner/pos-payment-gateways/:gateway',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('settings.manage'),
+    async (req, res, next) => {
+    try {
+      if (!requireOwnerAuth(req, res)) return;
+
+      const gateway = String(req.params?.gateway || '').trim().toLowerCase();
+      if (!gateway) return res.status(400).json({ error: 'gateway_required' });
+      if (gateway !== 'chapa' && gateway !== 'telebirr' && gateway !== 'cbe_birr' && gateway !== 'santimpay') {
+        return res.status(400).json({ error: 'invalid_gateway' });
+      }
+
+      const enabled = req.body?.enabled === true;
+
+      // Tenants are not allowed to set gateway secrets. Super Admin only.
+      if (req.body && typeof req.body === 'object' && req.body.config && typeof req.body.config === 'object') {
+        const cfg = req.body.config;
+        if (cfg && typeof cfg === 'object' && Object.keys(cfg).length > 0) {
+          return res.status(403).json({ error: 'forbidden', message: 'Only Super Admin can configure payment gateway credentials.' });
+        }
+      }
+
+      const nowIso = new Date().toISOString();
+
+      // Preserve existing secrets (set by Super Admin).
+      const existing = await db()
+        .from('tenant_pos_payment_gateways')
+        .select(['config_json'])
+        .where({ tenant_id: req.tenant.id, gateway })
+        .first();
+      const prevCfg = safeJsonParse(existing?.config_json, {});
+
+      const nextCfg = prevCfg && typeof prevCfg === 'object' ? prevCfg : {};
+
+      await db()
+        .from('tenant_pos_payment_gateways')
+        .insert({
+          tenant_id: req.tenant.id,
+          gateway,
+          enabled: enabled ? 1 : 0,
+          config_json: JSON.stringify(nextCfg),
+          updated_at: nowIso,
+        })
+        .onConflict(['tenant_id', 'gateway'])
+        .merge({
+          enabled: enabled ? 1 : 0,
+          config_json: JSON.stringify(nextCfg),
+          updated_at: nowIso,
+        });
+
+      await logAudit({
+        tenantId: req.tenant.id,
+        branchId: null,
+        actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+        actorRole: req.auth?.role ? String(req.auth.role) : null,
+        type: 'owner.pos_payment_gateways.update',
+        summary: `Updated POS payment gateway: ${gateway}`,
+        payload: { gateway, enabled },
+      });
+
+      return res.json({ ok: true });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.delete(
+    '/owner/integrations/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('settings.manage'),
+    async (req, res, next) => {
+    try {
+      if (!requireOwnerAuth(req, res)) return;
+
+      const integrationId = String(req.params?.id || '').trim();
+      if (!integrationId) return res.status(400).json({ error: 'id_required' });
+
+      const deleted = await db().from('tenant_integrations').where({ tenant_id: req.tenant.id, integration_id: integrationId }).del();
+      if (!deleted) return res.status(404).json({ error: 'not_found' });
+
+      await logAudit({
+        tenantId: req.tenant.id,
+        branchId: null,
+        actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+        actorRole: req.auth?.role ? String(req.auth.role) : null,
+        type: 'owner.integrations.uninstall',
+        summary: 'Uninstalled integration',
+        payload: { integrationId },
+      });
+
+      return res.json({ ok: true });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
   r.get(
     '/owner/plans',
     tenantMiddleware,
@@ -338,14 +685,6 @@ const makeOwnerRouter = () => {
       return next(e);
     }
   });
-
-  const requireOwnerAuth = (req, res) => {
-    if (!req.auth?.staffId) {
-      res.status(401).json({ error: 'unauthorized' });
-      return false;
-    }
-    return true;
-  };
 
   r.post(
     '/owner/system/hard-reset',

@@ -7,6 +7,7 @@ import { apiFetch, serverNowMs } from '../api';
 import { usePersistedState } from '../usePersistedState';
 import { readSession } from '../session';
 import { hasPermission } from '../rbac';
+import { formatDeviceDateTime } from '../datetime';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -1289,15 +1290,15 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                   </div>
                   <div className="text-right">
                     <div className="text-[11px] text-[#c9b792] font-mono">Created {poDetail.createdAt ? formatRelativeTime(poDetail.createdAt) : ''}</div>
-                    <div className="text-[11px] text-[#c9b792]/70 font-mono">{poDetail.createdAt ? new Date(poDetail.createdAt).toLocaleString() : ''}</div>
+                    <div className="text-[11px] text-[#c9b792]/70 font-mono">{poDetail.createdAt ? (formatDeviceDateTime(poDetail.createdAt) || '') : ''}</div>
                   </div>
                 </div>
                 <div className="mt-2 text-xs text-[#c9b792]">Notes: {poDetail.notes || '—'}</div>
                 {poDetail.sentAt ? (
-                  <div className="mt-2 text-[11px] text-[#c9b792]/70 font-mono">Sent at: {new Date(poDetail.sentAt).toLocaleString()}</div>
+                  <div className="mt-2 text-[11px] text-[#c9b792]/70 font-mono">Sent at: {formatDeviceDateTime(poDetail.sentAt) || ''}</div>
                 ) : null}
                 {poDetail.receivedAt ? (
-                  <div className="mt-1 text-[11px] text-emerald-200/80 font-mono">Received at: {new Date(poDetail.receivedAt).toLocaleString()}</div>
+                  <div className="mt-1 text-[11px] text-emerald-200/80 font-mono">Received at: {formatDeviceDateTime(poDetail.receivedAt) || ''}</div>
                 ) : null}
               </div>
             ) : null}
@@ -1681,7 +1682,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                         </div>
                         <div className="text-right">
                           <div className="text-xs text-[#c9b792] font-mono">{h.at ? formatRelativeTime(h.at) : ''}</div>
-                          <div className="text-[10px] text-[#c9b792]/70 font-mono">{h.at ? new Date(h.at).toLocaleString() : ''}</div>
+                          <div className="text-[10px] text-[#c9b792]/70 font-mono">{h.at ? (formatDeviceDateTime(h.at) || '') : ''}</div>
                         </div>
                       </div>
                     </div>
@@ -1816,7 +1817,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                         <td className="p-4">
                           <div className="flex flex-col">
                             <span className="text-sm text-text-muted font-mono">{a.at ? formatRelativeTime(a.at) : ' ”'}</span>
-                            <span className="text-[11px] text-text-muted/70 font-mono">{a.at ? new Date(a.at).toLocaleString() : ''}</span>
+                            <span className="text-[11px] text-text-muted/70 font-mono">{a.at ? (formatDeviceDateTime(a.at) || '') : ''}</span>
                           </div>
                         </td>
                         <td className="p-4">

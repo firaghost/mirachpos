@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { apiFetch } from '../../api';
 import { Header } from '../../components/Header';
 import { usePos } from '../../PosContext';
 import { Screen } from '../../types';
-import { apiFetch } from '../../api';
-import { InitializePosModal } from '../../components/InitializePosModal';
 import { readSession } from '../../session';
+import { formatDeviceTime } from '../../datetime';
+import { InitializePosModal } from '../../components/InitializePosModal';
 
 const readStaffNameCache = (): Record<string, string> => {
   try {
@@ -198,7 +199,7 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex flex-col">
               <div className="flex items-baseline gap-3">
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white">{area}</h2>
-                <span className="text-[#c9b792] text-sm font-medium">{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="text-[#c9b792] text-sm font-medium">{formatDeviceTime(now, { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <div className="text-sm text-[#c8ad93]">Filter by waiter to see their assigned tables across all areas.</div>
             </div>

@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     const apiTarget = (env.API_TARGET && String(env.API_TARGET).trim()) ? String(env.API_TARGET).trim() : 'http://127.0.0.1:3001';
     return {
-      base: './',
+      base: String(env.VITE_RELATIVE_BASE || '') === '1' ? './' : '/',
       server: {
         port: 5173,
         strictPort: true,

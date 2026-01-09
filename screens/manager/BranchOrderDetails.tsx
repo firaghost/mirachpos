@@ -1,9 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { usePos } from '../../PosContext';
 import { Screen } from '../../types';
 import { Modal } from '../../components/Modal';
 import { apiFetch } from '../../api';
 import { readSession } from '../../session';
+import { formatDeviceDate, formatDeviceDateTime, formatDeviceTime } from '../../datetime';
+
+type PosSettingsResponse = {
+  taxes?: {
+    vatEnabled?: boolean;
+    vatRate?: number;
+    serviceChargeEnabled?: boolean;
+    serviceChargeRate?: number;
+  };
+};
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -13,6 +23,8 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
   const { orders, selectedOrderId, setOrderStatus, voidOrder, refreshFromServer } = usePos();
   const [voidOpen, setVoidOpen] = useState(false);
   const [voidReason, setVoidReason] = useState('');
+
+  const [posSettings, setPosSettings] = useState<PosSettingsResponse | null>(null);
 
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundAmount, setRefundAmount] = useState('');
@@ -29,6 +41,56 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
   const isPaid = order?.status === 'Paid';
   const isRefunded = order?.status === 'Refunded';
   const canMutate = Boolean(order && !isVoided && !isPaid && !isRefunded);
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const s = readSession<any>();
+        const role = typeof s?.role === 'string' ? s.role : '';
+        const tokenBranch = typeof s?.branchId === 'string' ? s.branchId.trim() : '';
+
+        let url = '/api/pos/settings';
+        if (role === 'Cafe Owner' && (!tokenBranch || tokenBranch === 'global')) {
+          const selected =
+            (localStorage.getItem('mirachpos.owner.selectedBranchId.v1') ||
+              localStorage.getItem('mirachpos.manager.selectedBranchId.v1') ||
+              localStorage.getItem('mirachpos.waiter.selectedBranchId.v1') ||
+              '')
+              .trim();
+          if (selected && selected !== 'global') url = `${url}?branchId=${encodeURIComponent(selected)}`;
+        }
+
+        const res = await apiFetch(url);
+        const json = (await res.json().catch(() => null)) as any;
+        if (!res.ok) return;
+        if (!mounted) return;
+        setPosSettings((json && typeof json === 'object' ? json : null) as any);
+      } catch {
+        // ignore
+      }
+    };
+    void run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const vatRateLabel = (() => {
+    const enabled = posSettings?.taxes?.vatEnabled !== false;
+    if (!enabled) return '';
+    const r = Number(posSettings?.taxes?.vatRate);
+    const v = Number.isFinite(r) ? r : 15;
+    return `Tax (${v}%)`;
+  })();
+
+  const serviceRateLabel = (() => {
+    const enabled = posSettings?.taxes?.serviceChargeEnabled === true;
+    if (!enabled) return '';
+    const r = Number(posSettings?.taxes?.serviceChargeRate);
+    const v = Number.isFinite(r) ? r : 10;
+    return `Service (${v}%)`;
+  })();
 
   if (!order) {
     return (
@@ -64,7 +126,7 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
             }`}>{order.status}</span>
           </div>
           <p className="text-[#c9b792] text-sm mt-1">
-            {order.number} {new Date(order.createdAt).toLocaleDateString([], { year: 'numeric', month: 'short', day: '2-digit' })}  <span className="italic">{order.timeLabel}</span>
+            {order.number} {formatDeviceDate(order.createdAt, { year: 'numeric', month: 'short', day: '2-digit' })}  <span className="italic">{formatDeviceTime(order.createdAt, { hour: '2-digit', minute: '2-digit' })}</span>
             {order.createdByName ? <span> Placed by: <span className="text-white font-bold">{order.createdByName}</span></span> : null}
           </p>
         </div>
@@ -222,19 +284,26 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
                   <span className="text-white font-medium">ETB {order.subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-[#c9b792]">Tax (15%)</span>
+                  <span className="text-[#c9b792]">{vatRateLabel || 'Tax'}</span>
                   <span className="text-white font-medium">ETB {order.tax.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-[#c9b792]">Service (5%)</span>
+                  <span className="text-[#c9b792]">{serviceRateLabel || 'Service'}</span>
                   <span className="text-white font-medium">ETB {order.serviceCharge.toFixed(2)}</span>
                 </div>
-                {Number((order as any).tip ?? 0) > 0 ? (
+                {(() => {
+                  const direct = Number((order as any)?.tip ?? 0) || 0;
+                  const p = (order as any)?.payload && typeof (order as any).payload === 'object' ? (order as any).payload : null;
+                  const fromBreakdown = (Number(p?.tipAmount ?? 0) || 0) + (Number(p?.tipPctAmount ?? 0) || 0);
+                  const tip = direct || fromBreakdown;
+                  if (tip <= 0.0001) return null;
+                  return (
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-[#c9b792]">Tip</span>
-                    <span className="text-white font-medium">ETB {Number((order as any).tip ?? 0).toFixed(2)}</span>
+                    <span className="text-white font-medium">ETB {tip.toFixed(2)}</span>
                   </div>
-                ) : null}
+                  );
+                })()}
               </div>
               <div className="p-5 bg-[#3a2e22]/30">
                 <div className="flex justify-between items-end">
@@ -245,9 +314,14 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
               <div className="p-5 border-t border-[#483c23] text-xs text-[#c9b792] space-y-1">
                 <div><span className="font-bold">Placed by:</span> {order.createdByName ?? (order.createdByStaffId ?? ' ')}</div>
                 {order.notes ? <div><span className="font-bold">Notes:</span> {order.notes}</div> : null}
-                {order.paidAt ? <div><span className="font-bold">Paid:</span> {new Date(order.paidAt).toLocaleString()}</div> : null}
+                {order.paidAt ? <div><span className="font-bold">Paid:</span> {formatDeviceDateTime(order.paidAt)}</div> : null}
+                {(order as any).paidByName || (order as any).paidByStaffId ? (
+                  <div>
+                    <span className="font-bold">Paid by:</span> {(order as any).paidByName || (order as any).paidByStaffId}
+                  </div>
+                ) : null}
                 {order.paymentMethod ? <div><span className="font-bold">Method:</span> {order.paymentMethod}</div> : null}
-                {order.voidedAt ? <div className="text-red-300"><span className="font-bold">Voided:</span> {new Date(order.voidedAt).toLocaleString()}</div> : null}
+                {order.voidedAt ? <div className="text-red-300"><span className="font-bold">Voided:</span> {formatDeviceDateTime(order.voidedAt)}</div> : null}
               </div>
             </div>
           </div>

@@ -83,7 +83,9 @@ export enum Screen {
   SA_AUDIT = 'SA_AUDIT',
   SA_FEATURE_FLAGS = 'SA_FEATURE_FLAGS',
   SA_SETTINGS = 'SA_SETTINGS',
-  SA_DEMO_REQUESTS = 'SA_DEMO_REQUESTS'
+  SA_DEMO_REQUESTS = 'SA_DEMO_REQUESTS',
+  SA_INTEGRATIONS = 'SA_INTEGRATIONS',
+  SA_ADDONS = 'SA_ADDONS'
 }
 
 export interface Product {
@@ -155,6 +157,8 @@ export interface PosOrder {
   subtotal: number;
   tax: number;
   serviceCharge: number;
+  tip?: number;
+  discount?: number;
   total: number;
   status: PosOrderStatus;
   createdAt: string;
@@ -167,6 +171,8 @@ export interface PosOrder {
   paymentMethod?: 'Cash' | 'Card' | 'Telebirr' | 'Bank Transfer' | 'Loyalty';
   tenderedAmount?: number;
   paymentReference?: string;
+  paidByStaffId?: string;
+  paidByName?: string;
   customer?: {
     id: string;
     name: string;
@@ -181,11 +187,15 @@ export interface PosOrder {
     subtotal: number;
     tax: number;
     serviceCharge: number;
+    tip?: number;
+    discount?: number;
     total: number;
     paidAt?: string;
     paymentMethod?: 'Cash' | 'Card' | 'Telebirr' | 'Bank Transfer' | 'Loyalty';
     tenderedAmount?: number;
     paymentReference?: string;
+    paidByStaffId?: string;
+    paidByName?: string;
   }>;
   voidedAt?: string;
   voidReason?: string;

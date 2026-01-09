@@ -1,3 +1,6 @@
+---
+auto_execution_mode: 1
+---
 # 🏢 ADVANCED ADMIN PANEL & INTEGRATION MARKETPLACE GUIDE
 ## Enterprise Multi-Tenant SaaS Admin System
 
@@ -15,7 +18,7 @@ Your platform will become a **marketplace for integrations** where:
 **For Super Admins (You):**
 - 📊 Dashboard showing all tenants, revenue, usage
 - 🔧 One-click tenant onboarding with automatic configuration
-- 💳 Manage payment gateway integrations (Chapa, Stripe, PayPal)
+- 💳 Manage payment gateway integrations (Chapa, SantimPay, CBE BIRR)
 - 🛠️ Manage add-ons & feature packages
 - 👥 Control tenant access levels & feature availability
 - 📈 Revenue analytics and reporting
@@ -23,7 +26,7 @@ Your platform will become a **marketplace for integrations** where:
 **For Tenant Admins (Your Customers):**
 - 🔐 Secure dashboard for their organization
 - 💰 Enable/disable payment methods specific to their needs
-- 🔌 Connect their own payment provider (Stripe, Chapa)
+- 🔌 Connect their own payment provider (SantimPay, CBE BIRR, Chapa)
 - 📋 Subscribe to add-ons that enhance their POS
 - 👤 Team management with role-based access
 - 📊 Usage analytics for their restaurant

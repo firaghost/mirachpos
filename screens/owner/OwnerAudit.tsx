@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Header } from '../../components/Header';
 import { apiFetch } from '../../api';
+import { Screen } from '../../types';
+import { Header } from '../../components/Header';
+import { formatDeviceDateTime } from '../../datetime';
 
 export const OwnerAudit: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -155,7 +157,7 @@ export const OwnerAudit: React.FC = () => {
                   {filtered.map((e: any, idx: number) => (
                     <tr key={e.id || idx} className={idx % 2 === 1 ? 'bg-[#221c11]/30 hover:bg-[#322a1b] transition-colors' : 'hover:bg-[#322a1b] transition-colors'}>
                       <td className="whitespace-nowrap px-6 py-3 text-[#c9b792] font-mono text-[12px]">
-                        {e.createdAt ? new Date(e.createdAt).toLocaleString() : '—'}
+                        {e.createdAt ? formatDeviceDateTime(e.createdAt) : '—'}
                       </td>
                       <td className="whitespace-nowrap px-5 py-3 text-white font-black">{String(e.type || '').replace(/_/g, ' ') || '—'}</td>
                       <td className="whitespace-nowrap px-5 py-3 text-[#c9b792]">{e.staffName || 'System'}</td>

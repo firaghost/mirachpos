@@ -3,6 +3,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { apiFetch } from '../../api';
 import { Screen } from '../../types';
 import { readSession, updateSession } from '../../session';
+import { formatDeviceDate, formatDeviceDateTime } from '../../datetime';
 
 type Period = 'Daily' | 'Weekly' | 'Monthly';
 
@@ -172,7 +173,7 @@ const isWorkerRole = (role: string) => {
   return true;
 };
 
-const formatDateLabel = (d: Date) => d.toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' });
+const formatDateLabel = (d: Date) => formatDeviceDate(d, { month: 'short', day: '2-digit', year: 'numeric' });
 
 const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -767,7 +768,7 @@ export const BranchReports: React.FC = () => {
       return tail.map((r) => {
         const d = new Date(`${r.date}T00:00:00`);
         return {
-          label: period === 'Weekly' ? d.toLocaleDateString([], { weekday: 'short' }) : d.toLocaleDateString([], { month: 'short', day: '2-digit' }),
+          label: period === 'Weekly' ? (formatDeviceDate(d, { weekday: 'short' }) || '') : (formatDeviceDate(d, { month: 'short', day: '2-digit' }) || ''),
           revenue: r.totalCollected ?? 0,
         };
       });
@@ -798,7 +799,7 @@ export const BranchReports: React.FC = () => {
       map.set(key, (map.get(key) ?? 0) + (p.total ?? 0));
     }
     return points.map((d) => ({
-      label: period === 'Weekly' ? d.toLocaleDateString([], { weekday: 'short' }) : d.toLocaleDateString([], { month: 'short', day: '2-digit' }),
+      label: period === 'Weekly' ? (formatDeviceDate(d, { weekday: 'short' }) || '') : (formatDeviceDate(d, { month: 'short', day: '2-digit' }) || ''),
       revenue: map.get(d.toISOString().slice(0, 10)) ?? 0,
     }));
   }, [dailyAgg, hourlyAgg, payments, period, rangeWindow.start]);
@@ -834,7 +835,7 @@ export const BranchReports: React.FC = () => {
     return paymentsSorted.slice(0, 10).map((p) => {
       return {
         id: p.number ? `#${p.number}` : `#${p.id}`,
-        date: new Date(p.paidAt ?? p.createdAt ?? '').toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }),
+        date: formatDeviceDateTime(p.paidAt ?? p.createdAt ?? '', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
         payment: p.method ?? 'Unknown',
         amount: p.total ?? 0,
         statusLabel: 'Completed',
@@ -1346,7 +1347,7 @@ export const BranchReports: React.FC = () => {
                   </div>
                 </div>
                 <div class="meta">
-                  <div class="sub">Generated: ${esc(new Date(generatedAt).toLocaleString())}</div>
+                  <div class="sub">Generated: ${esc(formatDeviceDateTime(generatedAt) || '')}</div>
                   <div class="sub">Range: ${esc(formatDateLabel(effectiveRange.start))} → ${esc(formatDateLabel(addDays(effectiveRange.end, -1)))}</div>
                 </div>
               </div>
@@ -1712,7 +1713,7 @@ export const BranchReports: React.FC = () => {
                     {shiftAgg.length ? (
                       shiftAgg.slice(0, 8).map((s) => (
                         <tr key={s.id} className="hover:bg-[#483c23]/20 transition-colors">
-                          <td className="px-5 py-3 text-sm text-white">{s.openedAt ? new Date(s.openedAt).toLocaleString() : ' ”'}</td>
+                          <td className="px-5 py-3 text-sm text-white">{s.openedAt ? (formatDeviceDateTime(s.openedAt) || '') : ' ”'}</td>
                           <td className="px-5 py-3 text-sm text-white">{s.staffName || ' ”'}</td>
                           <td className="px-5 py-3 text-sm text-[#c9b792]">{s.status || ' ”'}</td>
                           <td className="px-5 py-3 text-sm text-right font-mono text-white">{s.expectedCash == null ? ' ”' : formatMoney(s.expectedCash)}</td>
@@ -1756,7 +1757,7 @@ export const BranchReports: React.FC = () => {
                   {voidAgg.length ? (
                     voidAgg.slice(0, 12).map((e) => (
                       <tr key={e.id} className="hover:bg-[#483c23]/20 transition-colors">
-                        <td className="px-5 py-3 text-sm text-white">{e.occurredAt ? new Date(e.occurredAt).toLocaleString() : ' ”'}</td>
+                        <td className="px-5 py-3 text-sm text-white">{e.occurredAt ? (formatDeviceDateTime(e.occurredAt) || '') : ' ”'}</td>
                         <td className="px-5 py-3 text-sm text-[#c9b792]">{e.type || ' ”'}</td>
                         <td className="px-5 py-3 text-sm text-white">{e.productName || ' ”'}</td>
                         <td className="px-5 py-3 text-sm text-right font-mono text-white">{e.qty}</td>

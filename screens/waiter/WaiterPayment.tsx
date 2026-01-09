@@ -42,6 +42,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const order = useSelectedOrder();
   const [method, setMethod] = useState<'Cash' | 'Telebirr' | 'Bank Transfer' | 'Loyalty' | 'Mobile Pay'>('Cash');
   const [tendered, setTendered] = useState('');
+  const [manualTip, setManualTip] = useState('');
   const [selectedSplitId, setSelectedSplitId] = useState<string>('');
   const [paymentReference, setPaymentReference] = useState<string>('');
   const [actionErr, setActionErr] = useState<string>('');
@@ -420,6 +421,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
   useEffect(() => {
     setTendered('');
+    setManualTip('');
     setPaymentReference('');
   }, [selectedSplitId, method]);
 
@@ -500,35 +502,111 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       setActionErr('Payment reference is required for this method.');
       return;
     }
-    confirmPayment(order.id, method, method === 'Cash' ? tenderedAmount : undefined, splitId, ref);
 
-    // Print immediately after confirming payment (LAN only via backend).
-    // This prevents missed prints if the user navigates away from the receipt screen.
-    try {
-      const enabled = settingsUi.autoPrintReceipts === true;
-      const deviceId = typeof settingsUi.defaultReceiptPrinterId === 'string' ? settingsUi.defaultReceiptPrinterId : null;
-      if (enabled && deviceId && !splitId) {
-        const key = `mirachpos.printedReceipt.${order.id}.full`;
-        if (sessionStorage.getItem(key) !== '1') {
-          sessionStorage.setItem(key, '1');
-          void apiFetch(withBranchQuery(`/api/pos/print/receipt/${encodeURIComponent(String(order.id))}`), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deviceId }),
-          }).catch(() => {
-            // ignore (receipt screen still has browser print fallback)
-          });
-        }
-      }
-    } catch {
-      // ignore
+    if (manualTipValue > 0 && splitId) {
+      setActionErr('Tip is not supported for split payments yet. Please pay the full bill.');
+      return;
     }
 
-    onNavigate(Screen.WAITER_RECEIPT);
+    const applyManualTip = async () => {
+      if (!order) return;
+      if (manualTipValue <= 0) return;
+      try {
+        const currentTip = Number((order as any)?.tip ?? 0) || 0;
+        const nextTip = Math.max(0, Math.round((currentTip + manualTipValue) * 100) / 100);
+        const payload = {
+          number: (order as any).number,
+          tableId: (order as any).tableId,
+          tableName: (order as any).tableName,
+          items: Array.isArray((order as any).items) ? (order as any).items : [],
+          subtotal: Number((order as any).subtotal ?? 0) || 0,
+          tax: Number((order as any).tax ?? 0) || 0,
+          serviceCharge: Number((order as any).serviceCharge ?? 0) || 0,
+          total: Number((order as any).total ?? 0) || 0,
+          createdAt: (order as any).createdAt,
+          paidAt: (order as any).paidAt ?? null,
+          createdByStaffId: (order as any).createdByStaffId ?? null,
+          createdByName: (order as any).createdByName ?? null,
+          paidByStaffId: (order as any).paidByStaffId ?? null,
+          paidByName: (order as any).paidByName ?? null,
+          paymentMethod: (order as any).paymentMethod ?? null,
+          tenderedAmount: (order as any).tenderedAmount ?? null,
+          paymentReference: (order as any).paymentReference ?? null,
+          splits: (order as any).splits ?? null,
+          notes: (order as any).notes ?? null,
+          tip: nextTip,
+          tipAmount: nextTip,
+          tipPct: 0,
+          tipPctAmount: 0,
+        };
+
+        const res = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(String(order.id))}`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tip: nextTip, payload }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => null);
+          const msg = String(j?.message || j?.error || '').trim();
+          throw new Error(msg || 'Failed to apply tip');
+        }
+
+        try {
+          await refreshFromServer();
+        } catch {
+          // ignore
+        }
+      } catch (e: any) {
+        setActionErr(e?.message || 'Failed to apply tip');
+        throw e;
+      }
+    };
+
+    void (async () => {
+      try {
+        await applyManualTip();
+        confirmPayment(order.id, method, method === 'Cash' ? tenderedAmount : undefined, splitId, ref);
+
+        // Print immediately after confirming payment (LAN only via backend).
+        // This prevents missed prints if the user navigates away from the receipt screen.
+        try {
+          const enabled = settingsUi.autoPrintReceipts === true;
+          const deviceId = typeof settingsUi.defaultReceiptPrinterId === 'string' ? settingsUi.defaultReceiptPrinterId : null;
+          if (enabled && deviceId && !splitId) {
+            const key = `mirachpos.printedReceipt.${order.id}.full`;
+            if (sessionStorage.getItem(key) !== '1') {
+              sessionStorage.setItem(key, '1');
+              void apiFetch(withBranchQuery(`/api/pos/print/receipt/${encodeURIComponent(String(order.id))}`), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deviceId }),
+              }).catch(() => {
+                // ignore (receipt screen still has browser print fallback)
+              });
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        onNavigate(Screen.WAITER_RECEIPT);
+      } catch {
+        // actionErr already set
+      }
+    })();
+
+    return;
   };
 
   const split = selectedSplitId ? (order.splits || []).find((s) => s.id === selectedSplitId) ?? null : null;
   const totalDue = split ? split.total : order.total;
+
+  const manualTipValue = (() => {
+    const v = Number.parseFloat(manualTip);
+    if (!Number.isFinite(v)) return 0;
+    return Math.max(0, Math.round(v * 100) / 100);
+  })();
+  const totalDueWithTip = totalDue + manualTipValue;
 
   const discountAmount = Number((order as any)?.discount ?? 0) || 0;
   const discountPct = Number((order as any)?.discountPct ?? (order as any)?.payload?.discountPct ?? 0) || 0;
@@ -540,11 +618,11 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
   const tenderedValue = Number.parseFloat(tendered);
   const tenderedAmount = Number.isFinite(tenderedValue) ? tenderedValue : 0;
-  const changeDue = Math.max(0, tenderedAmount - totalDue);
+  const changeDue = Math.max(0, tenderedAmount - totalDueWithTip);
   const loyaltyBalance = Number(order.customer?.loyaltyBalance) || 0;
   const canConfirm =
     method === 'Cash'
-      ? tenderedAmount >= totalDue
+      ? tenderedAmount >= totalDueWithTip
       : method === 'Loyalty'
         ? Boolean(order.customer) && loyaltyBalance + 1e-9 >= totalDue
         : method === 'Mobile Pay'
@@ -866,6 +944,21 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                       </div>
                     </>
                   ) : null}
+
+                  {method !== 'Mobile Pay' && method !== 'Loyalty' && !selectedSplitId ? (
+                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                      <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">TIP (ETB)</div>
+                      <div className="mt-2">
+                        <input
+                          value={manualTip}
+                          onChange={(e) => setManualTip(String(e.target.value || '').replace(/[^0-9.]/g, ''))}
+                          placeholder="0.00"
+                          className="w-full h-11 bg-[#221c11] border border-[#483c23] rounded-lg px-4 text-white font-mono focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b]"
+                        />
+                        <div className="text-[#c9b792] text-xs mt-2">Added to total so it appears on the receipt.</div>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -877,7 +970,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                       <button onClick={() => setQuickTendered(100)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">100</button>
                       <button onClick={() => setQuickTendered(200)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">200</button>
                       <button onClick={() => setQuickTendered(500)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">500</button>
-                      <button onClick={() => setQuickTendered(totalDue)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-[#eead2b] transition-colors">Exact</button>
+                      <button onClick={() => setQuickTendered(totalDueWithTip)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-[#eead2b] transition-colors">Exact</button>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9, '.', 0].map((n) => (

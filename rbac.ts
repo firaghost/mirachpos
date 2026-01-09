@@ -164,6 +164,8 @@ export const canAccessScreen = (role: UserRole, screen: Screen): boolean => {
     screen === Screen.SA_ONBOARDING ||
     screen === Screen.SA_BILLING ||
     screen === Screen.SA_PAYMENT_CONFIG ||
+    screen === Screen.SA_INTEGRATIONS ||
+    screen === Screen.SA_ADDONS ||
     screen === Screen.SA_SYSTEM_HEALTH ||
     screen === Screen.SA_SUPPORT ||
     screen === Screen.SA_AUDIT ||

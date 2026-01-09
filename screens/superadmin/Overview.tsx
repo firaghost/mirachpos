@@ -1,11 +1,11 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { apiFetch } from '../../api';
+import { formatDeviceDateTime } from '../../datetime';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/components/lib/utils';
-import { apiFetch } from '@/api';
 
 type Range = '30d' | '7d' | '24h';
 
@@ -107,7 +107,7 @@ export const SA_Overview: React.FC = () => {
     const s = String(ym || '');
     const d = new Date(`${s}-01T00:00:00Z`);
     if (Number.isNaN(d.getTime())) return s.slice(5);
-    return d.toLocaleString(undefined, { month: 'short' });
+    return formatDeviceDateTime(d, { month: 'short' }) || s.slice(5);
   };
 
   const revenue = Array.isArray(data?.revenueByMonth) ? data!.revenueByMonth! : [];

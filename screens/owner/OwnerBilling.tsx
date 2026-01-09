@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/modal';
 import { Label } from '@/components/ui/label';
 import { cn } from '../../components/lib/utils';
 import { apiFetch, authHeader } from '../../api';
+import { formatDeviceDate } from '../../datetime';
 
 // Get API base URL for FormData requests
 const getApiBase = (): string => {
@@ -25,8 +26,7 @@ const fmtMoney = (n: number) => {
 
 const fmtDate = (iso: string) => {
     try {
-        const d = new Date(iso);
-        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return formatDeviceDate(iso, { month: 'short', day: 'numeric', year: 'numeric' }) || iso;
     } catch {
         return iso;
     }
@@ -34,8 +34,16 @@ const fmtDate = (iso: string) => {
 
 const fmtShortDate = (iso: string) => {
     try {
-        const d = new Date(iso);
-        return { month: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), year: d.getFullYear().toString() };
+        const month = formatDeviceDate(iso, { month: 'short', day: 'numeric' }) || iso;
+        const year = (() => {
+          try {
+            const d = new Date(iso);
+            return Number.isNaN(d.getTime()) ? '' : d.getFullYear().toString();
+          } catch {
+            return '';
+          }
+        })();
+        return { month, year };
     } catch {
         return { month: iso, year: '' };
     }
@@ -70,6 +78,14 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
     const [invoices, setInvoices] = useState<any[]>([]);
     const [paymentMethods, setPaymentMethods] = useState<any>(null);
 
+    const [autoOpenInvoiceId] = useState<string>(() => {
+        try {
+            return localStorage.getItem('mirachpos.ownerBilling.openInvoiceId.v1') || '';
+        } catch {
+            return '';
+        }
+    });
+
     const [plans, setPlans] = useState<Array<{ tier: string; modules: string[]; limits: any; pricing: { monthlyEtb: number; yearlyEtb: number } }>>([]);
     const [plansError, setPlansError] = useState<string | null>(null);
 
@@ -100,7 +116,23 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
             if (subRes.ok) setSubscription(await subRes.json());
             if (invRes.ok) {
                 const data = await invRes.json();
-                setInvoices(Array.isArray(data?.invoices) ? data.invoices : []);
+                const list = Array.isArray(data?.invoices) ? data.invoices : [];
+                setInvoices(list);
+
+                if (autoOpenInvoiceId) {
+                    const inv = list.find((i: any) => String(i?.id || '') === String(autoOpenInvoiceId));
+                    if (inv) {
+                        setPayingInvoice(inv);
+                        setSelectedGateway(null);
+                        setBankRef('');
+                        setBankProof(null);
+                        setPayModalOpen(true);
+                    }
+                    try {
+                        localStorage.removeItem('mirachpos.ownerBilling.openInvoiceId.v1');
+                    } catch {
+                    }
+                }
             }
             if (methodsRes.ok) {
                 const data = await methodsRes.json();

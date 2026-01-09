@@ -76,6 +76,8 @@ import { SA_Settings } from './screens/superadmin/Settings';
 import { SA_DemoRequests } from './screens/superadmin/DemoRequests';
 import { PaymentConfig } from './screens/superadmin/PaymentConfig';
 import { SuperAdminLogin } from './screens/superadmin/SuperAdminLogin';
+import { SA_Integrations } from './screens/superadmin/Integrations';
+import { SA_Addons } from './screens/superadmin/Addons';
 
 import { Screen, UserRole } from './types';
 
@@ -758,6 +760,8 @@ const AppContent: React.FC = () => {
         {currentScreen === Screen.SA_SUPPORT && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Support />}
         {currentScreen === Screen.SA_AUDIT && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Audit />}
         {currentScreen === Screen.SA_FEATURE_FLAGS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_FeatureFlags />}
+        {currentScreen === Screen.SA_INTEGRATIONS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Integrations />}
+        {currentScreen === Screen.SA_ADDONS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Addons />}
         {currentScreen === Screen.SA_SETTINGS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Settings />}
         {userRole ? (
           <div className="fixed bottom-0 left-64 right-0 h-8 border-t border-[#393328] bg-[#181611] text-[#b9b09d] text-xs flex items-center justify-center z-40">

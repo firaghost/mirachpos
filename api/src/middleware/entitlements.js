@@ -86,7 +86,7 @@ const loadEntitlements = async (req, res, next) => {
     // Requires tenantMiddleware + requireAuth before this middleware.
     if (!req.tenant || !req.tenant.id) return res.status(500).json({ error: 'tenant_missing' });
 
-    if (config.devBypassAuth) {
+    if (config && config.devBypassAuth) {
       req.entitlements = {
         ok: true,
         tenantId: String(req.tenant.id),
@@ -153,17 +153,21 @@ const isPastDueBlocked = (ent) => {
 };
 
 const requireModule = (moduleKey) => (req, res, next) => {
-  const ent = req.entitlements;
-  if (!ent) return res.status(500).json({ error: 'entitlements_missing' });
+  try {
+    const ent = req.entitlements;
+    if (!ent) return res.status(500).json({ error: 'entitlements_missing' });
 
-  if (config.devBypassAuth) return next();
+    if (config && config.devBypassAuth) return next();
 
-  if (isPendingVerifyBlocked(ent)) return res.status(402).json({ error: 'subscription_pending_verify' });
-  if (isPastDueBlocked(ent)) return res.status(402).json({ error: 'subscription_inactive' });
+    if (isPendingVerifyBlocked(ent)) return res.status(402).json({ error: 'subscription_pending_verify' });
+    if (isPastDueBlocked(ent)) return res.status(402).json({ error: 'subscription_inactive' });
 
-  const mods = Array.isArray(ent?.subscription?.modules) ? ent.subscription.modules.map(String) : [];
-  if (!mods.includes(String(moduleKey))) return res.status(402).json({ error: 'module_not_enabled', module: String(moduleKey) });
-  return next();
+    const mods = Array.isArray(ent?.subscription?.modules) ? ent.subscription.modules.map(String) : [];
+    if (!mods.includes(String(moduleKey))) return res.status(402).json({ error: 'module_not_enabled', module: String(moduleKey) });
+    return next();
+  } catch (e) {
+    return next(e);
+  }
 };
 
 const enforceBranchLimit = async (req, res, next) => {

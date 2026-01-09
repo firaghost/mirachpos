@@ -1,7 +1,8 @@
-
 import React, { useEffect, useMemo, useState } from 'react';
-import { usePos } from '../../PosContext';
+import { apiFetch } from '../../api';
 import { Screen } from '../../types';
+import { usePos } from '../../PosContext';
+import { formatDeviceTime } from '../../datetime';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -273,7 +274,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
             
 
             <div className="hidden md:flex flex-col items-end justify-center pr-2">
-              <span className="text-white font-bold text-lg leading-none">{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
+              <span className="text-white font-bold text-lg leading-none">{formatDeviceTime(now, { hour: '2-digit', minute: '2-digit' })}</span>
               <div className="flex items-center gap-1.5 mt-1">
                 <span className="relative flex h-2.5 w-2.5">
                   {isOnline ? <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span> : null}
@@ -359,7 +360,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
 
       <footer className="flex-none px-6 py-4 text-xs text-[#c8ad93] bg-[#211911] border-t border-[#3d3226] flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-          <div>Last updated: {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}</div>
+          <div>Last updated: {formatDeviceTime(now, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
           <div className="hidden sm:block text-[#c8ad93]/60">  </div>
           <div>Terminal: <span className="text-white">KDS-01</span></div>
           <div className="hidden sm:block text-[#c8ad93]/60">  </div>

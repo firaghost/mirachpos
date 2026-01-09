@@ -9,6 +9,8 @@
 
 const { db } = require('../db');
 const telebirrTools = require('../utils/telebirr/tools');
+const jwt = require('jsonwebtoken');
+const { decryptConfigFields } = require('../utils/secretEncryption');
 
 const getTelebirrDispatcher = () => {
     try {
@@ -106,6 +108,248 @@ const safeJsonParse = (raw, fallback) => {
     }
 };
 
+const normalizeGateway = (v) => {
+    const s = String(v || '').trim().toLowerCase();
+    if (s === 'cbe' || s === 'cbebirr' || s === 'cbe-birr') return 'cbe_birr';
+    return s;
+};
+
+const TENANT_POS_SECRET_FIELDS_BY_GATEWAY = {
+    chapa: ['secretKey', 'webhookSecret', 'publicKey'],
+    telebirr: ['fabricAppId', 'merchantAppId', 'merchantCode', 'privateKey'],
+    cbe_birr: ['merchantId', 'privateKey', 'publicKey'],
+    santimpay: ['merchantId', 'privateKey', 'publicKey'],
+};
+
+const getTenantPosGatewayConfig = async (tenantId, gateway) => {
+    const tid = String(tenantId || '').trim();
+    const g = normalizeGateway(gateway);
+    if (!tid || !g) return null;
+
+    const row = await db()
+        .select(['enabled', 'config_json', 'updated_at'])
+        .from('tenant_pos_payment_gateways')
+        .where({ tenant_id: tid, gateway: g })
+        .first();
+
+    if (!row) return null;
+    const cfg0 = safeJsonParse(row.config_json, {});
+    const fields = Array.isArray(TENANT_POS_SECRET_FIELDS_BY_GATEWAY[g]) ? TENANT_POS_SECRET_FIELDS_BY_GATEWAY[g] : [];
+    const cfg = decryptConfigFields(cfg0, fields);
+    return {
+        enabled: Boolean(row.enabled),
+        config: cfg && typeof cfg === 'object' ? cfg : {},
+        updatedAt: row.updated_at || null,
+    };
+};
+
+// =============================================================================
+// SANTIMPAY (SERVICESPAYMENT) - TENANT SCOPED (POS ONLY)
+// Docs: https://docs.servicespayment.net/payment
+// =============================================================================
+
+const SANTIMPAY_API_BASE = 'https://services.santimpay.com/api/v1/gateway';
+
+const signSantimPayToken = ({ merchantId, privateKeyPem, payload }) => {
+    const time = Math.floor(Date.now() / 1000);
+    const body = {
+        ...payload,
+        merchantId,
+        generated: time,
+    };
+
+    // SantimPay docs specify ES256 signing.
+    return jwt.sign(body, privateKeyPem, { algorithm: 'ES256' });
+};
+
+const signSantimPayStatusToken = ({ merchantId, privateKeyPem, id }) => {
+    const time = Math.floor(Date.now() / 1000);
+    // Docs: signing body uses `merId` (not merchantId) for fetch-transaction-status.
+    const body = {
+        id: String(id),
+        merId: String(merchantId),
+        generated: time,
+    };
+    return jwt.sign(body, privateKeyPem, { algorithm: 'ES256' });
+};
+
+const getSantimPayPlatformConfig = () => {
+    const enabled = process.env.SANTIMPAY_ENABLED === 'true';
+    const merchantId = String(process.env.SANTIMPAY_MERCHANT_ID || '').trim();
+    const privateKey = String(process.env.SANTIMPAY_PRIVATE_KEY || '').trim();
+    const publicKey = String(process.env.SANTIMPAY_PUBLIC_KEY || '').trim();
+    return { enabled, merchantId, privateKey, publicKey };
+};
+
+const santimpayInitializeForTenantPos = async ({
+    tenantId,
+    id,
+    amount,
+    reason,
+    notifyUrl,
+    successRedirectUrl,
+    failureRedirectUrl,
+    cancelRedirectUrl,
+}) => {
+    const tcfg = await getTenantPosGatewayConfig(tenantId, 'santimpay');
+    const enabled = Boolean(tcfg?.enabled);
+    const merchantId = String(tcfg?.config?.merchantId || '').trim();
+    const privateKey = String(tcfg?.config?.privateKey || '').trim();
+
+    if (!enabled || !merchantId || !privateKey) {
+        throw new Error('tenant_santimpay_not_configured');
+    }
+
+    // Expect PEM content (EC private key). The API will fail otherwise.
+    if (!privateKey.includes('BEGIN')) {
+        throw new Error('tenant_santimpay_invalid_private_key');
+    }
+
+    const token = signSantimPayToken({
+        merchantId,
+        privateKeyPem: privateKey,
+        payload: {
+            amount: Number(amount),
+            paymentReason: String(reason || '').trim() || 'POS Payment',
+        },
+    });
+
+    const payload = {
+        id: String(id),
+        amount: Number(amount),
+        reason: String(reason || '').trim() || 'POS Payment',
+        merchantId,
+        signedToken: token,
+        successRedirectUrl: String(successRedirectUrl || '').trim() || notifyUrl,
+        failureRedirectUrl: String(failureRedirectUrl || '').trim() || notifyUrl,
+        cancelRedirectUrl: String(cancelRedirectUrl || '').trim() || String(failureRedirectUrl || '').trim() || notifyUrl,
+        notifyUrl: String(notifyUrl || '').trim(),
+    };
+
+    const response = await fetch(`${SANTIMPAY_API_BASE}/initiate-payment`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+        const msg = safeErrMsg(data?.message) || safeErrMsg(data) || `SantimPay initiate-payment failed (${response.status})`;
+        throw new Error(msg);
+    }
+
+    // Docs show a generated payment URL. Be liberal in parsing.
+    const checkoutUrl =
+        (typeof data?.checkoutUrl === 'string' && data.checkoutUrl.trim())
+            ? data.checkoutUrl.trim()
+            : (typeof data?.url === 'string' && data.url.trim())
+                ? data.url.trim()
+                : (typeof data?.data === 'string' && data.data.trim())
+                    ? data.data.trim()
+                    : (typeof data?.data?.url === 'string' && data.data.url.trim())
+                        ? data.data.url.trim()
+                        : null;
+
+    if (!checkoutUrl) {
+        throw new Error('SantimPay initiate-payment did not return checkout URL');
+    }
+
+    return {
+        success: true,
+        checkoutUrl,
+        txRef: String(id),
+        rawResponse: data,
+    };
+};
+
+const santimpayFetchTransactionStatus = async ({ merchantId, privateKey, id, fullParams = true }) => {
+    const m = String(merchantId || '').trim();
+    const priv = String(privateKey || '').trim();
+    const txId = String(id || '').trim();
+    if (!m || !priv || !txId) throw new Error('santimpay_not_configured');
+    if (!priv.includes('BEGIN')) throw new Error('santimpay_invalid_private_key');
+
+    const token = signSantimPayStatusToken({ merchantId: m, privateKeyPem: priv, id: txId });
+    const payload = { id: txId, merchantId: m, signedToken: token, fullParams: Boolean(fullParams) };
+
+    const response = await fetch(`${SANTIMPAY_API_BASE}/fetch-transaction-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+        const msg = safeErrMsg(data?.message) || safeErrMsg(data) || `SantimPay fetch-transaction-status failed (${response.status})`;
+        throw new Error(msg);
+    }
+
+    const status = String(data?.Status || data?.status || '').trim().toUpperCase();
+    return { success: status === 'COMPLETED', status, raw: data };
+};
+
+const santimpayVerifyForTenantPos = async ({ tenantId, id }) => {
+    const tcfg = await getTenantPosGatewayConfig(tenantId, 'santimpay');
+    const enabled = Boolean(tcfg?.enabled);
+    const merchantId = String(tcfg?.config?.merchantId || '').trim();
+    const privateKey = String(tcfg?.config?.privateKey || '').trim();
+    if (!enabled || !merchantId || !privateKey) throw new Error('tenant_santimpay_not_configured');
+    return await santimpayFetchTransactionStatus({ merchantId, privateKey, id });
+};
+
+const santimpayInitializeForPlatform = async ({ id, amount, reason, notifyUrl, successRedirectUrl, failureRedirectUrl, cancelRedirectUrl }) => {
+    const cfg = getSantimPayPlatformConfig();
+    if (!cfg.enabled || !cfg.merchantId || !cfg.privateKey) throw new Error('santimpay_not_configured');
+    if (!cfg.privateKey.includes('BEGIN')) throw new Error('santimpay_invalid_private_key');
+
+    const token = signSantimPayToken({
+        merchantId: cfg.merchantId,
+        privateKeyPem: cfg.privateKey,
+        payload: {
+            amount: Number(amount),
+            paymentReason: String(reason || '').trim() || 'Subscription Payment',
+        },
+    });
+
+    const payload = {
+        id: String(id),
+        amount: Number(amount),
+        reason: String(reason || '').trim() || 'Subscription Payment',
+        merchantId: cfg.merchantId,
+        signedToken: token,
+        successRedirectUrl: String(successRedirectUrl || '').trim() || notifyUrl,
+        failureRedirectUrl: String(failureRedirectUrl || '').trim() || notifyUrl,
+        cancelRedirectUrl: String(cancelRedirectUrl || '').trim() || String(failureRedirectUrl || '').trim() || notifyUrl,
+        notifyUrl: String(notifyUrl || '').trim(),
+    };
+
+    const response = await fetch(`${SANTIMPAY_API_BASE}/initiate-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+        const msg = safeErrMsg(data?.message) || safeErrMsg(data) || `SantimPay initiate-payment failed (${response.status})`;
+        throw new Error(msg);
+    }
+
+    const checkoutUrl = typeof data?.url === 'string' ? data.url.trim() : (typeof data?.checkoutUrl === 'string' ? data.checkoutUrl.trim() : '');
+    if (!checkoutUrl) throw new Error('SantimPay initiate-payment did not return checkout URL');
+
+    return { success: true, checkoutUrl, txRef: String(id), rawResponse: data };
+};
+
+const santimpayVerifyPlatform = async ({ id }) => {
+    const cfg = getSantimPayPlatformConfig();
+    if (!cfg.enabled || !cfg.merchantId || !cfg.privateKey) throw new Error('santimpay_not_configured');
+    return await santimpayFetchTransactionStatus({ merchantId: cfg.merchantId, privateKey: cfg.privateKey, id });
+};
+
 // Get gateway configuration
 const getGatewayConfig = async (gateway) => {
     const row = await db()
@@ -153,17 +397,12 @@ const getGatewayConfig = async (gateway) => {
 const CHAPA_API_URL = 'https://api.chapa.co/v1';
 
 const safeErrMsg = (val) => {
+    if (!val) return '';
     if (typeof val === 'string') return val;
-    if (val instanceof Error) return String(val.message || 'error');
     try {
-        if (val === null || val === undefined) return '';
         return JSON.stringify(val);
     } catch {
-        try {
-            return String(val);
-        } catch {
-            return '';
-        }
+        return String(val);
     }
 };
 
@@ -224,6 +463,102 @@ const chapaInitialize = async ({
         console.error('Chapa initialize error:', error);
         throw error;
     }
+};
+
+// =============================================================================
+// TENANT-SCOPED CHAPA (POS ONLY)
+// =============================================================================
+
+const chapaInitializeForTenantPos = async ({
+    tenantId,
+    amount,
+    currency = 'ETB',
+    email,
+    firstName,
+    lastName,
+    txRef,
+    callbackUrl,
+    returnUrl,
+    customization = {},
+}) => {
+    const tcfg = await getTenantPosGatewayConfig(tenantId, 'chapa');
+    const secretKey = String(tcfg?.config?.secretKey || '').trim();
+    const enabled = Boolean(tcfg?.enabled);
+
+    if (!enabled || !secretKey) {
+        throw new Error('tenant_chapa_not_configured');
+    }
+
+    const payload = {
+        amount: String(amount),
+        currency,
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        tx_ref: txRef,
+        callback_url: callbackUrl,
+        return_url: returnUrl,
+        customization: {
+            title: customization.title || 'MirachPOS',
+            description: customization.description || 'POS Payment',
+        },
+    };
+
+    const response = await fetch(`${CHAPA_API_URL}/transaction/initialize`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${secretKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok || data?.status !== 'success') {
+        const msg = safeErrMsg(data?.message) || safeErrMsg(data) || `Chapa initialization failed (${response.status})`;
+        throw new Error(msg);
+    }
+
+    return {
+        success: true,
+        checkoutUrl: data.data.checkout_url,
+        txRef,
+    };
+};
+
+const chapaVerifyForTenantPos = async ({ tenantId, txRef }) => {
+    const tcfg = await getTenantPosGatewayConfig(tenantId, 'chapa');
+    const secretKey = String(tcfg?.config?.secretKey || '').trim();
+    const enabled = Boolean(tcfg?.enabled);
+
+    if (!enabled || !secretKey) {
+        throw new Error('tenant_chapa_not_configured');
+    }
+
+    const response = await fetch(`${CHAPA_API_URL}/transaction/verify/${encodeURIComponent(String(txRef || '').trim())}`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${secretKey}`,
+        },
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+        const msg = safeErrMsg(data?.message) || safeErrMsg(data) || `Chapa verification failed (${response.status})`;
+        throw new Error(msg);
+    }
+
+    return {
+        success: data.status === 'success',
+        status: data.data?.status,
+        amount: data.data?.amount,
+        currency: data.data?.currency,
+        txRef: data.data?.tx_ref,
+        reference: data.data?.reference,
+        paymentMethod: data.data?.payment_method,
+        createdAt: data.data?.created_at,
+        rawResponse: data,
+    };
 };
 
 const chapaVerify = async (txRef) => {
@@ -754,6 +1089,17 @@ const initializePayment = async ({
                 description: `Invoice Payment - ${invoiceId}`,
             });
 
+        case 'santimpay':
+            return santimpayInitializeForPlatform({
+                id: baseTxRef,
+                amount,
+                reason: `Invoice Payment - ${invoiceId}`,
+                notifyUrl: callbackUrl,
+                successRedirectUrl: returnUrl,
+                failureRedirectUrl: returnUrl,
+                cancelRedirectUrl: returnUrl,
+            });
+
         default:
             throw new Error(`Unknown payment gateway: ${gateway}`);
     }
@@ -767,6 +1113,8 @@ const verifyPaymentGateway = async (gateway, reference) => {
             return telebirrVerify(reference);
         case 'cbe_birr':
             return cbeBirrVerify(reference);
+        case 'santimpay':
+            return santimpayVerifyPlatform({ id: reference });
         default:
             throw new Error(`Unknown payment gateway: ${gateway}`);
     }
@@ -805,6 +1153,8 @@ const getAvailablePaymentMethods = async () => {
 
     const cbeBirr = safeJsonParse(row.cbe_birr_config_json, { enabled: false });
 
+    const santim = getSantimPayPlatformConfig();
+
     return {
         bankTransfer: {
             enabled: Boolean(bankDetails.accountNumber),
@@ -833,13 +1183,25 @@ const getAvailablePaymentMethods = async () => {
             name: 'CBE Birr',
             description: 'Pay with CBE Birr Mobile Banking',
         },
+        santimpay: {
+            enabled: Boolean(santim.enabled && santim.merchantId && santim.privateKey),
+            name: 'SantimPay',
+            description: 'Pay with SantimPay (Telebirr, CBE Birr, Banks)',
+        },
     };
 };
 
 module.exports = {
     getGatewayConfig,
+    getTenantPosGatewayConfig,
     chapaInitialize,
     chapaVerify,
+    chapaInitializeForTenantPos,
+    chapaVerifyForTenantPos,
+    santimpayInitializeForTenantPos,
+    santimpayVerifyForTenantPos,
+    santimpayInitializeForPlatform,
+    santimpayVerifyPlatform,
     telebirrInitialize,
     telebirrVerify,
     cbeBirrInitialize,

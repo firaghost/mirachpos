@@ -27,6 +27,7 @@ const {
   recordPaymentSubmission,
   calculateProration,
   getPlanPricing,
+  createManualInvoice,
 } = require('../services/invoiceService');
 const {
   getAvailablePaymentMethods,
@@ -82,6 +83,164 @@ const logAudit = async ({ tenantId, branchId, actorStaffId, actorRole, type, sum
 
 const makeSubscriptionRouter = () => {
   const r = express.Router();
+
+  r.get('/owner/addons', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
+    try {
+      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
+      const category = typeof req.query?.category === 'string' ? req.query.category.trim() : '';
+
+      const base = db().from('addon_packages').where({ is_available: 1 });
+      if (category) base.andWhere({ category });
+      if (q) base.andWhere((qb) => qb.whereRaw('LOWER(code) LIKE ?', [`%${q}%`]).orWhereRaw('LOWER(name) LIKE ?', [`%${q}%`]).orWhereRaw('LOWER(category) LIKE ?', [`%${q}%`]));
+
+      const rows = await base
+        .select(['id', 'code', 'name', 'description', 'category', 'price_monthly_etb', 'price_yearly_etb', 'setup_fee_etb', 'modules_json', 'limits_json', 'meta_json', 'availability_tier', 'updated_at'])
+        .orderBy('updated_at', 'desc')
+        .limit(300);
+
+      const addons = (rows || []).map((a) => ({
+        id: String(a.id),
+        code: String(a.code || ''),
+        name: String(a.name || ''),
+        description: a.description != null ? String(a.description) : '',
+        category: a.category != null ? String(a.category) : '',
+        pricing: {
+          monthlyEtb: Number(a.price_monthly_etb || 0) || 0,
+          yearlyEtb: Number(a.price_yearly_etb || 0) || 0,
+          setupFeeEtb: Number(a.setup_fee_etb || 0) || 0,
+        },
+        modules: safeJsonParse(a.modules_json, []),
+        limits: safeJsonParse(a.limits_json, {}),
+        meta: safeJsonParse(a.meta_json, {}),
+        availabilityTier: a.availability_tier != null ? String(a.availability_tier) : null,
+        updatedAt: a.updated_at ? new Date(a.updated_at).toISOString() : '',
+      }));
+
+      return res.json({ ok: true, addons });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.get('/owner/addons/subscriptions', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
+    try {
+      const rows = await db()
+        .from({ tas: 'tenant_addon_subscriptions' })
+        .leftJoin({ ap: 'addon_packages' }, 'ap.id', 'tas.addon_id')
+        .select([
+          'tas.id',
+          'tas.addon_id',
+          'tas.status',
+          'tas.billing_frequency',
+          'tas.price_paid_etb',
+          'tas.activation_date',
+          'tas.next_renewal_date',
+          'tas.cancellation_date',
+          'ap.code',
+          'ap.name',
+          'ap.category',
+        ])
+        .where({ 'tas.tenant_id': req.tenant.id })
+        .orderBy('tas.updated_at', 'desc')
+        .limit(500);
+
+      const subscriptions = (rows || []).map((r0) => ({
+        id: String(r0.id),
+        addonId: String(r0.addon_id || ''),
+        code: r0.code != null ? String(r0.code) : '',
+        name: r0.name != null ? String(r0.name) : '',
+        category: r0.category != null ? String(r0.category) : '',
+        status: String(r0.status || ''),
+        billingFrequency: String(r0.billing_frequency || 'monthly'),
+        pricePaidEtb: Number(r0.price_paid_etb || 0) || 0,
+        activationDate: r0.activation_date ? new Date(r0.activation_date).toISOString() : '',
+        nextRenewalDate: r0.next_renewal_date ? new Date(r0.next_renewal_date).toISOString() : '',
+        cancellationDate: r0.cancellation_date ? new Date(r0.cancellation_date).toISOString() : '',
+      }));
+
+      return res.json({ ok: true, subscriptions });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.post('/owner/addons/:id/subscribe', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
+    try {
+      const addonId = String(req.params?.id || '').trim();
+      if (!addonId) return res.status(400).json({ error: 'id_required' });
+
+      const billingFrequencyRaw = typeof req.body?.billingFrequency === 'string' ? req.body.billingFrequency.trim().toLowerCase() : 'monthly';
+      const billingFrequency = billingFrequencyRaw === 'yearly' ? 'yearly' : 'monthly';
+
+      // Block if there's already a pending invoice for addon subscription
+      const pendingInvoice = await db()
+        .select(['id'])
+        .from('invoices')
+        .where({ tenant_id: req.tenant.id, status: 'pending', type: 'addon' })
+        .andWhereRaw('LOWER(COALESCE(metadata_json, "")) LIKE ?', [`%"addonid":"${addonId.toLowerCase()}"%`])
+        .first();
+      if (pendingInvoice) return res.status(409).json({ error: 'pending_invoice_exists', invoiceId: pendingInvoice.id });
+
+      const addon = await db()
+        .select(['id', 'code', 'name', 'price_monthly_etb', 'price_yearly_etb', 'setup_fee_etb', 'is_available'])
+        .from('addon_packages')
+        .where({ id: addonId })
+        .first();
+      if (!addon) return res.status(404).json({ error: 'not_found' });
+      if (!addon.is_available) return res.status(409).json({ error: 'not_available' });
+
+      const recurring = billingFrequency === 'yearly' ? Number(addon.price_yearly_etb || 0) || 0 : Number(addon.price_monthly_etb || 0) || 0;
+      const setupFee = Number(addon.setup_fee_etb || 0) || 0;
+      const total = recurring + setupFee;
+      if (!Number.isFinite(total) || total < 0) return res.status(400).json({ error: 'invalid_price' });
+
+      const lineItems = [];
+      if (setupFee > 0) {
+        lineItems.push({ description: `${addon.name} - Setup Fee`, qty: 1, unitPrice: setupFee, amount: setupFee });
+      }
+      lineItems.push({ description: `${addon.name} Add-on - ${billingFrequency}`, qty: 1, unitPrice: recurring, amount: recurring });
+
+      const invoice = await createManualInvoice({
+        tenantId: req.tenant.id,
+        type: 'addon',
+        lineItems,
+        dueInDays: 7,
+        notes: `Add-on subscription: ${addon.name}`,
+        metadata: {
+          addonId: String(addon.id),
+          addonCode: String(addon.code || ''),
+          addonName: String(addon.name || ''),
+          billingFrequency,
+        },
+      });
+
+      await logAudit({
+        tenantId: req.tenant.id,
+        branchId: null,
+        actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+        actorRole: req.auth?.role ? String(req.auth.role) : null,
+        type: 'owner.addon.subscribe.requested',
+        summary: `Requested add-on subscription: ${addon.name}`,
+        payload: { addonId, billingFrequency, invoiceId: invoice.invoiceId },
+      });
+
+      const ent = await computeTenantEntitlements({ tenant: req.tenant });
+      if (ent) await upsertTenantEntitlementsSnapshot({ tenantId: req.tenant.id, entitlements: ent });
+
+      return res.status(202).json({
+        ok: true,
+        message: 'Invoice created. Please complete payment.',
+        invoice: {
+          id: invoice.invoiceId,
+          invoiceNumber: invoice.invoiceNumber,
+          amount: invoice.amount,
+          dueDate: invoice.dueDate,
+        },
+      });
+    } catch (e) {
+      return next(e);
+    }
+  });
 
   // Get current subscription and entitlements
   r.get('/owner/subscription', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {

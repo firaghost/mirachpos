@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
 import { Screen } from '../../types';
+import { formatDeviceDateTime } from '../../datetime';
 
 type ShiftLog = {
   id: string;
@@ -23,9 +24,8 @@ interface Props {
 
 const fmtTime = (iso?: string) => {
   if (!iso) return ' ”';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return ' ”';
-  return d.toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const s = formatDeviceDateTime(iso, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return s || ' ”';
 };
 
 const hoursBetween = (aIso: string, bIso?: string) => {

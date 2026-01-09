@@ -1995,7 +1995,8 @@ const makePosRouter = () => {
       const shortOrder = String(id).replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || String(id).slice(0, 12);
       const rand = Math.random().toString(16).slice(2, 10);
       const txRef = `pos_${shortOrder}_${rand}`;
-      const init = await paymentGatewayService.chapaInitialize({
+      const init = await paymentGatewayService.chapaInitializeForTenantPos({
+        tenantId: req.tenant.id,
         amount: orderRow.total,
         currency: 'ETB',
         email,
@@ -2040,6 +2041,10 @@ const makePosRouter = () => {
 
       return res.json({ ok: true, checkoutUrl: init.checkoutUrl, txRef });
     } catch (e) {
+      const err = String(e?.message || e || '').trim();
+      if (err === 'tenant_chapa_not_configured') {
+        return res.status(400).json({ error: 'tenant_chapa_not_configured', message: 'This cafe has not configured Chapa for POS payments.' });
+      }
       console.error('POS Chapa pay error:', e);
       const msg = (() => {
         const raw = e && typeof e === 'object' ? e.message : '';
@@ -2055,6 +2060,105 @@ const makePosRouter = () => {
         }
       })();
       return res.status(400).json({ error: 'gateway_error', message: msg });
+    }
+  });
+
+  r.post(
+    '/pos/orders/:id/pay-santimpay',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('payments.process'),
+    async (req, res, next) => {
+    try {
+      const branchId = await resolveBranchId(req);
+      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const role = String(req.auth?.role || '').trim();
+      const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
+
+      const id = String(req.params.id || '').trim();
+      if (!id) return res.status(400).json({ error: 'id_required' });
+
+      const orderRow = await db()
+        .from('orders')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
+        .select(['id', 'status', 'total', 'payload'])
+        .first();
+
+      if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+      if (orderRow.status === 'Paid') return res.status(400).json({ error: 'order_already_paid' });
+
+      if (role === 'Waiter') {
+        if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+        const payload = safeJsonParse(orderRow.payload, {});
+        const createdBy = typeof payload?.createdByStaffId === 'string' ? String(payload.createdByStaffId) : '';
+        if (!createdBy || createdBy !== staffId) return res.status(403).json({ error: 'forbidden' });
+      }
+
+      const settings = await resolveEffectivePosSettings({ tenantId: req.tenant.id, branchId });
+      const orderPayload = safeJsonParse(orderRow.payload, {});
+      const orderNumber = typeof orderPayload?.number === 'string' && orderPayload.number.trim() ? String(orderPayload.number).trim() : '';
+      const cafeName = typeof settings?.business?.businessName === 'string' && settings.business.businessName.trim() ? String(settings.business.businessName).trim() : '';
+
+      const baseUrl = req.protocol + '://' + req.get('host');
+      const notifyUrl = `${baseUrl}/api/webhooks/payment/santimpay`;
+      const successRedirectUrl = `${baseUrl}/waiter/pos?orderId=${id}&santimpay=success`;
+      const failureRedirectUrl = `${baseUrl}/waiter/pos?orderId=${id}&santimpay=failed`;
+
+      const shortOrder = String(id).replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || String(id).slice(0, 12);
+      const rand = Math.random().toString(16).slice(2, 10);
+      const txRef = `pos_${shortOrder}_${rand}`;
+
+      const init = await paymentGatewayService.santimpayInitializeForTenantPos({
+        tenantId: req.tenant.id,
+        id: txRef,
+        amount: orderRow.total,
+        reason: `${cafeName || 'MirachPOS'} ${orderNumber ? `Order ${orderNumber}` : `Order ${id}`}`,
+        notifyUrl,
+        successRedirectUrl,
+        failureRedirectUrl,
+        cancelRedirectUrl: failureRedirectUrl,
+      });
+
+      const nowIso = new Date().toISOString();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+
+      await db().from('pos_payment_gateway_transactions').insert({
+        id: uid('pgt'),
+        tenant_id: req.tenant.id,
+        branch_id: branchId,
+        order_id: id,
+        gateway: 'santimpay',
+        method: 'mobile_money',
+        tx_ref: txRef,
+        gateway_tx_id: null,
+        checkout_url: init.checkoutUrl,
+        amount: orderRow.total,
+        currency: 'ETB',
+        status: 'pending',
+        expires_at: expiresAt,
+        paid_at: null,
+        init_response_json: JSON.stringify(init),
+        verify_response_json: null,
+        webhook_payload_json: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      });
+
+      return res.json({ ok: true, checkoutUrl: init.checkoutUrl, txRef });
+    } catch (e) {
+      const err = String(e?.message || e || '').trim();
+      if (err === 'tenant_santimpay_not_configured') {
+        return res.status(400).json({ error: 'tenant_santimpay_not_configured', message: 'This cafe has not configured SantimPay for POS payments.' });
+      }
+      if (err === 'tenant_santimpay_invalid_private_key') {
+        return res.status(400).json({ error: 'tenant_santimpay_invalid_private_key', message: 'SantimPay private key is invalid (expected PEM format).' });
+      }
+      console.error('POS SantimPay pay error:', e);
+      return res.status(400).json({ error: 'gateway_error', message: err || 'gateway_error' });
     }
   });
 
@@ -2191,6 +2295,8 @@ const makePosRouter = () => {
           const payload = safeJsonParse(orderRow.payload, {});
           payload.paidAt = nowIso;
           payload.paymentMethod = 'Telebirr';
+          if (req.auth?.staffId && !payload.paidByStaffId) payload.paidByStaffId = String(req.auth.staffId);
+          if (req.auth?.staffName && !payload.paidByName) payload.paidByName = String(req.auth.staffName);
           payload.telebirrVerifyResponse = verify.rawResponse;
 
           await db()
@@ -2206,6 +2312,100 @@ const makePosRouter = () => {
         }
       } catch (verifyError) {
         console.error('Telebirr verify error in POS route:', verifyError);
+      }
+
+      return res.json({ ok: true, paid: false });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.get(
+    '/pos/orders/:id/payment-status-santimpay',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
+    try {
+      const branchId = await resolveBranchId(req);
+      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const role = String(req.auth?.role || '').trim();
+      const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
+
+      const id = String(req.params.id || '').trim();
+      if (!id) return res.status(400).json({ error: 'id_required' });
+
+      const orderRow = await db()
+        .from('orders')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
+        .select(['id', 'status', 'payload'])
+        .first();
+
+      if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+
+      if (role === 'Waiter') {
+        if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+        const payload = safeJsonParse(orderRow.payload, {});
+        const createdBy = typeof payload?.createdByStaffId === 'string' ? String(payload.createdByStaffId) : '';
+        if (!createdBy || createdBy !== staffId) return res.status(403).json({ error: 'forbidden' });
+      }
+
+      if (orderRow.status === 'Paid') {
+        return res.json({ ok: true, paid: true });
+      }
+
+      const tx = await db()
+        .from('pos_payment_gateway_transactions')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id, gateway: 'santimpay' })
+        .orderBy('created_at', 'desc')
+        .select(['tx_ref', 'status', 'expires_at', 'paid_at'])
+        .first();
+
+      if (!tx?.tx_ref) return res.json({ ok: true, paid: false });
+      if (String(tx.status || '') === 'completed') return res.json({ ok: true, paid: true });
+
+      try {
+        const verify = await paymentGatewayService.santimpayVerifyForTenantPos({ tenantId: req.tenant.id, id: String(tx.tx_ref) });
+        if (verify?.success) {
+          const nowIso = new Date().toISOString();
+          const payload = safeJsonParse(orderRow.payload, {});
+          payload.paidAt = nowIso;
+          payload.paymentMethod = 'SantimPay';
+          if (req.auth?.staffId && !payload.paidByStaffId) payload.paidByStaffId = String(req.auth.staffId);
+          if (req.auth?.staffName && !payload.paidByName) payload.paidByName = String(req.auth.staffName);
+          payload.santimpayTxRef = String(tx.tx_ref);
+          payload.santimpayVerifyResponse = verify.raw;
+
+          await db()
+            .from('orders')
+            .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
+            .update({
+              status: 'Paid',
+              paid_at: nowIso,
+              payload: JSON.stringify(payload),
+            });
+
+          await db()
+            .from('pos_payment_gateway_transactions')
+            .where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id, gateway: 'santimpay', tx_ref: String(tx.tx_ref) })
+            .update({
+              status: 'completed',
+              paid_at: nowIso,
+              verify_response_json: JSON.stringify(verify),
+              updated_at: nowIso,
+            });
+
+          return res.json({ ok: true, paid: true });
+        }
+      } catch (e) {
+        const err = String(e?.message || e || '').trim();
+        if (err === 'tenant_santimpay_not_configured') {
+          return res.status(400).json({ ok: false, error: 'tenant_santimpay_not_configured', message: 'This cafe has not configured SantimPay for POS payments.' });
+        }
       }
 
       return res.json({ ok: true, paid: false });
@@ -2263,13 +2463,15 @@ const makePosRouter = () => {
       if (String(tx.status || '') === 'completed') return res.json({ ok: true, paid: true });
 
       try {
-        const verify = await paymentGatewayService.chapaVerify(String(tx.tx_ref));
+        const verify = await paymentGatewayService.chapaVerifyForTenantPos({ tenantId: req.tenant.id, txRef: String(tx.tx_ref) });
         if (verify?.success && String(verify?.status || '').toLowerCase() === 'success') {
           // Update order + transaction (webhook may not reach localhost in dev)
           const nowIso = new Date().toISOString();
           const payload = safeJsonParse(orderRow.payload, {});
           payload.paidAt = nowIso;
           payload.paymentMethod = 'Mobile Pay';
+          if (req.auth?.staffId && !payload.paidByStaffId) payload.paidByStaffId = String(req.auth.staffId);
+          if (req.auth?.staffName && !payload.paidByName) payload.paidByName = String(req.auth.staffName);
           payload.chapaTxRef = String(tx.tx_ref);
           payload.chapaVerifyResponse = verify.rawResponse;
 
@@ -2294,8 +2496,11 @@ const makePosRouter = () => {
 
           return res.json({ ok: true, paid: true });
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        const err = String(e?.message || e || '').trim();
+        if (err === 'tenant_chapa_not_configured') {
+          return res.status(400).json({ ok: false, error: 'tenant_chapa_not_configured', message: 'This cafe has not configured Chapa for POS payments.' });
+        }
       }
 
       return res.json({ ok: true, paid: false });

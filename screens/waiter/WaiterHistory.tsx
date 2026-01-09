@@ -4,6 +4,7 @@ import { Screen } from '../../types';
 import { usePos } from '../../PosContext';
 import { apiFetch } from '../../api';
 import { readSession } from '../../session';
+import { formatDeviceDate } from '../../datetime';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -25,7 +26,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
     selectOrder(orderId);
     onNavigate(canRefundFromHere ? Screen.MANAGER_ORDER_DETAILS : Screen.WAITER_RECEIPT);
   };
-  const todayLabel = useMemo(() => new Date().toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' }), []);
+  const todayLabel = useMemo(() => formatDeviceDate(new Date(), { month: 'short', day: '2-digit', year: 'numeric' }), []);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Completed' | 'Open' | 'Voided'>('All');
   const [query, setQuery] = useState('');
 

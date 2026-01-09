@@ -9,6 +9,7 @@ import { Modal } from '../../components/ui/modal';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { cn } from '../../components/lib/utils';
+import { formatDeviceDateTime } from '../../datetime';
 
 type AuditRow = {
   id: string;
@@ -24,9 +25,7 @@ type AuditRow = {
 };
 
 const fmtTime = (iso: string) => {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return '';
-  return new Date(t).toLocaleString();
+  return formatDeviceDateTime(iso) || '';
 };
 
 const downloadText = (filename: string, content: string, mime = 'text/plain;charset=utf-8') => {

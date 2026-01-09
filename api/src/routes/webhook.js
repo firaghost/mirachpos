@@ -9,11 +9,12 @@
 
 const express = require('express');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const net = require('net');
 const { db } = require('../db');
 const { verifyPayment } = require('../services/invoiceService');
 const { makeId } = require('../utils/ids');
-const { getGatewayConfig, verifyPaymentGateway } = require('../services/paymentGatewayService');
+const { getGatewayConfig, verifyPaymentGateway, getTenantPosGatewayConfig } = require('../services/paymentGatewayService');
 const { handleStandingOrderWebhook } = require('../services/telebirrStandingOrderService');
 const { logger } = require('../utils/logger');
 
@@ -211,10 +212,27 @@ const makeWebhookRouter = () => {
 
         try {
             const signature = req.headers['x-chapa-signature'] || req.headers['chapa-signature'];
-            const config = await getGatewayConfig('chapa');
 
-            // Get secret from env or DB
-            const secret = process.env.CHAPA_WEBHOOK_SECRET || config?.webhookSecret;
+            // Resolve webhook secret by scope:
+            // - POS payments: tenant-owned secret from tenant_pos_payment_gateways
+            // - Subscription invoices: platform secret from platform_payment_config / env
+            const txRef0 = String(req.body?.tx_ref || req.body?.txRef || '').trim();
+
+            let secret = '';
+            if (txRef0) {
+                const posTx = await db().select(['tenant_id']).from('pos_payment_gateway_transactions').where({ tx_ref: txRef0, gateway: 'chapa' }).first();
+                const tenantId = posTx?.tenant_id ? String(posTx.tenant_id).trim() : '';
+                if (tenantId) {
+                    const tcfg = await getTenantPosGatewayConfig(tenantId, 'chapa');
+                    secret = String(tcfg?.config?.webhookSecret || '').trim();
+                }
+            }
+
+            // Fallback to platform webhook secret for subscription billing
+            if (!secret) {
+                const config = await getGatewayConfig('chapa');
+                secret = String(process.env.CHAPA_WEBHOOK_SECRET || config?.webhookSecret || '').trim();
+            }
 
             if (!secret) {
                 log.error({ requestId }, 'Chapa webhook secret not configured');
@@ -406,6 +424,155 @@ const makeWebhookRouter = () => {
                 stack: e.stack,
                 duration
             }, 'Chapa webhook error');
+            return res.status(500).send('Internal Server Error');
+        }
+    });
+
+    // =========================================================================
+    // SANTIMPAY WEBHOOK (POS + SUBSCRIPTIONS)
+    // =========================================================================
+    r.post('/payment/santimpay', async (req, res) => {
+        const requestId = req.requestId || makeId('whk');
+        try {
+            const signedTokenHeader = req.headers['signed-token'] || req.headers['Signed-Token'] || req.headers['Signed-token'];
+            const signedToken = typeof signedTokenHeader === 'string' ? signedTokenHeader.trim() : Array.isArray(signedTokenHeader) ? String(signedTokenHeader[0] || '').trim() : '';
+
+            // SantimPay callback includes:
+            // - txnId: SantimPay transaction id
+            // - thirdPartyId: merchant-provided id (our reference)
+            // Some payloads may also use clientReference.
+            const merchantRef = String(req.body?.thirdPartyId || req.body?.thirdPartyID || req.body?.clientReference || req.body?.id || '').trim();
+            const txnId = String(req.body?.txnId || '').trim();
+            if (!merchantRef && !txnId) return res.status(400).send('Missing reference');
+
+            const status = String(req.body?.Status || req.body?.status || '').trim().toUpperCase();
+
+            const posTx = merchantRef
+                ? await db().select(['*']).from('pos_payment_gateway_transactions').where({ tx_ref: merchantRef, gateway: 'santimpay' }).first()
+                : null;
+
+            const isPos = Boolean(posTx?.id);
+
+            const tenantId = isPos ? String(posTx.tenant_id || '').trim() : '';
+            const branchId = isPos ? String(posTx.branch_id || '').trim() : '';
+            const orderId = isPos ? String(posTx.order_id || '').trim() : '';
+
+            const publicKey = (() => {
+                if (isPos && tenantId) {
+                    return getTenantPosGatewayConfig(tenantId, 'santimpay').then((tcfg) => String(tcfg?.config?.publicKey || '').trim());
+                }
+                return Promise.resolve(String(process.env.SANTIMPAY_PUBLIC_KEY || '').trim());
+            })();
+
+            if (!signedToken) {
+                log.warn({ requestId, merchantRef, scope: isPos ? 'pos' : 'subscription' }, 'SantimPay missing Signed-Token header');
+                return res.status(400).send('Missing Signed-Token');
+            }
+
+            try {
+                const pk = await publicKey;
+                if (!pk) {
+                    log.error({ requestId, scope: isPos ? 'pos' : 'subscription' }, 'SantimPay public key not configured');
+                    return res.status(500).send('Configuration Error');
+                }
+                jwt.verify(signedToken, pk, { algorithms: ['ES256'] });
+            } catch (e) {
+                log.warn({ requestId, merchantRef, err: String(e?.message || e || '') }, 'SantimPay Signed-Token verification failed');
+                return res.status(400).send('Invalid Signature');
+            }
+
+            // POS path
+            if (isPos) {
+                if (status !== 'COMPLETED') {
+                    await db().from('pos_payment_gateway_transactions').where({ id: posTx.id }).update({
+                        webhook_payload_json: JSON.stringify(req.body),
+                        updated_at: new Date().toISOString(),
+                    });
+                    return res.status(200).send('OK');
+                }
+
+                const orderRow = await db()
+                    .from('orders')
+                    .where({ tenant_id: tenantId, branch_id: branchId, id: orderId })
+                    .select(['id', 'status', 'paid_at', 'payload'])
+                    .first();
+                if (!orderRow) return res.status(200).send('OK');
+
+                const nowIso = new Date().toISOString();
+                if (String(orderRow.status || '') !== 'Paid') {
+                    const payload = safeJsonParse(orderRow.payload, {});
+                    payload.paidAt = nowIso;
+                    payload.paymentMethod = 'SantimPay';
+                    payload.santimpayWebhook = req.body;
+
+                    await db().from('orders').where({ tenant_id: tenantId, branch_id: branchId, id: orderId }).update({
+                        status: 'Paid',
+                        paid_at: nowIso,
+                        payload: JSON.stringify(payload),
+                    });
+                }
+
+                await db().from('pos_payment_gateway_transactions').where({ id: posTx.id }).update({
+                    status: 'completed',
+                    paid_at: orderRow.paid_at || nowIso,
+                    webhook_payload_json: JSON.stringify(req.body),
+                    updated_at: nowIso,
+                });
+
+                return res.status(200).send('OK');
+            }
+
+            // Subscription path
+            if (!merchantRef) return res.status(200).send('OK');
+            const invoiceId = String(merchantRef).split('_')[0] || '';
+            if (!invoiceId) return res.status(200).send('OK');
+
+            const invoice = await db().select('*').from('invoices').where({ id: invoiceId }).first();
+            if (!invoice) return res.status(200).send('OK');
+
+            if (String(invoice.status || '') === 'paid') {
+                return res.status(200).send('Already Paid');
+            }
+
+            if (status !== 'COMPLETED') {
+                return res.status(200).send('OK');
+            }
+
+            const existingPayment = await db()
+                .select(['id'])
+                .from('payments')
+                .where({ invoice_id: invoiceId, reference: merchantRef })
+                .first();
+            if (existingPayment?.id) {
+                return res.status(200).send('Already Processed');
+            }
+
+            const paymentId = makeId('pay');
+            const nowIso = new Date().toISOString();
+            const amt = Number(req.body?.totalAmount || req.body?.amount || invoice.total_etb || 0) || Number(invoice.total_etb || 0) || 0;
+
+            await db().from('payments').insert({
+                id: paymentId,
+                invoice_id: invoiceId,
+                tenant_id: invoice.tenant_id,
+                method: 'santimpay',
+                status: 'verified',
+                amount_etb: amt,
+                currency: 'ETB',
+                reference: merchantRef,
+                gateway_response_json: JSON.stringify(req.body),
+                gateway_tx_id: txnId || null,
+                verified_by: 'system',
+                verified_at: nowIso,
+                created_at: nowIso,
+                updated_at: nowIso,
+            });
+
+            await verifyPayment({ paymentId, verifiedBy: 'system' });
+
+            return res.status(200).send('OK');
+        } catch (e) {
+            log.error({ requestId, error: e.message, stack: e.stack }, 'SantimPay webhook error');
             return res.status(500).send('Internal Server Error');
         }
     });

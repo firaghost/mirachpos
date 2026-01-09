@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
+import { formatDeviceDateTime } from '../../datetime';
 import { Screen } from '../../types';
+import { updateSession } from '../../session';
+import { readSession } from '../../session';
 
 type TenantProfile = {
   contactEmail?: string;
@@ -56,13 +59,7 @@ const stageNext = (s: StageKey): StageKey => {
 
 const fmtWhen = (iso?: string) => {
   if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  try {
-    return d.toLocaleString(undefined, { month: 'short', day: '2-digit', year: 'numeric' });
-  } catch {
-    return iso;
-  }
+  return formatDeviceDateTime(iso, { month: 'short', day: '2-digit', year: 'numeric' }) || '';
 };
 
 const hasProfileRisk = (t: TenantRow) => {

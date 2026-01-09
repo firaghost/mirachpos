@@ -84,7 +84,7 @@ const requireRole = (...roles) => async (req, res, next) => {
   try {
     if (!requireTenantMatch(req, res)) return;
 
-    if (config.devBypassAuth) return next();
+    if (config && config.devBypassAuth) return next();
 
     const role = String(req.auth?.role || '').trim();
     const allowed = roles.map((r) => String(r)).includes(role);
@@ -100,7 +100,7 @@ const requirePermission = (permission) => async (req, res, next) => {
   try {
     if (!requireTenantMatch(req, res)) return;
 
-    if (config.devBypassAuth) return next();
+    if (config && config.devBypassAuth) return next();
 
     const perm = String(permission || '').trim();
     if (!perm) return next();

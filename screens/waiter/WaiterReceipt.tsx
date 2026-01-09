@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Screen } from '../../types';
 import { usePos, useSelectedOrder } from '../../PosContext';
+import { Screen } from '../../types';
 import { apiFetch } from '../../api';
 import { readSession } from '../../session';
+import { formatDeviceDate, formatDeviceTime } from '../../datetime';
 
 type PosSettingsResponse = {
   ok?: boolean;
@@ -101,37 +102,18 @@ const receiptHtml = (
   const tz = typeof settings.timezone === 'string' && settings.timezone.trim() ? settings.timezone.trim() : '';
   const dateStr = (() => {
     try {
-      const parts = new Intl.DateTimeFormat('en-GB', {
-        timeZone: tz || undefined,
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      }).formatToParts(dt);
-      const dd = parts.find((p) => p.type === 'day')?.value ?? '';
-      const mm = parts.find((p) => p.type === 'month')?.value ?? '';
-      const yyyy = parts.find((p) => p.type === 'year')?.value ?? '';
-      if (!dd || !mm || !yyyy) return '';
-      return `${dd}/${mm}/${yyyy}`;
+      return formatDeviceDate(dt, { year: 'numeric', month: '2-digit', day: '2-digit' });
     } catch {
       const dd = String(dt.getDate()).padStart(2, '0');
       const mm = String(dt.getMonth() + 1).padStart(2, '0');
-      const yyyy = String(dt.getFullYear());
-      return `${dd}/${mm}/${yyyy}`;
+      const yy = String(dt.getFullYear());
+      return `${dd}/${mm}/${yy}`;
     }
   })();
 
   const timeStr = (() => {
     try {
-      const parts = new Intl.DateTimeFormat('en-GB', {
-        timeZone: tz || undefined,
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      }).formatToParts(dt);
-      const hh = parts.find((p) => p.type === 'hour')?.value ?? '';
-      const mi = parts.find((p) => p.type === 'minute')?.value ?? '';
-      if (!hh || !mi) return '';
-      return `${hh}:${mi}`;
+      return formatDeviceTime(dt, { hour: '2-digit', minute: '2-digit' });
     } catch {
       const hh = String(dt.getHours()).padStart(2, '0');
       const mi = String(dt.getMinutes()).padStart(2, '0');
@@ -158,7 +140,15 @@ const receiptHtml = (
   const taxRateLabel = settings.vatEnabled ? `${settings.vatRate.toFixed(2)}%` : '';
   const serviceLabel = settings.serviceEnabled ? `SERVICE CHARGE +${settings.serviceRate.toFixed(0)}%` : 'SERVICE CHARGE';
 
-  const tip = Number((order as any)?.tip ?? (order as any)?.payload?.tip ?? 0) || 0;
+  const tip = (() => {
+    const direct = Number((order as any)?.tip ?? 0) || 0;
+    if (direct > 0.0001) return direct;
+    const p = (order as any)?.payload && typeof (order as any).payload === 'object' ? (order as any).payload : null;
+    const fromPayloadTip = Number(p?.tip ?? 0) || 0;
+    if (fromPayloadTip > 0.0001) return fromPayloadTip;
+    const fromBreakdown = (Number(p?.tipAmount ?? 0) || 0) + (Number(p?.tipPctAmount ?? 0) || 0);
+    return fromBreakdown;
+  })();
 
   const tendered = Number((order as any)?.tenderedAmount ?? 0) || 0;
   const change = Math.max(0, tendered - Number(order.total || 0));
@@ -342,20 +332,19 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
         const res = await apiFetch(`/api/waiter/order/${encodeURIComponent(String(selectedOrderId))}`);
         const json = (await res.json().catch(() => null)) as any;
         if (!res.ok) return;
-        const o = json?.order;
         if (!mounted) return;
+        const o = json?.order;
         if (!o || typeof o !== 'object') return;
         // Normalize into PosOrder-like shape expected by this screen.
         const items = Array.isArray(o.items) ? o.items : [];
-        const normalized: any = {
+        const normalized = {
           id: String(o.id || ''),
-          number: String(o.number || ''),
-          tableId: String(o?.payload?.tableId || ''),
           tableName: String(o.tableName || ''),
-          items,
-          subtotal: Number(o?.payload?.subtotal ?? 0) || 0,
-          tax: Number(o.tax ?? o?.payload?.tax ?? 0) || 0,
-          serviceCharge: Number(o?.payload?.serviceCharge ?? 0) || 0,
+          number: String(o.number || ''),
+          items: Array.isArray(o.items) ? o.items : [],
+          subtotal: Number(o.subtotal ?? 0) || 0,
+          tax: Number(o.tax ?? 0) || 0,
+          serviceCharge: Number(o.serviceCharge ?? 0) || 0,
           total: Number(o.total ?? 0) || 0,
           status: String(o.status || ''),
           createdAt: String(o?.payload?.createdAt || o.createdAt || ''),
@@ -369,7 +358,12 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
           customer: o?.payload?.customer || undefined,
           splits: o?.payload?.splits || undefined,
           discount: o?.payload?.discount || undefined,
-          tip: o?.payload?.tip || undefined,
+          tip: (() => {
+            const t = Number(o?.tip ?? o?.payload?.tip ?? 0) || 0;
+            if (t > 0.0001) return t;
+            const tb = (Number(o?.payload?.tipAmount ?? 0) || 0) + (Number(o?.payload?.tipPctAmount ?? 0) || 0);
+            return tb > 0.0001 ? tb : undefined;
+          })(),
         };
         setFallbackOrder(normalized);
       } catch {
@@ -429,7 +423,11 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
           tax: Number(row?.tax ?? payload?.tax ?? 0) || 0,
           serviceCharge: Number(payload?.serviceCharge ?? 0) || 0,
           discount: Number(row?.discount ?? payload?.discount ?? 0) || 0,
-          tip: Number(row?.tip ?? payload?.tip ?? 0) || 0,
+          tip: (() => {
+            const t = Number(row?.tip ?? payload?.tip ?? 0) || 0;
+            if (t > 0.0001) return t;
+            return (Number(payload?.tipAmount ?? 0) || 0) + (Number(payload?.tipPctAmount ?? 0) || 0);
+          })(),
           total: Number(row?.total ?? payload?.total ?? 0) || 0,
           status: String(row?.status || payload?.status || 'Pending'),
           createdAt,

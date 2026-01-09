@@ -5,6 +5,7 @@ import { readSession } from '../../session';
 import { usePos } from '../../PosContext';
 import { Screen } from '../../types';
 import { Button } from '../../components/ui/button';
+import { formatDeviceDate, formatDeviceTime } from '../../datetime';
 import {
   Area,
   AreaChart,
@@ -80,7 +81,7 @@ const formatTrendLabel = (key: string) => {
     const d = new Date(s);
     if (!Number.isNaN(d.getTime())) {
       try {
-        return d.toLocaleDateString(undefined, { month: 'short', day: '2-digit' });
+        return formatDeviceDate(d, { month: 'short', day: '2-digit' }) || '';
       } catch {
         return s;
       }
@@ -93,7 +94,7 @@ const formatTrendLabel = (key: string) => {
     const d = new Date(`${s}T00:00:00.000Z`);
     if (!Number.isNaN(d.getTime())) {
       try {
-        return d.toLocaleDateString(undefined, { month: 'short', day: '2-digit' });
+        return formatDeviceDate(d, { month: 'short', day: '2-digit' }) || '';
       } catch {
         return s;
       }
@@ -622,7 +623,7 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
         setLiveOps([]);
       }
 
-      setLastUpdatedAt(new Date().toLocaleTimeString());
+      setLastUpdatedAt(formatDeviceTime(new Date(), { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch {
       setError('Start the API server (npm run dev or npm run dev:api from repo root).');
     } finally {

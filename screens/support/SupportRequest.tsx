@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
+import { formatDeviceDateTime } from '../../datetime';
 
 type MyTicketRow = {
   id: string;
@@ -12,9 +13,8 @@ type MyTicketRow = {
 };
 
 const fmtTime = (iso: string) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return ' ”';
-  return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const out = formatDeviceDateTime(iso, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return out || ' ”';
 };
 
 export const SupportRequest: React.FC = () => {

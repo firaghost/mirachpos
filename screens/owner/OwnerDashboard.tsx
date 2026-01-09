@@ -4,6 +4,7 @@ import { updateSession } from '../../session';
 import { InitializePosModal } from '../../components/InitializePosModal';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { formatDeviceTime } from '../../datetime';
 
 const fmtEtb = (n: number) => {
   const v = Number.isFinite(n) ? n : 0;
@@ -195,7 +196,7 @@ export const OwnerDashboard: React.FC = () => {
         setTrend([]);
       }
 
-      setLastUpdatedAt(new Date().toLocaleTimeString());
+      setLastUpdatedAt(formatDeviceTime(new Date(), { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 
       try {
         const posRes = await apiFetch(effectiveBranchId ? `/api/pos/state?branchId=${encodeURIComponent(effectiveBranchId)}` : '/api/pos/state');

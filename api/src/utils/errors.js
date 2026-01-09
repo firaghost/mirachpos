@@ -73,6 +73,25 @@ class ServiceUnavailableError extends AppError {
     }
 }
 
+const safeJsonParse = (raw, fallback) => {
+    try {
+        if (!raw) return fallback;
+        const parsed = JSON.parse(String(raw));
+        return parsed ?? fallback;
+    } catch {
+        return fallback;
+    }
+};
+
+const safeJsonStringify = (v) => {
+    try {
+        if (v == null) return null;
+        return JSON.stringify(v);
+    } catch {
+        return null;
+    }
+};
+
 // Error handler middleware
 const errorHandler = (err, req, res, _next) => {
     // Get logger from request or create one
@@ -125,5 +144,7 @@ module.exports = {
     ConflictError,
     RateLimitError,
     ServiceUnavailableError,
+    safeJsonParse,
+    safeJsonStringify,
     errorHandler,
 };

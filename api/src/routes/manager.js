@@ -41,6 +41,16 @@ const makeManagerRouter = () => {
     return Number.isFinite(n) ? n : fallback;
   };
 
+  const safeJsonParse = (raw, fallback) => {
+    try {
+      if (!raw) return fallback;
+      const parsed = JSON.parse(String(raw));
+      return parsed == null ? fallback : parsed;
+    } catch {
+      return fallback;
+    }
+  };
+
   r.get(
     '/manager/overview',
     tenantMiddleware,
@@ -241,6 +251,108 @@ const makeManagerRouter = () => {
       })();
 
       return res.json({ ok: true, tenantId: req.tenant.id, branchId, settings: stored });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  // Integrations (read-only for Branch Manager UI)
+  r.get(
+    '/manager/integrations',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('manager.settings.read'),
+    requireBranchId(),
+    async (req, res, next) => {
+    try {
+      const rows = await db()
+        .from({ ti: 'tenant_integrations' })
+        .leftJoin({ ic: 'integrations_catalog' }, 'ic.id', 'ti.integration_id')
+        .select([
+          'ti.id',
+          'ti.integration_id',
+          'ti.status',
+          'ti.installed_at',
+          'ti.updated_at',
+          'ic.code',
+          'ic.name',
+          'ic.category',
+          'ic.integration_type',
+          'ic.is_available',
+        ])
+        .where({ 'ti.tenant_id': req.tenant.id })
+        .orderBy('ti.updated_at', 'desc')
+        .limit(500);
+
+      const installed = (rows || []).map((r0) => ({
+        id: String(r0.id),
+        integrationId: String(r0.integration_id || ''),
+        code: r0.code != null ? String(r0.code) : '',
+        name: r0.name != null ? String(r0.name) : '',
+        category: r0.category != null ? String(r0.category) : '',
+        integrationType: r0.integration_type != null ? String(r0.integration_type) : '',
+        isAvailable: Boolean(r0.is_available),
+        status: String(r0.status || 'installed'),
+        installedAt: r0.installed_at ? new Date(r0.installed_at).toISOString() : '',
+        updatedAt: r0.updated_at ? new Date(r0.updated_at).toISOString() : '',
+      }));
+
+      return res.json({ ok: true, installed });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  // Add-ons (read-only for Branch Manager UI)
+  r.get(
+    '/manager/addons',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('manager.settings.read'),
+    requireBranchId(),
+    async (req, res, next) => {
+    try {
+      const rows = await db()
+        .from({ tas: 'tenant_addon_subscriptions' })
+        .leftJoin({ ap: 'addon_packages' }, 'ap.id', 'tas.addon_id')
+        .select([
+          'tas.id',
+          'tas.addon_id',
+          'tas.status',
+          'tas.billing_frequency',
+          'tas.price_paid_etb',
+          'tas.activation_date',
+          'tas.next_renewal_date',
+          'tas.cancellation_date',
+          'ap.code',
+          'ap.name',
+          'ap.category',
+        ])
+        .where({ 'tas.tenant_id': req.tenant.id })
+        .orderBy('tas.updated_at', 'desc')
+        .limit(500);
+
+      const subscriptions = (rows || []).map((r0) => ({
+        id: String(r0.id),
+        addonId: String(r0.addon_id || ''),
+        code: r0.code != null ? String(r0.code) : '',
+        name: r0.name != null ? String(r0.name) : '',
+        category: r0.category != null ? String(r0.category) : '',
+        status: String(r0.status || ''),
+        billingFrequency: String(r0.billing_frequency || 'monthly'),
+        pricePaidEtb: Number(r0.price_paid_etb || 0) || 0,
+        activationDate: r0.activation_date ? new Date(r0.activation_date).toISOString() : '',
+        nextRenewalDate: r0.next_renewal_date ? new Date(r0.next_renewal_date).toISOString() : '',
+        cancellationDate: r0.cancellation_date ? new Date(r0.cancellation_date).toISOString() : '',
+      }));
+
+      return res.json({ ok: true, subscriptions });
     } catch (e) {
       return next(e);
     }

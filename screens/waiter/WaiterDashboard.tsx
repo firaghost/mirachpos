@@ -1,9 +1,9 @@
-
 import React, { useEffect, useMemo, useState } from 'react';
 import { Screen } from '../../types';
 import { usePos } from '../../PosContext';
 import { apiFetch } from '../../api';
 import { readSession } from '../../session';
+import { formatDeviceDate, formatDeviceTime } from '../../datetime';
 
 const readStaffNameCache = (): Record<string, string> => {
   try {
@@ -562,7 +562,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
             </div>
             <p className="text-[#c9b792] text-sm font-medium mt-1 flex items-center gap-1">
               <span className="material-symbols-outlined text-sm">schedule</span>
-              {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}    {now.toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' })}
+              {formatDeviceTime(now, { hour: '2-digit', minute: '2-digit' })}    {formatDeviceDate(now, { month: 'short', day: '2-digit', year: 'numeric' })}
             </p>
             {actionErr ? <p className="mt-2 text-xs text-red-300 font-semibold">{actionErr}</p> : null}
           </div>

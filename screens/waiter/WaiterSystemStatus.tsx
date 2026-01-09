@@ -1,7 +1,8 @@
-
 import React, { useEffect, useMemo, useState } from 'react';
-import { usePos } from '../../PosContext';
 import { Screen } from '../../types';
+import { apiFetch } from '../../api';
+import { usePos } from '../../PosContext';
+import { formatDeviceDateTime } from '../../datetime';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -249,7 +250,7 @@ export const WaiterSystemStatus: React.FC<Props> = ({ onNavigate }) => {
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="text-white text-sm font-bold truncate">{n.title}</div>
-                            <div className="text-[11px] text-[#c8ad93] whitespace-nowrap">{new Date(n.createdAt).toLocaleString()}</div>
+                            <div className="text-[11px] text-[#c8ad93] whitespace-nowrap">{formatDeviceDateTime(n.createdAt)}</div>
                           </div>
                           <div className="mt-1 text-sm text-[#c8ad93]">{n.message}</div>
                         </button>

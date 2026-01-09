@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { InventoryItem, PosOrder, PosOrderItem, PosTable, Product, Recipe } from './types';
-import { apiFetch } from './api';
-import { readSession } from './session';
+import { apiFetch, serverNowMs } from './api';
+import { readSession, updateSession } from './session';
+import { formatDeviceDate, formatDeviceTime } from './datetime';
 
 type PaymentMethod = 'Cash' | 'Card' | 'Telebirr' | 'Bank Transfer' | 'Loyalty';
 
@@ -372,11 +373,11 @@ const generateId = () => {
 };
 
 const formatTime = (date: Date) => {
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+  return formatDeviceTime(date, { hour: '2-digit', minute: '2-digit' });
 };
 
 const formatDateLabel = (date: Date) => {
-  return date.toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' });
+  return formatDeviceDate(date, { month: 'short', day: '2-digit', year: 'numeric' });
 };
 
 const calcSubtotal = (items: PosOrderItem[]) => items.reduce((sum, i) => sum + i.unitPrice * i.qty, 0);
@@ -848,56 +849,54 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const paymentMethod = typeof payload?.paymentMethod === 'string' ? payload.paymentMethod : '';
             const paymentReference = typeof payload?.paymentReference === 'string' ? payload.paymentReference : '';
 
-            const createdByStaffId = typeof payload?.createdByStaffId === 'string' ? payload.createdByStaffId : '';
-            const createdByName = typeof payload?.createdByName === 'string' ? payload.createdByName : resolveStaffName(createdByStaffId);
-
-            const timeLabel = typeof payload?.timeLabel === 'string' && payload.timeLabel ? payload.timeLabel : formatTime(new Date(createdAt));
+            const paidByStaffId = typeof payload?.paidByStaffId === 'string' ? payload.paidByStaffId : '';
+            const paidByName = typeof payload?.paidByName === 'string' ? payload.paidByName : '';
 
             return {
               id,
               number,
               tableId,
               tableName,
-              items: items
-                .map((it) => ({
-                  productId: String(it?.productId || it?.product_id || ''),
-                  name: String(it?.name || ''),
-                  unitPrice: Number(it?.unitPrice ?? it?.unit_price ?? 0) || 0,
-                  qty: Number(it?.qty ?? 0) || 0,
-                  note: typeof it?.note === 'string' ? it.note : undefined,
-                  voidedQty: Number(it?.voidedQty ?? it?.voided_qty ?? 0) || 0,
-                  voidReason: typeof it?.voidReason === 'string' ? it.voidReason : typeof it?.void_reason === 'string' ? it.void_reason : undefined,
-                }))
-                .filter((it) => it.productId && it.name && it.qty > 0),
+              createdByStaffId: typeof payload?.createdByStaffId === 'string' ? payload.createdByStaffId : undefined,
+              createdByName: typeof payload?.createdByName === 'string' ? payload.createdByName : undefined,
+              items: items.map((it) => ({
+                productId: String((it as any)?.productId || ''),
+                name: String((it as any)?.name || ''),
+                unitPrice: Number((it as any)?.unitPrice ?? (it as any)?.price ?? 0) || 0,
+                qty: Number((it as any)?.qty ?? 0) || 0,
+                voidedQty: typeof (it as any)?.voidedQty === 'number' ? (it as any).voidedQty : 0,
+                note: typeof (it as any)?.note === 'string' ? (it as any).note : '',
+                voidReason: typeof (it as any)?.voidReason === 'string' ? (it as any).voidReason : undefined,
+              })),
               subtotal,
               tax,
               serviceCharge,
-              discount,
-              tip,
               total,
               status,
               createdAt,
-              paidAt: paidAt || undefined,
-              voidedAt: voidedAt || undefined,
-              voidReason: voidReason || undefined,
-              createdByStaffId: createdByStaffId || undefined,
-              createdByName: createdByName || undefined,
-              timeLabel,
+              timeLabel: String((r as any)?.timeLabel || (payload as any)?.timeLabel || ''),
+              notes: typeof payload?.notes === 'string' ? payload.notes : undefined,
+              paidAt: paidAt ? String(paidAt) : undefined,
               paymentMethod: paymentMethod || undefined,
+              tenderedAmount: typeof payload?.tenderedAmount === 'number' ? payload.tenderedAmount : undefined,
               paymentReference: paymentReference || undefined,
+              paidByStaffId: paidByStaffId || undefined,
+              paidByName: paidByName || undefined,
               syncedToServer: true,
               syncedAt: new Date().toISOString(),
-              notes: typeof payload?.notes === 'string' ? payload.notes : undefined,
+              voidedAt: voidedAt ? String(voidedAt) : undefined,
+              voidReason: voidReason || undefined,
               customer: payload?.customer && typeof payload.customer === 'object' ? (payload.customer as any) : undefined,
               splits: Array.isArray(payload?.splits) ? (payload.splits as any) : undefined,
               inventoryDeducted: true,
+              // keep numerical fields used elsewhere
+              tip: Number((r as any)?.tip ?? (payload as any)?.tip ?? tipFromBreakdown ?? 0) || 0,
+              discount,
             } as any;
           })
           .filter((o) => o.id);
 
         setState((prev) => {
-          // DB is authoritative, but do NOT overwrite newer local edits that haven't synced yet.
-          // If a local order has syncedToServer=false, prefer it over the server copy while it syncs.
           const localById = new Map<string, PosOrder>();
           for (const o of prev.orders) localById.set(o.id, o);
 
@@ -996,6 +995,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           paidAt: order.paidAt ?? null,
           createdByStaffId: order.createdByStaffId ?? null,
           createdByName: order.createdByName ?? null,
+          paidByStaffId: (order as any).paidByStaffId ?? null,
+          paidByName: (order as any).paidByName ?? null,
           paymentMethod: (order as any).paymentMethod ?? null,
           tenderedAmount: (order as any).tenderedAmount ?? null,
           paymentReference: (order as any).paymentReference ?? null,
@@ -2242,6 +2243,18 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const confirmPayment = (orderId: string, paymentMethod: PaymentMethod, tenderedAmount?: number, splitId?: string, paymentReference?: string) => {
     let updatedOrder: PosOrder | null = null;
+
+    const actor = (() => {
+      try {
+        const s = readSession<any>();
+        const paidByStaffId = typeof s?.staffId === 'string' && s.staffId.trim() ? s.staffId.trim() : '';
+        const paidByName = typeof s?.staffName === 'string' && s.staffName.trim() ? s.staffName.trim() : '';
+        return { paidByStaffId, paidByName };
+      } catch {
+        return { paidByStaffId: '', paidByName: '' };
+      }
+    })();
+
     setState((s) => {
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
@@ -2274,6 +2287,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             paymentMethod,
             tenderedAmount,
             paymentReference,
+            paidByStaffId: actor.paidByStaffId || (o as any).paidByStaffId,
+            paidByName: actor.paidByName || (o as any).paidByName,
             syncedToServer: false,
           };
         }
@@ -2292,6 +2307,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           paymentMethod: allPaid ? paymentMethod : o.paymentMethod,
           tenderedAmount: allPaid ? tenderedAmount : o.tenderedAmount,
           paymentReference: allPaid ? paymentReference : (o as any).paymentReference,
+          paidByStaffId: allPaid ? (actor.paidByStaffId || (o as any).paidByStaffId) : (o as any).paidByStaffId,
+          paidByName: allPaid ? (actor.paidByName || (o as any).paidByName) : (o as any).paidByName,
           syncedToServer: false,
         };
       });

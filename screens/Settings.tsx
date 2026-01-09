@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { OwnerPageHeader } from '../components/OwnerPageHeader';
 import { apiFetch } from '../api';
 import { readSession, updateSession } from '../session';
+import { formatDeviceDateTime } from '../datetime';
+import { Screen } from '../types';
 
 type OwnerSettings = {
   business: {
@@ -9,6 +11,7 @@ type OwnerSettings = {
     currency: string;
     timezone: string;
   };
+
   receipt: {
     footer1: string;
     footer2: string;
@@ -71,6 +74,53 @@ type SubscriptionResp = {
 };
 
 type SessionSub = { tier?: string; modules?: string[] } | null;
+
+type AvailableIntegration = {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  category: string;
+  integrationType: string;
+  requiredTier: string | null;
+};
+
+type InstalledIntegration = {
+  id: string;
+  integrationId: string;
+  code: string;
+  name: string;
+  category: string;
+  integrationType: string;
+  isAvailable: boolean;
+  status: string;
+  installedAt: string;
+  updatedAt: string;
+};
+
+type AddonRow = {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  category: string;
+  pricing: { monthlyEtb: number; yearlyEtb: number; setupFeeEtb: number };
+  availabilityTier: string | null;
+};
+
+type AddonSubscription = {
+  id: string;
+  addonId: string;
+  code: string;
+  name: string;
+  category: string;
+  status: string;
+  billingFrequency: string;
+  pricePaidEtb: number;
+  activationDate: string;
+  nextRenewalDate: string;
+  cancellationDate: string;
+};
 
 const normalizeOwnerSettingsClient = (raw: any): OwnerSettings => {
   const safe = raw && typeof raw === 'object' ? raw : {};
@@ -253,7 +303,9 @@ type TabKey =
   | 'branch_defaults'
   | 'modules'
   | 'policies'
-  | 'notifications';
+  | 'notifications'
+  | 'integrations'
+  | 'addons';
 
 export const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
@@ -278,6 +330,188 @@ export const Settings: React.FC = () => {
 
   const [modulesSaving, setModulesSaving] = useState(false);
   const [moduleOverride, setModuleOverride] = useState<string[] | null>(null);
+
+  const [integrationsLoading, setIntegrationsLoading] = useState(false);
+  const [integrationsError, setIntegrationsError] = useState<string | null>(null);
+  const [availableIntegrations, setAvailableIntegrations] = useState<AvailableIntegration[]>([]);
+  const [installedIntegrations, setInstalledIntegrations] = useState<InstalledIntegration[]>([]);
+
+  const [addonsLoading, setAddonsLoading] = useState(false);
+  const [addonsError, setAddonsError] = useState<string | null>(null);
+  const [addonsCatalog, setAddonsCatalog] = useState<AddonRow[]>([]);
+  const [addonSubscriptions, setAddonSubscriptions] = useState<AddonSubscription[]>([]);
+
+  const loadOwnerIntegrations = async () => {
+    setIntegrationsLoading(true);
+    setIntegrationsError(null);
+    try {
+      const [availRes, instRes] = await Promise.all([
+        apiFetch('/api/owner/integrations/available'),
+        apiFetch('/api/owner/integrations'),
+      ]);
+      const availJson = (await availRes.json().catch(() => null)) as any;
+      const instJson = (await instRes.json().catch(() => null)) as any;
+      if (!availRes.ok) throw new Error(availJson?.error || `HTTP ${availRes.status}`);
+      if (!instRes.ok) throw new Error(instJson?.error || `HTTP ${instRes.status}`);
+
+      const avail = Array.isArray(availJson?.integrations) ? availJson.integrations : [];
+      const installed = Array.isArray(instJson?.installed) ? instJson.installed : [];
+
+      setAvailableIntegrations(
+        avail.map((r: any) => ({
+          id: String(r?.id || ''),
+          code: String(r?.code || ''),
+          name: String(r?.name || ''),
+          description: String(r?.description || ''),
+          category: String(r?.category || ''),
+          integrationType: String(r?.integrationType || ''),
+          requiredTier: r?.requiredTier != null ? String(r.requiredTier) : null,
+        })),
+      );
+
+      setInstalledIntegrations(
+        installed.map((r: any) => ({
+          id: String(r?.id || ''),
+          integrationId: String(r?.integrationId || ''),
+          code: String(r?.code || ''),
+          name: String(r?.name || ''),
+          category: String(r?.category || ''),
+          integrationType: String(r?.integrationType || ''),
+          isAvailable: Boolean(r?.isAvailable),
+          status: String(r?.status || ''),
+          installedAt: String(r?.installedAt || ''),
+          updatedAt: String(r?.updatedAt || ''),
+        })),
+      );
+    } catch (e) {
+      setAvailableIntegrations([]);
+      setInstalledIntegrations([]);
+      setIntegrationsError(e instanceof Error ? e.message : 'Failed to load integrations');
+    } finally {
+      setIntegrationsLoading(false);
+    }
+  };
+
+  const installIntegration = async (integrationId: string) => {
+    if (!integrationId) return;
+    setBanner(null);
+    try {
+      const res = await apiFetch(`/api/owner/integrations/${encodeURIComponent(integrationId)}/install`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: {} }),
+      });
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      setBanner({ kind: 'success', message: 'Integration installed.' });
+      await loadOwnerIntegrations();
+    } catch (e) {
+      setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to install integration.' });
+    }
+  };
+
+  const toggleIntegrationStatus = async (integrationId: string, nextStatus: string) => {
+    if (!integrationId) return;
+    setBanner(null);
+    try {
+      const res = await apiFetch(`/api/owner/integrations/${encodeURIComponent(integrationId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      await loadOwnerIntegrations();
+    } catch (e) {
+      setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to update integration.' });
+    }
+  };
+
+  const loadOwnerAddons = async () => {
+    setAddonsLoading(true);
+    setAddonsError(null);
+    try {
+      const [catRes, subRes] = await Promise.all([
+        apiFetch('/api/owner/addons'),
+        apiFetch('/api/owner/addons/subscriptions'),
+      ]);
+      const catJson = (await catRes.json().catch(() => null)) as any;
+      const subJson = (await subRes.json().catch(() => null)) as any;
+      if (!catRes.ok) throw new Error(catJson?.error || `HTTP ${catRes.status}`);
+      if (!subRes.ok) throw new Error(subJson?.error || `HTTP ${subRes.status}`);
+
+      const addons = Array.isArray(catJson?.addons) ? catJson.addons : [];
+      const subs = Array.isArray(subJson?.subscriptions) ? subJson.subscriptions : [];
+
+      setAddonsCatalog(
+        addons.map((a: any) => ({
+          id: String(a?.id || ''),
+          code: String(a?.code || ''),
+          name: String(a?.name || ''),
+          description: String(a?.description || ''),
+          category: String(a?.category || ''),
+          pricing: {
+            monthlyEtb: Number(a?.pricing?.monthlyEtb || 0) || 0,
+            yearlyEtb: Number(a?.pricing?.yearlyEtb || 0) || 0,
+            setupFeeEtb: Number(a?.pricing?.setupFeeEtb || 0) || 0,
+          },
+          availabilityTier: a?.availabilityTier != null ? String(a.availabilityTier) : null,
+        })),
+      );
+
+      setAddonSubscriptions(
+        subs.map((s0: any) => ({
+          id: String(s0?.id || ''),
+          addonId: String(s0?.addonId || ''),
+          code: String(s0?.code || ''),
+          name: String(s0?.name || ''),
+          category: String(s0?.category || ''),
+          status: String(s0?.status || ''),
+          billingFrequency: String(s0?.billingFrequency || ''),
+          pricePaidEtb: Number(s0?.pricePaidEtb || 0) || 0,
+          activationDate: String(s0?.activationDate || ''),
+          nextRenewalDate: String(s0?.nextRenewalDate || ''),
+          cancellationDate: String(s0?.cancellationDate || ''),
+        })),
+      );
+    } catch (e) {
+      setAddonsCatalog([]);
+      setAddonSubscriptions([]);
+      setAddonsError(e instanceof Error ? e.message : 'Failed to load add-ons');
+    } finally {
+      setAddonsLoading(false);
+    }
+  };
+
+  const subscribeAddon = async (addonId: string, billingFrequency: 'monthly' | 'yearly') => {
+    if (!addonId) return;
+    setBanner(null);
+    try {
+      const res = await apiFetch(`/api/owner/addons/${encodeURIComponent(addonId)}/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billingFrequency }),
+      });
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      const inv = json?.invoice;
+      if (inv?.id) {
+        try {
+          localStorage.setItem('mirachpos.ownerBilling.openInvoiceId.v1', String(inv.id));
+        } catch {
+        }
+        try {
+          updateSession({ screen: Screen.OWNER_BILLING });
+          window.dispatchEvent(new Event('mirachpos-session-changed'));
+        } catch {
+        }
+      }
+      setBanner({ kind: 'success', message: inv?.invoiceNumber ? `Invoice created: ${inv.invoiceNumber}` : 'Invoice created. Please complete payment.' });
+      await loadOwnerAddons();
+    } catch (e) {
+      setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to subscribe add-on.' });
+    }
+  };
 
 
   const [planCatalog, setPlanCatalog] = useState<Array<{ tier: string; pricing: { monthlyEtb: number; yearlyEtb: number }; modules: string[]; limits: any }> | null>(null);
@@ -360,6 +594,8 @@ export const Settings: React.FC = () => {
       modules: 'settings',
       policies: 'settings',
       notifications: 'settings',
+      integrations: 'settings',
+      addons: 'settings',
     };
     return m;
   }, []);
@@ -379,6 +615,12 @@ export const Settings: React.FC = () => {
   }, [saved, draft]);
 
   const canSave = dirty && !loading && !saving && !!draft && !lockedBySubscription;
+
+  useEffect(() => {
+    if (activeTab === 'integrations') void loadOwnerIntegrations();
+    if (activeTab === 'addons') void loadOwnerAddons();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const validate = (s: OwnerSettings) => {
     const name = String(s.business.businessName || '').trim();
@@ -565,6 +807,8 @@ export const Settings: React.FC = () => {
         { key: 'modules' as const, label: 'Modules', icon: 'widgets' },
         { key: 'policies' as const, label: 'User/Role Policies', icon: 'policy' },
         { key: 'notifications' as const, label: 'Notifications', icon: 'notifications' },
+        { key: 'integrations' as const, label: 'Integrations', icon: 'extension' },
+        { key: 'addons' as const, label: 'Add-ons', icon: 'widgets' },
       ] as const,
     [],
   );
@@ -700,6 +944,185 @@ export const Settings: React.FC = () => {
                         <Field label="Timezone">
                           <Input value={s.business.timezone} onChange={(e) => setDraft({ ...s, business: { ...s.business, timezone: e.target.value } })} />
                         </Field>
+                      </div>
+                    ) : null}
+
+                    {activeTab === 'integrations' ? (
+                      <div className="flex flex-col gap-6">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <div className="text-white font-bold text-sm">Integration Marketplace</div>
+                            <div className="text-xs text-text-muted mt-1">Install and manage integrations for your tenant.</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void loadOwnerIntegrations()}
+                            disabled={integrationsLoading}
+                            className={cx(
+                              'px-4 h-10 rounded-lg border text-sm font-bold transition-colors',
+                              integrationsLoading ? 'border-border text-text-muted opacity-60 cursor-not-allowed' : 'border-border text-text-muted hover:text-white hover:bg-[#2c241b]',
+                            )}
+                          >
+                            Refresh
+                          </button>
+                        </div>
+
+                        {integrationsError ? <div className="text-xs text-danger">{integrationsError}</div> : null}
+                        {integrationsLoading ? <div className="text-xs text-text-muted">Loading ¦</div> : null}
+
+                        <div className="p-4 border border-border rounded-lg">
+                          <div className="text-white font-extrabold text-sm">Installed</div>
+                          <div className="mt-3 divide-y divide-border">
+                            {installedIntegrations.length === 0 ? (
+                              <div className="py-3 text-xs text-text-muted">No integrations installed yet.</div>
+                            ) : (
+                              installedIntegrations.map((x) => {
+                                const enabled = String(x.status || '').toLowerCase() !== 'disabled';
+                                return (
+                                  <div key={x.integrationId} className="py-3 flex items-center justify-between gap-4">
+                                    <div className="min-w-0">
+                                      <div className="text-white font-bold text-sm truncate">{x.name || x.code}</div>
+                                      <div className="text-xs text-text-muted">{x.category || '—'} • {x.integrationType || '—'} • {x.status || 'installed'}</div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className={cx(
+                                        'px-3 h-9 rounded-lg text-xs font-extrabold transition-colors',
+                                        enabled ? 'bg-surface-light border border-border text-white hover:bg-surface' : 'bg-primary text-background hover:bg-primary-hover',
+                                      )}
+                                      onClick={() => void toggleIntegrationStatus(x.integrationId, enabled ? 'disabled' : 'installed')}
+                                      disabled={integrationsLoading}
+                                    >
+                                      {enabled ? 'Disable' : 'Enable'}
+                                    </button>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="p-4 border border-border rounded-lg">
+                          <div className="text-white font-extrabold text-sm">Available</div>
+                          <div className="mt-3 divide-y divide-border">
+                            {availableIntegrations.length === 0 ? (
+                              <div className="py-3 text-xs text-text-muted">No integrations available.</div>
+                            ) : (
+                              availableIntegrations.map((x) => {
+                                const already = installedIntegrations.some((i) => i.integrationId === x.id);
+                                return (
+                                  <div key={x.id} className="py-3 flex items-center justify-between gap-4">
+                                    <div className="min-w-0">
+                                      <div className="text-white font-bold text-sm truncate">{x.name || x.code}</div>
+                                      <div className="text-xs text-text-muted">{x.category || '—'} • {x.integrationType || '—'}</div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className={cx(
+                                        'px-3 h-9 rounded-lg text-xs font-extrabold transition-colors',
+                                        already ? 'bg-border text-text-muted cursor-not-allowed' : 'bg-primary text-background hover:bg-primary-hover',
+                                      )}
+                                      disabled={already || integrationsLoading}
+                                      onClick={() => void installIntegration(x.id)}
+                                    >
+                                      {already ? 'Installed' : 'Install'}
+                                    </button>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {activeTab === 'addons' ? (
+                      <div className="flex flex-col gap-6">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <div className="text-white font-bold text-sm">Add-ons</div>
+                            <div className="text-xs text-text-muted mt-1">Subscribe to add-ons that extend modules/limits.</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void loadOwnerAddons()}
+                            disabled={addonsLoading}
+                            className={cx(
+                              'px-4 h-10 rounded-lg border text-sm font-bold transition-colors',
+                              addonsLoading ? 'border-border text-text-muted opacity-60 cursor-not-allowed' : 'border-border text-text-muted hover:text-white hover:bg-[#2c241b]',
+                            )}
+                          >
+                            Refresh
+                          </button>
+                        </div>
+
+                        {addonsError ? <div className="text-xs text-danger">{addonsError}</div> : null}
+                        {addonsLoading ? <div className="text-xs text-text-muted">Loading ¦</div> : null}
+
+                        <div className="p-4 border border-border rounded-lg">
+                          <div className="text-white font-extrabold text-sm">Active Subscriptions</div>
+                          <div className="mt-3 divide-y divide-border">
+                            {addonSubscriptions.length === 0 ? (
+                              <div className="py-3 text-xs text-text-muted">No add-ons active.</div>
+                            ) : (
+                              addonSubscriptions.map((x) => (
+                                <div key={x.id} className="py-3 flex items-center justify-between gap-4">
+                                  <div className="min-w-0">
+                                    <div className="text-white font-bold text-sm truncate">{x.name || x.code}</div>
+                                    <div className="text-xs text-text-muted">{x.category || '—'} • {x.status || '—'} • {x.billingFrequency || '—'}</div>
+                                  </div>
+                                  <div className="text-xs text-text-muted font-mono">ETB {Number(x.pricePaidEtb || 0).toFixed(2)}</div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="p-4 border border-border rounded-lg">
+                          <div className="text-white font-extrabold text-sm">Catalog</div>
+                          <div className="mt-3 divide-y divide-border">
+                            {addonsCatalog.length === 0 ? (
+                              <div className="py-3 text-xs text-text-muted">No add-ons available.</div>
+                            ) : (
+                              addonsCatalog.map((a) => {
+                                const active = addonSubscriptions.some((s0) => s0.addonId === a.id && String(s0.status || '').toLowerCase() === 'active');
+                                return (
+                                  <div key={a.id} className="py-3 flex items-center justify-between gap-4">
+                                    <div className="min-w-0">
+                                      <div className="text-white font-bold text-sm truncate">{a.name || a.code}</div>
+                                      <div className="text-xs text-text-muted">{a.category || '—'}</div>
+                                      <div className="text-xs text-text-muted mt-1">Monthly: {Math.round(a.pricing.monthlyEtb)} ETB • Yearly: {Math.round(a.pricing.yearlyEtb)} ETB</div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        className={cx(
+                                          'px-3 h-9 rounded-lg text-xs font-extrabold transition-colors',
+                                          active ? 'bg-border text-text-muted cursor-not-allowed' : 'bg-primary text-background hover:bg-primary-hover',
+                                        )}
+                                        disabled={active || addonsLoading}
+                                        onClick={() => void subscribeAddon(a.id, 'monthly')}
+                                      >
+                                        {active ? 'Active' : 'Subscribe'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={cx(
+                                          'px-3 h-9 rounded-lg text-xs font-extrabold transition-colors',
+                                          active ? 'bg-border text-text-muted cursor-not-allowed' : 'bg-surface-light border border-border text-white hover:bg-surface',
+                                        )}
+                                        disabled={active || addonsLoading}
+                                        onClick={() => void subscribeAddon(a.id, 'yearly')}
+                                      >
+                                        Yearly
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
                       </div>
                     ) : null}
 
@@ -1283,7 +1706,7 @@ export const Settings: React.FC = () => {
                 >
                   Refresh
                 </button>
-                <div className="text-xs text-text-muted">{saved?.updatedAt ? `Last saved: ${new Date(saved.updatedAt).toLocaleString()}` : ''}</div>
+                <div className="text-xs text-text-muted">{saved?.updatedAt ? `Last saved: ${formatDeviceDateTime(saved.updatedAt)}` : ''}</div>
               </div>
             </div>
           </div>

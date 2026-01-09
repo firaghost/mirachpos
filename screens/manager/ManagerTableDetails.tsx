@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Header } from '../../components/Header';
 import { usePos } from '../../PosContext';
 import { Screen } from '../../types';
+import { formatDeviceDateTime } from '../../datetime';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -184,9 +185,11 @@ export const ManagerTableDetails: React.FC<Props> = ({ onNavigate }) => {
                 <div className="h-px bg-[#3d3226] my-2"></div>
                 {order ? (
                   <>
-                    <div className="flex justify-between"><span className="text-[#c8ad93]">Created</span><span className="text-white">{new Date(order.createdAt).toLocaleString()}</span></div>
-                    {order.paidAt ? <div className="flex justify-between"><span className="text-[#c8ad93]">Paid</span><span className="text-white">{new Date(order.paidAt).toLocaleString()}</span></div> : null}
-                    {order.voidedAt ? <div className="flex justify-between text-red-300"><span className="font-bold">Voided</span><span className="text-red-300">{new Date(order.voidedAt).toLocaleString()}</span></div> : null}
+                    {order ? (
+                      <div className="flex justify-between"><span className="text-[#c8ad93]">Created</span><span className="text-white">{formatDeviceDateTime(order.createdAt)}</span></div>
+                    ) : null}
+                    {order?.paidAt ? <div className="flex justify-between"><span className="text-[#c8ad93]">Paid</span><span className="text-white">{formatDeviceDateTime(order.paidAt)}</span></div> : null}
+                    {order?.voidedAt ? <div className="flex justify-between text-red-300"><span className="font-bold">Voided</span><span className="text-red-300">{formatDeviceDateTime(order.voidedAt)}</span></div> : null}
                     {order.voidReason ? <div className="text-red-200 text-xs">Reason: {order.voidReason}</div> : null}
                     <div className="h-px bg-[#3d3226] my-2"></div>
                     <div className="flex justify-between"><span className="text-[#c8ad93]">Subtotal</span><span className="text-white font-bold">ETB {order.subtotal.toFixed(2)}</span></div>

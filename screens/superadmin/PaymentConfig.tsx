@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '../../api';
+import { formatDeviceDate, formatDeviceDateTime } from '../../datetime';
 import { Modal } from '../../components/Modal';
 
 type GatewayConfig = {
@@ -1156,9 +1157,7 @@ export const PaymentConfig: React.FC = () => {
     const monthLabel = (() => {
       try {
         if (!invoiceStats?.monthStart) return 'This Month';
-        const d = new Date(invoiceStats.monthStart);
-        if (Number.isNaN(d.getTime())) return 'This Month';
-        return d.toLocaleString(undefined, { month: 'short' });
+        return formatDeviceDateTime(invoiceStats.monthStart, { month: 'short' }) || 'This Month';
       } catch {
         return 'This Month';
       }
@@ -1318,7 +1317,7 @@ export const PaymentConfig: React.FC = () => {
                           <td className="px-6 py-4 text-sm text-[#c8ba93] font-mono">{String(r.plan || '')}</td>
                           <td className="px-6 py-4 text-sm text-[#c8ba93]">{String(r.cycle || '')}</td>
                           <td className="px-6 py-4 text-sm text-white font-bold font-mono">ETB {Number(r.amountEtb || 0).toLocaleString()}</td>
-                          <td className="px-6 py-4 text-sm text-[#c8ba93] font-mono">{r.nextBillAt ? new Date(r.nextBillAt).toLocaleDateString() : '-'}</td>
+                          <td className="px-6 py-4 text-sm text-[#c8ba93] font-mono">{r.nextBillAt ? (formatDeviceDate(r.nextBillAt) || '-') : '-'}</td>
                           <td className="px-6 py-4 text-sm text-[#c8ba93]">{String(r.status || '')}</td>
                           <td className="px-6 py-4 text-sm text-[#c8ba93] font-mono">{String(r.method || '')}</td>
                         </tr>
@@ -1477,7 +1476,7 @@ export const PaymentConfig: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white font-mono">{r.invoiceNumber || r.id}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-[#c8ba93]">{r.tenantName || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[#c8ba93] font-mono">{r.issueDate ? new Date(r.issueDate).toLocaleDateString() : '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[#c8ba93] font-mono">{r.issueDate ? (formatDeviceDate(r.issueDate) || '-') : '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-bold font-mono">{Number(r.amountEtb || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusPill(r.status)}`}>{String(r.status || 'Unknown')}</span>
@@ -1624,7 +1623,7 @@ export const PaymentConfig: React.FC = () => {
         if (!iso) return '-';
         const d = new Date(iso);
         if (Number.isNaN(d.getTime())) return iso;
-        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+        return formatDeviceDate(iso, { year: 'numeric', month: 'short', day: '2-digit' }) || iso;
       } catch {
         return iso;
       }
@@ -1720,8 +1719,8 @@ export const PaymentConfig: React.FC = () => {
               <span className="material-symbols-outlined">sync</span>
             </div>
             <p className="text-[#c8ba93] text-sm font-medium">Last ERCA Sync</p>
-            <p className="text-white text-2xl font-bold tracking-tight">{taxStatus?.lastErcaSyncAt ? new Date(taxStatus.lastErcaSyncAt).toLocaleString() : 'N/A'}</p>
-            <p className="text-[#c8ba93] text-xs mt-2">Next sync: {taxStatus?.nextErcaSyncAt ? new Date(taxStatus.nextErcaSyncAt).toLocaleString() : 'N/A'}</p>
+            <p className="text-white text-2xl font-bold tracking-tight">{taxStatus?.lastErcaSyncAt ? (formatDeviceDateTime(taxStatus.lastErcaSyncAt) || 'N/A') : 'N/A'}</p>
+            <p className="text-[#c8ba93] text-xs mt-2">Next sync: {taxStatus?.nextErcaSyncAt ? (formatDeviceDateTime(taxStatus.nextErcaSyncAt) || 'N/A') : 'N/A'}</p>
           </div>
         </div>
 
@@ -1924,7 +1923,7 @@ export const PaymentConfig: React.FC = () => {
                   ) : (
                     taxAuditEvents.slice(0, 30).map((e: any) => (
                       <tr key={String(e.id)} className="hover:bg-[#2c2616]/60">
-                        <td className="px-4 py-3 text-[#c8ba93] font-mono">{e.at ? new Date(e.at).toLocaleString() : '-'}</td>
+                        <td className="px-4 py-3 text-[#c8ba93] font-mono">{e.at ? (formatDeviceDateTime(e.at) || '-') : '-'}</td>
                         <td className="px-4 py-3 text-white font-mono">{String(e.type || '')}</td>
                         <td className="px-4 py-3 text-[#c8ba93]">{String(e.details || '')}</td>
                       </tr>
@@ -2152,7 +2151,7 @@ export const PaymentConfig: React.FC = () => {
                         <div className="mt-0.5 size-2 rounded-full bg-[#eead2b] flex-shrink-0" />
                         <div className="flex flex-col gap-0.5">
                           <p className="text-xs text-white font-mono">{String(e.type || '')}</p>
-                          <p className="text-[10px] text-[#c8ba93]">{e.at ? new Date(e.at).toLocaleString() : ''}{e.details ? ` • ${String(e.details)}` : ''}</p>
+                          <p className="text-[10px] text-[#c8ba93]">{e.at ? (formatDeviceDateTime(e.at) || '') : ''}{e.details ? ` • ${String(e.details)}` : ''}</p>
                         </div>
                       </li>
                     ))
@@ -3475,7 +3474,7 @@ export const PaymentConfig: React.FC = () => {
               </div>
               <div className="flex justify-between text-sm py-2">
                 <span className="text-white">Due Date</span>
-                <span className="text-[#c8ba93] font-mono">{invoiceDetail.dueDate ? new Date(invoiceDetail.dueDate).toLocaleDateString() : '-'}</span>
+                <span className="text-[#c8ba93] font-mono">{invoiceDetail.dueDate ? (formatDeviceDate(invoiceDetail.dueDate) || '-') : '-'}</span>
               </div>
             </div>
           </div>

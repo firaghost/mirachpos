@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Header } from '../components/Header';
 import { apiFetch } from '../api';
 import { readSession } from '../session';
+import { formatDeviceDate, formatDeviceDateTime, formatDeviceTime } from '../datetime';
 
 type RangeKey = 'Today' | 'Yesterday' | '7 Days';
 
@@ -61,11 +62,10 @@ const formatMoney = (n: number) => {
 };
 
 const formatTime12 = (iso: string) => {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  return formatDeviceTime(iso, { hour: '2-digit', minute: '2-digit' });
 };
 
-const formatDateLabel = (d: Date) => d.toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' });
+const formatDateLabel = (d: Date) => formatDeviceDate(d, { month: 'short', day: '2-digit', year: 'numeric' });
 
 export const Finance: React.FC = () => {
   const [range, setRange] = useState<RangeKey>('Today');
@@ -433,8 +433,8 @@ export const Finance: React.FC = () => {
             <td>${esc(s.register)}</td>
             <td>${esc(s.staffName)}</td>
             <td>${esc(s.status)}</td>
-            <td>${esc(new Date(s.openedAt).toLocaleString([], { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }))}</td>
-            <td>${esc(s.closedAt ? new Date(s.closedAt).toLocaleString([], { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }) : '--')}</td>
+            <td>${esc(formatDeviceDateTime(s.openedAt, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) || '')}</td>
+            <td>${esc(s.closedAt ? (formatDeviceDateTime(s.closedAt, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) || '') : '--')}</td>
             <td style="text-align:right">${esc(formatMoney(opening))}</td>
             <td style="text-align:right">${esc(formatMoney(Math.max(0, cashSales)))}</td>
             <td style="text-align:right">${esc(formatMoney(s.expectedCash))}</td>
@@ -451,7 +451,7 @@ export const Finance: React.FC = () => {
             <td>${esc(e.id)}</td>
             <td>${esc(e.title)}</td>
             <td>${esc(e.vendor)}</td>
-            <td>${esc(new Date(e.createdAt).toLocaleString([], { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }))}</td>
+            <td>${esc(formatDeviceDateTime(e.createdAt, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) || '')}</td>
             <td style="text-align:right">-${esc(formatMoney(e.amount))}</td>
           </tr>`;
       })
@@ -530,9 +530,9 @@ export const Finance: React.FC = () => {
               <div class="center">
                 <div class="title">${esc(opts.title)}</div>
                 <div class="sub muted">MirachPOS    End of Day (Z Report)</div>
-                <div class="sub">Generated: ${esc(new Date(opts.generatedAt).toLocaleString([], { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }))}</div>
+                <div class="sub">Generated: ${esc(formatDeviceDateTime(opts.generatedAt, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) || '')}</div>
                 <div class="sub">Period: ${esc(opts.rangeLabel)}</div>
-                <div class="sub muted">${esc(new Date(opts.rangeStart).toLocaleString([], { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }))} â†’ ${esc(new Date(opts.rangeEnd).toLocaleString([], { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true }))}</div>
+                <div class="sub muted">${esc(formatDeviceDateTime(opts.rangeStart, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) || '')} â†’ ${esc(formatDeviceDateTime(opts.rangeEnd, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) || '')}</div>
               </div>
 
               <div class="sep"></div>

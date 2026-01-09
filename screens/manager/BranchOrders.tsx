@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { usePos } from '../../PosContext';
 import { Screen } from '../../types';
+import { formatDeviceDate, formatDeviceTime } from '../../datetime';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -117,8 +118,8 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
                      {rows.map((order, i) => (
                         <tr key={i} onClick={() => openOrder(order.id)} className={`hover:bg-[#393328] transition-colors cursor-pointer ${order.status === 'Voided' ? 'bg-red-950/10' : ''}`}>
                             <td className="px-6 py-4 font-mono font-bold">{order.number}</td>
-                            <td className="px-6 py-4 text-[#c9b792]">{new Date(order.createdAt).toLocaleDateString([], { year: 'numeric', month: 'short', day: '2-digit' })}</td>
-                            <td className="px-6 py-4 text-[#c9b792]">{order.timeLabel}</td>
+                            <td className="px-6 py-4 text-[#c9b792]">{formatDeviceDate(order.createdAt, { year: 'numeric', month: 'short', day: '2-digit' })}</td>
+                            <td className="px-6 py-4 text-[#c9b792]">{formatDeviceTime((order as any).paidAt || order.createdAt, { hour: '2-digit', minute: '2-digit' })}</td>
                             <td className="px-6 py-4">{order.tableName}</td>
                             <td className="px-6 py-4 text-[#c9b792]">{order.createdByName ?? (order.createdByStaffId ?? ' ”')}</td>
                             <td className="px-6 py-4 text-[#c9b792] truncate max-w-[200px]">{order.items.map((x) => `${x.qty} — ${x.name}`).join(', ')}</td>

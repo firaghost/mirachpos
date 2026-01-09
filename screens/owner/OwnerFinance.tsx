@@ -1,4 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { apiFetch } from '../../api';
+import { readSession, updateSession } from '../../session';
+import { Screen } from '../../types';
+import { formatDeviceDateTime } from '../../datetime';
 import {
   Bar,
   BarChart,
@@ -9,11 +13,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { apiFetch } from '../../api';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
 import { PortalMenu, type PortalMenuAnchorRect } from '../../components/PortalMenu';
-import { Screen } from '../../types';
-import { updateSession } from '../../session';
 
 type FinanceKpis = {
   revenue: number;
@@ -171,7 +172,7 @@ export const OwnerFinance: React.FC = () => {
   const periodLabel = useMemo(() => {
     const [yy, mm] = period.split('-');
     const d = new Date(Number(yy), Math.max(0, Number(mm) - 1), 1);
-    return d.toLocaleString(undefined, { month: 'short', year: 'numeric' });
+    return formatDeviceDateTime(d, { month: 'short', year: 'numeric' }) || '';
   }, [period]);
 
   const periods = useMemo(() => {
@@ -182,7 +183,7 @@ export const OwnerFinance: React.FC = () => {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const value = `${y}-${m}`;
-      out.push({ value, label: d.toLocaleString(undefined, { month: 'short', year: 'numeric' }) });
+      out.push({ value, label: formatDeviceDateTime(d, { month: 'short', year: 'numeric' }) || '' });
     }
     return out;
   }, []);

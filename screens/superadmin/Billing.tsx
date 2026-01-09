@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '../../api';
 import { PortalMenu } from '../../components/PortalMenu';
+import { formatDeviceDate, formatDeviceDateTime } from '../../datetime';
 
 const apiBase = (): string => {
   try {
@@ -68,24 +69,12 @@ const fmtEtb = (n: number) => {
 
 const fmtDate = (iso: string) => {
   if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  try {
-    return d.toLocaleDateString();
-  } catch {
-    return iso;
-  }
+  return formatDeviceDate(iso) || iso;
 };
 
 const fmtDateTime = (iso: string) => {
   if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  try {
-    return d.toLocaleString();
-  } catch {
-    return iso;
-  }
+  return formatDeviceDateTime(iso) || iso;
 };
 
 const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvoiceTick }) => {

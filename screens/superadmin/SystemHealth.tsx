@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
+import { formatDeviceTime } from '../../datetime';
 
 type HealthResponse = {
   ok: boolean;
@@ -27,15 +28,11 @@ type HealthResponse = {
 };
 
 const fmtTime = (iso: string) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return formatDeviceTime(iso, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 };
 
 const fmtShortTime = (iso: string) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return formatDeviceTime(iso, { hour: '2-digit', minute: '2-digit' });
 };
 
 export const SA_SystemHealth: React.FC = () => {

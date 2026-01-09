@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
+import { formatDeviceDateTime } from '../../datetime';
 import { PortalMenu } from '../../components/PortalMenu';
 
 type DemoRequest = {
@@ -270,7 +271,7 @@ export const SA_DemoRequests: React.FC = () => {
                       {d.status || ' ”'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-[#c9b792]">{d.createdAt ? new Date(d.createdAt).toLocaleString() : ' ”'}</td>
+                  <td className="px-4 py-3 text-[#c9b792]">{d.createdAt ? (formatDeviceDateTime(d.createdAt) || ' ”') : ' ”'}</td>
                   <td className="px-4 py-3 text-[#c9b792]">{d.provisionedTenantId ? d.provisionedTenantId : ' ”'}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">

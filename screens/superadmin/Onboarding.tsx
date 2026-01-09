@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
+import { formatDeviceDate } from '../../datetime';
 import { Screen } from '../../types';
 import { updateSession } from '../../session';
 import { readSession } from '../../session';
@@ -224,7 +225,7 @@ export const SA_Onboarding: React.FC<{ onNavigate?: (screen: Screen) => void }> 
                   >
                     {t.status}
                   </span>
-                  <span className="text-[10px] text-[#c9b792]/70">{t.lastActivityAt ? new Date(t.lastActivityAt).toLocaleDateString() : ''}</span>
+                  <span className="text-[10px] text-[#c9b792]/70">{t.lastActivityAt ? formatDeviceDate(t.lastActivityAt) : ''}</span>
                 </div>
               </button>
             ))}

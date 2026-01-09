@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { apiFetch } from '../api';
 import { Header } from '../components/Header';
 import { Modal } from '../components/Modal';
-import { apiFetch } from '../api';
+import { Screen } from '../types';
+import { formatDeviceDateTime, formatDeviceTime } from '../datetime';
 import { readSession } from '../session';
 
 type StaffMember = {
@@ -258,8 +260,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
   }, [leaveRequests]);
 
   const formatTime12 = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+    return formatDeviceTime(iso, { hour: '2-digit', minute: '2-digit' });
   };
 
   const loadShiftLogsRemote = async () => {
@@ -327,8 +328,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
   }, [weekStart]);
 
   const formatDateTime12 = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString([], { year: 'numeric', month: 'short', day: '2-digit', hour: 'numeric', minute: '2-digit', hour12: true });
+    return formatDeviceDateTime(iso, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
   const toMinutes12 = (t: Time12) => {

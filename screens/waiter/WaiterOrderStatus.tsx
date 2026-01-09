@@ -1,7 +1,7 @@
-
 import React, { useMemo, useState } from 'react';
 import { Screen } from '../../types';
 import { usePos } from '../../PosContext';
+import { formatDeviceTime } from '../../datetime';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -415,7 +415,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
       </main>
 
       <footer className="flex-none px-6 py-4 text-xs text-[#c8ad93] bg-[#211911] border-t border-[#3d3226] flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
-        <div>Last updated: {new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}</div>
+        <div>Last updated: {formatDeviceTime(new Date(), { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-[#cf7317]"></span>{totalReady} Ready</div>
           <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-amber-500"></span>{totalPreparing} Preparing</div>

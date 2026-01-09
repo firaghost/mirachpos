@@ -88,21 +88,29 @@ const makePublicRouter = () => {
       const orderNumber = typeof payload?.number === 'string' && payload.number.trim() ? String(payload.number).trim() : '';
       const tableName = typeof payload?.tableName === 'string' ? String(payload.tableName) : '';
 
-      const subtotal = Number(payload?.subtotal ?? 0) || 0;
-      const tax = Number(payload?.tax ?? 0) || 0;
-      const serviceCharge = Number(payload?.serviceCharge ?? 0) || 0;
-
-      const tipFromBreakdown = (Number(payload?.tipAmount ?? 0) || 0) + (Number(payload?.tipPctAmount ?? 0) || 0);
-      const tip = Number(orderRow.tip ?? payload?.tip ?? tipFromBreakdown ?? 0) || 0;
-
-      const total = Number(orderRow.total ?? payload?.totalWithTip ?? payload?.paidTotal ?? payload?.total ?? 0) || 0;
-
       const settingsRow = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: link.tenantId }).first();
       const settings = safeJsonParse(settingsRow?.settings_json, {});
       const bizName = typeof settings?.business?.businessName === 'string' ? String(settings.business.businessName).trim() : '';
       const tin = typeof settings?.business?.tin === 'string' ? String(settings.business.tin).trim() : '';
       const phone = typeof settings?.business?.phone === 'string' ? String(settings.business.phone).trim() : '';
       const address = typeof settings?.business?.address === 'string' ? String(settings.business.address).trim() : '';
+
+      const total = Number(orderRow.total ?? payload?.totalWithTip ?? payload?.paidTotal ?? payload?.total ?? 0) || 0;
+      const rowTip = Number(orderRow.tip ?? 0) || 0;
+      const payloadTipAmount = Number(payload?.tipAmount ?? 0) || 0;
+      const payloadTipPctAmount = Number(payload?.tipPctAmount ?? 0) || 0;
+      const payloadHasTipBreakdown = payloadTipAmount > 0 || payloadTipPctAmount > 0;
+      const tip = payloadHasTipBreakdown ? (payloadTipAmount + payloadTipPctAmount) : rowTip;
+
+      const payloadSubtotal = Number(payload?.subtotal ?? 0) || 0;
+      const payloadTax = Number(payload?.tax ?? 0) || 0;
+      const payloadService = Number(payload?.serviceCharge ?? 0) || 0;
+      const payloadHasBreakdown = payloadSubtotal > 0 || payloadTax > 0 || payloadService > 0;
+
+      const baseBeforeTip = Math.max(0, total - tip);
+      const subtotal = payloadHasBreakdown ? payloadSubtotal : baseBeforeTip;
+      const tax = payloadHasBreakdown ? payloadTax : 0;
+      const serviceCharge = payloadHasBreakdown ? payloadService : 0;
 
       const receiptRow = await db()
         .from('pos_public_order_links')
@@ -148,7 +156,7 @@ const makePublicRouter = () => {
       const orderRow = await db()
         .from('orders')
         .where({ tenant_id: link.tenantId, branch_id: link.branchId, id: link.orderId })
-        .select(['id', 'status', 'total', 'payload', 'paid_at'])
+        .select(['id', 'status', 'total', 'tip', 'payload', 'paid_at'])
         .first();
       if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
       if (String(orderRow.status || '') === 'Paid' || orderRow.paid_at) return res.status(409).json({ error: 'order_already_paid' });
@@ -181,7 +189,8 @@ const makePublicRouter = () => {
       const callbackUrl = `${baseUrl}/api/webhooks/payment/chapa`;
       const returnUrl = `${baseUrl}/p/${encodeURIComponent(token)}?chapa=success`;
 
-      const init = await paymentGatewayService.chapaInitialize({
+      const init = await paymentGatewayService.chapaInitializeForTenantPos({
+        tenantId: link.tenantId,
         amount: total,
         currency: 'ETB',
         email: 'pos.customer@mirachpos.com',
@@ -247,6 +256,10 @@ const makePublicRouter = () => {
 
       return res.json({ ok: true, checkoutUrl: init.checkoutUrl });
     } catch (e) {
+      const err = String(e?.message || e || '').trim();
+      if (err === 'tenant_chapa_not_configured') {
+        return res.status(400).json({ ok: false, error: 'tenant_chapa_not_configured', message: 'This cafe has not configured Chapa for POS payments.' });
+      }
       const msg = (() => {
         try {
           if (typeof e?.message === 'string' && e.message.trim()) return e.message.trim();
@@ -272,7 +285,7 @@ const makePublicRouter = () => {
       const orderRow = await db()
         .from('orders')
         .where({ tenant_id: link.tenantId, branch_id: link.branchId, id: link.orderId })
-        .select(['id', 'status', 'total', 'payload', 'paid_at'])
+        .select(['id', 'status', 'total', 'tip', 'payload', 'paid_at'])
         .first();
       if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
 
@@ -284,6 +297,24 @@ const makePublicRouter = () => {
       const operatorName = typeof payload?.paidByName === 'string' ? String(payload.paidByName).trim() : '';
       const paymentReference = typeof payload?.paymentReference === 'string' ? String(payload.paymentReference).trim() : '';
       const paymentMethod = typeof payload?.paymentMethod === 'string' ? String(payload.paymentMethod).trim() : '';
+
+      const total = Number(orderRow.total ?? payload?.totalWithTip ?? payload?.paidTotal ?? payload?.total ?? 0) || 0;
+
+      const rowTip = Number(orderRow.tip ?? 0) || 0;
+      const payloadTipAmount = Number(payload?.tipAmount ?? 0) || 0;
+      const payloadTipPctAmount = Number(payload?.tipPctAmount ?? 0) || 0;
+      const payloadHasTipBreakdown = payloadTipAmount > 0 || payloadTipPctAmount > 0;
+      const tip = payloadHasTipBreakdown ? payloadTipAmount + payloadTipPctAmount : rowTip;
+
+      const payloadSubtotal = Number(payload?.subtotal ?? 0) || 0;
+      const payloadTax = Number(payload?.tax ?? 0) || 0;
+      const payloadService = Number(payload?.serviceCharge ?? 0) || 0;
+      const payloadHasBreakdown = payloadSubtotal > 0 || payloadTax > 0 || payloadService > 0;
+
+      const baseBeforeTip = Math.max(0, total - tip);
+      const subtotal = payloadHasBreakdown ? payloadSubtotal : baseBeforeTip;
+      const tax = payloadHasBreakdown ? payloadTax : 0;
+      const serviceCharge = payloadHasBreakdown ? payloadService : 0;
 
       const settingsRow = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: link.tenantId }).first();
       const settings = safeJsonParse(settingsRow?.settings_json, {});
@@ -309,13 +340,13 @@ const makePublicRouter = () => {
         paidAt: payload?.paidAt || orderRow.paid_at || null,
         currency: 'ETB',
         items,
-        subtotal: Number(payload?.subtotal ?? 0),
-        tax: Number(payload?.tax ?? 0),
-        serviceCharge: Number(payload?.serviceCharge ?? 0),
-        tipAmount: Number(payload?.tipAmount ?? 0),
-        tipPct: Number(payload?.tipPct ?? 0),
-        tipPctAmount: Number(payload?.tipPctAmount ?? 0),
-        total: Number(payload?.totalWithTip ?? orderRow.total ?? 0),
+        subtotal,
+        tax,
+        serviceCharge,
+        tipAmount: payloadHasTipBreakdown ? payloadTipAmount : tip,
+        tipPct: payloadHasTipBreakdown ? Number(payload?.tipPct ?? 0) : 0,
+        tipPctAmount: payloadHasTipBreakdown ? payloadTipPctAmount : 0,
+        total,
       });
     } catch (e) {
       return next(e);

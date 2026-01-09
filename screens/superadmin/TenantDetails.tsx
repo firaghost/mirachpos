@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
-import { Screen } from '../../types';
+import { Modal } from '../../components/Modal';
+import { formatDeviceDate, formatDeviceDateTime } from '../../datetime';
 import { readSession, updateSession } from '../../session';
+import { Screen } from '../../types';
 
 export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (screen: Screen) => void }> = ({ onBack, onNavigate }) => {
   const SELECTED_TENANT_KEY = 'mirachpos.sa.selectedTenantId.v1';
@@ -9,11 +11,30 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [savingModules, setSavingModules] = useState(false);
-  const [tab, setTab] = useState<'branches' | 'users' | 'feature_access' | 'integrations'>('branches');
+  const [tab, setTab] = useState<'branches' | 'users' | 'feature_access' | 'integrations' | 'payments'>('branches');
   const [search, setSearch] = useState('');
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [users, setUsers] = useState<any[]>([]);
+
+  const [payLoading, setPayLoading] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+  const [paySaving, setPaySaving] = useState(false);
+  const [posChapaEnabled, setPosChapaEnabled] = useState(false);
+  const [posChapaSecretKey, setPosChapaSecretKey] = useState('');
+  const [posChapaPublicKey, setPosChapaPublicKey] = useState('');
+  const [posChapaWebhookSecret, setPosChapaWebhookSecret] = useState('');
+  const [posChapaSecretMasked, setPosChapaSecretMasked] = useState('');
+  const [posChapaPublicMasked, setPosChapaPublicMasked] = useState('');
+  const [posChapaWebhookMasked, setPosChapaWebhookMasked] = useState('');
+
+  const [posSantimEnabled, setPosSantimEnabled] = useState(false);
+  const [posSantimMerchantId, setPosSantimMerchantId] = useState('');
+  const [posSantimPrivateKey, setPosSantimPrivateKey] = useState('');
+  const [posSantimPublicKey, setPosSantimPublicKey] = useState('');
+  const [posSantimMerchantIdMasked, setPosSantimMerchantIdMasked] = useState('');
+  const [posSantimPrivateKeyMasked, setPosSantimPrivateKeyMasked] = useState('');
+  const [posSantimPublicKeyMasked, setPosSantimPublicKeyMasked] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
   const [editName, setEditName] = useState('');
@@ -136,6 +157,112 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, selectedTenantId]);
 
+  const loadPayments = async () => {
+    if (!selectedTenantId) return;
+    setPayLoading(true);
+    setPayError(null);
+    try {
+      const res = await apiFetch(`/api/superadmin/tenants/${encodeURIComponent(selectedTenantId)}/pos-payment-gateways`);
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+
+      const rows = Array.isArray(json?.gateways) ? json.gateways : [];
+      const chapa = rows.find((r: any) => String(r?.gateway || '') === 'chapa') || null;
+      const santim = rows.find((r: any) => String(r?.gateway || '') === 'santimpay') || null;
+      setPosChapaEnabled(Boolean(chapa?.enabled));
+      setPosChapaSecretMasked(String(chapa?.config?.secretKeyMasked || ''));
+      setPosChapaPublicMasked(String(chapa?.config?.publicKeyMasked || ''));
+      setPosChapaWebhookMasked(String(chapa?.config?.webhookSecretMasked || ''));
+      setPosChapaSecretKey('');
+      setPosChapaPublicKey('');
+      setPosChapaWebhookSecret('');
+
+      setPosSantimEnabled(Boolean(santim?.enabled));
+      setPosSantimMerchantIdMasked(String(santim?.config?.merchantIdMasked || ''));
+      setPosSantimPrivateKeyMasked(String(santim?.config?.privateKeyMasked || ''));
+      setPosSantimPublicKeyMasked(String(santim?.config?.publicKeyMasked || ''));
+      setPosSantimMerchantId('');
+      setPosSantimPrivateKey('');
+      setPosSantimPublicKey('');
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : 'Failed to load payment gateways');
+    } finally {
+      setPayLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab !== 'payments') return;
+    loadPayments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, selectedTenantId]);
+
+  const savePayments = async () => {
+    if (!selectedTenantId) return;
+    if (paySaving) return;
+
+    const hasStoredSecret = Boolean(String(posChapaSecretMasked || '').trim() && String(posChapaSecretMasked || '').trim() !== '—' && String(posChapaSecretMasked || '').trim() !== '-');
+    const hasStoredWebhook = Boolean(String(posChapaWebhookMasked || '').trim() && String(posChapaWebhookMasked || '').trim() !== '—' && String(posChapaWebhookMasked || '').trim() !== '-');
+    const willHaveSecret = Boolean(posChapaSecretKey.trim() || hasStoredSecret);
+    const willHaveWebhook = Boolean(posChapaWebhookSecret.trim() || hasStoredWebhook);
+    if (posChapaEnabled && (!willHaveSecret || !willHaveWebhook)) {
+      setPayError('To enable Chapa, you must provide both Secret Key and Webhook Secret (or have them already stored).');
+      return;
+    }
+
+    const hasStoredSantimMerchantId = Boolean(String(posSantimMerchantIdMasked || '').trim() && String(posSantimMerchantIdMasked || '').trim() !== '—' && String(posSantimMerchantIdMasked || '').trim() !== '-');
+    const hasStoredSantimPriv = Boolean(String(posSantimPrivateKeyMasked || '').trim() && String(posSantimPrivateKeyMasked || '').trim() !== '—' && String(posSantimPrivateKeyMasked || '').trim() !== '-');
+    const hasStoredSantimPub = Boolean(String(posSantimPublicKeyMasked || '').trim() && String(posSantimPublicKeyMasked || '').trim() !== '—' && String(posSantimPublicKeyMasked || '').trim() !== '-');
+    const willHaveSantimMerchantId = Boolean(posSantimMerchantId.trim() || hasStoredSantimMerchantId);
+    const willHaveSantimPriv = Boolean(posSantimPrivateKey.trim() || hasStoredSantimPriv);
+    const willHaveSantimPub = Boolean(posSantimPublicKey.trim() || hasStoredSantimPub);
+    if (posSantimEnabled && (!willHaveSantimMerchantId || !willHaveSantimPriv || !willHaveSantimPub)) {
+      setPayError('To enable SantimPay, you must provide Merchant ID, Private Key (ES256 PEM), and Public Key (PEM) (or have them already stored).');
+      return;
+    }
+
+    setPaySaving(true);
+    setPayError(null);
+    setToast(null);
+    try {
+      const chapaBody: any = { enabled: Boolean(posChapaEnabled), config: {} };
+      if (posChapaSecretKey.trim()) chapaBody.config.secretKey = posChapaSecretKey.trim();
+      if (posChapaPublicKey.trim()) chapaBody.config.publicKey = posChapaPublicKey.trim();
+      if (posChapaWebhookSecret.trim()) chapaBody.config.webhookSecret = posChapaWebhookSecret.trim();
+
+      const santimBody: any = { enabled: Boolean(posSantimEnabled), config: {} };
+      if (posSantimMerchantId.trim()) santimBody.config.merchantId = posSantimMerchantId.trim();
+      if (posSantimPrivateKey.trim()) santimBody.config.privateKey = posSantimPrivateKey;
+      if (posSantimPublicKey.trim()) santimBody.config.publicKey = posSantimPublicKey;
+
+      const [resChapa, resSantim] = await Promise.all([
+        apiFetch(`/api/superadmin/tenants/${encodeURIComponent(selectedTenantId)}/pos-payment-gateways/chapa`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chapaBody),
+        }),
+        apiFetch(`/api/superadmin/tenants/${encodeURIComponent(selectedTenantId)}/pos-payment-gateways/santimpay`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(santimBody),
+        }),
+      ]);
+
+      const jsonChapa = (await resChapa.json().catch(() => null)) as any;
+      if (!resChapa.ok) throw new Error(jsonChapa?.error || `HTTP ${resChapa.status}`);
+      const jsonSantim = (await resSantim.json().catch(() => null)) as any;
+      if (!resSantim.ok) throw new Error(jsonSantim?.error || `HTTP ${resSantim.status}`);
+
+      setToast('Payment gateway settings updated');
+      setTimeout(() => setToast(null), 3000);
+      await loadPayments();
+    } catch (e) {
+      setPayError(e instanceof Error ? e.message : 'Failed to update payment gateway settings');
+    } finally {
+      setPaySaving(false);
+    }
+  };
+
   const saveEditConfig = async () => {
     if (!selectedTenantId) return;
     if (loading) return;
@@ -249,17 +376,13 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
   const nextInvoiceLabel = (() => {
     const raw = String(subInfo?.nextBillAt || '').trim();
     if (!raw) return '-';
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return raw;
-    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    return formatDeviceDate(raw, { year: 'numeric', month: 'short', day: 'numeric' }) || raw;
   })();
 
   const graceLabel = (() => {
     const raw = String(subInfo?.graceEndsAt || '').trim();
     if (!raw) return '';
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return raw;
-    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    return formatDeviceDate(raw, { year: 'numeric', month: 'short', day: 'numeric' }) || raw;
   })();
   const incidents = Array.isArray(tenant?.incidents) ? tenant!.incidents! : [];
 
@@ -646,22 +769,22 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
 
             {/* Right Column: Tabs & Data */}
             <div className="lg:col-span-8 flex flex-col gap-6">
-              <div className="flex border-b border-[#483c23]">
-                {[{ key: 'branches', label: 'Branches' }, { key: 'users', label: 'Users' }, { key: 'feature_access', label: 'Feature Access' }, { key: 'integrations', label: 'Integrations' }].map((t) => (
-                  <button
-                    key={t.key}
-                    type="button"
-                    onClick={() => setTab(t.key as any)}
-                    className={`px-6 py-3 text-sm transition-colors ${
-                      tab === t.key
-                        ? 'font-bold text-[#eead2b] border-b-2 border-[#eead2b]'
-                        : 'font-medium text-[#c9b792] hover:text-white'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
+              <div className="flex items-center gap-2">
+              {[{ key: 'branches', label: 'Branches' }, { key: 'users', label: 'Users' }, { key: 'feature_access', label: 'Feature Access' }, { key: 'integrations', label: 'Integrations' }, { key: 'payments', label: 'Payments' }].map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key as any)}
+                  className={`px-6 py-3 text-sm transition-colors ${
+                    tab === t.key
+                      ? 'font-bold text-[#eead2b] border-b-2 border-[#eead2b]'
+                      : 'font-medium text-[#c9b792] hover:text-white'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
 
               {tab === 'branches' ? (
               <div className="bg-[#2e281a] border border-[#483c23] rounded-lg overflow-hidden flex flex-col">
@@ -908,6 +1031,162 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                 </div>
               ) : null}
 
+              {tab === 'payments' ? (
+                <div className="bg-[#2e281a] border border-[#483c23] rounded-lg p-6">
+                  <div className="flex items-end justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Payment Integrations</h3>
+                      <div className="text-xs text-[#c9b792]">Super Admin manages gateway credentials. Tenant can only enable/disable usage.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={savePayments}
+                      disabled={paySaving || payLoading}
+                      className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221c11] font-bold hover:bg-[#d69a25] disabled:opacity-60"
+                    >
+                      {paySaving ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+
+                  {payError ? (
+                    <div className="mt-4 rounded-lg border border-red-600/40 bg-red-500/10 text-red-200 px-4 py-3 text-sm">{payError}</div>
+                  ) : null}
+
+                  <div className="mt-5 bg-[#221c11]/50 border border-[#483c23] rounded-lg p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="text-white font-bold">Chapa (POS)</div>
+                        <div className="text-xs text-[#c9b792] mt-1">Funds settle to tenant merchant account (strict mode).</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPosChapaEnabled((v) => !v)}
+                        className="flex items-center gap-2 text-sm font-bold"
+                        disabled={payLoading || paySaving}
+                      >
+                        <span className={`material-symbols-outlined text-[22px] ${posChapaEnabled ? 'text-[#eead2b]' : 'text-[#c9b792] opacity-60'}`}>{posChapaEnabled ? 'toggle_on' : 'toggle_off'}</span>
+                        <span className={posChapaEnabled ? 'text-[#eead2b]' : 'text-[#c9b792]'}>{posChapaEnabled ? 'Enabled' : 'Disabled'}</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Secret Key</div>
+                        <div className="text-xs text-[#c9b792] mb-2">Stored: <span className="font-mono text-white">{posChapaSecretMasked || '—'}</span></div>
+                        <input
+                          value={posChapaSecretKey}
+                          onChange={(e) => setPosChapaSecretKey(e.target.value)}
+                          placeholder="Enter new secret key (optional)"
+                          className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white"
+                          type="password"
+                          name="pos_chapa_secret_key"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Webhook Secret</div>
+                        <div className="text-xs text-[#c9b792] mb-2">Stored: <span className="font-mono text-white">{posChapaWebhookMasked || '—'}</span></div>
+                        <input
+                          value={posChapaWebhookSecret}
+                          onChange={(e) => setPosChapaWebhookSecret(e.target.value)}
+                          placeholder="Enter new webhook secret (optional)"
+                          className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white"
+                          type="password"
+                          name="pos_chapa_webhook_secret"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Public Key (optional)</div>
+                        <div className="text-xs text-[#c9b792] mb-2">Stored: <span className="font-mono text-white">{posChapaPublicMasked || '—'}</span></div>
+                        <input
+                          value={posChapaPublicKey}
+                          onChange={(e) => setPosChapaPublicKey(e.target.value)}
+                          placeholder="Enter public key (optional)"
+                          className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white"
+                          type="text"
+                          name="pos_chapa_public_key"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div />
+                    </div>
+
+                    <div className="mt-3 text-xs text-[#c9b792]">
+                      Tip: If you enable Chapa while no keys are stored, the API will return <span className="font-mono text-white">chapa_keys_required</span>.
+                    </div>
+                  </div>
+                <div className="mt-5 bg-[#221c11]/50 border border-[#483c23] rounded-lg p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-white font-bold">SantimPay (POS)</div>
+                      <div className="text-xs text-[#c9b792] mt-1">Tenant wallet settlement via SantimPay channels.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPosSantimEnabled((v) => !v)}
+                      className="flex items-center gap-2 text-sm font-bold"
+                      disabled={payLoading || paySaving}
+                    >
+                      <span className={`material-symbols-outlined text-[22px] ${posSantimEnabled ? 'text-[#eead2b]' : 'text-[#c9b792] opacity-60'}`}>{posSantimEnabled ? 'toggle_on' : 'toggle_off'}</span>
+                      <span className={posSantimEnabled ? 'text-[#eead2b]' : 'text-[#c9b792]'}>{posSantimEnabled ? 'Enabled' : 'Disabled'}</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Merchant ID</div>
+                      <div className="text-xs text-[#c9b792] mb-2">Stored: <span className="font-mono text-white">{posSantimMerchantIdMasked || '—'}</span></div>
+                      <input
+                        value={posSantimMerchantId}
+                        onChange={(e) => setPosSantimMerchantId(e.target.value)}
+                        placeholder="Enter merchant id (optional)"
+                        className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white"
+                        type="text"
+                        name="pos_santimpay_merchant_id"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Private Key (ES256 PEM)</div>
+                      <div className="text-xs text-[#c9b792] mb-2">Stored: <span className="font-mono text-white">{posSantimPrivateKeyMasked || '—'}</span></div>
+                      <textarea
+                        value={posSantimPrivateKey}
+                        onChange={(e) => setPosSantimPrivateKey(e.target.value)}
+                        placeholder="Paste private key PEM (optional)"
+                        className="min-h-[110px] w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 py-2 text-white"
+                        name="pos_santimpay_private_key"
+                        autoComplete="new-password"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Public Key (PEM)</div>
+                      <div className="text-xs text-[#c9b792] mb-2">Stored: <span className="font-mono text-white">{posSantimPublicKeyMasked || '—'}</span></div>
+                      <textarea
+                        value={posSantimPublicKey}
+                        onChange={(e) => setPosSantimPublicKey(e.target.value)}
+                        placeholder="Paste public key PEM (optional)"
+                        className="min-h-[110px] w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 py-2 text-white"
+                        name="pos_santimpay_public_key"
+                        autoComplete="off"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 text-xs text-[#c9b792]">
+                    Tip: If you enable SantimPay while missing keys, the API will return <span className="font-mono text-white">santimpay_keys_required</span>.
+                  </div>
+                </div>
+              </div>
+              ) : null}
+
               <div className="bg-[#2e281a] border border-[#483c23] rounded-lg p-6">
                 <div className="flex justify-between items-end mb-4">
                   <h3 className="text-lg font-bold text-white">Incident History & Logs</h3>
@@ -934,9 +1213,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                     })().slice(0, 10).map((ev: any, i: number) => {
                       const at = String(ev?.at || '');
                       const when = at ? new Date(at) : null;
-                      const ts = when && !Number.isNaN(when.getTime())
-                        ? when.toLocaleString(undefined, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-                        : '-';
+                      const ts = at ? (formatDeviceDateTime(at, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) || '-') : '-';
                       const type = String(ev?.type || 'event');
                       const desc = String(ev?.message || ev?.summary || ev?.details || '');
                       const sev = String(ev?.severity || type).toLowerCase();
@@ -1025,7 +1302,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                         <div key={String(ev?.id)} className="rounded-lg border border-[#483c23] bg-[#2e281a] p-3">
                           <div className="flex items-center justify-between gap-3">
                             <div className="text-sm font-bold text-white">{String(ev?.type || 'event')}</div>
-                            <div className="text-xs font-mono text-[#c9b792]">{String(ev?.at ? new Date(ev.at).toLocaleString() : '')}</div>
+                            <div className="text-xs font-mono text-[#c9b792]">{String(ev?.at ? (formatDeviceDateTime(ev.at) || '') : '')}</div>
                           </div>
                           <div className="text-xs text-[#c9b792] mt-1">{String(ev?.message || '')}</div>
                         </div>

@@ -6,6 +6,7 @@ import { Screen } from '../../types';
 import { apiFetch } from '../../api';
 import { readSession } from '../../session';
 import { usePersistedNullableString } from '../../usePersistedState';
+import { formatDeviceDateTime } from '../../datetime';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -638,7 +639,7 @@ export const RecipeBuilder: React.FC<Props> = ({ onNavigate }) => {
                               <div key={e.id} className="px-3 py-2">
                                 <div className="flex items-center justify-between gap-3">
                                   <div className="text-white font-semibold text-sm">{e.summary || e.type}</div>
-                                  <div className="text-[#cbb790] text-[11px] font-mono">{e.at ? new Date(e.at).toLocaleString() : ''}</div>
+                                  <div className="text-[#cbb790] text-[11px] font-mono">{e.at ? (formatDeviceDateTime(e.at) || '') : ''}</div>
                                 </div>
                                 <div className="mt-1 text-[#cbb790] text-[11px]">{e.actorName ? `${e.actorName}${e.actorRole ? ` (${e.actorRole})` : ''}` : e.actorRole || ''}</div>
                               </div>

@@ -321,6 +321,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
               <NavItem screen={Screen.SA_ONBOARDING} icon="auto_awesome" label="Onboarding" />
               <NavItem screen={Screen.SA_BILLING} icon="monetization_on" label="Billing & Revenue" />
               <NavItem screen={Screen.SA_PAYMENT_CONFIG} icon="account_balance" label="Payment Config" />
+              <NavItem screen={Screen.SA_INTEGRATIONS} icon="extension" label="Integrations" />
+              <NavItem screen={Screen.SA_ADDONS} icon="widgets" label="Add-ons" />
               <NavItem screen={Screen.SA_DEMO_REQUESTS} icon="campaign" label="Demo Requests" />
             </Section>
 

@@ -15,6 +15,7 @@ import { apiFetch, logoutAndReload } from '../../api';
 import { PortalMenu, type PortalMenuAnchorRect } from '../../components/PortalMenu';
 import { readSession } from '../../session';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
+import { formatDeviceDateTime } from '../../datetime';
 
 type Branch = { id: string; name: string };
 
@@ -403,7 +404,7 @@ export const GlobalReports: React.FC = () => {
   const monthLabel = useMemo(() => {
     try {
       const d = fromIso ? new Date(fromIso) : new Date();
-      return d.toLocaleString(undefined, { month: 'short', year: 'numeric' });
+      return formatDeviceDateTime(d, { month: 'short', year: 'numeric' }) || 'This Month';
     } catch {
       return 'This Month';
     }

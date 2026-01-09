@@ -1,9 +1,38 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Modal } from '../../components/Modal';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
+import { Screen } from '../../types';
+import { Modal } from '../../components/Modal';
+import { formatDeviceTime } from '../../datetime';
 import { readSession } from '../../session';
 
-type SettingsTab = 'hardware' | 'general' | 'branch' | 'hours' | 'taxes';
+type SettingsTab = 'hardware' | 'general' | 'branch' | 'hours' | 'taxes' | 'integrations' | 'addons';
+
+type InstalledIntegration = {
+  id: string;
+  integrationId: string;
+  code: string;
+  name: string;
+  category: string;
+  integrationType: string;
+  isAvailable: boolean;
+  status: string;
+  installedAt: string;
+  updatedAt: string;
+};
+
+type AddonSubscription = {
+  id: string;
+  addonId: string;
+  code: string;
+  name: string;
+  category: string;
+  status: string;
+  billingFrequency: string;
+  pricePaidEtb: number;
+  activationDate: string;
+  nextRenewalDate: string;
+  cancellationDate: string;
+};
 
 type DeviceStatus = 'Online' | 'Offline';
 
@@ -312,7 +341,7 @@ const kitchenSampleHtml = (params: {
   const header = escapeHtml(params.title || 'Kitchen Ticket');
   const table = escapeHtml(params.tableName || '');
   const number = escapeHtml(params.orderNumber || '');
-  const time = escapeHtml(params.timeLabel || new Date().toLocaleTimeString());
+  const time = escapeHtml(params.timeLabel || formatDeviceTime(new Date(), { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
   const placedBy = escapeHtml(params.placedBy || '-');
   const notes = params.notes ? `<div class="notes">${escapeHtml(params.notes)}</div>` : '';
   const items = (params.lines || [])
@@ -497,6 +526,12 @@ export const BranchSettings: React.FC = () => {
   const [saved, setSaved] = useState<BranchSettingsState>(() => defaultState);
   const [draft, setDraft] = useState<BranchSettingsState>(() => defaultState);
 
+  useEffect(() => {
+    if (activeTab === 'integrations') void loadInstalledIntegrations();
+    if (activeTab === 'addons') void loadAddonSubscriptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
   const resolveBranchId = () => {
     try {
       const s = readSession<any>();
@@ -551,6 +586,75 @@ export const BranchSettings: React.FC = () => {
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [remoteTenantId, setRemoteTenantId] = useState<string>('');
   const [remoteBranchId, setRemoteBranchId] = useState<string>('');
+
+  const [integrationsLoading, setIntegrationsLoading] = useState(false);
+  const [integrationsError, setIntegrationsError] = useState<string | null>(null);
+  const [installedIntegrations, setInstalledIntegrations] = useState<InstalledIntegration[]>([]);
+
+  const [addonsLoading, setAddonsLoading] = useState(false);
+  const [addonsError, setAddonsError] = useState<string | null>(null);
+  const [addonSubscriptions, setAddonSubscriptions] = useState<AddonSubscription[]>([]);
+
+  const loadInstalledIntegrations = async () => {
+    setIntegrationsLoading(true);
+    setIntegrationsError(null);
+    try {
+      const res = await apiFetch(withBranchQuery('/api/manager/integrations'));
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      const rows = Array.isArray(json?.installed) ? json.installed : [];
+      setInstalledIntegrations(
+        rows.map((r: any) => ({
+          id: String(r?.id || ''),
+          integrationId: String(r?.integrationId || ''),
+          code: String(r?.code || ''),
+          name: String(r?.name || ''),
+          category: String(r?.category || ''),
+          integrationType: String(r?.integrationType || ''),
+          isAvailable: Boolean(r?.isAvailable),
+          status: String(r?.status || ''),
+          installedAt: String(r?.installedAt || ''),
+          updatedAt: String(r?.updatedAt || ''),
+        })),
+      );
+    } catch (e) {
+      setInstalledIntegrations([]);
+      setIntegrationsError(e instanceof Error ? e.message : 'Failed to load integrations');
+    } finally {
+      setIntegrationsLoading(false);
+    }
+  };
+
+  const loadAddonSubscriptions = async () => {
+    setAddonsLoading(true);
+    setAddonsError(null);
+    try {
+      const res = await apiFetch(withBranchQuery('/api/manager/addons'));
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      const rows = Array.isArray(json?.subscriptions) ? json.subscriptions : [];
+      setAddonSubscriptions(
+        rows.map((r: any) => ({
+          id: String(r?.id || ''),
+          addonId: String(r?.addonId || ''),
+          code: String(r?.code || ''),
+          name: String(r?.name || ''),
+          category: String(r?.category || ''),
+          status: String(r?.status || ''),
+          billingFrequency: String(r?.billingFrequency || ''),
+          pricePaidEtb: Number(r?.pricePaidEtb || 0) || 0,
+          activationDate: String(r?.activationDate || ''),
+          nextRenewalDate: String(r?.nextRenewalDate || ''),
+          cancellationDate: String(r?.cancellationDate || ''),
+        })),
+      );
+    } catch (e) {
+      setAddonSubscriptions([]);
+      setAddonsError(e instanceof Error ? e.message : 'Failed to load add-ons');
+    } finally {
+      setAddonsLoading(false);
+    }
+  };
 
   const saveSettings = async (nextSettings: BranchSettingsState) => {
     setRemoteError(null);
@@ -797,6 +901,16 @@ export const BranchSettings: React.FC = () => {
         crumb: 'Taxes',
         subtitle: 'Configure tax rates and service charges applied at checkout and displayed on receipts.',
       },
+      integrations: {
+        title: 'Integrations',
+        crumb: 'Integrations',
+        subtitle: 'View which tenant integrations are installed and currently active (managed by owner).',
+      },
+      addons: {
+        title: 'Add-ons',
+        crumb: 'Add-ons',
+        subtitle: 'View which add-ons are active for this tenant (managed by owner subscription).',
+      },
     };
     return map[activeTab];
   }, [activeTab, draft.branchName]);
@@ -804,7 +918,7 @@ export const BranchSettings: React.FC = () => {
   useEffect(() => {
     const normalize = (raw: string): SettingsTab | null => {
       const v = raw.replace('#', '').trim().toLowerCase();
-      if (v === 'hardware' || v === 'general' || v === 'branch' || v === 'hours' || v === 'taxes') return v;
+      if (v === 'hardware' || v === 'general' || v === 'branch' || v === 'hours' || v === 'taxes' || v === 'integrations' || v === 'addons') return v;
       return null;
     };
 
@@ -991,6 +1105,26 @@ export const BranchSettings: React.FC = () => {
               >
                 <span className="material-symbols-outlined text-lg">percent</span>
                 Taxes &amp; Service
+              </button>
+
+              <button
+                onClick={() => setActiveTab('integrations')}
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${
+                  activeTab === 'integrations' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                }`}
+              >
+                <span className="material-symbols-outlined text-lg">extension</span>
+                Integrations
+              </button>
+
+              <button
+                onClick={() => setActiveTab('addons')}
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${
+                  activeTab === 'addons' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                }`}
+              >
+                <span className="material-symbols-outlined text-lg">widgets</span>
+                Add-ons
               </button>
             </div>
           </div>
@@ -1845,6 +1979,90 @@ export const BranchSettings: React.FC = () => {
                       />
                     </div>
                   </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'integrations' && (
+            <section className="max-w-4xl">
+              <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-white font-extrabold">Installed Integrations</div>
+                    <div className="text-xs text-[#b9b09d] mt-1">Read-only view for managers. Owners install integrations.</div>
+                  </div>
+                  <button
+                    onClick={() => void loadInstalledIntegrations()}
+                    className="h-10 px-4 rounded-lg border border-[#393328] bg-[#181611] text-white text-sm font-bold hover:bg-[#2c241b] disabled:opacity-60"
+                    disabled={integrationsLoading}
+                    type="button"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                {integrationsError ? <div className="text-sm text-red-300">{integrationsError}</div> : null}
+                {integrationsLoading ? <div className="text-sm text-[#b9b09d]">Loading…</div> : null}
+
+                {!integrationsLoading && installedIntegrations.length === 0 ? (
+                  <div className="text-sm text-[#b9b09d]">No integrations installed.</div>
+                ) : null}
+
+                <div className="divide-y divide-[#393328] rounded-lg border border-[#393328]">
+                  {installedIntegrations.map((x) => (
+                    <div key={x.id} className="p-4 flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-white font-bold truncate">{x.name || x.code}</div>
+                        <div className="text-xs text-[#b9b09d] mt-1">
+                          {x.category || '—'} • {x.integrationType || '—'} • {x.status || 'installed'}
+                        </div>
+                      </div>
+                      <div className="text-xs font-mono text-[#b9b09d]">{x.code}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'addons' && (
+            <section className="max-w-4xl">
+              <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-white font-extrabold">Active Add-ons</div>
+                    <div className="text-xs text-[#b9b09d] mt-1">Read-only view for managers. Owners subscribe to add-ons.</div>
+                  </div>
+                  <button
+                    onClick={() => void loadAddonSubscriptions()}
+                    className="h-10 px-4 rounded-lg border border-[#393328] bg-[#181611] text-white text-sm font-bold hover:bg-[#2c241b] disabled:opacity-60"
+                    disabled={addonsLoading}
+                    type="button"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                {addonsError ? <div className="text-sm text-red-300">{addonsError}</div> : null}
+                {addonsLoading ? <div className="text-sm text-[#b9b09d]">Loading…</div> : null}
+
+                {!addonsLoading && addonSubscriptions.length === 0 ? (
+                  <div className="text-sm text-[#b9b09d]">No add-ons active for this tenant.</div>
+                ) : null}
+
+                <div className="divide-y divide-[#393328] rounded-lg border border-[#393328]">
+                  {addonSubscriptions.map((x) => (
+                    <div key={x.id} className="p-4 flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-white font-bold truncate">{x.name || x.code}</div>
+                        <div className="text-xs text-[#b9b09d] mt-1">
+                          {x.category || '—'} • {x.status || '—'} • {x.billingFrequency || '—'}
+                        </div>
+                      </div>
+                      <div className="text-xs font-mono text-[#b9b09d]">{x.code}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </section>
