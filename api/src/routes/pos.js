@@ -21,6 +21,105 @@ const safeJsonParse = (raw, fallback) => {
   }
 };
 
+const stripTablesFromPosState = (state) => {
+  if (!state || typeof state !== 'object') return null;
+  // eslint-disable-next-line no-unused-vars
+  const { tables, ...rest } = state;
+  return rest;
+};
+
+const backfillRestaurantTablesFromLegacyState = async ({ tenantId, branchId }) => {
+  try {
+    const existing = await db()
+      .from('restaurant_tables')
+      .where({ tenant_id: tenantId, branch_id: branchId })
+      .select(['id'])
+      .limit(1);
+    if (existing && existing.length > 0) return;
+
+    const stateRow = await db().select(['state_json']).from('pos_state').where({ tenant_id: tenantId, branch_id: branchId }).first();
+    const state = safeJsonParse(stateRow?.state_json, null);
+    const tables = Array.isArray(state?.tables) ? state.tables : [];
+    if (!tables.length) return;
+
+    const nowIso = new Date().toISOString();
+    const inserts = tables
+      .filter((t) => t && (t.id || t.name))
+      .map((t) => ({
+        tenant_id: tenantId,
+        branch_id: branchId,
+        id: String(t.id || '').trim() || uid('tbl'),
+        name: String(t.name || '').trim() || 'Table',
+        area: typeof t.area === 'string' && t.area.trim() ? t.area.trim() : null,
+        status: typeof t.status === 'string' && t.status.trim() ? t.status.trim() : 'Free',
+        seats: Number.isFinite(Number(t.seats)) ? Number(t.seats) : 4,
+        open_order_id: t.openOrderId ? String(t.openOrderId) : null,
+        last_order_id: t.lastOrderId ? String(t.lastOrderId) : null,
+        assigned_staff_id: t.assignedStaffId ? String(t.assignedStaffId) : null,
+        assigned_staff_name: t.assignedStaffName ? String(t.assignedStaffName) : null,
+        updated_at: nowIso,
+      }));
+
+    if (inserts.length) {
+      await db().transaction(async (trx) => {
+        for (const rec of inserts) {
+          // eslint-disable-next-line no-await-in-loop
+          await trx('restaurant_tables')
+            .insert(rec)
+            .onConflict(['tenant_id', 'branch_id', 'id'])
+            .merge({
+              name: rec.name,
+              area: rec.area,
+              status: rec.status,
+              seats: rec.seats,
+              open_order_id: rec.open_order_id,
+              last_order_id: rec.last_order_id,
+              assigned_staff_id: rec.assigned_staff_id,
+              assigned_staff_name: rec.assigned_staff_name,
+              updated_at: nowIso,
+            });
+        }
+
+        const stripped = stripTablesFromPosState(state) || {};
+        await trx('pos_state')
+          .where({ tenant_id: tenantId, branch_id: branchId })
+          .update({ state_json: JSON.stringify(stripped), updated_at: nowIso });
+      });
+    }
+  } catch {
+    // ignore
+  }
+};
+
+const loadRestaurantTable = async ({ tenantId, branchId, tableId }) => {
+  try {
+    const row = await db()
+      .from('restaurant_tables')
+      .where({ tenant_id: tenantId, branch_id: branchId, id: String(tableId || '').trim() })
+      .select(['id', 'name', 'area', 'status', 'seats', 'open_order_id', 'last_order_id', 'assigned_staff_id', 'assigned_staff_name', 'updated_at'])
+      .first();
+    return row || null;
+  } catch {
+    return null;
+  }
+};
+
+const mapRestaurantTableRow = (row) => {
+  if (!row) return null;
+  return {
+    id: String(row.id || ''),
+    name: String(row.name || ''),
+    area: row.area == null ? null : String(row.area || ''),
+    status: String(row.status || ''),
+    seats: Number(row.seats || 0) || 0,
+    openOrderId: row.open_order_id ? String(row.open_order_id) : null,
+    lastOrderId: row.last_order_id ? String(row.last_order_id) : null,
+    assignedStaffId: row.assigned_staff_id ? String(row.assigned_staff_id) : null,
+    assignedStaffName: row.assigned_staff_name ? String(row.assigned_staff_name) : null,
+    updatedAt: row.updated_at || null,
+  };
+};
+
 const verifyStaffPin = async ({ tenantId, branchId, staffId, pin }) => {
   const p = String(pin || '').trim();
   if (!p) return false;
@@ -889,7 +988,7 @@ const makePosRouter = () => {
       const force = String(req.query?.force || '').trim() === '1' || String(req.query?.force || '').trim().toLowerCase() === 'true';
       const existingRow = await db().select(['state_json']).from('pos_state').where({ tenant_id: req.tenant.id, branch_id: branchId }).first();
       const existing = safeJsonParse(existingRow?.state_json, null);
-      const hasExisting = existing && typeof existing === 'object' && (Array.isArray(existing.tables) || Array.isArray(existing.products));
+      const hasExisting = existing && typeof existing === 'object';
 
       if (hasExisting && !force) {
         return res.json({ ok: true, alreadyInitialized: true, tenantId: req.tenant.id, branchId });
@@ -900,8 +999,46 @@ const makePosRouter = () => {
       const seats = Number(body?.defaultSeats || 4);
       const area = typeof body?.defaultArea === 'string' ? body.defaultArea : 'Main Hall';
 
-      const nextState = makeInitialPosState({ count, seats, area });
+      const pad2 = (x) => String(x).padStart(2, '0');
+      const n = Math.max(1, Math.min(200, Number(count) || 0));
+      const s = Math.max(1, Math.min(20, Number(seats) || 4));
+      const a = typeof area === 'string' && area.trim() ? area.trim() : 'Main Hall';
+
       const nowIso = new Date().toISOString();
+
+      // Seed restaurant_tables
+      const existingTables = await db()
+        .from('restaurant_tables')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId })
+        .select(['id'])
+        .limit(1);
+
+      if (force || !existingTables || existingTables.length === 0) {
+        if (force) {
+          await db().from('restaurant_tables').where({ tenant_id: req.tenant.id, branch_id: branchId }).del();
+        }
+
+        const inserts = Array.from({ length: n }).map((_, i) => {
+          const name = `T-${pad2(i + 1)}`;
+          return {
+            tenant_id: req.tenant.id,
+            branch_id: branchId,
+            id: uid('tbl'),
+            name,
+            area: a,
+            status: 'Free',
+            seats: s,
+            open_order_id: null,
+            last_order_id: null,
+            assigned_staff_id: null,
+            assigned_staff_name: null,
+            updated_at: nowIso,
+          };
+        });
+        if (inserts.length) await db().from('restaurant_tables').insert(inserts);
+      }
+
+      const nextState = makeInitialPosState();
       const id = `pos_${req.tenant.id}_${branchId}`;
 
       await db()
@@ -1229,7 +1366,8 @@ const makePosRouter = () => {
         .first();
 
       const state = safeJsonParse(row?.state_json, null);
-      return res.json({ ok: true, tenantId: req.tenant.id, branchId, state: state && typeof state === 'object' ? state : null, updatedAt: row?.updated_at || null });
+      const stripped = stripTablesFromPosState(state);
+      return res.json({ ok: true, tenantId: req.tenant.id, branchId, state: stripped, updatedAt: row?.updated_at || null });
     } catch (e) {
       return next(e);
     }
@@ -1288,15 +1426,191 @@ const makePosRouter = () => {
       const incoming = req.body && typeof req.body === 'object' ? req.body.state : null;
       if (!incoming || typeof incoming !== 'object') return res.status(400).json({ error: 'invalid_state' });
 
+      const cleaned = stripTablesFromPosState(incoming);
+      if (!cleaned) return res.status(400).json({ error: 'invalid_state' });
+
       const nowIso = new Date().toISOString();
       const id = `pos_${req.tenant.id}_${branchId}`;
       await db()
         .from('pos_state')
-        .insert({ id, tenant_id: req.tenant.id, branch_id: branchId, state_json: JSON.stringify(incoming), updated_at: nowIso })
+        .insert({ id, tenant_id: req.tenant.id, branch_id: branchId, state_json: JSON.stringify(cleaned), updated_at: nowIso })
         .onConflict(['tenant_id', 'branch_id'])
-        .merge({ state_json: JSON.stringify(incoming), updated_at: nowIso });
+        .merge({ state_json: JSON.stringify(cleaned), updated_at: nowIso });
 
       return res.json({ ok: true, tenantId: req.tenant.id, branchId, updatedAt: nowIso });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.get(
+    '/pos/tables',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('pos'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
+    try {
+      const branchId = await resolveBranchId(req);
+      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      await backfillRestaurantTablesFromLegacyState({ tenantId: req.tenant.id, branchId });
+
+      const rows = await db()
+        .from('restaurant_tables')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId })
+        .select(['id', 'name', 'area', 'status', 'seats', 'open_order_id', 'last_order_id', 'assigned_staff_id', 'assigned_staff_name', 'updated_at'])
+        .orderBy('name', 'asc');
+
+      return res.json({ ok: true, tenantId: req.tenant.id, branchId, tables: rows.map(mapRestaurantTableRow).filter(Boolean) });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.post(
+    '/pos/tables',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('pos'),
+    requirePermission('manager.settings.write'),
+    async (req, res, next) => {
+    try {
+      const branchId = await resolveBranchId(req);
+      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const name = typeof body?.name === 'string' && body.name.trim() ? body.name.trim() : '';
+      if (!name) return res.status(400).json({ error: 'name_required' });
+
+      let id = typeof body?.id === 'string' && body.id.trim() ? body.id.trim() : '';
+      if (!id) {
+        const existingByName = await db()
+          .from('restaurant_tables')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, name })
+          .select(['id'])
+          .first();
+        id = existingByName?.id ? String(existingByName.id) : uid('tbl');
+      }
+
+      const nowIso = new Date().toISOString();
+      await db()
+        .from('restaurant_tables')
+        .insert({
+          tenant_id: req.tenant.id,
+          branch_id: branchId,
+          id,
+          name,
+          area: typeof body?.area === 'string' && body.area.trim() ? body.area.trim() : null,
+          status: typeof body?.status === 'string' && body.status.trim() ? body.status.trim() : 'Free',
+          seats: Number.isFinite(Number(body?.seats)) ? Number(body.seats) : 4,
+          open_order_id: null,
+          last_order_id: null,
+          assigned_staff_id: typeof body?.assignedStaffId === 'string' && body.assignedStaffId.trim() ? body.assignedStaffId.trim() : null,
+          assigned_staff_name: typeof body?.assignedStaffName === 'string' && body.assignedStaffName.trim() ? body.assignedStaffName.trim() : null,
+          updated_at: nowIso,
+        })
+        .onConflict(['tenant_id', 'branch_id', 'id'])
+        .merge({
+          name,
+          area: typeof body?.area === 'string' && body.area.trim() ? body.area.trim() : null,
+          status: typeof body?.status === 'string' && body.status.trim() ? body.status.trim() : 'Free',
+          seats: Number.isFinite(Number(body?.seats)) ? Number(body.seats) : 4,
+          assigned_staff_id: typeof body?.assignedStaffId === 'string' && body.assignedStaffId.trim() ? body.assignedStaffId.trim() : null,
+          assigned_staff_name: typeof body?.assignedStaffName === 'string' && body.assignedStaffName.trim() ? body.assignedStaffName.trim() : null,
+          updated_at: nowIso,
+        });
+
+      const row = await loadRestaurantTable({ tenantId: req.tenant.id, branchId, tableId: id });
+      return res.json({ ok: true, tenantId: req.tenant.id, branchId, table: mapRestaurantTableRow(row) });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.delete(
+    '/pos/tables/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('pos'),
+    requirePermission('manager.settings.write'),
+    async (req, res, next) => {
+    try {
+      const branchId = await resolveBranchId(req);
+      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const id = String(req.params?.id || '').trim();
+      if (!id) return res.status(400).json({ error: 'table_required' });
+
+      const row = await loadRestaurantTable({ tenantId: req.tenant.id, branchId, tableId: id });
+      if (!row) return res.status(404).json({ error: 'table_not_found' });
+      if (row.open_order_id) return res.status(409).json({ error: 'table_has_open_order' });
+
+      await db()
+        .from('restaurant_tables')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
+        .del();
+
+      return res.json({ ok: true, tenantId: req.tenant.id, branchId, deleted: true });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.put(
+    '/pos/tables/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('pos'),
+    requirePermission('manager.settings.write'),
+    async (req, res, next) => {
+    try {
+      const branchId = await resolveBranchId(req);
+      if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+      const id = String(req.params?.id || '').trim();
+      if (!id) return res.status(400).json({ error: 'table_required' });
+
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const patch = {};
+      if (typeof body?.name === 'string' && body.name.trim()) patch.name = body.name.trim();
+      if (body?.area == null) patch.area = null;
+      if (typeof body?.area === 'string' && body.area.trim()) patch.area = body.area.trim();
+      if (typeof body?.status === 'string' && body.status.trim()) patch.status = body.status.trim();
+      if (Number.isFinite(Number(body?.seats))) patch.seats = Number(body.seats);
+
+      if (typeof body?.assignedStaffId === 'string') {
+        patch.assigned_staff_id = body.assignedStaffId.trim() ? body.assignedStaffId.trim() : null;
+      }
+      if (typeof body?.assignedStaffName === 'string') {
+        patch.assigned_staff_name = body.assignedStaffName.trim() ? body.assignedStaffName.trim() : null;
+      }
+      if (typeof body?.openOrderId === 'string') {
+        patch.open_order_id = body.openOrderId.trim() ? body.openOrderId.trim() : null;
+      }
+      if (typeof body?.lastOrderId === 'string') {
+        patch.last_order_id = body.lastOrderId.trim() ? body.lastOrderId.trim() : null;
+      }
+
+      const nowIso = new Date().toISOString();
+      patch.updated_at = nowIso;
+
+      const updated = await db()
+        .from('restaurant_tables')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
+        .update(patch);
+      if (!updated) return res.status(404).json({ error: 'table_not_found' });
+
+      const row = await loadRestaurantTable({ tenantId: req.tenant.id, branchId, tableId: id });
+      return res.json({ ok: true, tenantId: req.tenant.id, branchId, table: mapRestaurantTableRow(row) });
     } catch (e) {
       return next(e);
     }
@@ -1582,13 +1896,21 @@ const makePosRouter = () => {
         const tableId = typeof payload?.tableId === 'string' ? payload.tableId.trim() : typeof payload?.table_id === 'string' ? payload.table_id.trim() : '';
         if (!tableId) return res.status(400).json({ error: 'table_required' });
 
-        const stateRow = await db().select(['state_json']).from('pos_state').where({ tenant_id: req.tenant.id, branch_id: branchId }).first();
-        const state = safeJsonParse(stateRow?.state_json, null);
-        const tables = Array.isArray(state?.tables) ? state.tables : [];
-        const table = tables.find((t) => t && String(t.id || '') === tableId) || null;
-        if (!table) return res.status(404).json({ error: 'table_not_found' });
+        let table = await loadRestaurantTable({ tenantId: req.tenant.id, branchId, tableId });
+        if (!table) {
+          const stateRow = await db().select(['state_json']).from('pos_state').where({ tenant_id: req.tenant.id, branch_id: branchId }).first();
+          const state = safeJsonParse(stateRow?.state_json, null);
+          const tables = Array.isArray(state?.tables) ? state.tables : [];
+          const found = tables.find((t) => t && String(t.id || '') === tableId) || null;
+          if (!found) return res.status(404).json({ error: 'table_not_found' });
+          table = {
+            id: String(found.id || ''),
+            name: String(found.name || ''),
+            assigned_staff_id: typeof found?.assignedStaffId === 'string' ? String(found.assignedStaffId) : null,
+          };
+        }
 
-        const assigned = typeof table?.assignedStaffId === 'string' ? String(table.assignedStaffId) : '';
+        const assigned = table?.assigned_staff_id ? String(table.assigned_staff_id) : '';
         if (assigned && assigned !== staffId) return res.status(403).json({ error: 'table_assigned_to_other' });
 
         const staffRow = await db().select(['name']).from('staff').where({ tenant_id: req.tenant.id, branch_id: branchId, id: staffId }).first();
@@ -2166,7 +2488,7 @@ const makePosRouter = () => {
     '/pos/orders/:id/pay-chapa-link',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('finance'),
     requirePermission('payments.process'),
@@ -2252,7 +2574,7 @@ const makePosRouter = () => {
     '/pos/orders/:id/payment-status',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('finance'),
     requirePermission('orders.read'),
@@ -2324,7 +2646,7 @@ const makePosRouter = () => {
     '/pos/orders/:id/payment-status-santimpay',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('finance'),
     requirePermission('orders.read'),
@@ -2418,7 +2740,7 @@ const makePosRouter = () => {
     '/pos/orders/:id/payment-status-chapa',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
     requireModule('finance'),
     requirePermission('orders.read'),

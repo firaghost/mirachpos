@@ -48,6 +48,9 @@ const { makeTelebirrStandingOrderRouter } = require('./routes/telebirrStandingOr
 const createApp = () => {
   const app = express();
 
+  // Trust reverse proxy (cPanel/Cloudflare) so req.protocol uses X-Forwarded-Proto
+  app.set('trust proxy', true);
+
   // ==========================================================================
   // SECURITY MIDDLEWARE (Order matters!)
   // ==========================================================================
@@ -104,7 +107,9 @@ const createApp = () => {
 
   app.get('/p/:token', (req, res) => {
     const token = String(req.params.token || '').trim();
-    const host = req.protocol + '://' + req.get('host');
+    const xfProto = String(req.header('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
+    const proto = xfProto || req.protocol;
+    const host = proto + '://' + req.get('host');
     const apiBase = `${host}/api`;
     const safeToken = token.replace(/</g, '').replace(/>/g, '');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -210,14 +215,16 @@ const createApp = () => {
               <span class="text-white text-lg font-bold">Total</span>
               <span class="text-white text-2xl font-extrabold tracking-tight" id="pay">ETB 0.00</span>
             </div>
+            <div class="pt-3" id="bottomBar">
+              <button class="w-full bg-primary hover:bg-primary/90 text-black font-bold text-lg h-14 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-between px-6 transition-transform active:scale-[0.98]" id="payBtn" type="button">
+                <span>Pay Now</span>
+                <span id="payBtnAmt">ETB 0.00</span>
+              </button>
+              <div id="status" style="display:none"></div>
+            </div>
           </div>
 
           <div class="px-6 py-2" id="msg"></div>
-
-          <div class="flex justify-center items-center gap-1.5 py-6 opacity-60" id="trust">
-            <span class="material-symbols-outlined text-[14px] text-accent-gold">lock</span>
-            <span class="text-xs text-text-secondary">Secure checkout powered by MirachPOS</span>
-          </div>
 
           <div class="px-4 pb-6" id="receiptWrap" style="display:none">
             <div class="bg-white rounded-xl overflow-hidden">
@@ -226,14 +233,12 @@ const createApp = () => {
           </div>
         </div>
 
-        <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-surface-dark via-surface-dark to-transparent pt-12 pb-6 px-6 z-20" id="bottomBar">
-          <button class="w-full bg-primary hover:bg-primary/90 text-black font-bold text-lg h-14 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-between px-6 transition-transform active:scale-[0.98]" id="payBtn" type="button">
-            <span>Pay Now</span>
-            <span id="payBtnAmt">ETB 0.00</span>
-          </button>
-          <div id="status" style="display:none"></div>
-        </div>
       </div>
+    </div>
+
+    <div class="flex justify-center items-center gap-1.5 py-5 opacity-60" id="trust">
+      <span class="material-symbols-outlined text-[14px] text-accent-gold">lock</span>
+      <span class="text-xs text-text-secondary">Secure checkout powered by MirachPOS</span>
     </div>
 
     <script>
@@ -363,6 +368,16 @@ const createApp = () => {
 
       const pollPaid = async () => {
         try {
+          try {
+            if (qs.get('chapa') === 'success') {
+              await fetch(API + '/public/pos-links/' + encodeURIComponent(TOKEN) + '/verify-chapa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+              }).catch(() => null);
+            }
+          } catch {
+            // ignore
+          }
           const j = await load();
           if (j && j.paid) {
             const receiptUrl = String(j.receiptUrl || '');

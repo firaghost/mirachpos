@@ -121,7 +121,9 @@ const makePublicRouter = () => {
 
       const receiptToken = receiptRow?.token ? String(receiptRow.token) : '';
 
-      const baseUrl = req.protocol + '://' + req.get('host');
+      const xfProto = String(req.header('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
+      const proto = xfProto || req.protocol;
+      const baseUrl = proto + '://' + req.get('host');
 
       return res.json({
         ok: true,
@@ -185,7 +187,9 @@ const makePublicRouter = () => {
       const rand = Math.random().toString(16).slice(2, 10);
       const txRef = `pos_${shortOrder}_${rand}`;
 
-      const baseUrl = req.protocol + '://' + req.get('host');
+      const xfProto = String(req.header('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
+      const proto = xfProto || req.protocol;
+      const baseUrl = proto + '://' + req.get('host');
       const callbackUrl = `${baseUrl}/api/webhooks/payment/chapa`;
       const returnUrl = `${baseUrl}/p/${encodeURIComponent(token)}?chapa=success`;
 
@@ -270,6 +274,72 @@ const makePublicRouter = () => {
         }
       })();
       return res.status(500).json({ ok: false, error: 'initiate_chapa_failed', message: msg });
+    }
+  });
+
+  r.post('/public/pos-links/:token/verify-chapa', async (req, res, next) => {
+    try {
+      const token = String(req.params.token || '').trim();
+      if (!token) return res.status(400).json({ ok: false, error: 'token_required' });
+
+      const link = await loadLink({ token, purpose: 'payer' });
+      if (!link) return res.status(404).json({ ok: false, error: 'link_not_found' });
+      if (link.expired) return res.status(410).json({ ok: false, error: 'link_expired' });
+
+      const orderRow = await db()
+        .from('orders')
+        .where({ tenant_id: link.tenantId, branch_id: link.branchId, id: link.orderId })
+        .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'paid_at', 'payload'])
+        .first();
+      if (!orderRow) return res.status(404).json({ ok: false, error: 'order_not_found' });
+
+      if (String(orderRow.status || '') === 'Paid' || orderRow.paid_at) {
+        return res.json({ ok: true, paid: true });
+      }
+
+      const tx = await db()
+        .from('pos_payment_gateway_transactions')
+        .where({ tenant_id: link.tenantId, branch_id: link.branchId, order_id: link.orderId, gateway: 'chapa' })
+        .orderBy('created_at', 'desc')
+        .select(['id', 'tx_ref', 'status'])
+        .first();
+
+      const txRef = tx?.tx_ref ? String(tx.tx_ref).trim() : '';
+      if (!txRef) return res.status(409).json({ ok: false, error: 'no_pending_transaction' });
+
+      const verify = await paymentGatewayService.chapaVerifyForTenantPos({ tenantId: link.tenantId, txRef });
+      const st = String(verify?.status || '').toLowerCase();
+      const success = st === 'success';
+      if (!success) return res.json({ ok: true, paid: false, status: st || 'pending' });
+
+      const nowIso = new Date().toISOString();
+      const payload = safeJsonParse(orderRow.payload, {});
+      payload.paidAt = nowIso;
+      payload.paymentMethod = 'Mobile Money';
+      payload.paymentReference = txRef;
+      payload.chapaVerified = verify?.rawResponse || null;
+
+      await db().transaction(async (trx) => {
+        await trx
+          .from('orders')
+          .where({ tenant_id: link.tenantId, branch_id: link.branchId, id: link.orderId })
+          .update({ status: 'Paid', paid_at: nowIso, payload: JSON.stringify(payload) });
+
+        if (tx?.id) {
+          await trx
+            .from('pos_payment_gateway_transactions')
+            .where({ id: String(tx.id) })
+            .update({ status: 'completed', paid_at: nowIso, verify_response_json: JSON.stringify(verify?.rawResponse || null), updated_at: nowIso });
+        }
+      });
+
+      return res.json({ ok: true, paid: true });
+    } catch (e) {
+      const err = String(e?.message || e || '').trim();
+      if (err === 'tenant_chapa_not_configured') {
+        return res.status(400).json({ ok: false, error: 'tenant_chapa_not_configured', message: 'This cafe has not configured Chapa for POS payments.' });
+      }
+      return next(e);
     }
   });
 

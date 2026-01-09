@@ -199,10 +199,10 @@ export const OwnerDashboard: React.FC = () => {
       setLastUpdatedAt(formatDeviceTime(new Date(), { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 
       try {
-        const posRes = await apiFetch(effectiveBranchId ? `/api/pos/state?branchId=${encodeURIComponent(effectiveBranchId)}` : '/api/pos/state');
+        const posRes = await apiFetch(effectiveBranchId ? `/api/pos/tables?branchId=${encodeURIComponent(effectiveBranchId)}` : '/api/pos/tables');
         const posJson = (await posRes.json().catch(() => null)) as any;
         if (posRes.ok) {
-          const tables = Array.isArray(posJson?.state?.tables) ? posJson.state.tables : [];
+          const tables = Array.isArray(posJson?.tables) ? posJson.tables : [];
           setPosEmpty(tables.length === 0);
         } else {
           setPosEmpty(null);

@@ -104,6 +104,30 @@ const mergeBranchState = (current: PersistedState, incoming: any): PersistedStat
   return next;
 };
 
+const toPosTables = (rows: any[]): PosTable[] => {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((r) => {
+      const id = String(r?.id || '').trim();
+      const name = String(r?.name || '').trim();
+      if (!id || !name) return null;
+      return {
+        id,
+        name,
+        area: (typeof r?.area === 'string' && r.area.trim() ? (r.area.trim() as any) : undefined) as any,
+        status: (typeof r?.status === 'string' && r.status.trim() ? (r.status.trim() as any) : 'Free') as any,
+        seats: Number(r?.seats ?? 4) || 4,
+        openOrderId: r?.openOrderId == null ? null : String(r.openOrderId),
+        lastOrderId: r?.lastOrderId == null ? null : String(r.lastOrderId),
+        cartItemCount: 0,
+        currentTotal: 0,
+        assignedStaffId: r?.assignedStaffId == null ? null : String(r.assignedStaffId),
+        assignedStaffName: r?.assignedStaffName == null ? null : String(r.assignedStaffName),
+      } as PosTable;
+    })
+    .filter(Boolean) as PosTable[];
+};
+
 const escapeHtml = (s: string) =>
   s
     .replace(/&/g, '&amp;')
@@ -759,7 +783,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isBranchUser) return;
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 
-      // 1) Refresh POS state (tables/products + possibly cached orders)
+      // 1) Refresh POS state (UI cache only; tables come from /pos/tables)
       try {
         const res = await apiFetch(withBranchQuery('/api/pos/state'));
         if (res.ok) {
@@ -768,21 +792,28 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (st && typeof st === 'object') {
             setState((prev) => mergeBranchState(prev, st));
           }
+        }
+      } catch {
+        // ignore
+      }
 
-          const hasTables = st && typeof st === 'object' && Array.isArray((st as any).tables) && (st as any).tables.length > 0;
-          if (!hasTables) {
-            try {
-              // Create default tables for this branch if the POS state was wiped or never initialized.
-              await apiFetch(withBranchQuery('/api/pos/initialize'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
-              const res2 = await apiFetch(withBranchQuery('/api/pos/state'));
-              if (res2.ok) {
-                const json2 = (await res2.json().catch(() => null)) as any;
-                const st2 = json2?.state;
-                if (st2 && typeof st2 === 'object') setState((prev) => mergeBranchState(prev, st2));
-              }
-            } catch {
-              // ignore
-            }
+      // 1a) Refresh tables from DB
+      try {
+        const tres = await apiFetch(withBranchQuery('/api/pos/tables'));
+        const tjson = (await tres.json().catch(() => null)) as any;
+        if (tres.ok) {
+          const rows = Array.isArray(tjson?.tables) ? (tjson.tables as any[]) : [];
+          const incomingTables = toPosTables(rows);
+          setState((s) => ({ ...s, tables: updateTableComputed(incomingTables, s.cartByTableId) }));
+        } else {
+          // If tables are missing, try initialize then re-fetch.
+          await apiFetch(withBranchQuery('/api/pos/initialize'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+          const tres2 = await apiFetch(withBranchQuery('/api/pos/tables'));
+          const tjson2 = (await tres2.json().catch(() => null)) as any;
+          if (tres2.ok) {
+            const rows2 = Array.isArray(tjson2?.tables) ? (tjson2.tables as any[]) : [];
+            const incomingTables2 = toPosTables(rows2);
+            setState((s) => ({ ...s, tables: updateTableComputed(incomingTables2, s.cartByTableId) }));
           }
         }
       } catch {
@@ -1060,19 +1091,28 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setState((prev) => mergeBranchState(prev, st));
         }
 
-        const hasTables = st && typeof st === 'object' && Array.isArray((st as any).tables) && (st as any).tables.length > 0;
-        if (!hasTables) {
-          try {
-            await apiFetch(withBranchQuery('/api/pos/initialize'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
-            const res2 = await apiFetch(withBranchQuery('/api/pos/state'));
-            if (res2.ok) {
-              const json2 = (await res2.json().catch(() => null)) as any;
-              const st2 = json2?.state;
-              if (mounted && st2 && typeof st2 === 'object') setState((prev) => mergeBranchState(prev, st2));
-            }
-          } catch {
-            // ignore
+        try {
+          const tres = await apiFetch(withBranchQuery('/api/pos/tables'));
+          const tjson = (await tres.json().catch(() => null)) as any;
+          if (mounted && tres.ok) {
+            const rows = Array.isArray(tjson?.tables) ? (tjson.tables as any[]) : [];
+            const incomingTables = toPosTables(rows);
+            setState((s) => ({ ...s, tables: updateTableComputed(incomingTables, s.cartByTableId) }));
           }
+
+          const hasTables = tres.ok && Array.isArray(tjson?.tables) && (tjson.tables as any[]).length > 0;
+          if (!hasTables) {
+            await apiFetch(withBranchQuery('/api/pos/initialize'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+            const tres2 = await apiFetch(withBranchQuery('/api/pos/tables'));
+            const tjson2 = (await tres2.json().catch(() => null)) as any;
+            if (mounted && tres2.ok) {
+              const rows2 = Array.isArray(tjson2?.tables) ? (tjson2.tables as any[]) : [];
+              const incomingTables2 = toPosTables(rows2);
+              setState((s) => ({ ...s, tables: updateTableComputed(incomingTables2, s.cartByTableId) }));
+            }
+          }
+        } catch {
+          // ignore
         }
 
         // Load authoritative branch menu products for ordering UI.
@@ -1329,8 +1369,17 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         s.cartByTableId,
       );
       const nextState = { ...s, tables: nextTables };
-      queueMicrotask(() => syncStateNow(nextState));
       return nextState;
+    });
+
+    queueMicrotask(() => {
+      void apiFetch(withBranchQuery('/api/pos/tables'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name: table.name, seats: table.seats, area: table.area ?? null }),
+      }).catch(() => {
+        // ignore
+      });
     });
     return id;
   };
@@ -1338,6 +1387,12 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteTable: PosContextType['deleteTable'] = (tableId) => {
     const id = String(tableId || '').trim();
     if (!id) return;
+
+    queueMicrotask(() => {
+      void apiFetch(withBranchQuery(`/api/pos/tables/${encodeURIComponent(id)}`), { method: 'DELETE' }).catch(() => {
+        // ignore
+      });
+    });
     setState((s) => {
       if (!s.tables.some((t) => t.id === id)) return s;
 
@@ -1355,7 +1410,6 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cartByTableId: nextCartByTableId,
         selectedTableId: s.selectedTableId === id ? null : s.selectedTableId,
       };
-      queueMicrotask(() => syncStateNow(nextState));
       return nextState;
     });
   };
@@ -1372,8 +1426,26 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         s.cartByTableId,
       );
       const nextState = { ...s, tables: nextTables };
-      queueMicrotask(() => syncStateNow(nextState));
       return nextState;
+    });
+
+    queueMicrotask(() => {
+      const staffName = (() => {
+        const preferred = typeof staffNameInput === 'string' ? staffNameInput.trim() : '';
+        const lookedUp = staffId ? resolveStaffName(staffId) : '';
+        const resolved = preferred || lookedUp;
+        return staffId && resolved && resolved.toLowerCase() !== 'waiter' ? resolved : null;
+      })();
+
+      void Promise.all(
+        (Array.isArray(tableIds) ? tableIds : []).map((id) =>
+          apiFetch(withBranchQuery(`/api/pos/tables/${encodeURIComponent(id)}`), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assignedStaffId: staffId, assignedStaffName: staffId ? staffName : null }),
+          }).catch(() => null),
+        ),
+      );
     });
   };
 
