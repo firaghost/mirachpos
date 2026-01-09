@@ -772,6 +772,7 @@ const createApp = () => {
   // ==========================================================================
 
   app.use('/admin', makeAdminRouter({ provisionKey: config.provisionKey }));
+  app.use('/api/admin', makeAdminRouter({ provisionKey: config.provisionKey }));
   app.use('/api', makePublicRouter());
   app.use('/api', makeSuperadminAuthRouter());
   app.use('/api', makeSuperadminRouter());

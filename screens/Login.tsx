@@ -12,9 +12,9 @@ const cx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolea
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [workspace, setWorkspace] = useState(() => {
     try {
-      return String(localStorage.getItem('mirachpos.lastWorkspace.v1') || '').trim() || 'cafe1';
+      return String(localStorage.getItem('mirachpos.lastWorkspace.v1') || '').trim();
     } catch {
-      return 'cafe1';
+      return '';
     }
   });
   const [email, setEmail] = useState('');
