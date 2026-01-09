@@ -363,8 +363,6 @@ const makeManagerRouter = () => {
     tenantMiddleware,
     requireAuth,
     requireRole('Branch Manager', 'Cafe Owner'),
-    loadEntitlements,
-    requireModule('settings'),
     requirePermission('manager.settings.write'),
     requireBranchId(),
     async (req, res, next) => {

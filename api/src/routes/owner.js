@@ -2123,8 +2123,6 @@ const makeOwnerRouter = () => {
     tenantMiddleware,
     requireAuth,
     requireRole('Cafe Owner'),
-    loadEntitlements,
-    requireModule('settings'),
     requirePermission('settings.manage'),
     async (req, res, next) => {
     try {

@@ -42,9 +42,6 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     requireRole('Waiter', 'Waiter Manager'),
-    loadEntitlements,
-    requireModule('orders'),
-    requirePermission('orders.read'),
     async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
@@ -103,9 +100,6 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     requireRole('Waiter', 'Waiter Manager'),
-    loadEntitlements,
-    requireModule('orders'),
-    requirePermission('orders.read'),
     async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
@@ -178,9 +172,6 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     requireRole('Waiter', 'Waiter Manager'),
-    loadEntitlements,
-    requireModule('orders'),
-    requirePermission('orders.read'),
     async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
@@ -242,9 +233,6 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     requireRole('Waiter', 'Waiter Manager'),
-    loadEntitlements,
-    requireModule('orders'),
-    requirePermission('orders.read'),
     async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;

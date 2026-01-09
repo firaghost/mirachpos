@@ -30,6 +30,17 @@ const safeJsonParse = (raw, fallback) => {
     }
 };
 
+const mapTableStatusFromOrderStatus = (orderStatus) => {
+    const st = String(orderStatus || '').trim();
+    if (!st) return 'Occupied';
+    if (st === 'Paid' || st === 'Voided' || st === 'Refunded') return 'Free';
+    if (st === 'Served') return 'Payment';
+    if (st === 'Ready') return 'Ready';
+    if (st === 'Cooking') return 'Cooking';
+    if (st === 'Pending') return 'Pending';
+    return 'Occupied';
+};
+
 const syncRestaurantTableForOrder = async ({ tenantId, branchId, tableId, orderId, nextStatus, nowIso }) => {
     try {
         const tid = String(tenantId || '').trim();
@@ -44,7 +55,7 @@ const syncRestaurantTableForOrder = async ({ tenantId, branchId, tableId, orderI
             await db()
                 .from('restaurant_tables')
                 .where({ tenant_id: tid, branch_id: bid, id: tbl })
-                .update({ status: 'Occupied', open_order_id: oid, last_order_id: oid, updated_at: nowIso });
+                .update({ status: mapTableStatusFromOrderStatus(st), open_order_id: oid, last_order_id: oid, updated_at: nowIso });
             return;
         }
 

@@ -378,10 +378,10 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
         const loc = typeof window !== 'undefined' ? window.location : null;
         const h = loc ? String(loc.hostname || '') : '';
         if (!h) return '';
+        // Local dev API
         if (h === 'localhost' || h === '127.0.0.1') return 'http://127.0.0.1:3001';
-        // LAN / device access: assume API runs on the same host at :3001.
-        // Default to HTTP because most dev/local API instances don't serve TLS on :3001.
-        return `http://${h}:3001`;
+        // Production: keep same-origin so it stays HTTPS and uses the /api proxy.
+        return '';
       } catch {
         // ignore
       }

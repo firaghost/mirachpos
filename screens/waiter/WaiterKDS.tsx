@@ -10,7 +10,7 @@ interface Props {
 
 export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
   const { orders, setOrderStatus, refreshFromServer } = usePos();
-  const [filter, setFilter] = useState<'All' | 'Ready' | 'Preparing' | 'Served' | 'Voided'>('All');
+  const [filter, setFilter] = useState<'All' | 'Ready' | 'Preparing' | 'Served' | 'Voided' | 'Completed'>('All');
   const [query, setQuery] = useState('');
 
   const [actionErr, setActionErr] = useState('');
@@ -66,17 +66,18 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
   };
 
   const visible = useMemo(() => {
-    const base = orders.filter((o) => o.status !== 'Paid');
+    const base = filter === 'Completed' ? orders.filter((o) => o.status === 'Paid') : orders.filter((o) => o.status !== 'Paid');
     const q = query.trim().toLowerCase();
     if (!q) return base;
     return base.filter((o) => o.tableName.toLowerCase().includes(q) || o.number.toLowerCase().includes(q));
-  }, [orders, query]);
+  }, [orders, query, filter]);
 
   const readyOrders = useMemo(() => visible.filter((o) => o.status === 'Ready'), [visible]);
   const cookingOrders = useMemo(() => visible.filter((o) => o.status === 'Cooking'), [visible]);
   const pendingOrders = useMemo(() => visible.filter((o) => o.status === 'Pending'), [visible]);
   const servedOrders = useMemo(() => visible.filter((o) => o.status === 'Served'), [visible]);
   const voidedOrders = useMemo(() => visible.filter((o) => o.status === 'Voided'), [visible]);
+  const completedOrders = useMemo(() => visible.filter((o) => o.status === 'Paid'), [visible]);
 
   const readyToRender = useMemo(() => (filter === 'All' || filter === 'Ready' ? readyOrders : []), [filter, readyOrders]);
   const inProgressToRender = useMemo(
@@ -85,11 +86,13 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
   );
   const servedToRender = useMemo(() => (filter === 'All' || filter === 'Served' ? servedOrders : []), [filter, servedOrders]);
   const voidedToRender = useMemo(() => (filter === 'All' || filter === 'Voided' ? voidedOrders : []), [filter, voidedOrders]);
+  const completedToRender = useMemo(() => (filter === 'Completed' ? completedOrders : []), [filter, completedOrders]);
 
   const totalReady = readyOrders.length;
   const totalPreparing = cookingOrders.length + pendingOrders.length;
   const totalServed = servedOrders.length;
   const totalVoided = voidedOrders.length;
+  const totalCompleted = completedOrders.length;
 
   const renderVoidedCard = (o: (typeof orders)[number]) => (
     <article key={o.id} className="flex flex-col bg-[#2c241b] rounded-xl border border-red-500/30 shadow-lg overflow-hidden h-full min-h-[440px] relative opacity-75">
@@ -303,6 +306,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
               <button onClick={() => setFilter('Preparing')} className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors ${filter === 'Preparing' ? 'bg-[#cf7317] text-white font-semibold' : 'bg-[#3d3226] hover:bg-[#4d4030] text-[#c8ad93] hover:text-white border border-transparent hover:border-[#cf7317]/30'}`}>Preparing ({totalPreparing})</button>
               <button onClick={() => setFilter('Served')} className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors ${filter === 'Served' ? 'bg-[#cf7317] text-white font-semibold' : 'bg-[#3d3226] hover:bg-[#4d4030] text-[#c8ad93] hover:text-white border border-transparent hover:border-[#cf7317]/30'}`}>Served ({totalServed})</button>
               <button onClick={() => setFilter('Voided')} className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors ${filter === 'Voided' ? 'bg-red-600 text-white font-semibold' : 'bg-[#3d3226] hover:bg-[#4d4030] text-[#c8ad93] hover:text-white border border-transparent hover:border-red-500/30'}`}>Voided ({totalVoided})</button>
+              <button onClick={() => setFilter('Completed')} className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors ${filter === 'Completed' ? 'bg-green-600 text-white font-semibold' : 'bg-[#3d3226] hover:bg-[#4d4030] text-[#c8ad93] hover:text-white border border-transparent hover:border-green-500/30'}`}>Completed ({totalCompleted})</button>
             </div>
           </div>
         </div>
@@ -340,6 +344,19 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
               {servedToRender.map((o) => renderActiveCard(o))}
+            </div>
+          </div>
+        )}
+
+        {completedToRender.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="material-symbols-outlined text-green-400">paid</span>
+              <h3 className="text-lg font-bold text-white uppercase tracking-wider">Completed</h3>
+              <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded text-xs font-bold">{completedToRender.length}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+              {completedToRender.map((o) => renderActiveCard(o))}
             </div>
           </div>
         )}

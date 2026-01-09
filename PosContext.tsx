@@ -1082,61 +1082,10 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setRemoteReady(true);
           return;
         }
-        const res = await apiFetch(withBranchQuery('/api/pos/state'));
-        if (!res.ok) return;
-        const json = (await res.json().catch(() => null)) as any;
-        const st = json?.state;
+
+        // Use the same routine as the in-app "Refresh" button so full reload and refresh behave identically.
+        await refreshFromServer();
         if (!mounted) return;
-        if (st && typeof st === 'object') {
-          setState((prev) => mergeBranchState(prev, st));
-        }
-
-        try {
-          const tres = await apiFetch(withBranchQuery('/api/pos/tables'));
-          const tjson = (await tres.json().catch(() => null)) as any;
-          if (mounted && tres.ok) {
-            const rows = Array.isArray(tjson?.tables) ? (tjson.tables as any[]) : [];
-            const incomingTables = toPosTables(rows);
-            setState((s) => ({ ...s, tables: updateTableComputed(incomingTables, s.cartByTableId) }));
-          }
-
-          const hasTables = tres.ok && Array.isArray(tjson?.tables) && (tjson.tables as any[]).length > 0;
-          if (!hasTables) {
-            await apiFetch(withBranchQuery('/api/pos/initialize'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
-            const tres2 = await apiFetch(withBranchQuery('/api/pos/tables'));
-            const tjson2 = (await tres2.json().catch(() => null)) as any;
-            if (mounted && tres2.ok) {
-              const rows2 = Array.isArray(tjson2?.tables) ? (tjson2.tables as any[]) : [];
-              const incomingTables2 = toPosTables(rows2);
-              setState((s) => ({ ...s, tables: updateTableComputed(incomingTables2, s.cartByTableId) }));
-            }
-          }
-        } catch {
-          // ignore
-        }
-
-        // Load authoritative branch menu products for ordering UI.
-        try {
-          const pres = await apiFetch(withBranchQuery('/api/pos/menu/products?limit=500'));
-          const pjson = (await pres.json().catch(() => null)) as any;
-          if (mounted && pres.ok) {
-            const rows = Array.isArray(pjson?.products) ? (pjson.products as any[]) : [];
-            const nextProducts = rows
-              .map((p) => ({
-                id: String(p?.id || ''),
-                code: String(p?.code || ''),
-                name: String(p?.name || ''),
-                price: Number(p?.price ?? 0) || 0,
-                category: String(p?.category || ''),
-                image: String(p?.image || ''),
-                stock: Number(p?.stock ?? 0) || 0,
-              }))
-              .filter((p) => p.id && p.name);
-            if (nextProducts.length) setState((prev) => ({ ...prev, products: nextProducts }));
-          }
-        } catch {
-          // ignore
-        }
         setRemoteReady(true);
       } catch {
         // ignore
@@ -1146,7 +1095,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       mounted = false;
     };
-  }, [isBranchUser, electronApis]);
+  }, [isBranchUser, electronApis, refreshFromServer]);
 
   // Persist branch POS state to SQLite (Electron) on every change.
   useEffect(() => {
