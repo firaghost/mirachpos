@@ -1,9 +1,9 @@
-
 import React, { useEffect, useMemo, useState } from 'react';
 import { Screen } from '../../types';
 import { usePos, useSelectedOrder } from '../../PosContext';
 import { apiFetch } from '../../api';
 import { Modal } from '../../components/Modal';
+import { usePersistedState } from '../../usePersistedState';
 import { readSession } from '../../session';
 
 interface Props {
@@ -54,6 +54,10 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const [paymentReference, setPaymentReference] = useState<string>('');
   const [actionErr, setActionErr] = useState<string>('');
   const [posSettings, setPosSettings] = useState<PosSettingsResponse | null>(null);
+
+  const [billCollapsed, setBillCollapsed] = usePersistedState<boolean>('mirachpos.waiter.payment.billSummaryCollapsed.v1', false, {
+    validate: (v): v is boolean => typeof v === 'boolean',
+  });
 
   const [discountOpen, setDiscountOpen] = useState(false);
   const [discountValue, setDiscountValue] = useState('');
@@ -517,15 +521,15 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
   if (!order) {
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
-        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#483c23] bg-[#2c241b] px-6 py-3">
+      <div className="flex flex-col h-full overflow-hidden bg-[#0f0c07] text-white">
+        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#2f281c] bg-[#17130b] px-6 py-3">
           <div className="flex items-center gap-4 text-white">
             <div className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] text-[#221c11]">
               <span className="material-symbols-outlined">payments</span>
             </div>
             <h2 className="text-white text-xl font-bold leading-tight tracking-tight">Payment</h2>
           </div>
-          <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#483c23] hover:bg-[#3a2e22] transition-colors text-[#c9b792] text-sm font-medium">
+          <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#2f281c] hover:bg-[#221c11] transition-colors text-[#c9b792] text-sm font-medium">
             <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
           </button>
         </header>
@@ -544,20 +548,20 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   if (order.status === 'Voided' || order.status === 'Paid' || order.status === 'Refunded' || order.status !== 'Served') {
     const isPaid = order.status === 'Paid';
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
-        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#483c23] bg-[#2c241b] px-6 py-3">
+      <div className="flex flex-col h-full overflow-hidden bg-[#0f0c07] text-white">
+        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#2f281c] bg-[#17130b] px-6 py-3">
           <div className="flex items-center gap-4 text-white">
             <div className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] text-[#221c11]">
               <span className="material-symbols-outlined">payments</span>
             </div>
             <h2 className="text-white text-xl font-bold leading-tight tracking-tight">Payment</h2>
           </div>
-          <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#483c23] hover:bg-[#3a2e22] transition-colors text-[#c9b792] text-sm font-medium">
+          <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#2f281c] hover:bg-[#221c11] transition-colors text-[#c9b792] text-sm font-medium">
             <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
           </button>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="max-w-lg w-full bg-[#2c241b] border border-[#483c23] rounded-xl p-6">
+          <div className="max-w-lg w-full bg-[#17130b] border border-[#2f281c] rounded-xl p-6">
             <div className="text-white font-bold text-lg mb-2">
               {isPaid ? 'Order is already Paid' : 'Payment is not available yet'}
             </div>
@@ -570,7 +574,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
               {isPaid ? (
                 <button onClick={() => onNavigate(Screen.WAITER_RECEIPT)} className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-colors">View Receipt</button>
               ) : (
-                <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors">Go to Kitchen</button>
+                <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex-1 h-11 rounded-lg bg-[#221c11] hover:bg-[#2c241b] border border-[#2f281c] text-white font-semibold transition-colors">Go to Kitchen</button>
               )}
               <button onClick={() => onNavigate(Screen.WAITER_ACTIVE_ORDERS)} className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-colors">Active Orders</button>
             </div>
@@ -777,52 +781,91 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       {/* Main Content Grid */}
       <main className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Column: Order Summary */}
-        <section className="w-full lg:w-[240px] min-h-0 flex flex-col lg:border-r border-b lg:border-b-0 border-[#2f281c] bg-[#17130b] shrink-0">
-          <div className="px-4 py-3 border-b border-[#2f281c] flex justify-between items-center">
-            <h3 className="text-base font-bold">Bill Summary</h3>
-            <span className="text-[11px] bg-[#3a2e22] px-2 py-1 rounded text-[#c9b792]">{itemCount} Items</span>
-          </div>
-          {order.customer ? (
-            <div className="px-4 py-2 border-b border-[#2f281c]">
-              <div className="text-[11px] text-[#c9b792]">Customer</div>
-              <div className="text-sm font-bold text-white truncate">{order.customer.name}</div>
-              <div className="text-[11px] text-[#c9b792] truncate">{order.customer.phone}    Points {order.customer.loyaltyPoints}    Balance {settingsUi.currency} {order.customer.loyaltyBalance.toFixed(2)}</div>
+        <section className={`w-full ${billCollapsed ? 'lg:w-[92px]' : 'lg:w-[240px]'} min-h-0 flex flex-col lg:border-r border-b lg:border-b-0 border-[#2f281c] bg-[#17130b] shrink-0`}>
+          <div className={`px-4 py-3 border-b border-[#2f281c] flex justify-between items-center ${billCollapsed ? 'lg:px-3' : ''}`}>
+            <h3 className={`text-base font-bold ${billCollapsed ? 'lg:hidden' : ''}`}>Bill Summary</h3>
+            <div className={`text-[10px] font-black uppercase tracking-widest text-[#c9b792] ${billCollapsed ? 'hidden lg:block' : 'hidden'}`}>Bill</div>
+            <div className="flex items-center gap-2">
+              <span className={`text-[11px] bg-[#3a2e22] px-2 py-1 rounded text-[#c9b792] ${billCollapsed ? 'lg:hidden' : ''}`}>{itemCount} Items</span>
+              <button
+                type="button"
+                onClick={() => setBillCollapsed((v) => !v)}
+                className="size-9 rounded-lg border border-[#2f281c] bg-[#0f0c07] hover:bg-[#221c11] text-[#c9b792] transition-colors flex items-center justify-center"
+                title={billCollapsed ? 'Expand bill' : 'Collapse bill'}
+              >
+                <span className="material-symbols-outlined text-[20px]">{billCollapsed ? 'chevron_right' : 'chevron_left'}</span>
+              </button>
             </div>
-          ) : null}
+          </div>
 
-          {/* Order List */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
-            {order.items.map((item) => (
-              <div key={item.productId} className="flex items-center gap-3 bg-[#0f0c07] p-2 rounded-lg border border-transparent hover:border-[#2f281c] transition-colors">
-                <div
-                  className="rounded-md size-10 shrink-0 border border-[#2f281c] bg-[#1a1612] bg-cover bg-center"
-                  style={{ backgroundImage: `url('${String(products.find((p) => p.id === item.productId)?.image || '')}')` }}
-                />
-                <div className="flex flex-col flex-1 min-w-0">
-                  <div className="flex justify-between items-start">
-                    <p className="text-white text-sm font-semibold truncate">{item.name} x{item.qty}</p>
-                    <p className="text-white text-sm font-semibold">{settingsUi.currency} {(item.unitPrice * item.qty).toFixed(2)}</p>
-                  </div>
-                  {item.note?.trim() ? <p className="text-[#c9b792] text-xs truncate">{item.note.trim()}</p> : null}
-                </div>
+          <div className={`flex-1 min-h-0 flex flex-col ${billCollapsed ? 'lg:hidden' : ''}`}>
+            {order.customer ? (
+              <div className="px-4 py-2 border-b border-[#2f281c]">
+                <div className="text-[11px] text-[#c9b792]">Customer</div>
+                <div className="text-sm font-bold text-white truncate">{order.customer.name}</div>
+                <div className="text-[11px] text-[#c9b792] truncate">{order.customer.phone}    Points {order.customer.loyaltyPoints}    Balance {settingsUi.currency} {order.customer.loyaltyBalance.toFixed(2)}</div>
               </div>
-            ))}
-          </div>
-          {/* Totals */}
-          <div className="shrink-0 p-4 border-t border-[#2f281c] bg-[#221c11]/40">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-[#c9b792] text-[12px]">Subtotal</span>
-              <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {order.subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-[#c9b792] text-[12px]">Tax ({Math.round((order.tax / Math.max(1, order.subtotal)) * 100)}%)</span>
-              <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {order.tax.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-[#c9b792] text-[12px]">Service ({Math.round((order.serviceCharge / Math.max(1, order.subtotal)) * 100)}%)</span>
-              <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {order.serviceCharge.toFixed(2)}</span>
-            </div>
+            ) : null}
 
+            {/* Order List */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+              {order.items.map((item) => (
+                <div key={item.productId} className="flex items-center gap-3 bg-[#0f0c07] p-2 rounded-lg border border-transparent hover:border-[#2f281c] transition-colors">
+                  <div
+                    className="rounded-md size-10 shrink-0 border border-[#2f281c] bg-[#1a1612] bg-cover bg-center"
+                    style={{ backgroundImage: `url('${String(products.find((p) => p.id === item.productId)?.image || '')}')` }}
+                  />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <p className="text-white text-sm font-semibold truncate">{item.name} x{item.qty}</p>
+                      <p className="text-white text-sm font-semibold">{settingsUi.currency} {(item.unitPrice * item.qty).toFixed(2)}</p>
+                    </div>
+                    {item.note?.trim() ? <p className="text-[#c9b792] text-xs truncate">{item.note.trim()}</p> : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Totals */}
+            <div className="shrink-0 p-4 border-t border-[#2f281c] bg-[#221c11]/40">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[#c9b792] text-[12px]">Subtotal</span>
+                <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {order.subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[#c9b792] text-[12px]">Tax ({Math.round((order.tax / Math.max(1, order.subtotal)) * 100)}%)</span>
+                <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {order.tax.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[#c9b792] text-[12px]">Service ({Math.round((order.serviceCharge / Math.max(1, order.subtotal)) * 100)}%)</span>
+                <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {order.serviceCharge.toFixed(2)}</span>
+              </div>
+
+              <button
+                onClick={() => {
+                  setDiscountErr('');
+                  setDiscountPin('');
+                  setDiscountValue('');
+                  setDiscountOpen(true);
+                }}
+                className="w-full h-10 rounded-xl border border-[#2f281c] bg-[#0f0c07] hover:bg-[#221c11] text-[#c9b792] font-bold transition-colors text-sm"
+                type="button"
+              >
+                Discount
+              </button>
+
+              <div className="mt-3 pt-3 border-t border-[#2f281c] flex justify-between items-center">
+                <span className="text-white text-base font-extrabold">Total</span>
+                <span className="text-[#eead2b] text-2xl font-black">{settingsUi.currency} {order.total.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className={`hidden lg:flex flex-1 min-h-0 flex-col items-center justify-between py-4 ${billCollapsed ? '' : 'lg:hidden'}`}>
+            <div className="text-[11px] bg-[#3a2e22] px-2 py-1 rounded text-[#c9b792]">{itemCount}</div>
+            <div className="flex flex-col items-center">
+              <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792]">Total</div>
+              <div className="mt-1 text-[#eead2b] text-xl font-black text-center px-1">{settingsUi.currency} {order.total.toFixed(2)}</div>
+            </div>
             <button
               onClick={() => {
                 setDiscountErr('');
@@ -830,16 +873,12 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 setDiscountValue('');
                 setDiscountOpen(true);
               }}
-              className="w-full h-10 rounded-xl border border-[#2f281c] bg-[#0f0c07] hover:bg-[#221c11] text-[#c9b792] font-bold transition-colors text-sm"
+              className="size-10 rounded-xl border border-[#2f281c] bg-[#0f0c07] hover:bg-[#221c11] text-[#c9b792] transition-colors flex items-center justify-center"
               type="button"
+              title="Discount"
             >
-              Discount
+              <span className="material-symbols-outlined text-[20px]">percent</span>
             </button>
-
-            <div className="mt-3 pt-3 border-t border-[#2f281c] flex justify-between items-center">
-              <span className="text-white text-base font-extrabold">Total</span>
-              <span className="text-[#eead2b] text-2xl font-black">{settingsUi.currency} {order.total.toFixed(2)}</span>
-            </div>
           </div>
         </section>
 
@@ -863,7 +902,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
             <div className={`grid grid-cols-1 ${isCash ? 'lg:grid-cols-[420px,1fr]' : 'lg:grid-cols-1'} gap-6 items-start`}>
-              <div className={`flex flex-col gap-6 ${isCash ? 'order-2 lg:order-2' : 'order-1 lg:order-1 mx-auto w-full max-w-[780px]'}`}>
+              <div className={`flex flex-col gap-6 ${isCash ? 'order-2 lg:order-2' : 'order-1 lg:order-1 mx-auto w-full max-w-[1100px]'}`}>
                 {Array.isArray(order.splits) && order.splits.length > 0 ? (
                   <div>
                     <h4 className="text-sm font-bold text-[#c9b792] mb-3 uppercase tracking-wider">Split Bills</h4>
@@ -902,7 +941,12 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 ) : null}
                 <div>
                   <h4 className="text-sm font-bold text-[#c9b792] mb-3 uppercase tracking-wider">Payment Method</h4>
-                  <div className={`grid gap-3 ${order.customer ? 'grid-cols-1 sm:grid-cols-5' : 'grid-cols-1 sm:grid-cols-4'} ${isCash ? '' : 'grid-cols-1 sm:grid-cols-3'}`}>
+                  <div
+                    className={`grid gap-3 ${isCash
+                      ? (order.customer ? 'grid-cols-1 sm:grid-cols-5' : 'grid-cols-1 sm:grid-cols-4')
+                      : (order.customer ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4')
+                      }`}
+                  >
                     {methodButtons.map((b) => {
                       const selected = method === b.value;
                       const disabled = b.enabled === false;
@@ -912,15 +956,15 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                           disabled={disabled}
                           title={disabled && b.reason ? b.reason : undefined}
                           onClick={() => setMethod(b.value)}
-                          className={`flex flex-col items-center justify-center p-6 min-h-[108px] rounded-2xl transition-all ${disabled
+                          className={`flex flex-col items-center justify-center ${isCash ? 'p-6 min-h-[108px]' : 'p-7 min-h-[124px]'} rounded-2xl transition-all ${disabled
                             ? 'border border-[#483c23] bg-[#2c241b]/40 text-[#c9b792]/60 cursor-not-allowed'
                             : selected
                               ? 'border-2 border-[#eead2b] bg-[#eead2b]/10 text-[#eead2b] shadow-lg ring-2 ring-[#eead2b]/20'
                               : 'border border-[#483c23] bg-[#2c241b] hover:bg-[#3a2e22] text-[#c9b792] hover:text-white'
                             }`}
                         >
-                          <span className="material-symbols-outlined text-4xl mb-1">{b.icon}</span>
-                          <span className="font-bold text-sm">{b.label}</span>
+                          <span className={`material-symbols-outlined ${isCash ? 'text-4xl' : 'text-5xl'} mb-1`}>{b.icon}</span>
+                          <span className={`font-bold ${isCash ? 'text-sm' : 'text-base'}`}>{b.label}</span>
                         </button>
                       );
                     })}
