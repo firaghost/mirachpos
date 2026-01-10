@@ -4,6 +4,7 @@ import { apiFetch } from '../api';
 import { readSession, updateSession } from '../session';
 import { formatDeviceDateTime } from '../datetime';
 import { Screen } from '../types';
+import OwnerBilling from './owner/OwnerBilling';
 
 type OwnerSettings = {
   business: {
@@ -305,13 +306,14 @@ type TabKey =
   | 'policies'
   | 'notifications'
   | 'integrations'
-  | 'addons';
+  | 'addons'
+  | 'subscription';
 
 export const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     try {
       const v = localStorage.getItem('mirachpos.settings.initialTab.v1') || '';
-      if (v === 'business' || v === 'preferences' || v === 'payments' || v === 'security' || v === 'policies' || v === 'notifications') {
+      if (v === 'business' || v === 'preferences' || v === 'payments' || v === 'security' || v === 'policies' || v === 'notifications' || v === 'subscription') {
         localStorage.removeItem('mirachpos.settings.initialTab.v1');
         return v as TabKey;
       }
@@ -596,6 +598,7 @@ export const Settings: React.FC = () => {
       notifications: 'settings',
       integrations: 'settings',
       addons: 'settings',
+      subscription: 'settings',
     };
     return m;
   }, []);
@@ -798,6 +801,7 @@ export const Settings: React.FC = () => {
     () =>
       [
         { key: 'business' as const, label: 'Business', icon: 'store' },
+        { key: 'subscription' as const, label: 'Subscription', icon: 'credit_card' },
         { key: 'receipt' as const, label: 'Receipt', icon: 'receipt_long' },
         { key: 'payments' as const, label: 'Payment Methods', icon: 'payments' },
         { key: 'branch_defaults' as const, label: 'Branch Defaults', icon: 'domain' },
@@ -1132,7 +1136,7 @@ export const Settings: React.FC = () => {
                           <div className="flex items-center justify-between gap-4">
                             <div className="flex flex-col">
                               <div className="text-white font-extrabold text-sm">Your plan modules</div>
-                              
+
                             </div>
                             <div className="text-xs text-text-muted">Tier: <span className="text-white font-bold">{tier}</span></div>
                           </div>
@@ -1222,7 +1226,7 @@ export const Settings: React.FC = () => {
                                 >
                                   <div className="flex items-start gap-3">
                                     <span className={cx('material-symbols-outlined text-[20px]', enabled ? 'text-success' : 'text-text-muted')}
-                                      >{enabled ? 'check_circle' : 'lock'}</span>
+                                    >{enabled ? 'check_circle' : 'lock'}</span>
                                     <div className="flex flex-col">
                                       <div className="text-white font-bold text-sm">{key}</div>
                                       <div className="text-xs text-text-muted mt-1">
@@ -1309,7 +1313,6 @@ export const Settings: React.FC = () => {
                             onChange={(e) => setDraft({ ...s, branchDefaults: { ...(s.branchDefaults as any), defaultCurrency: e.target.value } })}
                           >
                             <option value="ETB">ETB</option>
-                            <option value="USD">USD</option>
                           </Select>
                         </Field>
                         <Field label="Default City">
@@ -1686,6 +1689,14 @@ export const Settings: React.FC = () => {
                             }}
                           />
                         </Field>
+                      </div>
+                    ) : null}
+
+                    {activeTab === 'subscription' ? (
+                      <div className="h-full flex flex-col -m-6 lg:-m-8">
+                        <div className="flex-1">
+                          <OwnerBilling embedded={true} />
+                        </div>
                       </div>
                     ) : null}
                   </div>

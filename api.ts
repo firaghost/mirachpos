@@ -69,6 +69,15 @@ const apiBase = (): string => {
     // ignore
   }
 
+  try {
+    const w = window as any;
+    const cfg = w?.mirachpos?.config;
+    const s = typeof cfg?.apiBase === 'string' ? cfg.apiBase.trim() : '';
+    if (s) return s.replace(/\/+$/, '');
+  } catch {
+    // ignore
+  }
+
   // Dev fallback: when running the frontend on localhost, default to local API.
   try {
     const host = typeof window !== 'undefined' ? String(window.location?.hostname || '') : '';
@@ -127,8 +136,7 @@ export const apiFetch = async (input: RequestInfo | URL, init: ApiFetchOptions =
     const base = apiBase();
     if (isRelativeApi && base) {
       finalInput = `${base}${input}`;
-    }
-    if (isRelativeApi && isFileProtocol) {
+    } else if (isRelativeApi && isFileProtocol) {
       finalInput = `http://127.0.0.1:3001${input}`;
     }
   }

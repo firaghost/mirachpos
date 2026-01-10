@@ -36,7 +36,7 @@ type PaymentConfigState = {
       autoRenewDefault?: boolean;
       prorationOnUpgrade?: boolean;
       billingCycleAnchor?: 'signup_date' | 'first_of_month';
-      currencyDefault?: 'ETB' | 'USD';
+      currencyDefault?: 'ETB';
       autoSuspensionTrigger?: boolean;
       offlineAccounts?: Array<{
         id: string;
@@ -268,7 +268,7 @@ export const PaymentConfig: React.FC = () => {
     autoRenewDefault: boolean;
     prorationOnUpgrade: boolean;
     billingCycleAnchor: 'signup_date' | 'first_of_month';
-    currencyDefault: 'ETB' | 'USD';
+    currencyDefault: 'ETB';
     autoSuspensionTrigger: boolean;
     updatedAt?: string;
   } | null>(null);
@@ -324,7 +324,7 @@ export const PaymentConfig: React.FC = () => {
         autoRenewDefault: pol.autoRenewDefault !== false,
         prorationOnUpgrade: pol.prorationOnUpgrade !== false,
         billingCycleAnchor: pol.billingCycleAnchor === 'first_of_month' ? 'first_of_month' : 'signup_date',
-        currencyDefault: pol.currencyDefault === 'USD' ? 'USD' : 'ETB',
+        currencyDefault: 'ETB',
         autoSuspensionTrigger: pol.autoSuspensionTrigger !== false,
         updatedAt: typeof pol.updatedAt === 'string' ? pol.updatedAt : '',
       });
@@ -2270,14 +2270,11 @@ export const PaymentConfig: React.FC = () => {
                   </div>
                   <div className="flex flex-col gap-2">
                     <label className="text-[#c8ba93] text-xs font-bold uppercase">Currency Default</label>
-                    <select
-                      value={br.currencyDefault || 'ETB'}
-                      onChange={(e) => setBillingPolicy((p) => (p ? { ...p, currencyDefault: e.target.value === 'USD' ? 'USD' : 'ETB' } : p))}
-                      className="w-full bg-[#1a170d] border border-[#473e24] rounded-lg text-white text-sm focus:ring-1 focus:ring-[#eead2b]/40"
-                    >
-                      <option value="ETB">ETB (Ethiopian Birr)</option>
-                      <option value="USD">USD (United States Dollar)</option>
-                    </select>
+                    <div className="mt-1 flex items-center">
+                      <span className="text-white font-bold bg-[#1a170d] px-3 py-2 rounded-lg text-sm border border-[#473e24]">
+                        ETB (Ethiopian Birr)
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

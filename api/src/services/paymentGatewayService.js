@@ -460,7 +460,7 @@ const chapaInitialize = async ({
             txRef,
         };
     } catch (error) {
-        console.error('Chapa initialize error:', error);
+
         throw error;
     }
 };
@@ -594,7 +594,7 @@ const chapaVerify = async (txRef) => {
             rawResponse: data,
         };
     } catch (error) {
-        console.error('Chapa verify error:', error);
+
         throw error;
     }
 };
@@ -778,12 +778,7 @@ const telebirrInitialize = async ({
             throw new Error(upstreamMsg || `Telebirr preOrder missing prepay_id (status ${response.status}): ${debugSnippet}`);
         }
 
-        console.info('[Telebirr] preOrder response', {
-            status: response.status,
-            prepayId,
-            toPayUrl,
-            ...(telebirrDebug ? { debug: { hasToPayUrl: Boolean(toPayUrl) } } : {}),
-        });
+
     } catch (error) {
         const msg = String(error?.message || error || 'Telebirr preOrder failed');
         if (msg.toLowerCase().includes('fetch failed') || msg.toLowerCase().includes('certificate')) {

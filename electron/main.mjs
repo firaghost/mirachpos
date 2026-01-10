@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import { spawn } from 'child_process';
@@ -27,10 +28,19 @@ const startApiServerIfNeeded = async () => {
   if (apiProc) return;
 
   const apiUrl = new URL(API_ORIGIN);
+  const host = String(apiUrl.hostname || '').toLowerCase();
+  const isLocalHost = host === '127.0.0.1' || host === 'localhost';
+  if (!isLocalHost) return;
   const port = String(apiUrl.port || '3001');
 
   const resBase = process.resourcesPath;
   const serverEntry = path.join(resBase, 'server', 'index.mjs');
+
+  try {
+    if (!fs.existsSync(serverEntry)) return;
+  } catch {
+    return;
+  }
 
   apiProc = spawn(process.execPath, [serverEntry], {
     stdio: 'ignore',
@@ -50,12 +60,17 @@ const startApiServerIfNeeded = async () => {
 const db = openKvDb(app.getPath('userData'));
 
 const createMainWindow = async () => {
+  const devIcon = path.join(__dirname, '..', 'public', 'mirach.png');
+  const prodIcon = path.join(app.getAppPath(), 'dist', 'mirach.png');
+  const iconPath = isDev ? devIcon : prodIcon;
+
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1024,
     minHeight: 720,
     backgroundColor: '#0b1220',
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

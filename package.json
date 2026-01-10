@@ -52,6 +52,7 @@
   "build": {
     "appId": "com.mirachpos.desktop",
     "productName": "MirachPOS",
+    "icon": "public/mirach.png",
     "asar": true,
     "files": [
       "dist/**/*",
@@ -68,6 +69,7 @@
       "output": "release"
     },
     "win": {
+      "icon": "public/mirach.png",
       "target": [
         {
           "target": "nsis",

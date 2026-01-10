@@ -760,6 +760,28 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  const enqueueOutboxHttp = useCallback(
+    async (args: { url: string; method: string; body?: any; headers?: Record<string, string> }) => {
+      const scopeKey = getBranchScopeKey();
+      if (!scopeKey) return;
+      if (!electronApis.outboxEnqueue) return;
+      const url = String(args?.url || '').trim();
+      const method = String(args?.method || '').trim().toUpperCase();
+      if (!url || !method) return;
+      const headers = args?.headers && typeof args.headers === 'object' ? args.headers : undefined;
+      const body = args?.body === undefined ? undefined : args.body;
+      try {
+        await electronApis.outboxEnqueue({
+          scopeKey,
+          kind: 'http',
+          payload: { url, method, headers, body },
+        });
+      } catch {
+      }
+    },
+    [electronApis],
+  );
+
   const isBranchUser = useMemo(() => {
     try {
       const s = readSession<any>();
@@ -1146,13 +1168,33 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             for (const item of pending) {
               const id = typeof item?.id === 'string' ? item.id : '';
               const payload = item?.payload;
+              const kind = typeof item?.kind === 'string' ? String(item.kind) : '';
               if (!id) continue;
               try {
-                const res = await apiFetch(withBranchQuery('/api/pos/state'), {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(payload ?? {}),
-                });
+                let res: Response | null = null;
+
+                if (kind === 'http') {
+                  const url = typeof payload?.url === 'string' ? payload.url : '';
+                  const method = typeof payload?.method === 'string' ? payload.method : '';
+                  const body = payload?.body;
+                  const headers = payload?.headers && typeof payload.headers === 'object' ? payload.headers : {};
+
+                  const hdrs: Record<string, string> = { ...(headers || {}) };
+                  const hasBody = body !== undefined;
+                  if (hasBody && !hdrs['Content-Type'] && !hdrs['content-type']) hdrs['Content-Type'] = 'application/json';
+
+                  res = await apiFetch(withBranchQuery(url), {
+                    method,
+                    headers: hdrs,
+                    body: hasBody ? JSON.stringify(body ?? null) : undefined,
+                  });
+                } else {
+                  res = await apiFetch(withBranchQuery('/api/pos/state'), {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload ?? {}),
+                  });
+                }
                 if (!res.ok) {
                   await electronApis.outboxBump!({ id, delayMs: 15000 });
                   continue;
@@ -1322,12 +1364,20 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     queueMicrotask(() => {
-      void apiFetch(withBranchQuery('/api/pos/tables'), {
+      const url = withBranchQuery('/api/pos/tables');
+      const body = { id, name: table.name, seats: table.seats, area: table.area ?? null };
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+      if (offline) {
+        void enqueueOutboxHttp({ url, method: 'POST', body, headers: { 'Content-Type': 'application/json' } });
+        return;
+      }
+
+      void apiFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, name: table.name, seats: table.seats, area: table.area ?? null }),
+        body: JSON.stringify(body),
       }).catch(() => {
-        // ignore
+        void enqueueOutboxHttp({ url, method: 'POST', body, headers: { 'Content-Type': 'application/json' } });
       });
     });
     return id;
@@ -1338,8 +1388,14 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!id) return;
 
     queueMicrotask(() => {
-      void apiFetch(withBranchQuery(`/api/pos/tables/${encodeURIComponent(id)}`), { method: 'DELETE' }).catch(() => {
-        // ignore
+      const url = withBranchQuery(`/api/pos/tables/${encodeURIComponent(id)}`);
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+      if (offline) {
+        void enqueueOutboxHttp({ url, method: 'DELETE' });
+        return;
+      }
+      void apiFetch(url, { method: 'DELETE' }).catch(() => {
+        void enqueueOutboxHttp({ url, method: 'DELETE' });
       });
     });
     setState((s) => {
@@ -1386,13 +1442,28 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return staffId && resolved && resolved.toLowerCase() !== 'waiter' ? resolved : null;
       })();
 
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+
       void Promise.all(
         (Array.isArray(tableIds) ? tableIds : []).map((id) =>
-          apiFetch(withBranchQuery(`/api/pos/tables/${encodeURIComponent(id)}`), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ assignedStaffId: staffId, assignedStaffName: staffId ? staffName : null }),
-          }).catch(() => null),
+          (async () => {
+            const url = withBranchQuery(`/api/pos/tables/${encodeURIComponent(id)}`);
+            const body = { assignedStaffId: staffId, assignedStaffName: staffId ? staffName : null };
+            if (offline) {
+              await enqueueOutboxHttp({ url, method: 'PUT', body, headers: { 'Content-Type': 'application/json' } });
+              return;
+            }
+            try {
+              const res = await apiFetch(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+              });
+              if (!res.ok) throw new Error('request_failed');
+            } catch {
+              await enqueueOutboxHttp({ url, method: 'PUT', body, headers: { 'Content-Type': 'application/json' } });
+            }
+          })(),
         ),
       );
     });
@@ -2078,7 +2149,17 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               });
               // Refresh to sync table status with DB
               void refreshFromServer();
-              if (res.ok) return;
+              if (res.ok) {
+                // FAST AUTO-PRINT: Fire and forget if enabled
+                if (updatedOrder.status === 'Cooking' && state.settings.printerPrefs.autoPrintKitchenTickets && state.settings.defaultKitchenPrinterId) {
+                  void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(updatedOrder.id)}`), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deviceId: state.settings.defaultKitchenPrinterId }),
+                  }).catch(() => { });
+                }
+                return;
+              }
               if (res.status === 404) {
                 // Fallback: order might not exist yet, attempt full persist.
                 await persistOrder(updatedOrder!);
@@ -2268,6 +2349,29 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const confirmPayment = (orderId: string, paymentMethod: PaymentMethod, tenderedAmount?: number, splitId?: string, paymentReference?: string) => {
     let updatedOrder: PosOrder | null = null;
+
+    const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+    if (offline && paymentMethod !== 'Cash') {
+      setState((s) => {
+        const order = s.orders.find((o) => o.id === orderId);
+        if (!order) return s;
+        const now = new Date();
+        const nextNotifications: PosNotification[] = [
+          {
+            id: generateId(),
+            type: 'Payments',
+            title: 'Offline Payment',
+            message: 'Offline mode supports Cash only. Please connect to internet for this payment method.',
+            orderId,
+            createdAt: now.toISOString(),
+            read: false,
+          },
+          ...s.notifications,
+        ];
+        return { ...s, notifications: nextNotifications };
+      });
+      return;
+    }
 
     const actor = (() => {
       try {

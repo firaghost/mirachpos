@@ -221,9 +221,9 @@ export const OwnerOnboarding: React.FC<{ onNavigate?: (screen: Screen) => void; 
               <label className="flex flex-col gap-2">
                 <span className="text-xs text-[#b9b09d]">Currency</span>
                 <input
-                  value={form.currency}
-                  onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#181611] border border-[#393328] px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#eead2b]"
+                  readOnly
+                  value="ETB"
+                  className="h-11 rounded-lg bg-[#3a3028]/50 border border-[#393328] px-3 text-sm text-[#b9b09d] focus:outline-none cursor-not-allowed"
                 />
               </label>
             </div>

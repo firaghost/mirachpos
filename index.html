@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
   <head>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:3001 http://localhost:3001 ws: wss:;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' 'unsafe-inline'; connect-src 'self' https: http: ws: wss:;" />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MirachPos</title>
-    <link rel="icon" href="data:," />
+    <link rel="icon" href="./mirach.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Noto+Sans:wght@300..800&display=swap" rel="stylesheet" crossorigin="anonymous">
@@ -13,7 +13,7 @@
     <script>
       window.__mirachposBranding = {
         platformName: 'MirachPos',
-        logoUrl: '',
+        logoUrl: './mirach.png',
         primaryColor: '#eead2b',
         accentColor: '#c9b792',
       };
@@ -45,7 +45,8 @@
         try {
           const isFile = (window.location && window.location.protocol === 'file:');
           const isLocalhost = (window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
-          const apiBase = (isFile || isLocalhost) ? 'http://127.0.0.1:3001' : '';
+          const cfgApi = (window.mirachpos && window.mirachpos.config && typeof window.mirachpos.config.apiBase === 'string') ? window.mirachpos.config.apiBase.trim() : '';
+          const apiBase = cfgApi ? cfgApi.replace(/\/+$/, '') : ((isFile || isLocalhost) ? 'http://127.0.0.1:3001' : '');
           const ws = (() => {
             try {
               return (localStorage.getItem('mirachpos.lastWorkspace.v1') || '').trim().toLowerCase();
@@ -60,7 +61,7 @@
           const branding = json?.settings?.branding || {};
           window.__mirachposBranding = {
             platformName: String(json?.settings?.platformName || 'MirachPos'),
-            logoUrl: String(branding?.logoUrl || ''),
+            logoUrl: String(branding?.logoUrl || './mirach.png'),
             primaryColor: String(branding?.primaryColor || '#eead2b'),
             accentColor: String(branding?.accentColor || '#c9b792'),
           };

@@ -3,6 +3,8 @@ import { apiFetch } from '../../api';
 import { updateSession, readSession } from '../../session';
 import { InitializePosModal } from '../../components/InitializePosModal';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
+import { FiscalSettingsModal } from '../../components/FiscalSettingsModal';
+
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatDeviceTime } from '../../datetime';
 import {
@@ -13,17 +15,25 @@ import {
   generateSectionHeader,
 } from '../../utils/exportUtils';
 
-const fmtEtb = (n: number) => {
-  const v = Number.isFinite(n) ? n : 0;
-  try {
-    return v.toLocaleString(undefined, { style: 'currency', currency: 'ETB', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  } catch {
-    return `ETB ${v.toFixed(2)}`;
-  }
-};
-
 export const OwnerDashboard: React.FC = () => {
+  const [currency, setCurrency] = useState('ETB');
   const [range, setRange] = useState<'Daily' | 'Weekly' | 'Monthly'>('Daily');
+  const [fiscalConfig, setFiscalConfig] = useState<{ id: string; name: string } | null>(null);
+
+
+  const fmtMoney = useCallback(
+    (n: number) => {
+      const v = Number.isFinite(n) ? n : 0;
+      return v.toLocaleString(undefined, {
+        style: 'currency',
+        currency: currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    },
+    [currency],
+  );
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [posInitOpen, setPosInitOpen] = useState(false);
@@ -108,6 +118,17 @@ export const OwnerDashboard: React.FC = () => {
     setError(null);
     try {
       const bid = selectedBranchId;
+
+      // Fetch Currency Settings
+      try {
+        const settingsRes = await apiFetch('/api/pos/settings');
+        if (settingsRes.ok) {
+          const s = await settingsRes.json();
+          if (s?.general?.currency) setCurrency(s.general.currency);
+        }
+      } catch {
+        // ignore
+      }
 
       let branchesList: Array<{ id: string; name: string }> = [];
       try {
@@ -441,7 +462,7 @@ export const OwnerDashboard: React.FC = () => {
               </div>
               <div className="mt-3">
                 <p className="text-[#b9b09d] text-sm font-medium">Total Revenue (Month)</p>
-                <p className="text-white text-2xl font-bold tracking-tight mt-1">{fmtEtb(data.kpis.totalRevenueMonth)}</p>
+                <p className="text-white text-2xl font-bold tracking-tight mt-1">{fmtMoney(data.kpis.totalRevenueMonth)}</p>
               </div>
             </div>
 
@@ -491,7 +512,7 @@ export const OwnerDashboard: React.FC = () => {
               </div>
               <div className="mt-3">
                 <p className="text-[#b9b09d] text-sm font-medium">Net Profit</p>
-                <p className="text-white text-2xl font-bold tracking-tight mt-1">{fmtEtb(data.kpis.netProfit)}</p>
+                <p className="text-white text-2xl font-bold tracking-tight mt-1">{fmtMoney(data.kpis.netProfit)}</p>
               </div>
             </div>
           </div>
@@ -651,7 +672,7 @@ export const OwnerDashboard: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-[#b9b09d]">{b.manager}</td>
-                      <td className="px-6 py-4 text-white text-right font-medium">{fmtEtb(b.revenueToday)}</td>
+                      <td className="px-6 py-4 text-white text-right font-medium">{fmtMoney(b.revenueToday)}</td>
                       <td className="px-6 py-4 text-[#b9b09d] text-right">{b.ordersToday}</td>
                       <td className="px-6 py-4 text-center">
                         <span
@@ -662,14 +683,24 @@ export const OwnerDashboard: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => focusBranch(b.id, b.name)}
-                          className="text-[#b9b09d] hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="View this branch"
-                        >
-                          <span className="material-symbols-outlined">more_vert</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => setFiscalConfig({ id: b.id, name: b.name })}
+                            className="size-8 rounded hover:bg-[#393328] flex items-center justify-center text-[#b9b09d] hover:text-white transition-colors"
+                            title="Fiscal Settings"
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>settings</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => focusBranch(b.id, b.name)}
+                            className="size-8 rounded hover:bg-[#393328] flex items-center justify-center text-[#b9b09d] hover:text-white transition-colors"
+                            title="View Dashboard"
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>visibility</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -700,6 +731,15 @@ export const OwnerDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {fiscalConfig && (
+        <FiscalSettingsModal
+          branchId={fiscalConfig.id}
+          branchName={fiscalConfig.name}
+          isOpen={true}
+          onClose={() => setFiscalConfig(null)}
+        />
+      )}
     </div>
   );
 };

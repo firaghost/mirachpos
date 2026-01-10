@@ -41,6 +41,13 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const { confirmPayment, refreshFromServer, products } = usePos();
   const order = useSelectedOrder();
   const [method, setMethod] = useState<'Cash' | 'Telebirr' | 'Bank Transfer' | 'Loyalty' | 'Mobile Pay'>('Cash');
+  const [isOnline, setIsOnline] = useState(() => {
+    try {
+      return typeof navigator !== 'undefined' ? navigator.onLine : true;
+    } catch {
+      return true;
+    }
+  });
   const [tendered, setTendered] = useState('');
   const [manualTip, setManualTip] = useState('');
   const [selectedSplitId, setSelectedSplitId] = useState<string>('');
@@ -403,6 +410,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   }, []);
 
   const methodButtons = useMemo(() => {
+    const offline = !isOnline;
     const defs: Array<{ id: string; label: string; icon: string; value: any }> = [
       { id: 'cash', label: 'Cash', icon: 'payments', value: 'Cash' },
       { id: 'mobile_money', label: 'Telebirr', icon: 'qr_code', value: 'Telebirr' },
@@ -410,7 +418,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       { id: 'bank_transfer', label: 'Bank Transfer', icon: 'account_balance', value: 'Bank Transfer' },
     ];
 
-    const base = defs
+    const base = (offline ? defs.filter((d) => d.id === 'cash') : defs)
       .map((d) => {
         const cfg = methodConfig.get(d.id);
         const enabled = cfg ? cfg.enabled : true;
@@ -420,9 +428,24 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       .filter((d) => d.id !== 'bank_transfer' || methodConfig.has('bank_transfer') || typeof posSettings?.branchPayments?.qrCodes?.bank_transfer === 'string');
 
     const result = base;
-    if (order?.customer) result.push({ id: 'loyalty', label: 'Loyalty', icon: 'loyalty', value: 'Loyalty', enabled: true, reason: '' } as any);
+    if (!offline && order?.customer) result.push({ id: 'loyalty', label: 'Loyalty', icon: 'loyalty', value: 'Loyalty', enabled: true, reason: '' } as any);
     return result;
-  }, [methodConfig, order?.customer, posSettings]);
+  }, [isOnline, methodConfig, order?.customer, posSettings]);
+
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOnline && method !== 'Cash') setMethod('Cash');
+  }, [isOnline, method]);
 
   useEffect(() => {
     setTendered('');

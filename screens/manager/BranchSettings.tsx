@@ -1546,11 +1546,11 @@ export const BranchSettings: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-bold text-[#b9b09d]">Currency</label>
-                    <Select value={draft.general.currency} onChange={(e) => setDraft((p) => ({ ...p, general: { ...p.general, currency: e.target.value } }))} className="mt-2">
-                      <option value="ETB">ETB</option>
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                    </Select>
+                    <div className="mt-2 flex items-center">
+                      <span className="text-white font-bold bg-[#393328] px-3 py-2 rounded-lg text-sm border border-[#544b3b]">
+                        ETB
+                      </span>
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm font-bold text-[#b9b09d]">Language</label>
@@ -2001,6 +2001,18 @@ export const BranchSettings: React.FC = () => {
                     </div>
                     <Toggle checked={draft.general.enableSounds} onChange={(next) => setDraft((p) => ({ ...p, general: { ...p.general, enableSounds: next } }))} label="Enable Sounds" />
                   </div>
+                  <div className="p-4 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-white font-bold text-sm">Currency</p>
+                      <p className="text-[#b9b09d] text-xs mt-1">Currency code displayed on receipts and reports.</p>
+                    </div>
+                    <div className="w-32 flex items-center justify-end">
+                      <span className="text-white font-bold bg-[#393328] px-3 py-2 rounded-lg text-sm border border-[#544b3b]">
+                        ETB
+                      </span>
+                    </div>
+                  </div>
+
                   <div className="p-4 flex items-center justify-between gap-4">
                     <div>
                       <p className="text-white font-bold text-sm">Offline Mode</p>

@@ -7,6 +7,9 @@ contextBridge.exposeInMainWorld('mirachpos', {
     chrome: process.versions.chrome,
     electron: process.versions.electron,
   },
+  config: {
+    apiBase: process.env.MIRACHPOS_API_BASE || process.env.MIRACHPOS_API_ORIGIN || '',
+  },
   db: {
     get: (key) => ipcRenderer.invoke('mirachpos.db.get', key),
     set: (key, value) => ipcRenderer.invoke('mirachpos.db.set', key, value),

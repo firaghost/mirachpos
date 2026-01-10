@@ -39,6 +39,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currency, setCurrency] = useState('ETB');
   const [flash, setFlash] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
 
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -266,6 +267,20 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
 
   useEffect(() => {
     void loadProductsAndRecipes();
+    const loadCurrency = async () => {
+      try {
+        const bid = resolveBranchId();
+        const qs = bid ? `?branchId=${encodeURIComponent(bid)}` : '';
+        const res = await apiFetch(`/api/manager/settings${qs}`);
+        const json = await res.json().catch(() => null);
+        if (res.ok && json?.settings?.general?.currency) {
+          setCurrency(json.settings.general.currency);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    void loadCurrency();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -484,11 +499,10 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
       <div className="flex-none px-4 pt-3">
         {flash ? (
           <div
-            className={`rounded-xl border px-4 py-3 text-xs font-bold ${
-              flash.kind === 'success'
+            className={`rounded-xl border px-4 py-3 text-xs font-bold ${flash.kind === 'success'
                 ? 'border-green-500/30 bg-green-500/10 text-green-200'
                 : 'border-red-500/30 bg-red-500/10 text-red-200'
-            }`}
+              }`}
           >
             {flash.message}
           </div>
@@ -531,11 +545,10 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                 <button
                   key={c}
                   onClick={() => setChip(c)}
-                  className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold shadow-sm border transition-all ${
-                    chip === c
+                  className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold shadow-sm border transition-all ${chip === c
                       ? 'bg-primary text-[#221c10] border-primary'
                       : 'bg-[#483c23] text-white/70 hover:text-white border-transparent hover:border-white/10'
-                  }`}
+                    }`}
                 >
                   {c}
                 </button>
@@ -558,16 +571,15 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                 <button
                   key={p.id}
                   onClick={() => setSelectedProductId(p.id)}
-                  className={`group w-full flex items-center gap-3 p-3 rounded-xl border cursor-pointer relative overflow-hidden text-left transition-all ${
-                    selected ? 'bg-primary/10 border-primary/30' : 'hover:bg-white/5 border-transparent hover:border-white/10'
-                  }`}
+                  className={`group w-full flex items-center gap-3 p-3 rounded-xl border cursor-pointer relative overflow-hidden text-left transition-all ${selected ? 'bg-primary/10 border-primary/30' : 'hover:bg-white/5 border-transparent hover:border-white/10'
+                    }`}
                 >
                   {selected ? <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" /> : null}
                   <div className="size-12 rounded-lg bg-cover bg-center shrink-0 shadow-inner" style={{ backgroundImage: `url('${p.image}')` }} />
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start">
                       <h4 className="text-white font-semibold text-sm truncate">{p.name}</h4>
-                      <span className="text-primary font-bold text-sm">ETB {p.price.toFixed(2)}</span>
+                      <span className="text-primary font-bold text-sm">{currency} {p.price.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center mt-1">
                       <p className="text-white/50 text-[11px] leading-tight">
@@ -663,7 +675,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                   </div>
                   <p className="text-white/50 text-sm font-medium mb-1">Selling Price</p>
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-2xl md:text-3xl font-bold text-white">ETB {selectedProduct.price.toFixed(2)}</h3>
+                    <h3 className="text-2xl md:text-3xl font-bold text-white">{currency} {selectedProduct.price.toFixed(2)}</h3>
                     <span className="text-xs text-white/40">per unit</span>
                   </div>
                   <div className="h-1 w-full bg-white/10 mt-4 rounded-full overflow-hidden">
@@ -676,7 +688,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                   </div>
                   <p className="text-white/50 text-sm font-medium mb-1">Total COGS</p>
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-2xl md:text-3xl font-bold text-white">ETB {computedTotalCost.toFixed(2)}</h3>
+                    <h3 className="text-2xl md:text-3xl font-bold text-white">{currency} {computedTotalCost.toFixed(2)}</h3>
                   </div>
                   <div className="h-1 w-full bg-white/10 mt-4 rounded-full overflow-hidden">
                     <div className="h-full bg-red-400 w-[24%] rounded-full" />
@@ -689,7 +701,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                   <p className="text-primary/80 text-sm font-medium mb-1">Gross Margin</p>
                   <div className="flex items-baseline gap-2">
                     <h3 className="text-2xl md:text-3xl font-bold text-primary">{grossMarginPct.toFixed(0)}%</h3>
-                    <span className="text-xs text-primary/70">(ETB {(selectedProduct.price - computedTotalCost).toFixed(2)} profit)</span>
+                    <span className="text-xs text-primary/70">({currency} {(selectedProduct.price - computedTotalCost).toFixed(2)} profit)</span>
                   </div>
                   <div className="h-1 w-full bg-white/10 mt-4 rounded-full overflow-hidden">
                     <div className="h-full bg-primary w-[76%] rounded-full shadow-[0_0_10px_rgba(238,173,43,0.5)]" />
@@ -768,8 +780,8 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                                 <td className="px-4 py-4 text-white/50 hidden sm:table-cell align-top">{inv?.unit ?? ''}</td>
                                 <td className="px-4 py-4 font-medium text-white align-top">
                                   <div className="flex flex-col">
-                                    <span className="tabular-nums">ETB {lineCost.toFixed(2)}</span>
-                                    <span className="text-[10px] text-white/40 tabular-nums">ETB {unitCost.toFixed(2)} / unit</span>
+                                    <span className="tabular-nums">{currency} {lineCost.toFixed(2)}</span>
+                                    <span className="text-[10px] text-white/40 tabular-nums">{currency} {unitCost.toFixed(2)} / unit</span>
                                   </div>
                                 </td>
                                 <td className="px-4 py-4 pr-5 align-top">
@@ -785,7 +797,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                             Recipe Total
                           </td>
                           <td className="px-4 py-3 font-bold text-primary text-base" colSpan={2}>
-                            ETB {computedTotalCost.toFixed(2)}
+                            {currency} {computedTotalCost.toFixed(2)}
                           </td>
                         </tr>
                       </tbody>
@@ -969,9 +981,8 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
           <label className="text-sm font-bold text-white/70">Image URL</label>
           <div className="flex gap-2">
             <input value={draftImage} onChange={(e) => setDraftImage(e.target.value)} className="flex-1 bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
-            <label className={`shrink-0 px-3 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors cursor-pointer ${
-              draftImageUploading ? 'opacity-50 pointer-events-none' : ''
-            }`}
+            <label className={`shrink-0 px-3 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors cursor-pointer ${draftImageUploading ? 'opacity-50 pointer-events-none' : ''
+              }`}
             >
               <input
                 type="file"
@@ -1037,9 +1048,8 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
           <label className="text-sm font-bold text-white/70">Image URL</label>
           <div className="flex gap-2">
             <input value={editImage} onChange={(e) => setEditImage(e.target.value)} className="flex-1 bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
-            <label className={`shrink-0 px-3 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors cursor-pointer ${
-              editImageUploading ? 'opacity-50 pointer-events-none' : ''
-            }`}
+            <label className={`shrink-0 px-3 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors cursor-pointer ${editImageUploading ? 'opacity-50 pointer-events-none' : ''
+              }`}
             >
               <input
                 type="file"
@@ -1199,11 +1209,10 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                             </td>
                             <td className="px-4 py-3">
                               <span
-                                className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium border ${
-                                  r.ok
+                                className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium border ${r.ok
                                     ? 'text-green-400 bg-green-400/10 border-green-400/20'
                                     : 'text-orange-400 bg-orange-400/10 border-orange-400/20'
-                                }`}
+                                  }`}
                               >
                                 <span className="material-symbols-outlined text-[14px]">{r.ok ? 'check' : 'warning'}</span>
                                 {r.ok ? 'OK' : 'Short'}

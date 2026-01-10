@@ -215,8 +215,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
                 <img src={branding.logoUrl} alt="" className="w-full h-full object-contain" />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-lg bg-[#eead2b] flex items-center justify-center text-[#221c10]">
-                <span className="material-symbols-outlined text-[22px]">local_cafe</span>
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#221c10] border border-[#483c23] p-1">
+                <img src="./mirach.png" alt="" className="w-full h-full object-contain" />
               </div>
             )}
             <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-[#1e1910]" />

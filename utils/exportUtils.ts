@@ -20,10 +20,10 @@ export const escapeCSV = (value: unknown): string => {
 /**
  * Format currency with ETB prefix
  */
-export const formatCurrency = (amount: number | null | undefined): string => {
+export const formatCurrency = (amount: number | null | undefined, currencyCode = 'ETB'): string => {
     const num = Number(amount ?? 0);
-    if (!Number.isFinite(num)) return 'ETB 0.00';
-    return `ETB ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (!Number.isFinite(num)) return `${currencyCode} 0.00`;
+    return `${currencyCode} ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 /**

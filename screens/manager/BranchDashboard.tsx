@@ -17,14 +17,7 @@ import {
   YAxis,
 } from 'recharts';
 
-const fmtEtb = (n: number) => {
-  const v = Number.isFinite(n) ? n : 0;
-  try {
-    return v.toLocaleString(undefined, { style: 'currency', currency: 'ETB', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  } catch {
-    return `ETB ${v.toFixed(2)}`;
-  }
-};
+// removed fmtEtb
 
 const fmtPct = (n: number | null) => {
   if (n == null || !Number.isFinite(n)) return null;
@@ -104,20 +97,8 @@ const formatTrendLabel = (key: string) => {
   return s;
 };
 
-const TrendTooltip = ({ active, payload, label }: any) => {
-  if (!active || !Array.isArray(payload) || payload.length === 0) return null;
-  const revenue = payload.find((p: any) => p?.dataKey === 'revenue')?.value;
-  const orders = payload.find((p: any) => p?.dataKey === 'orders')?.value;
-  return (
-    <div className="bg-[#221c10] border border-[#483c23] rounded-lg shadow-xl px-3 py-2">
-      <p className="text-[10px] text-[#c9b792] uppercase tracking-wider">{formatTrendLabel(String(label || ''))}</p>
-      <div className="mt-1 space-y-0.5">
-        <p className="text-sm font-bold text-[#eead2b]">{fmtEtb(Number(revenue || 0) || 0)}</p>
-        <p className="text-xs text-emerald-400">Orders: {Number(orders || 0) || 0}</p>
-      </div>
-    </div>
-  );
-};
+// TrendTooltip moved inside or replaced inline
+
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -125,9 +106,26 @@ interface Props {
 
 export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
   const { orders, products, refreshFromServer } = usePos();
+  const [currency, setCurrency] = useState('ETB');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [branchName, setBranchName] = useState('');
+
+  const fmtMoney = useCallback(
+    (n: number) => {
+      const v = Number.isFinite(n) ? n : 0;
+      return v.toLocaleString(undefined, {
+        style: 'currency',
+        currency: currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    },
+    [currency],
+  );
+
+
+
   const [staffOnShift, setStaffOnShift] = useState(0);
   const [staffOnShiftList, setStaffOnShiftList] = useState<Array<{ id: string; name: string; roleName: string; statusLabel: string }>>([]);
   const [inventoryItems, setInventoryItems] = useState<
@@ -218,6 +216,18 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
       } catch {
         // ignore
       }
+
+      // Fetch Currency Settings
+      try {
+        const settingsRes = await apiFetch('/api/pos/settings');
+        if (settingsRes.ok) {
+          const s = await settingsRes.json();
+          if (s?.general?.currency) setCurrency(s.general.currency);
+        }
+      } catch {
+        // ignore
+      }
+
 
       const session = readSession<any>();
       const role = typeof session?.role === 'string' ? session.role : '';
@@ -558,7 +568,7 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                 if (type === 'order_paid') {
                   const total = Number(payload?.total ?? payload?.amount ?? 0) || 0;
                   const orderNumber = String(payload?.number || payload?.orderNumber || payload?.orderId || '');
-                  return `${orderNumber ? `Receipt #${orderNumber}` : 'Order paid'} • ${fmtEtb(total)}`;
+                  return `${orderNumber ? `Receipt #${orderNumber}` : 'Order paid'} • ${fmtMoney(total)}`;
                 }
                 if (type === 'order_created') {
                   const table = String(payload?.tableName || payload?.table || '');
@@ -601,7 +611,7 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
             return recentPaidArr.slice(0, 8).map((r) => ({
               id: String(r?.id || ''),
               title: 'Payment Received',
-              subtitle: `${r?.id ? `Order ${r.id}` : 'Payment'} • ${fmtEtb(Number(r?.total ?? 0) || 0)}`,
+              subtitle: `${r?.id ? `Order ${r.id}` : 'Payment'} • ${fmtMoney(Number(r?.total ?? 0) || 0)}`,
               at: String(r?.paidAt || ''),
               tone: 'success' as const,
             }));
@@ -694,7 +704,7 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                 <span className="material-symbols-outlined text-[64px] text-[#eead2b]">payments</span>
               </div>
               <p className="text-[#c9b792] text-sm font-medium">Total Sales (Today)</p>
-              <h3 className="text-white text-2xl font-bold tracking-tight">{fmtEtb(salesToday)}</h3>
+              <h3 className="text-white text-2xl font-bold tracking-tight">{fmtMoney(salesToday)}</h3>
               <div className="flex items-center gap-1 mt-2">
                 <span className={`material-symbols-outlined text-sm ${Number(salesDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Number(salesDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'}</span>
                 <span className={`text-sm font-bold ${Number(salesDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtPct(salesDeltaPct) ?? '—'}</span>
@@ -707,7 +717,7 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                 <span className="material-symbols-outlined text-[64px] text-[#eead2b]">savings</span>
               </div>
               <p className="text-[#c9b792] text-sm font-medium">Net Profit</p>
-              <h3 className="text-white text-2xl font-bold tracking-tight">{fmtEtb(netProfitToday)}</h3>
+              <h3 className="text-white text-2xl font-bold tracking-tight">{fmtMoney(netProfitToday)}</h3>
               <div className="flex items-center gap-1 mt-2">
                 <span className={`material-symbols-outlined text-sm ${Number(profitDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Number(profitDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'}</span>
                 <span className={`text-sm font-bold ${Number(profitDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtPct(profitDeltaPct) ?? '—'}</span>
@@ -733,7 +743,7 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                 <span className="material-symbols-outlined text-[64px] text-[#eead2b]">point_of_sale</span>
               </div>
               <p className="text-[#c9b792] text-sm font-medium">Avg. Ticket Size</p>
-              <h3 className="text-white text-2xl font-bold tracking-tight">{fmtEtb(avgTicket)}</h3>
+              <h3 className="text-white text-2xl font-bold tracking-tight">{fmtMoney(avgTicket)}</h3>
               <div className="flex items-center gap-1 mt-2">
                 <span className={`material-symbols-outlined text-sm ${Number(avgTicketDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Number(avgTicketDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'}</span>
                 <span className={`text-sm font-bold ${Number(avgTicketDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtPct(avgTicketDeltaPct) ?? '—'}</span>
@@ -771,7 +781,22 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                       <CartesianGrid stroke="#483c23" strokeDasharray="3 3" />
                       <XAxis dataKey="key" stroke="#c9b792" tick={{ fontSize: 10 }} tickFormatter={formatTrendLabel} />
                       <YAxis stroke="#c9b792" tick={{ fontSize: 10 }} />
-                      <Tooltip content={<TrendTooltip />} />
+                      <Tooltip
+                        content={({ active, payload, label }: any) => {
+                          if (!active || !Array.isArray(payload) || payload.length === 0) return null;
+                          const revenue = payload.find((p: any) => p?.dataKey === 'revenue')?.value;
+                          const orders = payload.find((p: any) => p?.dataKey === 'orders')?.value;
+                          return (
+                            <div className="bg-[#221c10] border border-[#483c23] rounded-lg shadow-xl px-3 py-2">
+                              <p className="text-[10px] text-[#c9b792] uppercase tracking-wider">{formatTrendLabel(String(label || ''))}</p>
+                              <div className="mt-1 space-y-0.5">
+                                <p className="text-sm font-bold text-[#eead2b]">{fmtMoney(Number(revenue || 0) || 0)}</p>
+                                <p className="text-xs text-emerald-400">Orders: {Number(orders || 0) || 0}</p>
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
                       <Area type="monotone" dataKey="revenue" stroke="#eead2b" strokeWidth={2} fill="url(#trendFill)" dot={false} />
                       <Line type="monotone" dataKey="orders" stroke="#4ade80" strokeWidth={1.6} dot={false} />
                     </AreaChart>
@@ -864,13 +889,12 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
               <div className="p-4 border-b border-[#483c23] flex items-center justify-between">
                 <h3 className="text-white text-lg font-bold">Inventory Health</h3>
                 <span
-                  className={`text-xs font-bold px-2 py-1 rounded border ${
-                    inventoryAlerts.criticalCount > 0
-                      ? 'bg-rose-500/10 text-rose-300 border-rose-500/20'
-                      : inventoryAlerts.lowCount > 0
-                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
-                        : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                  }`}
+                  className={`text-xs font-bold px-2 py-1 rounded border ${inventoryAlerts.criticalCount > 0
+                    ? 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                    : inventoryAlerts.lowCount > 0
+                      ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                      : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                    }`}
                 >
                   {inventoryAlerts.criticalCount > 0
                     ? `${inventoryAlerts.criticalCount} critical`
@@ -896,24 +920,22 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <span
-                          className={`size-2 rounded-full ${
-                            inventoryAlerts.criticalCount > 0
-                              ? 'bg-rose-500'
-                              : inventoryAlerts.lowCount > 0
-                                ? 'bg-amber-400'
-                                : 'bg-emerald-400'
-                          }`}
+                          className={`size-2 rounded-full ${inventoryAlerts.criticalCount > 0
+                            ? 'bg-rose-500'
+                            : inventoryAlerts.lowCount > 0
+                              ? 'bg-amber-400'
+                              : 'bg-emerald-400'
+                            }`}
                         />
                         <span className="text-sm text-white">Inventory</span>
                       </div>
                       <span
-                        className={`text-sm font-mono ${
-                          inventoryAlerts.criticalCount > 0
-                            ? 'text-rose-400'
-                            : inventoryAlerts.lowCount > 0
-                              ? 'text-amber-300'
-                              : 'text-emerald-400'
-                        }`}
+                        className={`text-sm font-mono ${inventoryAlerts.criticalCount > 0
+                          ? 'text-rose-400'
+                          : inventoryAlerts.lowCount > 0
+                            ? 'text-amber-300'
+                            : 'text-emerald-400'
+                          }`}
                       >
                         {inventoryAlerts.criticalCount > 0
                           ? `${inventoryAlerts.criticalCount} critical`
