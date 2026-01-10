@@ -1948,11 +1948,16 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
           onClose={closeModal}
           footer={
             <div className="flex gap-3">
-              <button onClick={closeModal} className="flex-1 h-11 rounded-lg bg-surface-light hover:bg-border border border-border text-white font-semibold transition-colors">Cancel</button>
+              <button
+                onClick={closeModal}
+                className="flex-1 h-11 rounded-lg bg-[#362b18] hover:bg-[#42351f] border border-[#483c23] text-white font-semibold transition-colors"
+              >
+                Cancel
+              </button>
               <button
                 onClick={saveModal}
                 disabled={!canUpdateInventory}
-                className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary-hover text-background font-extrabold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-extrabold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Save
               </button>
@@ -1960,31 +1965,55 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
           }
         >
           <div className="flex flex-col gap-3">
-            <label className="text-sm font-bold text-text-muted">Name</label>
-            <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" />
+            <label className="text-sm font-bold text-[#c9b792]">Name</label>
+            <input
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+            />
 
-            <label className="text-sm font-bold text-text-muted">Category</label>
-            <input value={draftCategory} onChange={(e) => setDraftCategory(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" />
+            <label className="text-sm font-bold text-[#c9b792]">Category</label>
+            <input
+              value={draftCategory}
+              onChange={(e) => setDraftCategory(e.target.value)}
+              className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+            />
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-bold text-text-muted">Stock</label>
-                <input value={draftStock} onChange={(e) => setDraftStock(e.target.value)} className="mt-2 w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" />
+                <label className="text-sm font-bold text-[#c9b792]">Stock</label>
+                <input
+                  value={draftStock}
+                  onChange={(e) => setDraftStock(e.target.value)}
+                  className="mt-2 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+                />
               </div>
               <div>
-                <label className="text-sm font-bold text-text-muted">Unit</label>
-                <input value={draftUnit} onChange={(e) => setDraftUnit(e.target.value)} className="mt-2 w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" />
+                <label className="text-sm font-bold text-[#c9b792]">Unit</label>
+                <input
+                  value={draftUnit}
+                  onChange={(e) => setDraftUnit(e.target.value)}
+                  className="mt-2 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-bold text-text-muted">Min Stock</label>
-                <input value={draftMinStock} onChange={(e) => setDraftMinStock(e.target.value)} className="mt-2 w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" />
+                <label className="text-sm font-bold text-[#c9b792]">Min Stock</label>
+                <input
+                  value={draftMinStock}
+                  onChange={(e) => setDraftMinStock(e.target.value)}
+                  className="mt-2 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+                />
               </div>
               <div>
-                <label className="text-sm font-bold text-text-muted">Unit Price</label>
-                <input value={draftPrice} onChange={(e) => setDraftPrice(e.target.value)} className="mt-2 w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" />
+                <label className="text-sm font-bold text-[#c9b792]">Unit Price</label>
+                <input
+                  value={draftPrice}
+                  onChange={(e) => setDraftPrice(e.target.value)}
+                  className="mt-2 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+                />
               </div>
             </div>
           </div>

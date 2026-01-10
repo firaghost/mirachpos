@@ -4,7 +4,7 @@ import { Screen } from '../../types';
 import { usePos } from '../../PosContext';
 import { apiFetch } from '../../api';
 import { readSession } from '../../session';
-import { formatDeviceDate } from '../../datetime';
+import { formatDeviceDate, formatDeviceDateTime } from '../../datetime';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -28,6 +28,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
   };
   const todayLabel = useMemo(() => formatDeviceDate(new Date(), { month: 'short', day: '2-digit', year: 'numeric' }), []);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Completed' | 'Open' | 'Voided'>('All');
+  const [dateFilter, setDateFilter] = useState<'Today' | 'AllTime'>('Today');
   const [query, setQuery] = useState('');
 
   const [loading, setLoading] = useState(true);
@@ -46,7 +47,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
 
   useEffect(() => {
     setPage(1);
-  }, [query, statusFilter]);
+  }, [query, statusFilter, dateFilter]);
 
   useEffect(() => {
     let mounted = true;
@@ -59,6 +60,16 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
         if (statusParam) params.set('status', statusParam);
         params.set('page', String(page));
         params.set('pageSize', String(pageSize));
+
+        if (dateFilter === 'Today') {
+          const now = new Date();
+          const yyyy = String(now.getFullYear());
+          const mm = String(now.getMonth() + 1).padStart(2, '0');
+          const dd = String(now.getDate()).padStart(2, '0');
+          const isoDay = `${yyyy}-${mm}-${dd}`;
+          params.set('from', isoDay);
+          params.set('to', isoDay);
+        }
 
         const res = await apiFetch(`/api/waiter/history?${params.toString()}`);
         const json = (await res.json().catch(() => null)) as any;
@@ -80,7 +91,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
     return () => {
       mounted = false;
     };
-  }, [page, pageSize, query, statusParam]);
+  }, [dateFilter, page, pageSize, query, statusParam]);
 
   const rows = useMemo(() => {
     const base = rowsRaw
@@ -89,15 +100,29 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
         const number = typeof o?.number === 'string' ? o.number : '';
         const tableName = typeof o?.tableName === 'string' ? o.tableName : '';
         const timeLabel = typeof o?.timeLabel === 'string' ? o.timeLabel : '';
+        const paidAt = typeof o?.paidAt === 'string' ? o.paidAt : '';
+        const createdAt = typeof o?.createdAt === 'string' ? o.createdAt : '';
         const createdByName = typeof o?.createdByName === 'string' ? o.createdByName : '';
         const createdByStaffId = typeof o?.createdByStaffId === 'string' ? o.createdByStaffId : '';
         const totalAmount = typeof o?.total === 'number' ? o.total : Number(o?.total) || 0;
         const status = typeof o?.status === 'string' ? o.status : '';
+
+        const bestTime = paidAt || createdAt;
+        const dt = bestTime
+          ? formatDeviceDateTime(bestTime, {
+              month: 'short',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '';
+
+        const time = dt || timeLabel;
         return {
           id: String(o?.id || ''),
           number,
           table: tableName,
-          time: timeLabel,
+          time,
           by: createdByName || createdByStaffId,
           itemsSummary: items.map((i: any) => `${String(i?.name || '')} (x${Number(i?.qty) || 0})`).join(', '),
           total: totalAmount,
@@ -118,9 +143,31 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
             <h2 className="text-3xl font-black tracking-tight text-white mb-1">Order History</h2>
             <p className="text-[#c9b792]">View and manage past transactions</p>
           </div>
-          <div className="flex items-center bg-[#2c241b] rounded-lg border border-[#483c23] h-10 px-3 cursor-pointer hover:border-[#eead2b]/50 transition-colors">
-            <span className="material-symbols-outlined text-[#c9b792] text-[20px] mr-2">calendar_today</span>
-            <span className="text-sm text-white font-medium">Today: {todayLabel}</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setDateFilter('Today')}
+              className={`h-10 px-3 rounded-lg border text-sm font-bold transition-colors ${
+                dateFilter === 'Today'
+                  ? 'bg-[#eead2b] text-[#221c11] border-[#eead2b]'
+                  : 'bg-[#2c241b] text-[#c9b792] border-[#483c23] hover:border-[#eead2b]/50 hover:text-white'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => setDateFilter('AllTime')}
+              className={`h-10 px-3 rounded-lg border text-sm font-bold transition-colors ${
+                dateFilter === 'AllTime'
+                  ? 'bg-[#eead2b] text-[#221c11] border-[#eead2b]'
+                  : 'bg-[#2c241b] text-[#c9b792] border-[#483c23] hover:border-[#eead2b]/50 hover:text-white'
+              }`}
+            >
+              All Time
+            </button>
+            <div className="hidden md:flex items-center bg-[#2c241b] rounded-lg border border-[#483c23] h-10 px-3">
+              <span className="material-symbols-outlined text-[#c9b792] text-[20px] mr-2">calendar_today</span>
+              <span className="text-sm text-white font-medium">{todayLabel}</span>
+            </div>
           </div>
         </div>
         <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between">

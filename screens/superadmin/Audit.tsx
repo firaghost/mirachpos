@@ -10,6 +10,13 @@ import { ScrollArea } from '../../components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { cn } from '../../components/lib/utils';
 import { formatDeviceDateTime } from '../../datetime';
+import {
+  downloadCSV,
+  escapeCSV,
+  generateReportHeader,
+  generateSectionHeader,
+  formatReadableDateTime,
+} from '../../utils/exportUtils';
 
 type AuditRow = {
   id: string;
@@ -116,16 +123,51 @@ export const SA_Audit: React.FC = () => {
   };
 
   const exportCsv = () => {
-    const header = ['at', 'type', 'summary', 'actorRole', 'actorName', 'actorEmail', 'branchId', 'id'];
-    const lines = [
-      header.join(','),
-      ...filtered.map((r) =>
-        header
-          .map((k) => toCsvCell((r as any)[k]))
-          .join(',')
-      ),
-    ].join('\n');
-    downloadText(`audit-${new Date().toISOString().slice(0, 10)}.csv`, lines, 'text/csv;charset=utf-8');
+    const lines: string[] = [];
+
+    // Professional header
+    const headerLines = generateReportHeader({
+      businessName: 'MirachPOS Super Admin',
+      reportTitle: 'Audit Log Report',
+      fromDate: new Date().toISOString(),
+      toDate: new Date().toISOString(),
+    });
+    lines.push(...headerLines);
+
+    // Audit Events Table
+    lines.push(...generateSectionHeader('Audit Events'));
+    lines.push([
+      escapeCSV('Date/Time'),
+      escapeCSV('Event Type'),
+      escapeCSV('Summary'),
+      escapeCSV('Actor Role'),
+      escapeCSV('Actor Name'),
+      escapeCSV('Actor Email'),
+      escapeCSV('Branch ID'),
+      escapeCSV('Event ID'),
+    ].join(','));
+
+    for (const r of filtered) {
+      lines.push([
+        escapeCSV(formatReadableDateTime(r.at)),
+        escapeCSV(r.type || 'event'),
+        escapeCSV(r.summary || ''),
+        escapeCSV(r.actorRole || ''),
+        escapeCSV(r.actorName || ''),
+        escapeCSV(r.actorEmail || ''),
+        escapeCSV(r.branchId || 'global'),
+        escapeCSV(r.id),
+      ].join(','));
+    }
+
+    // Footer
+    lines.push('');
+    lines.push(`${escapeCSV('Total Events')},${escapeCSV(String(filtered.length))}`);
+    lines.push('');
+    lines.push(escapeCSV('Powered by MirachPOS'));
+
+    const filename = `audit_log_${new Date().toISOString().slice(0, 10)}`;
+    downloadCSV(lines.join('\n'), filename);
   };
 
   const typeBadge = (type: string) => {

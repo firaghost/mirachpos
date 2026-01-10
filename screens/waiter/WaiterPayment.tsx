@@ -134,6 +134,11 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   }, [method, chapaOnlineActive]);
 
   useEffect(() => {
+    // Refresh state on mount to ensure we have latest order status/payment info
+    void refreshFromServer();
+  }, []);
+
+  useEffect(() => {
     // Reset attempt tracking when leaving Mobile Pay or changing order.
     const oid = order?.id ? String(order.id) : '';
     if (method !== 'Mobile Pay') {
@@ -449,7 +454,10 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
     );
   }
 
-  if (order.status === 'Voided' || order.status === 'Paid' || order.status !== 'Served') {
+
+
+  if (order.status === 'Voided' || order.status === 'Paid' || order.status === 'Refunded' || order.status !== 'Served') {
+    const isPaid = order.status === 'Paid';
     return (
       <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
         <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#483c23] bg-[#2c241b] px-6 py-3">
@@ -465,12 +473,20 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="max-w-lg w-full bg-[#2c241b] border border-[#483c23] rounded-xl p-6">
-            <div className="text-white font-bold text-lg mb-2">Payment is not available yet</div>
+            <div className="text-white font-bold text-lg mb-2">
+              {isPaid ? 'Order is already Paid' : 'Payment is not available yet'}
+            </div>
             <div className="text-[#c9b792] text-sm">
-              Orders can be paid only after they are marked <span className="text-white font-bold">Served</span>.
+              {isPaid
+                ? 'This order has been fully paid.'
+                : 'Orders can be paid only after they are marked Served.'}
             </div>
             <div className="mt-4 flex gap-3">
-              <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors">Go to Kitchen</button>
+              {isPaid ? (
+                <button onClick={() => onNavigate(Screen.WAITER_RECEIPT)} className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-colors">View Receipt</button>
+              ) : (
+                <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors">Go to Kitchen</button>
+              )}
               <button onClick={() => onNavigate(Screen.WAITER_ACTIVE_ORDERS)} className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-colors">Active Orders</button>
             </div>
           </div>
@@ -627,9 +643,9 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
         ? Boolean(order.customer) && loyaltyBalance + 1e-9 >= totalDue
         : method === 'Mobile Pay'
           ? false
-        : requireReference
-          ? Boolean(paymentReference.trim())
-          : true;
+          : requireReference
+            ? Boolean(paymentReference.trim())
+            : true;
 
   const appendTendered = (val: string) => {
     setTendered((prev) => {

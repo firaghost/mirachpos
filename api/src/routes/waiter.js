@@ -111,8 +111,33 @@ const makeWaiterRouter = () => {
 
       const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
       const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
+      const fromRaw = typeof req.query?.from === 'string' ? req.query.from.trim() : '';
+      const toRaw = typeof req.query?.to === 'string' ? req.query.to.trim() : '';
       const page = Math.max(1, Number(req.query?.page || 1) || 1);
       const pageSize = Math.min(50, Math.max(1, Number(req.query?.pageSize || 25) || 25));
+
+      const parseIsoDateTime = (s) => {
+        const v = String(s || '').trim();
+        if (!v) return null;
+        const d = new Date(v);
+        if (!Number.isFinite(d.getTime())) return null;
+        return d.toISOString();
+      };
+
+      const parseIsoDate = (s) => {
+        const v = String(s || '').trim();
+        if (!v) return null;
+        const m = /^\d{4}-\d{2}-\d{2}$/.exec(v);
+        if (!m) return null;
+        const d = new Date(`${v}T00:00:00.000Z`);
+        if (!Number.isFinite(d.getTime())) return null;
+        return d.toISOString().slice(0, 10);
+      };
+
+      const fromDateOnly = parseIsoDate(fromRaw);
+      const toDateOnly = parseIsoDate(toRaw);
+      const fromIso = fromDateOnly ? `${fromDateOnly}T00:00:00.000Z` : parseIsoDateTime(fromRaw);
+      const toIso = toDateOnly ? `${toDateOnly}T23:59:59.999Z` : parseIsoDateTime(toRaw);
 
       const base = db().from('orders').where({ tenant_id: req.tenant.id, branch_id: branchId });
       if (status) {
@@ -123,7 +148,20 @@ const makeWaiterRouter = () => {
         }
       }
 
-      const rows0 = await base.select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'created_at', 'payload']).orderBy('created_at', 'desc');
+      if (fromIso) {
+        base.andWhere((qb) => {
+          qb.where('created_at', '>=', fromIso).orWhere('paid_at', '>=', fromIso);
+        });
+      }
+      if (toIso) {
+        base.andWhere((qb) => {
+          qb.where('created_at', '<=', toIso).orWhere('paid_at', '<=', toIso);
+        });
+      }
+
+      const rows0 = await base
+        .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'created_at', 'paid_at', 'payload'])
+        .orderBy('created_at', 'desc');
 
       const enriched = rows0
         .map((o) => {
@@ -145,6 +183,7 @@ const makeWaiterRouter = () => {
             status: String(o.status || ''),
             total: Number(o.total || 0),
             createdAt: o.created_at ? new Date(o.created_at).toISOString() : '',
+            paidAt: o.paid_at ? new Date(o.paid_at).toISOString() : '',
           };
         })
         .filter((o) => {

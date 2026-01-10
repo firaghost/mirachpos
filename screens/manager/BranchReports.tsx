@@ -1,9 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { apiFetch } from '../../api';
 import { Screen } from '../../types';
 import { readSession, updateSession } from '../../session';
 import { formatDeviceDate, formatDeviceDateTime } from '../../datetime';
+import {
+  downloadCSV,
+  escapeCSV,
+  formatCurrency,
+  formatReadableDate,
+  formatReadableDateTime,
+  generateReportHeader,
+  generateSectionHeader,
+  generateFilename,
+} from '../../utils/exportUtils';
 
 type Period = 'Daily' | 'Weekly' | 'Monthly';
 
@@ -53,6 +65,18 @@ type CategoryAggRow = {
   qtySold: number;
   revenue: number;
   orderCount: number;
+};
+
+type StaffAggRow = {
+  staffId: string;
+  staffName: string;
+  orderCount: number;
+  netSales: number;
+  grossSales: number;
+  discounts: number;
+  tax: number;
+  tips: number;
+  totalCollected: number;
 };
 
 type ShiftAggRow = {
@@ -197,11 +221,14 @@ export const BranchReports: React.FC = () => {
   const [categoryAgg, setCategoryAgg] = useState<CategoryAggRow[]>([]);
   const [shiftAgg, setShiftAgg] = useState<ShiftAggRow[]>([]);
   const [voidAgg, setVoidAgg] = useState<VoidRefundEvent[]>([]);
+  const [staffAgg, setStaffAgg] = useState<StaffAggRow[]>([]);
+  const [selectedStaffId, setSelectedStaffId] = useState<string>('');
   const [period, setPeriod] = useState<Period>('Weekly');
   const [showAll, setShowAll] = useState(false);
   const [dateMode, setDateMode] = useState<DateMode>('Period');
   const [fromDate, setFromDate] = useState<string>(() => toIsoDate(addDays(startOfDay(new Date()), -7)));
   const [toDate, setToDate] = useState<string>(() => toIsoDate(startOfDay(new Date())));
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
   const rangeWindow = useMemo(() => {
     const now = new Date();
@@ -242,12 +269,12 @@ export const BranchReports: React.FC = () => {
         const branchOverride =
           role === 'Cafe Owner' && (!branchId || branchId === 'global')
             ? (() => {
-                try {
-                  return localStorage.getItem('mirachpos.owner.selectedBranchId.v1') || '';
-                } catch {
-                  return '';
-                }
-              })()
+              try {
+                return localStorage.getItem('mirachpos.owner.selectedBranchId.v1') || '';
+              } catch {
+                return '';
+              }
+            })()
             : '';
 
         if (role === 'Cafe Owner' && (!branchId || branchId === 'global') && !branchOverride) {
@@ -312,12 +339,12 @@ export const BranchReports: React.FC = () => {
         const branchOverride =
           role === 'Cafe Owner' && (!branchId || branchId === 'global')
             ? (() => {
-                try {
-                  return localStorage.getItem('mirachpos.owner.selectedBranchId.v1') || '';
-                } catch {
-                  return '';
-                }
-              })()
+              try {
+                return localStorage.getItem('mirachpos.owner.selectedBranchId.v1') || '';
+              } catch {
+                return '';
+              }
+            })()
             : '';
 
         const fetchRange = async (fromIso: string, toIso: string) => {
@@ -336,13 +363,13 @@ export const BranchReports: React.FC = () => {
               createdByName: String(p.createdByName || ''),
               items: Array.isArray(p.items)
                 ? p.items
-                    .map((it: any) => ({
-                      productId: String(it?.productId || ''),
-                      name: String(it?.name || ''),
-                      qty: Number(it?.qty ?? 0) || 0,
-                      unitPrice: Number(it?.unitPrice ?? 0) || 0,
-                    }))
-                    .filter((it: any) => (it.productId || it.name) && Number(it.qty) > 0)
+                  .map((it: any) => ({
+                    productId: String(it?.productId || ''),
+                    name: String(it?.name || ''),
+                    qty: Number(it?.qty ?? 0) || 0,
+                    unitPrice: Number(it?.unitPrice ?? 0) || 0,
+                  }))
+                  .filter((it: any) => (it.productId || it.name) && Number(it.qty) > 0)
                 : [],
               total: Number(p.total ?? 0) || 0,
               tax: Number(p.tax ?? 0) || 0,
@@ -391,12 +418,12 @@ export const BranchReports: React.FC = () => {
         const branchOverride =
           role === 'Cafe Owner' && (!branchId || branchId === 'global')
             ? (() => {
-                try {
-                  return localStorage.getItem('mirachpos.owner.selectedBranchId.v1') || '';
-                } catch {
-                  return '';
-                }
-              })()
+              try {
+                return localStorage.getItem('mirachpos.owner.selectedBranchId.v1') || '';
+              } catch {
+                return '';
+              }
+            })()
             : '';
 
         const fromDate = effectiveRange.start.toISOString().slice(0, 10);
@@ -509,6 +536,25 @@ export const BranchReports: React.FC = () => {
           }))
           .filter((r) => r.id);
 
+        const qsStaff = new URLSearchParams({ from: fromDate, to: toDate, limit: '300' });
+        if (branchOverride) qsStaff.set('branchId', branchOverride);
+        const stRes = await apiFetch(`/api/manager/reports/staff?${qsStaff.toString()}`);
+        const stJson = (await stRes.json().catch(() => null)) as any;
+        const stRows = Array.isArray(stJson?.staff) ? (stJson.staff as any[]) : [];
+        const mappedStaff: StaffAggRow[] = stRows
+          .map((r) => ({
+            staffId: String(r?.staffId || ''),
+            staffName: String(r?.staffName || ''),
+            orderCount: Number(r?.orderCount ?? 0) || 0,
+            netSales: Number(r?.netSales ?? 0) || 0,
+            grossSales: Number(r?.grossSales ?? 0) || 0,
+            discounts: Number(r?.discounts ?? 0) || 0,
+            tax: Number(r?.tax ?? 0) || 0,
+            tips: Number(r?.tips ?? 0) || 0,
+            totalCollected: Number(r?.totalCollected ?? 0) || 0,
+          }))
+          .filter((r) => r.staffId || r.staffName);
+
         if (!mounted) return;
         if (dailyRes.ok) setDailyAgg(mappedDaily);
         if (mappedHourly.length > 0) setHourlyAgg(mappedHourly);
@@ -517,6 +563,7 @@ export const BranchReports: React.FC = () => {
         if (cRes.ok) setCategoryAgg(mappedCategories);
         if (sRes.ok) setShiftAgg(mappedShifts);
         if (vRes.ok) setVoidAgg(mappedVoids);
+        if (stRes.ok) setStaffAgg(mappedStaff);
       } catch {
         if (!mounted) return;
         setDailyAgg([]);
@@ -525,6 +572,7 @@ export const BranchReports: React.FC = () => {
         setCategoryAgg([]);
         setShiftAgg([]);
         setVoidAgg([]);
+        setStaffAgg([]);
       }
     };
     void run();
@@ -691,12 +739,23 @@ export const BranchReports: React.FC = () => {
     const revenueByStaffId = new Map<string, number>();
     const ordersByStaffId = new Map<string, number>();
     const byStaffName = new Map<string, string>();
-    for (const p of payments) {
-      const sid = p.createdByStaffId;
-      if (!sid) continue;
-      revenueByStaffId.set(sid, (revenueByStaffId.get(sid) ?? 0) + (p.total ?? 0));
-      ordersByStaffId.set(sid, (ordersByStaffId.get(sid) ?? 0) + 1);
-      if (p.createdByName) byStaffName.set(sid, p.createdByName);
+
+    if (staffAgg.length > 0) {
+      for (const s of staffAgg) {
+        const sid = s.staffId;
+        if (!sid) continue;
+        revenueByStaffId.set(sid, (revenueByStaffId.get(sid) ?? 0) + (s.netSales ?? 0));
+        ordersByStaffId.set(sid, (ordersByStaffId.get(sid) ?? 0) + (s.orderCount ?? 0));
+        if (s.staffName) byStaffName.set(sid, s.staffName);
+      }
+    } else {
+      for (const p of payments) {
+        const sid = p.createdByStaffId;
+        if (!sid) continue;
+        revenueByStaffId.set(sid, (revenueByStaffId.get(sid) ?? 0) + (p.total ?? 0));
+        ordersByStaffId.set(sid, (ordersByStaffId.get(sid) ?? 0) + 1);
+        if (p.createdByName) byStaffName.set(sid, p.createdByName);
+      }
     }
 
     const staffById: Map<string, StaffMember> = new Map(staff.map((s) => [s.id, s] as [string, StaffMember]));
@@ -723,10 +782,12 @@ export const BranchReports: React.FC = () => {
       .filter((r) => isWorkerRole(r.role))
       .sort((a, b) => b.revenue - a.revenue);
 
-    const totalHours = rows.reduce((sum, r) => sum + r.hours, 0);
-    const top = rows[0];
-    return { rows, totalHours, top };
-  }, [effectiveRange.end, effectiveRange.start, payments, shiftLogs, staff]);
+    const filteredRows = selectedStaffId ? rows.filter((r) => r.id === selectedStaffId) : rows;
+
+    const totalHours = filteredRows.reduce((sum, r) => sum + r.hours, 0);
+    const top = filteredRows[0];
+    return { rows: filteredRows, totalHours, top };
+  }, [effectiveRange.end, effectiveRange.start, payments, shiftLogs, staff, staffAgg, selectedStaffId]);
 
   const cashSummary = useMemo(() => {
     const startMs = effectiveRange.start.getTime();
@@ -737,13 +798,14 @@ export const BranchReports: React.FC = () => {
     });
     const open = inRange.filter((s) => s.status === 'Active');
     const closed = inRange.filter((s) => s.status !== 'Active');
+    const opening = inRange.reduce((sum, s) => sum + (Number(s.openingCash ?? 0) || 0), 0);
     const expected = inRange.reduce((sum, s) => sum + (s.expectedCash ?? 0), 0);
     const actual = inRange.reduce((sum, s) => sum + (typeof s.actualCash === 'number' ? s.actualCash : 0), 0);
     const discrepancy = closed.reduce((sum, s) => {
       const a = typeof s.actualCash === 'number' ? s.actualCash : s.expectedCash;
       return sum + (a - s.expectedCash);
     }, 0);
-    return { inRange, openCount: open.length, closedCount: closed.length, expected, actual, discrepancy };
+    return { inRange, openCount: open.length, closedCount: closed.length, opening, expected, actual, discrepancy };
   }, [cashSessions, effectiveRange.end, effectiveRange.start]);
 
   const trendData = useMemo(() => {
@@ -844,7 +906,7 @@ export const BranchReports: React.FC = () => {
     });
   }, [paymentsSorted]);
 
-  const exportCsv = () => {
+  const exportFullCsv = () => {
     const esc = (v: unknown) => {
       const s = String(v ?? '');
       return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -881,29 +943,29 @@ export const BranchReports: React.FC = () => {
 
     const reportName = `${branchName || 'Branch'} Analytics Report`;
     const toIso = (d: Date) => d.toISOString();
-    const push = (rows: Row[], patch: Partial<Row>) => rows.push({ ...makeRow(), ...patch });
+    const push = (out: Row[], patch: Partial<Row>) => out.push({ ...makeRow(), ...patch });
 
-    const rows: Row[] = [];
+    const reportRows: Row[] = [];
 
     // Meta
-    push(rows, { section: 'meta', record_type: 'report', name: reportName, notes: '' });
-    push(rows, { section: 'meta', record_type: 'period', name: period, date: toIso(new Date()) });
-    push(rows, { section: 'meta', record_type: 'range_from', date: toIso(effectiveRange.start) });
-    push(rows, { section: 'meta', record_type: 'range_to', date: toIso(effectiveRange.end) });
+    push(reportRows, { section: 'meta', record_type: 'report', name: reportName, notes: '' });
+    push(reportRows, { section: 'meta', record_type: 'period', name: period, date: toIso(new Date()) });
+    push(reportRows, { section: 'meta', record_type: 'range_from', date: toIso(effectiveRange.start) });
+    push(reportRows, { section: 'meta', record_type: 'range_to', date: toIso(effectiveRange.end) });
 
     // KPIs
-    push(rows, { section: 'kpi', record_type: 'total_revenue', amount: String(totalRevenue), revenue: formatMoney(totalRevenue), notes: `delta_pct=${revenueDelta.toFixed(2)}` });
-    push(rows, { section: 'kpi', record_type: 'total_expenses', amount: String(totalExpenses), expenses: formatMoney(totalExpenses) });
-    push(rows, { section: 'kpi', record_type: 'net_profit', amount: String(netProfit), profit: formatMoney(netProfit), notes: `delta_pct=${profitDelta.toFixed(2)}` });
-    push(rows, { section: 'kpi', record_type: 'orders_processed', orders: String(ordersProcessed), notes: `delta_pct=${ordersDelta.toFixed(2)}` });
-    push(rows, { section: 'kpi', record_type: 'avg_order_value', amount: String(avgOrderValue), notes: `delta_pct=${aovDelta.toFixed(2)}` });
-    push(rows, { section: 'kpi', record_type: 'cash_expected', expected_cash: formatMoney(cashSummary.expected), amount: String(cashSummary.expected) });
-    push(rows, { section: 'kpi', record_type: 'cash_actual', actual_cash: formatMoney(cashSummary.actual), amount: String(cashSummary.actual) });
-    push(rows, { section: 'kpi', record_type: 'cash_discrepancy', cash_difference: formatMoney(cashSummary.discrepancy), amount: String(cashSummary.discrepancy) });
+    push(reportRows, { section: 'kpi', record_type: 'total_revenue', amount: String(totalRevenue), revenue: formatMoney(totalRevenue), notes: `delta_pct=${revenueDelta.toFixed(2)}` });
+    push(reportRows, { section: 'kpi', record_type: 'total_expenses', amount: String(totalExpenses), expenses: formatMoney(totalExpenses) });
+    push(reportRows, { section: 'kpi', record_type: 'net_profit', amount: String(netProfit), profit: formatMoney(netProfit), notes: `delta_pct=${profitDelta.toFixed(2)}` });
+    push(reportRows, { section: 'kpi', record_type: 'orders_processed', orders: String(ordersProcessed), notes: `delta_pct=${ordersDelta.toFixed(2)}` });
+    push(reportRows, { section: 'kpi', record_type: 'avg_order_value', amount: String(avgOrderValue), notes: `delta_pct=${aovDelta.toFixed(2)}` });
+    push(reportRows, { section: 'kpi', record_type: 'cash_expected', expected_cash: formatMoney(cashSummary.expected), amount: String(cashSummary.expected) });
+    push(reportRows, { section: 'kpi', record_type: 'cash_actual', actual_cash: formatMoney(cashSummary.actual), amount: String(cashSummary.actual) });
+    push(reportRows, { section: 'kpi', record_type: 'cash_discrepancy', cash_difference: formatMoney(cashSummary.discrepancy), amount: String(cashSummary.discrepancy) });
 
     // Payment mix
     for (const [method, v] of paymentBreakdown) {
-      push(rows, {
+      push(reportRows, {
         section: 'payments',
         record_type: 'payment_method',
         method,
@@ -915,7 +977,7 @@ export const BranchReports: React.FC = () => {
 
     // Daily summary
     for (const d of dailyAgg.slice(0, 400)) {
-      push(rows, {
+      push(reportRows, {
         section: 'trend',
         record_type: 'daily',
         date: `${d.date}T00:00:00`,
@@ -927,7 +989,7 @@ export const BranchReports: React.FC = () => {
 
     // Categories
     for (const c of categoryAgg.slice(0, 200)) {
-      push(rows, {
+      push(reportRows, {
         section: 'categories',
         record_type: 'category',
         category: c.category,
@@ -940,7 +1002,7 @@ export const BranchReports: React.FC = () => {
 
     // Products
     for (const p of productAgg.slice(0, 200)) {
-      push(rows, {
+      push(reportRows, {
         section: 'products',
         record_type: 'product',
         id: p.productId,
@@ -955,7 +1017,7 @@ export const BranchReports: React.FC = () => {
 
     // Expenses
     for (const e of expensesInRange.slice(0, 500)) {
-      push(rows, {
+      push(reportRows, {
         section: 'expenses',
         record_type: 'expense',
         date: new Date(e.createdAt).toISOString(),
@@ -969,7 +1031,7 @@ export const BranchReports: React.FC = () => {
 
     // Shifts
     for (const s of shiftAgg.slice(0, 500)) {
-      push(rows, {
+      push(reportRows, {
         section: 'shifts',
         record_type: 'shift',
         id: s.id,
@@ -988,7 +1050,7 @@ export const BranchReports: React.FC = () => {
 
     // Voids & refunds
     for (const v of voidAgg.slice(0, 1000)) {
-      push(rows, {
+      push(reportRows, {
         section: 'voids_refunds',
         record_type: 'event',
         date: v.occurredAt || '',
@@ -1006,7 +1068,7 @@ export const BranchReports: React.FC = () => {
 
     // Staff performance
     for (const r of staffPerformance.rows) {
-      push(rows, {
+      push(reportRows, {
         section: 'staff',
         record_type: 'staff',
         id: r.id,
@@ -1023,7 +1085,7 @@ export const BranchReports: React.FC = () => {
 
     // Recent transactions
     for (const t of recentTransactions) {
-      push(rows, {
+      push(reportRows, {
         section: 'transactions',
         record_type: 'payment',
         date: t.date,
@@ -1037,18 +1099,181 @@ export const BranchReports: React.FC = () => {
 
     const lines: string[] = [];
     lines.push(headers.map(esc).join(','));
-    for (const r of rows) {
-      lines.push(headers.map((h) => esc(r[h])).join(','));
+    for (const r of reportRows) {
+      lines.push(headers.map((h) => esc(r[h as keyof Row])).join(','));
     }
 
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `reports-${period.toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `analytics_${branchName || 'branch'}_${effectiveRange.start.toISOString().slice(0, 10)}_${addDays(effectiveRange.end, -1).toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(a);
     a.click();
-    a.remove();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportCsv = () => {
+    // Get business info
+    const bizName = businessHeader?.businessName || 'MirachPOS';
+    let generatedBy = '';
+    try {
+      const s = readSession<any>();
+      generatedBy = String(s?.name || s?.username || s?.email || s?.role || '').trim();
+    } catch {
+      // ignore
+    }
+
+    const lines: string[] = [];
+
+    // Professional header
+    const headerLines = generateReportHeader({
+      businessName: bizName,
+      branchName: branchName || undefined,
+      reportTitle: 'Sales Analytics Report',
+      fromDate: effectiveRange.start.toISOString(),
+      toDate: addDays(effectiveRange.end, -1).toISOString(),
+      generatedBy: generatedBy || undefined,
+    });
+    lines.push(...headerLines);
+
+    // Calculate values
+    const discountsTotal = payments.reduce((s, p) => s + (Number(p.discount ?? 0) || 0), 0);
+    const grossSales = totalRevenue + discountsTotal;
+    const voidRefundTotal = voidAgg.reduce((s, v) => s + (Number(v.amount ?? 0) || 0), 0);
+    const taxCollected = payments.reduce((s, p) => s + (Number(p.tax ?? 0) || 0), 0);
+    const tipsCollected = payments.reduce((s, p) => s + (Number(p.tip ?? 0) || 0), 0);
+
+    // Section 1: Sales Summary
+    lines.push(...generateSectionHeader('Sales Summary'));
+    lines.push([escapeCSV('Metric'), escapeCSV('Amount (ETB)')].join(','));
+    lines.push([escapeCSV('Gross Sales'), escapeCSV(formatCurrency(grossSales))].join(','));
+    lines.push([escapeCSV('Discounts'), escapeCSV(formatCurrency(-discountsTotal))].join(','));
+    lines.push([escapeCSV('Voids & Refunds'), escapeCSV(formatCurrency(-voidRefundTotal))].join(','));
+    lines.push([escapeCSV('Net Sales'), escapeCSV(formatCurrency(totalRevenue))].join(','));
+    lines.push([escapeCSV('Tax Collected'), escapeCSV(formatCurrency(taxCollected))].join(','));
+    lines.push([escapeCSV('Tips Collected'), escapeCSV(formatCurrency(tipsCollected))].join(','));
+    lines.push('');
+    lines.push([escapeCSV('Orders Processed'), escapeCSV(String(ordersProcessed))].join(','));
+    lines.push([escapeCSV('Average Order Value'), escapeCSV(formatCurrency(avgOrderValue))].join(','));
+
+    // Section 2: Payment Methods
+    lines.push(...generateSectionHeader('Payment Methods'));
+    lines.push([escapeCSV('Method'), escapeCSV('Orders'), escapeCSV('Amount (ETB)')].join(','));
+    for (const [method, v] of paymentBreakdown) {
+      lines.push([escapeCSV(method), escapeCSV(String(v.count)), escapeCSV(formatCurrency(v.sum))].join(','));
+    }
+
+    // Section 3: Cash Control
+    const cashSales = (() => {
+      const row = paymentBreakdown.find(([k]) => String(k).toLowerCase().includes('cash'));
+      return row ? Number(row[1].sum ?? 0) || 0 : 0;
+    })();
+    lines.push(...generateSectionHeader('Cash Control'));
+    lines.push([escapeCSV('Item'), escapeCSV('Amount (ETB)')].join(','));
+    lines.push([escapeCSV('Opening Cash'), escapeCSV(formatCurrency(cashSummary.opening))].join(','));
+    lines.push([escapeCSV('Cash Sales'), escapeCSV(formatCurrency(cashSales))].join(','));
+    lines.push([escapeCSV('Expenses / Paid-outs'), escapeCSV(formatCurrency(-totalExpenses))].join(','));
+    lines.push([escapeCSV('Expected Cash'), escapeCSV(formatCurrency(cashSummary.expected))].join(','));
+    lines.push([escapeCSV('Actual Cash'), escapeCSV(formatCurrency(cashSummary.actual))].join(','));
+    lines.push([escapeCSV('Over/Short'), escapeCSV(formatCurrency(cashSummary.discrepancy))].join(','));
+
+    // Section 4: Staff Performance
+    lines.push(...generateSectionHeader('Staff Performance'));
+    lines.push([escapeCSV('Staff Name'), escapeCSV('Orders'), escapeCSV('Net Sales'), escapeCSV('Tips'), escapeCSV('Hours')].join(','));
+    const baseStaffRows = staffAgg.length
+      ? [...staffAgg]
+      : staffPerformance.rows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, tips: 0 }));
+    const filtered = selectedStaffId ? baseStaffRows.filter((r) => r.staffId === selectedStaffId) : baseStaffRows;
+    for (const r of filtered) {
+      const hours = staffPerformance.rows.find((x) => x.id === r.staffId)?.hours ?? 0;
+      lines.push([
+        escapeCSV(r.staffName || r.staffId),
+        escapeCSV(String(r.orderCount ?? 0)),
+        escapeCSV(formatCurrency(r.netSales ?? 0)),
+        escapeCSV(formatCurrency((r as any).tips ?? 0)),
+        escapeCSV(Number(hours || 0).toFixed(1)),
+      ].join(','));
+    }
+
+    // Footer
+    lines.push('');
+    lines.push('');
+    lines.push(escapeCSV('Powered by MirachPOS'));
+
+    // Download with UTF-8 BOM
+    const filename = generateFilename('sales_report', branchName || 'branch', effectiveRange.start.toISOString(), addDays(effectiveRange.end, -1).toISOString());
+    downloadCSV(lines.join('\n'), filename);
+  };
+
+  const exportStaffCsv = () => {
+    const esc = (v: unknown) => {
+      const s = String(v ?? '');
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const headers = ['staff_id', 'staff_name', 'orders', 'net_sales', 'gross_sales', 'discounts', 'tax', 'tips', 'total_collected', 'hours'];
+    const lines: string[] = [];
+    lines.push(headers.map(esc).join(','));
+
+    const hoursByStaffId = new Map<string, number>();
+    const startMs = effectiveRange.start.getTime();
+    const endMs = effectiveRange.end.getTime();
+    for (const l of shiftLogs) {
+      const inAt = new Date(l.clockInAt).getTime();
+      const outAt = new Date(l.clockOutAt ?? new Date().toISOString()).getTime();
+      const overlapStart = Math.max(inAt, startMs);
+      const overlapEnd = Math.min(outAt, endMs);
+      if (overlapEnd <= overlapStart) continue;
+      const hours = (overlapEnd - overlapStart) / (1000 * 60 * 60);
+      hoursByStaffId.set(l.staffId, (hoursByStaffId.get(l.staffId) ?? 0) + hours);
+    }
+
+    const staffRows = staffAgg.length
+      ? [...staffAgg]
+      : staffPerformance.rows.map((r) => ({
+        staffId: r.id,
+        staffName: r.name,
+        orderCount: r.orderCount,
+        netSales: r.revenue,
+        grossSales: r.revenue,
+        discounts: 0,
+        tax: 0,
+        tips: 0,
+        totalCollected: r.revenue,
+      }));
+
+    const filteredStaffRows = selectedStaffId ? staffRows.filter((r) => r.staffId === selectedStaffId) : staffRows;
+
+    for (const r of filteredStaffRows) {
+      const hours = hoursByStaffId.get(r.staffId) ?? 0;
+      lines.push(
+        [
+          r.staffId,
+          r.staffName,
+          String(r.orderCount ?? 0),
+          String(r.netSales ?? 0),
+          String(r.grossSales ?? 0),
+          String(r.discounts ?? 0),
+          String(r.tax ?? 0),
+          String(r.tips ?? 0),
+          String(r.totalCollected ?? 0),
+          hours.toFixed(2),
+        ]
+          .map(esc)
+          .join(','),
+      );
+    }
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `staff_report_${selectedStaffId || 'all'}_${branchName || 'branch'}_${effectiveRange.start.toISOString().slice(0, 10)}_${addDays(effectiveRange.end, -1).toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
@@ -1060,28 +1285,16 @@ export const BranchReports: React.FC = () => {
   }, [branches, remote?.branchId]);
 
   const exportPdf = () => {
-    const esc = (s: string) =>
-      String(s ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-
-    const title = `${branchName || 'Branch'} Analytics Report`;
     const generatedAt = new Date().toISOString();
-
-    const asText = (v: unknown, fallback = '') => {
-      const s = String(v ?? '').trim();
-      return s || fallback;
-    };
 
     const num = (v: unknown) => {
       const n = Number(v);
       return Number.isFinite(n) ? n : 0;
     };
-
-    const fmt = (v: unknown) => formatMoney(num(v));
+    const fmtN = (v: unknown) => {
+      const n = num(v);
+      return Number.isFinite(n) ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
+    };
 
     const headerLogo = businessHeader?.receipt?.logoDataUrl ? String(businessHeader.receipt.logoDataUrl) : '';
     const headerBizName = businessHeader?.businessName || 'Business';
@@ -1091,362 +1304,323 @@ export const BranchReports: React.FC = () => {
     const headerPhone = businessHeader?.phone || '';
     const headerEmail = businessHeader?.email || '';
 
-    const topPayment = paymentBreakdown.length ? paymentBreakdown[0] : null;
-    const topCategory = categoryAgg.length ? [...categoryAgg].sort((a, b) => b.revenue - a.revenue)[0] : null;
-    const topProduct = productAgg.length ? [...productAgg].sort((a, b) => b.revenue - a.revenue)[0] : null;
-    const topStaff = staffPerformance.rows.length ? staffPerformance.rows[0] : null;
-    const avgTicket = ordersProcessed > 0 ? totalRevenue / ordersProcessed : 0;
-    const marginPct = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+    let generatedBy = '';
+    try {
+      const s = readSession<any>();
+      generatedBy = String(s?.name || s?.username || s?.email || s?.role || '').trim();
+    } catch {
+      // ignore
+    }
 
-    const summaryLines = [
-      `Total revenue: ${fmt(totalRevenue)} across ${String(ordersProcessed)} paid orders (avg ticket ${fmt(avgTicket)}).`,
-      `Total expenses: ${fmt(totalExpenses)}. Net profit: ${fmt(netProfit)} (${marginPct.toFixed(1)}% margin).`,
-      topPayment ? `Top payment method: ${String(topPayment[0])} (${fmt(topPayment[1].sum)}).` : '',
-      topCategory ? `Top category: ${String(topCategory.category)} (${fmt(topCategory.revenue)}).` : '',
-      topProduct ? `Top product: ${String(topProduct.name || topProduct.productId)} (${fmt(topProduct.revenue)}).` : '',
-      topStaff ? `Top staff: ${String(topStaff.name)} (${fmt(topStaff.revenue)} revenue, ${topStaff.hours.toFixed(1)} hours).` : '',
-    ].filter(Boolean);
+    const discountsTotal = payments.reduce((sum, p) => sum + (Number(p.discount ?? 0) || 0), 0);
+    const taxCollected = payments.reduce((sum, p) => sum + (Number(p.tax ?? 0) || 0), 0);
+    const tipsCollected = payments.reduce((sum, p) => sum + (Number(p.tip ?? 0) || 0), 0);
+    const netSales = payments.reduce((sum, p) => sum + (Number(p.total ?? 0) || 0), 0);
+    const grossSales = netSales + discountsTotal;
 
-    const summaryHtml = summaryLines.map((l) => `<div class="sub">${esc(l)}</div>`).join('');
+    const voidTotal = voidAgg.filter((v) => v.type === 'void').reduce((sum, v) => sum + (Number(v.amount ?? 0) || 0), 0);
+    const refundTotal = voidAgg.filter((v) => v.type === 'refund').reduce((sum, v) => sum + (Number(v.amount ?? 0) || 0), 0);
 
-    const kpi = [
-      { k: 'Total Revenue', v: fmt(totalRevenue), sub: `${revenueDelta >= 0 ? '+' : ''}${revenueDelta.toFixed(1)}% vs prev` },
-      { k: 'Total Expenses', v: `-${fmt(totalExpenses)}`, sub: `${expensesInRange.length} entries` },
-      { k: 'Net Profit', v: fmt(netProfit), sub: `${profitDelta >= 0 ? '+' : ''}${profitDelta.toFixed(1)}% vs prev` },
-      { k: 'Orders', v: asText(ordersProcessed), sub: `${ordersDelta >= 0 ? '+' : ''}${ordersDelta.toFixed(1)}% vs prev` },
-      { k: 'Avg Order', v: fmt(avgOrderValue), sub: `${aovDelta >= 0 ? '+' : ''}${aovDelta.toFixed(1)}% vs prev` },
-      { k: 'Cash Discrepancy', v: fmt(cashSummary.discrepancy), sub: `Expected ${fmt(cashSummary.expected)} • Actual ${fmt(cashSummary.actual)}` },
-    ];
+    const cashSales = (() => {
+      const row = paymentBreakdown.find(([k]) => String(k).toLowerCase().includes('cash'));
+      return row ? Number(row[1].sum ?? 0) || 0 : 0;
+    })();
 
-    const kpiHtml = kpi
-      .map(
-        (x) => `
-        <div class="kpi">
-          <div class="k">${esc(x.k)}</div>
-          <div class="v">${esc(x.v)}</div>
-          <div class="s">${esc(x.sub)}</div>
-        </div>`
-      )
-      .join('');
+    const paidOuts = expensesInRange.reduce((sum, e) => sum + (Number(e.amount ?? 0) || 0), 0);
 
-    const paymentRows = paymentBreakdown
-      .map(([method, v]) => {
-        const pct = totalRevenue > 0 ? (num(v.sum) / totalRevenue) * 100 : 0;
-        return `
-          <tr>
-            <td>${esc(method)}</td>
-            <td class="right">${esc(fmt(v.sum))}</td>
-            <td class="right">${esc(String(v.count))}</td>
-            <td class="right">${esc(`${Math.max(0, Math.min(100, pct)).toFixed(1)}%`)}</td>
-          </tr>`;
-      })
-      .join('');
+    const staffRows = staffAgg.length
+      ? [...staffAgg]
+      : staffPerformance.rows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, tips: 0 }));
+    const filteredStaff = selectedStaffId ? staffRows.filter((s) => s.staffId === selectedStaffId) : staffRows;
 
-    const dailyRows = dailyAgg
-      .slice(Math.max(0, dailyAgg.length - 31))
-      .map((r) => {
-        return `
-          <tr>
-            <td>${esc(r.date)}</td>
-            <td class="right">${esc(String(r.orderCount))}</td>
-            <td class="right">${esc(fmt(r.totalCollected || 0))}</td>
-            <td class="right">${esc(fmt(r.netSales || 0))}</td>
-          </tr>`;
-      })
-      .join('');
+    const notes: string[] = [];
+    if (Math.abs(cashSummary.discrepancy) >= 0.01) {
+      notes.push(`Cash over/short: ETB ${fmtN(cashSummary.discrepancy)} (Expected ETB ${fmtN(cashSummary.expected)} vs Actual ETB ${fmtN(cashSummary.actual)})`);
+    }
+    if (voidTotal > 0.01) notes.push(`Voids: ETB ${fmtN(voidTotal)}`);
+    if (refundTotal > 0.01) notes.push(`Refunds: ETB ${fmtN(refundTotal)}`);
 
-    const categoryRows = categoryAgg
-      .slice(0, 20)
-      .map((c) => {
-        return `
-          <tr>
-            <td>${esc(c.category)}</td>
-            <td class="right">${esc(String(c.orderCount))}</td>
-            <td class="right">${esc(String(c.qtySold))}</td>
-            <td class="right">${esc(fmt(c.revenue))}</td>
-          </tr>`;
-      })
-      .join('');
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 40;
 
-    const productRows = productAgg
-      .slice(0, 25)
-      .map((p) => {
-        return `
-          <tr>
-            <td>${esc(p.name || p.productId)}</td>
-            <td>${esc(p.category || '')}</td>
-            <td class="right">${esc(String(p.qtySold))}</td>
-            <td class="right">${esc(fmt(p.revenue))}</td>
-            <td class="right">${esc(fmt(p.profit))}</td>
-          </tr>`;
-      })
-      .join('');
+    let cursorY = 44;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.text(`${headerBizName}${headerBranchName ? ` — ${headerBranchName}` : ''}`, margin, cursorY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    cursorY += 16;
+    doc.text('Sales Report', margin, cursorY);
 
-    const cashMetaHtml = `
-      <div class="grid2">
-        <div class="card">
-          <div class="k">Cash Sessions</div>
-          <div class="v">${esc(String(cashSummary.inRange.length))}</div>
-          <div class="s">Open ${esc(String(cashSummary.openCount))} • Closed ${esc(String(cashSummary.closedCount))}</div>
-        </div>
-        <div class="card">
-          <div class="k">Expected Cash</div>
-          <div class="v">${esc(fmt(cashSummary.expected))}</div>
-          <div class="s">Actual ${esc(fmt(cashSummary.actual))}</div>
-        </div>
-        <div class="card">
-          <div class="k">Discrepancy</div>
-          <div class="v ${Math.abs(cashSummary.discrepancy) < 0.01 ? 'ok' : 'warn'}">${esc(fmt(cashSummary.discrepancy))}</div>
-          <div class="s">Sum of closed sessions</div>
-        </div>
-        <div class="card">
-          <div class="k">Net Margin</div>
-          <div class="v">${esc(totalRevenue > 0 ? `${((netProfit / totalRevenue) * 100).toFixed(1)}%` : '0.0%')}</div>
-          <div class="s">Profit vs Revenue</div>
-        </div>
-      </div>`;
+    const rangeLabel = `${effectiveRange.start.toISOString().slice(0, 10)} to ${addDays(effectiveRange.end, -1).toISOString().slice(0, 10)}`;
+    const metaLines = [`Period: ${rangeLabel}`, `Generated: ${formatDeviceDateTime(generatedAt) || generatedAt}`, generatedBy ? `By: ${generatedBy}` : ''].filter(Boolean);
+    doc.text(metaLines, pageW - margin, 44, { align: 'right' });
 
-    const expenseRows = expensesInRange
-      .slice(0, 60)
-      .map((e) => {
-        return `
-          <tr>
-            <td>${esc(new Date(e.createdAt).toISOString().slice(0, 19).replace('T', ' '))}</td>
-            <td>${esc(e.title)}</td>
-            <td>${esc(e.vendor)}</td>
-            <td class="right">-${esc(fmt(e.amount))}</td>
-          </tr>`;
-      })
-      .join('');
+    const contact = [businessHeader?.receipt?.showTin && headerTin ? `TIN: ${headerTin}` : '', headerAddress ? headerAddress : '', [headerPhone, headerEmail].filter(Boolean).join(' • ')].filter(Boolean);
+    if (contact.length) {
+      doc.setTextColor(90);
+      doc.text(contact, margin, cursorY + 14);
+      doc.setTextColor(0);
+      cursorY += 18;
+    }
 
-    const shiftRows = shiftAgg
-      .slice(0, 40)
-      .map((s) => {
-        return `
-          <tr>
-            <td>${esc(s.openedAt ? new Date(s.openedAt).toISOString().slice(0, 19).replace('T', ' ') : '')}</td>
-            <td>${esc(s.staffName || '')}</td>
-            <td>${esc(s.status || '')}</td>
-            <td class="right">${esc(s.expectedCash == null ? '' : fmt(s.expectedCash))}</td>
-            <td class="right">${esc(s.closingCash == null ? '' : fmt(s.closingCash))}</td>
-            <td class="right">${esc(s.cashDifference == null ? '' : fmt(s.cashDifference))}</td>
-            <td class="right">${esc(String(s.orderCount))}</td>
-            <td class="right">${esc(fmt(s.totalCollected))}</td>
-          </tr>`;
-      })
-      .join('');
+    if (headerLogo && headerLogo.startsWith('data:image/')) {
+      try {
+        doc.addImage(headerLogo, 'PNG', pageW - margin - 48, 54, 48, 48);
+      } catch {
+        // ignore
+      }
+    }
 
-    const voidRows = voidAgg
-      .slice(0, 80)
-      .map((e) => {
-        return `
-          <tr>
-            <td>${esc(e.occurredAt ? new Date(e.occurredAt).toISOString().slice(0, 19).replace('T', ' ') : '')}</td>
-            <td>${esc(e.type || '')}</td>
-            <td>${esc(e.orderId || '')}</td>
-            <td>${esc(e.productName || '')}</td>
-            <td class="right">${esc(String(e.qty))}</td>
-            <td class="right">${esc(fmt(e.amount))}</td>
-            <td>${esc(e.reason || '')}</td>
-            <td>${esc(e.performedBy || '')}</td>
-            <td>${esc(e.authorizedBy || '')}</td>
-          </tr>`;
-      })
-      .join('');
+    cursorY = Math.max(cursorY + 24, 120);
 
-    const staffRows = staffPerformance.rows
-      .slice(0, 40)
-      .map((r) => {
-        return `
-          <tr>
-            <td>${esc(r.name)}</td>
-            <td>${esc(r.role)}</td>
-            <td class="right">${esc(r.hours.toFixed(1))}</td>
-            <td class="right">${esc(String(r.shifts))}</td>
-            <td class="right">${esc(String(r.orderCount))}</td>
-            <td class="right">${esc(fmt(r.revenue))}</td>
-            <td class="right">${esc(fmt(r.revPerHour))}</td>
-            <td class="right">${esc(fmt(r.aov))}</td>
-          </tr>`;
-      })
-      .join('');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('Sales Summary', margin, cursorY);
+    cursorY += 10;
+    autoTable(doc, {
+      startY: cursorY,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [238, 173, 43] },
+      head: [['Metric', 'Amount (ETB)']],
+      body: [
+        ['Gross Sales', fmtN(grossSales)],
+        ['Discounts / Comps', `-${fmtN(discountsTotal)}`],
+        ['Voids', `-${fmtN(voidTotal)}`],
+        ['Refunds', `-${fmtN(refundTotal)}`],
+        ['Net Sales', fmtN(netSales)],
+        ['Tax Collected', fmtN(taxCollected)],
+        ['Tips Collected', fmtN(tipsCollected)],
+      ],
+      columnStyles: { 1: { halign: 'right' } },
+    });
+    cursorY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 16 : cursorY + 130;
 
-    const txRows = paymentsSorted
-      .slice(0, 40)
-      .map((p) => {
-        return `
-          <tr>
-            <td>${esc(p.paidAt ? new Date(p.paidAt).toISOString().slice(0, 19).replace('T', ' ') : '')}</td>
-            <td>${esc(p.number ? `#${p.number}` : `#${p.id}`)}</td>
-            <td>${esc(p.method || '')}</td>
-            <td class="right">${esc(fmt(p.total ?? 0))}</td>
-          </tr>`;
-      })
-      .join('');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('Payments / Settlement', margin, cursorY);
+    cursorY += 10;
+    autoTable(doc, {
+      startY: cursorY,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Method', 'Orders', 'Amount (ETB)']],
+      body: paymentBreakdown.map(([m, v]) => [String(m), String(v.count ?? 0), fmtN(v.sum ?? 0)]),
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
+    });
+    cursorY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 16 : cursorY + 120;
 
-    const html = `<!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>${esc(title)}</title>
-          <style>
-            :root { color-scheme: light; }
-            body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background: #f3f4f6; color: #111827; }
-            .page { max-width: 940px; margin: 18px auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 12px 28px rgba(0,0,0,0.08); }
-            .wrap { padding: 18px; }
-            .head { display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; }
-            .brand { display:flex; align-items:flex-start; gap: 12px; }
-            .logo { width: 58px; height: 58px; border: 1px solid #e5e7eb; border-radius: 10px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#fff; }
-            .logo img { width: 100%; height: 100%; object-fit: cover; }
-            .meta { text-align:right; }
-            .title { font-size: 18px; font-weight: 900; }
-            .sub { font-size: 12px; color: #6b7280; margin-top: 4px; }
-            .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
-            .grid2 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
-            .kpi { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; background: #fafafa; }
-            .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; background: #fff; }
-            .k { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .08em; }
-            .v { font-size: 16px; font-weight: 900; margin-top: 6px; }
-            .s { font-size: 11px; color: #6b7280; margin-top: 4px; }
-            .ok { color: #047857; }
-            .warn { color: #b45309; }
-            h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; margin: 18px 0 8px; }
-            .section { break-inside: avoid; }
-            .hr { height: 1px; background: #e5e7eb; margin: 14px 0; }
-            table { width: 100%; border-collapse: collapse; }
-            thead { display: table-header-group; }
-            th { text-align: left; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid #e5e7eb; padding: 8px 0; }
-            td { font-size: 12px; border-bottom: 1px solid #f3f4f6; padding: 7px 0; vertical-align: top; }
-            .right { text-align: right; }
-            .note { font-size: 11px; color: #6b7280; margin-top: 10px; line-height: 1.35; }
-            .pagebreak { page-break-before: always; break-before: page; }
-            @media print {
-              body { background: #fff; }
-              .page { box-shadow: none; margin: 0; border: none; border-radius: 0; }
-              .wrap { padding: 10px; }
-              .grid2 { grid-template-columns: repeat(4, 1fr); }
-              .pagebreak { page-break-before: always; }
-            }
-            @page { size: A4; margin: 10mm; }
-          </style>
-        </head>
-        <body>
-          <div class="page">
-            <div class="wrap">
-              <div class="head">
-                <div class="brand">
-                  ${headerLogo ? `<div class="logo"><img src="${esc(headerLogo)}" alt="logo" /></div>` : `<div class="logo"></div>`}
-                  <div>
-                    <div class="title">${esc(headerBizName)}${headerBranchName ? ` — ${esc(headerBranchName)}` : ''}</div>
-                    <div class="sub">Analytics Report</div>
-                    <div class="sub">${esc(businessHeader?.legalName || '')}</div>
-                    ${businessHeader?.receipt?.showTin && headerTin ? `<div class="sub">TIN: ${esc(headerTin)}</div>` : ''}
-                    ${headerAddress ? `<div class="sub">${esc(headerAddress)}</div>` : ''}
-                    ${(headerPhone || headerEmail) ? `<div class="sub">${esc([headerPhone, headerEmail].filter(Boolean).join(' • '))}</div>` : ''}
-                  </div>
-                </div>
-                <div class="meta">
-                  <div class="sub">Generated: ${esc(formatDeviceDateTime(generatedAt) || '')}</div>
-                  <div class="sub">Range: ${esc(formatDateLabel(effectiveRange.start))} → ${esc(formatDateLabel(addDays(effectiveRange.end, -1)))}</div>
-                </div>
-              </div>
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('Cash Control', margin, cursorY);
+    cursorY += 10;
+    autoTable(doc, {
+      startY: cursorY,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Item', 'Amount (ETB)']],
+      body: [
+        ['Opening Cash', fmtN(cashSummary.opening)],
+        ['Cash Sales', fmtN(cashSales)],
+        ['Paid-outs (Expenses)', `-${fmtN(paidOuts)}`],
+        ['Expected Cash', fmtN(cashSummary.expected)],
+        ['Actual Cash Count', fmtN(cashSummary.actual)],
+        ['Over / Short', fmtN(cashSummary.discrepancy)],
+      ],
+      columnStyles: { 1: { halign: 'right' } },
+    });
+    cursorY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 16 : cursorY + 120;
 
-              <div class="hr"></div>
-              <div class="section">
-                <h2>Executive Summary</h2>
-                ${summaryHtml || `<div class="sub">No data for this range.</div>`}
-              </div>
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('Staff Summary', margin, cursorY);
+    cursorY += 10;
+    autoTable(doc, {
+      startY: cursorY,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Staff', 'Orders', 'Net Sales', 'Tips', 'Hours']],
+      body: filteredStaff.slice(0, 18).map((r) => {
+        const hours = staffPerformance.rows.find((x) => x.id === r.staffId)?.hours ?? 0;
+        return [String(r.staffName || r.staffId), String(r.orderCount ?? 0), fmtN((r as any).netSales ?? 0), fmtN((r as any).tips ?? 0), Number(hours || 0).toFixed(1)];
+      }),
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+    });
+    cursorY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 14 : cursorY + 140;
 
-              <div class="grid">
-                ${kpiHtml}
-              </div>
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('Notes / Exceptions', margin, cursorY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    cursorY += 12;
+    doc.text(notes.length ? notes.map((x) => `- ${x}`) : ['- No exceptions.'], margin, cursorY);
 
-              <div class="hr"></div>
+    const fileName = `sales_report_${selectedStaffId || 'all'}_${branchName || 'branch'}_${effectiveRange.start.toISOString().slice(0, 10)}_${addDays(effectiveRange.end, -1).toISOString().slice(0, 10)}.pdf`;
+    doc.save(fileName);
+  };
 
-              <div class="section">
-              <h2>Payment Mix</h2>
-              <table>
-                <thead><tr><th>Method</th><th class="right">Amount</th><th class="right">Orders</th><th class="right">% of Total</th></tr></thead>
-                <tbody>${paymentRows || `<tr><td colspan="4" style="color:#6b7280">No payments in range.</td></tr>`}</tbody>
-              </table>
+  const exportExcel = async () => {
+    const ExcelJSImport = await import('exceljs');
+    const ExcelJS: any = (ExcelJSImport as any)?.default ?? ExcelJSImport;
 
-              <h2>Daily Trend</h2>
-              <table>
-                <thead><tr><th>Date</th><th class="right">Orders</th><th class="right">Collected</th><th class="right">Net Sales</th></tr></thead>
-                <tbody>${dailyRows || `<tr><td colspan="4" style="color:#6b7280">No daily summary in range.</td></tr>`}</tbody>
-              </table>
-              </div>
+    const dateFrom = effectiveRange.start.toISOString().slice(0, 10);
+    const dateTo = addDays(effectiveRange.end, -1).toISOString().slice(0, 10);
 
-              <div class="pagebreak"></div>
-              <div class="section">
-              <h2>Top Categories</h2>
-              <table>
-                <thead><tr><th>Category</th><th class="right">Orders</th><th class="right">Qty</th><th class="right">Revenue</th></tr></thead>
-                <tbody>${categoryRows || `<tr><td colspan="4" style="color:#6b7280">No category summary in range.</td></tr>`}</tbody>
-              </table>
+    const discountsTotal = payments.reduce((sum, p) => sum + (Number(p.discount ?? 0) || 0), 0);
+    const taxCollected = payments.reduce((sum, p) => sum + (Number(p.tax ?? 0) || 0), 0);
+    const tipsCollected = payments.reduce((sum, p) => sum + (Number(p.tip ?? 0) || 0), 0);
+    const netSales = payments.reduce((sum, p) => sum + (Number(p.total ?? 0) || 0), 0);
+    const grossSales = netSales + discountsTotal;
+    const voidTotal = voidAgg.filter((v) => v.type === 'void').reduce((sum, v) => sum + (Number(v.amount ?? 0) || 0), 0);
+    const refundTotal = voidAgg.filter((v) => v.type === 'refund').reduce((sum, v) => sum + (Number(v.amount ?? 0) || 0), 0);
+    const totalVoidsRefunds = voidAgg.reduce((sum, v) => sum + (Number(v.amount ?? 0) || 0), 0);
 
-              <h2>Top Products</h2>
-              <table>
-                <thead><tr><th>Product</th><th>Category</th><th class="right">Qty</th><th class="right">Revenue</th><th class="right">Profit</th></tr></thead>
-                <tbody>${productRows || `<tr><td colspan="5" style="color:#6b7280">No product summary in range.</td></tr>`}</tbody>
-              </table>
+    const cashSales = (() => {
+      const row = paymentBreakdown.find(([k]) => String(k).toLowerCase().includes('cash'));
+      return row ? Number(row[1].sum ?? 0) || 0 : 0;
+    })();
+    const paidOuts = expensesInRange.reduce((sum, e) => sum + (Number(e.amount ?? 0) || 0), 0);
 
-              <h2>Cash & Reconciliation</h2>
-              ${cashMetaHtml}
-              </div>
+    const staffRows = staffAgg.length
+      ? [...staffAgg]
+      : staffPerformance.rows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, tips: 0 }));
+    const filteredStaff = selectedStaffId ? staffRows.filter((s) => s.staffId === selectedStaffId) : staffRows;
 
-              <div class="pagebreak"></div>
-              <div class="section">
-              <h2>Expenses (Top 60)</h2>
-              <table>
-                <thead><tr><th>Time</th><th>Title</th><th>Vendor</th><th class="right">Amount</th></tr></thead>
-                <tbody>${expenseRows || `<tr><td colspan="4" style="color:#6b7280">No expenses in range.</td></tr>`}</tbody>
-              </table>
+    const wb = new ExcelJS.Workbook();
 
-              <h2>Shift Reports (Top 40)</h2>
-              <table>
-                <thead><tr><th>Opened</th><th>Staff</th><th>Status</th><th class="right">Expected</th><th class="right">Actual</th><th class="right">Diff</th><th class="right">Orders</th><th class="right">Collected</th></tr></thead>
-                <tbody>${shiftRows || `<tr><td colspan="8" style="color:#6b7280">No shift reports in range.</td></tr>`}</tbody>
-              </table>
+    const addAoaSheet = (name: string, aoa: Array<Array<any>>) => {
+      const ws = wb.addWorksheet(name);
+      for (const row of aoa) ws.addRow(row);
+      try {
+        ws.getRow(1).font = { bold: true };
+        ws.views = [{ state: 'frozen', ySplit: 1 }];
+      } catch {
+        // ignore
+      }
+    };
 
-              <h2>Voids & Refunds (Top 80)</h2>
-              <table>
-                <thead><tr><th>Time</th><th>Type</th><th>Order</th><th>Item</th><th class="right">Qty</th><th class="right">Amount</th><th>Reason</th><th>By</th><th>Authorized</th></tr></thead>
-                <tbody>${voidRows || `<tr><td colspan="9" style="color:#6b7280">No void/refund events in range.</td></tr>`}</tbody>
-              </table>
-              </div>
+    addAoaSheet('Summary', [
+      ['Report', 'Cafe Sales Report'],
+      ['Branch', branchName || ''],
+      ['From', dateFrom],
+      ['To', dateTo],
+      selectedStaffId ? ['Staff', selectedStaffId] : ['Staff', 'All'],
+      [],
+      ['Sales Summary', 'Amount (ETB)'],
+      ['Gross Sales', grossSales],
+      ['Discounts / Comps', discountsTotal],
+      ['Voids', voidTotal],
+      ['Refunds', refundTotal],
+      ['Net Sales', netSales],
+      ['Tax Collected', taxCollected],
+      ['Tips Collected', tipsCollected],
+      ['Orders', ordersProcessed],
+      ['Avg Order Value', avgOrderValue],
+      [],
+      ['Cash Control', 'Amount (ETB)'],
+      ['Opening Cash', cashSummary.opening],
+      ['Cash Sales', cashSales],
+      ['Paid-outs (Expenses)', paidOuts],
+      ['Expected Cash', cashSummary.expected],
+      ['Actual Cash Count', cashSummary.actual],
+      ['Over / Short', cashSummary.discrepancy],
+      [],
+      ['Voids + Refunds Total', totalVoidsRefunds],
+    ]);
 
-              <div class="pagebreak"></div>
-              <div class="section">
-              <h2>Staff Performance (Top 40)</h2>
-              <table>
-                <thead><tr><th>Staff</th><th>Role</th><th class="right">Hours</th><th class="right">Shifts</th><th class="right">Orders</th><th class="right">Revenue</th><th class="right">Rev/Hour</th><th class="right">Avg Ticket</th></tr></thead>
-                <tbody>${staffRows || `<tr><td colspan="8" style="color:#6b7280">No staff performance records in range.</td></tr>`}</tbody>
-              </table>
+    addAoaSheet('Payments', [
+      ['Method', 'Orders', 'Amount (ETB)'],
+      ...paymentBreakdown.map(([method, v]) => [String(method), Number(v.count ?? 0) || 0, Number(v.sum ?? 0) || 0]),
+    ]);
 
-              <h2>Recent Transactions (Top 40)</h2>
-              <table>
-                <thead><tr><th>Time</th><th>Order</th><th>Payment</th><th class="right">Amount</th></tr></thead>
-                <tbody>${txRows || `<tr><td colspan="4" style="color:#6b7280">No transactions in range.</td></tr>`}</tbody>
-              </table>
+    addAoaSheet('Staff', [
+      ['Staff', 'Orders', 'Net Sales (ETB)', 'Tips (ETB)', 'Hours'],
+      ...filteredStaff.map((r) => {
+        const hours = staffPerformance.rows.find((x) => x.id === r.staffId)?.hours ?? 0;
+        return [String(r.staffName || r.staffId), Number(r.orderCount ?? 0) || 0, Number((r as any).netSales ?? 0) || 0, Number((r as any).tips ?? 0) || 0, Number(hours || 0)];
+      }),
+    ]);
 
-              <div class="note">
-                This report is generated from recorded paid orders, finance ledger entries, shift reports, and shift logs for the selected period.
-                Values are shown in ETB. If a staff member is currently clocked-in, hours are calculated up to the time of export.
-              </div>
-              </div>
-            </div>
-          </div>
-          <script>window.focus(); window.print();</script>
-        </body>
-      </html>`;
+    addAoaSheet('Transactions', [
+      ['Paid At', 'Order', 'Table', 'Staff', 'Method', 'Total (ETB)', 'Tax (ETB)', 'Tip (ETB)', 'Discount (ETB)', 'Reference'],
+      ...paymentsSorted.map((p) => [
+        p.paidAt || '',
+        p.number ? `#${p.number}` : `#${p.id}`,
+        p.tableName || '',
+        p.createdByName || '',
+        p.method || '',
+        Number(p.total ?? 0) || 0,
+        Number(p.tax ?? 0) || 0,
+        Number(p.tip ?? 0) || 0,
+        Number(p.discount ?? 0) || 0,
+        p.reference || '',
+      ]),
+    ]);
 
-    const w = window.open('', '_blank');
-    if (!w) return;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
+    addAoaSheet('Voids_Refunds', [
+      ['Time', 'Type', 'Order', 'Item', 'Qty', 'Amount (ETB)', 'Reason', 'Performed By', 'Authorized By'],
+      ...voidAgg.map((v) => [
+        v.occurredAt || '',
+        v.type || '',
+        v.orderId || '',
+        v.productName || '',
+        Number(v.qty ?? 0) || 0,
+        Number(v.amount ?? 0) || 0,
+        v.reason || '',
+        v.performedBy || '',
+        v.authorizedBy || '',
+      ]),
+    ]);
+
+    addAoaSheet('Expenses', [
+      ['Time', 'Title', 'Vendor', 'Amount (ETB)'],
+      ...expensesInRange.map((e) => [e.createdAt || '', e.title || '', e.vendor || '', Number(e.amount ?? 0) || 0]),
+    ]);
+
+    addAoaSheet('Products', [
+      ['Product', 'Category', 'Qty', 'Revenue (ETB)', 'Profit (ETB)', 'Void Qty'],
+      ...productAgg.map((p) => [p.name || p.productId, p.category || '', Number(p.qtySold ?? 0) || 0, Number(p.revenue ?? 0) || 0, Number(p.profit ?? 0) || 0, Number(p.voidQty ?? 0) || 0]),
+    ]);
+
+    addAoaSheet('Categories', [
+      ['Category', 'Orders', 'Qty', 'Revenue (ETB)'],
+      ...categoryAgg.map((c) => [c.category || '', Number(c.orderCount ?? 0) || 0, Number(c.qtySold ?? 0) || 0, Number(c.revenue ?? 0) || 0]),
+    ]);
+
+    addAoaSheet('Cash_Sessions', [
+      ['Opened At', 'Closed At', 'Register', 'Staff', 'Status', 'Opening Cash', 'Expected Cash', 'Actual Cash'],
+      ...cashSummary.inRange.map((s) => [
+        s.openedAt || '',
+        s.closedAt || '',
+        s.register || '',
+        s.staffName || '',
+        s.status || '',
+        Number(s.openingCash ?? 0) || 0,
+        Number(s.expectedCash ?? 0) || 0,
+        typeof s.actualCash === 'number' ? s.actualCash : '',
+      ]),
+    ]);
+
+    const out = await wb.xlsx.writeBuffer();
+    const blob = new Blob([out as any], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report_${selectedStaffId || 'all'}_${branchName || 'branch'}_${dateFrom}_${dateTo}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -1463,18 +1637,95 @@ export const BranchReports: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={exportCsv}
-                  className="h-10 px-4 rounded-lg border border-[#483c23] bg-[#221c10] hover:bg-[#483c23]/20 text-white font-bold"
-                >
-                  Export CSV
-                </button>
-                <button
-                  onClick={exportPdf}
-                  className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] font-extrabold"
-                >
-                  Export PDF
-                </button>
+                <div className="hidden sm:flex items-center gap-2 h-10 px-3 rounded-lg border border-[#483c23] bg-[#221c10]">
+                  <span className="text-xs font-extrabold text-[#c9b792]">Staff</span>
+                  <select
+                    value={selectedStaffId}
+                    onChange={(e) => setSelectedStaffId(e.target.value)}
+                    className="h-8 rounded-md bg-[#221c10] text-white text-sm font-bold outline-none"
+                    style={{ colorScheme: 'dark' }}
+                  >
+                    <option value="">All</option>
+                    {(staffAgg.length ? staffAgg : staffPerformance.rows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, grossSales: r.revenue, discounts: 0, tax: 0, tips: 0, totalCollected: r.revenue })))
+                      .filter((s) => s.staffId && s.staffName)
+                      .map((s) => (
+                        <option key={s.staffId} value={s.staffId}>
+                          {s.staffName}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                {/* Export Dropdown Menu */}
+                <div className="relative">
+                  <button
+                    onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                    className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] font-extrabold flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-lg">download</span>
+                    Export Report
+                    <span className="material-symbols-outlined text-lg">{exportMenuOpen ? 'expand_less' : 'expand_more'}</span>
+                  </button>
+                  {exportMenuOpen && (
+                    <>
+                      {/* Backdrop to close menu */}
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setExportMenuOpen(false)}
+                      />
+                      {/* Dropdown menu */}
+                      <div className="absolute right-0 top-12 z-50 w-56 rounded-xl border border-[#483c23] bg-[#2c241b] shadow-xl py-2">
+                        <div className="px-3 py-2 text-xs font-bold text-[#c9b792] uppercase tracking-wider">
+                          Export Format
+                        </div>
+                        <button
+                          onClick={() => { exportCsv(); setExportMenuOpen(false); }}
+                          className="w-full px-4 py-3 text-left hover:bg-[#483c23]/30 flex items-center gap-3 text-white"
+                        >
+                          <span className="material-symbols-outlined text-[#eead2b]">table_view</span>
+                          <div>
+                            <div className="font-bold text-sm">CSV Summary</div>
+                            <div className="text-xs text-[#c9b792]">Key metrics for accounting</div>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => { void exportExcel(); setExportMenuOpen(false); }}
+                          className="w-full px-4 py-3 text-left hover:bg-[#483c23]/30 flex items-center gap-3 text-white"
+                        >
+                          <span className="material-symbols-outlined text-[#4ade80]">grid_on</span>
+                          <div>
+                            <div className="font-bold text-sm">Excel Workbook</div>
+                            <div className="text-xs text-[#c9b792]">Full data with sheets</div>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => { exportPdf(); setExportMenuOpen(false); }}
+                          className="w-full px-4 py-3 text-left hover:bg-[#483c23]/30 flex items-center gap-3 text-white"
+                        >
+                          <span className="material-symbols-outlined text-[#ef4444]">picture_as_pdf</span>
+                          <div>
+                            <div className="font-bold text-sm">PDF Report</div>
+                            <div className="text-xs text-[#c9b792]">Print-ready document</div>
+                          </div>
+                        </button>
+                        <div className="border-t border-[#483c23] my-2" />
+                        <button
+                          onClick={() => { exportFullCsv(); setExportMenuOpen(false); }}
+                          className="w-full px-4 py-2 text-left hover:bg-[#483c23]/30 flex items-center gap-3 text-[#c9b792]"
+                        >
+                          <span className="material-symbols-outlined text-lg">database</span>
+                          <div className="text-xs">Raw Data (CSV)</div>
+                        </button>
+                        <button
+                          onClick={() => { exportStaffCsv(); setExportMenuOpen(false); }}
+                          className="w-full px-4 py-2 text-left hover:bg-[#483c23]/30 flex items-center gap-3 text-[#c9b792]"
+                        >
+                          <span className="material-symbols-outlined text-lg">groups</span>
+                          <div className="text-xs">Staff Report (CSV)</div>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
             {remoteLoading ? <div className="text-xs text-[#c9b792] font-bold">Loading analytics…</div> : null}

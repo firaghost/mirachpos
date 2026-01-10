@@ -33,7 +33,8 @@
     "react-dom": "^19.2.3",
     "recharts": "^3.6.0",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "exceljs": "^4.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

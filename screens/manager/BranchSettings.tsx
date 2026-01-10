@@ -137,6 +137,15 @@ type BranchSettingsState = {
     };
     requireReferenceForMethods: string[];
   };
+
+  fiscal: {
+    enabled: boolean;
+    provider: 'Generic' | 'EthioFiscal' | 'Simulator';
+    connectionType: 'Network' | 'LocalProxy';
+    ip: string;
+    port: string;
+    machineNumber: string;
+  };
 };
 
 const uid = (prefix: string) => `${prefix}-${Math.random().toString(16).slice(2)}-${Date.now().toString(16)}`;
@@ -290,15 +299,15 @@ const receiptHtml = (params: {
     <body>
       <div class="paper">
       ${headerLines
-        .map((l, idx) => {
-          const k = normKey(l);
-          const isTin = k.startsWith('tin');
-          const cls = isTin ? 'c b' : idx === 0 ? 'c b' : 'c b';
-          const fs = isTin ? '12px' : '12px';
-          const mt = idx === 0 ? '0' : isTin ? '4px' : '2px';
-          return `<div class="${cls}" style="font-size:${fs}; margin-top:${mt}">${escapeHtml(l)}</div>`;
-        })
-        .join('')}
+      .map((l, idx) => {
+        const k = normKey(l);
+        const isTin = k.startsWith('tin');
+        const cls = isTin ? 'c b' : idx === 0 ? 'c b' : 'c b';
+        const fs = isTin ? '12px' : '12px';
+        const mt = idx === 0 ? '0' : isTin ? '4px' : '2px';
+        return `<div class="${cls}" style="font-size:${fs}; margin-top:${mt}">${escapeHtml(l)}</div>`;
+      })
+      .join('')}
       <div class="hr"></div>
       <div class="meta"><span class="b">FS NO.</span><span class="b">${escapeHtml(String(params.orderNumber || ''))}</span></div>
       <div class="meta" style="margin-top:6px"><span class="b">${escapeHtml(dateStr)}</span><span class="b">${escapeHtml(timeStr)}</span></div>
@@ -518,6 +527,14 @@ export const BranchSettings: React.FC = () => {
           },
         },
         requireReferenceForMethods: ['mobile_money', 'bank_transfer', 'card'],
+      },
+      fiscal: {
+        enabled: false,
+        provider: 'Generic',
+        connectionType: 'Network',
+        ip: '',
+        port: '',
+        machineNumber: '',
       },
     };
   }, []);
@@ -783,6 +800,7 @@ export const BranchSettings: React.FC = () => {
           ? ((incomingPayments as any).requireReferenceForMethods as any)
           : base.payments.requireReferenceForMethods,
       },
+      fiscal: { ...base.fiscal, ...(next.fiscal ?? {}) },
       devices: Array.isArray(next.devices) ? (next.devices as ConnectedDevice[]) : base.devices,
     };
   };
@@ -1063,45 +1081,40 @@ export const BranchSettings: React.FC = () => {
             <div className="flex items-center gap-2 overflow-x-auto pt-2">
               <button
                 onClick={() => setActiveTab('hardware')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${
-                  activeTab === 'hardware' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
-                }`}
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'hardware' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                  }`}
               >
                 <span className="material-symbols-outlined text-lg">print</span>
                 Printers &amp; Hardware
               </button>
               <button
                 onClick={() => setActiveTab('general')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${
-                  activeTab === 'general' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
-                }`}
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'general' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                  }`}
               >
                 <span className="material-symbols-outlined text-lg">tune</span>
                 General Preferences
               </button>
               <button
                 onClick={() => setActiveTab('branch')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${
-                  activeTab === 'branch' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
-                }`}
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'branch' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                  }`}
               >
                 <span className="material-symbols-outlined text-lg">store</span>
                 Branch Info
               </button>
               <button
                 onClick={() => setActiveTab('hours')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${
-                  activeTab === 'hours' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
-                }`}
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'hours' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                  }`}
               >
                 <span className="material-symbols-outlined text-lg">schedule</span>
                 Operating Hours
               </button>
               <button
                 onClick={() => setActiveTab('taxes')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${
-                  activeTab === 'taxes' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
-                }`}
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'taxes' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                  }`}
               >
                 <span className="material-symbols-outlined text-lg">percent</span>
                 Taxes &amp; Service
@@ -1109,9 +1122,8 @@ export const BranchSettings: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('integrations')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${
-                  activeTab === 'integrations' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
-                }`}
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'integrations' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                  }`}
               >
                 <span className="material-symbols-outlined text-lg">extension</span>
                 Integrations
@@ -1119,9 +1131,8 @@ export const BranchSettings: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('addons')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${
-                  activeTab === 'addons' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
-                }`}
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'addons' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                  }`}
               >
                 <span className="material-symbols-outlined text-lg">widgets</span>
                 Add-ons
@@ -1158,11 +1169,10 @@ export const BranchSettings: React.FC = () => {
                               <span className="material-symbols-outlined text-2xl">{d.kind === 'KDS' ? 'tv' : d.kind === 'CashDrawer' ? 'point_of_sale' : d.usage.toLowerCase().includes('kitchen') ? 'restaurant' : 'print'}</span>
                             </div>
                             <span
-                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset ${
-                                online
-                                  ? 'bg-green-500/10 text-green-500 ring-green-500/20'
-                                  : 'bg-red-500/10 text-red-400 ring-red-500/20'
-                              }`}
+                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset ${online
+                                ? 'bg-green-500/10 text-green-500 ring-green-500/20'
+                                : 'bg-red-500/10 text-red-400 ring-red-500/20'
+                                }`}
                             >
                               <span className={`size-1.5 rounded-full ${online ? 'bg-green-500' : 'bg-red-400'}`}></span>
                               {d.status}
@@ -1309,6 +1319,125 @@ export const BranchSettings: React.FC = () => {
                     </Select>
                     <p className="text-[#b9b09d] text-xs mt-2">Used when drink tickets are separated.</p>
                   </div>
+                </div>
+              </section>
+
+              {/* Fiscal Printer Configuration */}
+              <section className="max-w-4xl">
+                <h2 className="text-white text-xl font-bold leading-tight mb-6">Fiscal Printer Integration (ERCA)</h2>
+                <div className="rounded-xl border border-[#393328] bg-[#221c10] divide-y divide-[#393328]">
+                  <div className="p-5 flex items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className="p-2 rounded-lg bg-[#393328] text-white hidden sm:block">
+                        <span className="material-symbols-outlined">gavel</span>
+                      </div>
+                      <div>
+                        <p className="text-white font-bold text-base">Enable Fiscal Printer</p>
+                        <p className="text-[#b9b09d] text-sm mt-0.5">Connect to an ERCA-compliant fiscal device for tax reporting.</p>
+                      </div>
+                    </div>
+                    <Toggle
+                      checked={draft.fiscal.enabled}
+                      onChange={(next) => setDraft((p) => ({ ...p, fiscal: { ...p.fiscal, enabled: next } }))}
+                      label="Enable Fiscal Printer"
+                    />
+                  </div>
+
+                  {draft.fiscal.enabled && (
+                    <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-bold text-[#b9b09d]">Fiscal Driver / Provider</label>
+                        <Select
+                          value={draft.fiscal.provider}
+                          onChange={(e) => setDraft((p) => ({ ...p, fiscal: { ...p.fiscal, provider: e.target.value as any } }))}
+                          className="mt-2"
+                        >
+                          <option value="Generic">Generic / Other</option>
+                          <option value="EthioFiscal">EthioFiscal (Datecs/Daisy)</option>
+                          <option value="Simulator">Simulator (Test Mode)</option>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-bold text-[#b9b09d]">Connection Type</label>
+                        <Select
+                          value={draft.fiscal.connectionType}
+                          onChange={(e) => setDraft((p) => ({ ...p, fiscal: { ...p.fiscal, connectionType: e.target.value as any } }))}
+                          className="mt-2"
+                        >
+                          <option value="Network">Network (TCP/IP)</option>
+                          <option value="LocalProxy">Local Driver Proxy (URL)</option>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-bold text-[#b9b09d]">Device IP / Proxy URL</label>
+                        <Input
+                          value={draft.fiscal.ip}
+                          onChange={(e) => setDraft((p) => ({ ...p, fiscal: { ...p.fiscal, ip: e.target.value } }))}
+                          placeholder={draft.fiscal.connectionType === 'Network' ? '192.168.x.x' : 'http://localhost:8080'}
+                          className="mt-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-bold text-[#b9b09d]">{draft.fiscal.connectionType === 'Network' ? 'Port' : 'Port (Optional)'}</label>
+                        <Input
+                          value={draft.fiscal.port}
+                          onChange={(e) => setDraft((p) => ({ ...p, fiscal: { ...p.fiscal, port: e.target.value } }))}
+                          placeholder={draft.fiscal.connectionType === 'Network' ? 'e.g. 8000' : ''}
+                          className="mt-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-bold text-[#b9b09d]">Machine Registration No.</label>
+                        <Input
+                          value={draft.fiscal.machineNumber}
+                          onChange={(e) => setDraft((p) => ({ ...p, fiscal: { ...p.fiscal, machineNumber: e.target.value } }))}
+                          placeholder="FS No..."
+                          className="mt-2"
+                        />
+                        <p className="text-[#b9b09d] text-xs mt-1">Printed on receipts as FS No.</p>
+                      </div>
+                      <div className="md:col-span-2 mt-2">
+                        <div className="p-4 rounded-lg bg-[#181611] border border-[#393328] flex items-center justify-between">
+                          <div>
+                            <p className="text-white text-sm font-bold">Connection Status</p>
+                            <p className="text-[#b9b09d] text-xs">Test connectivity to the fiscal device.</p>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              try {
+                                setRemoteError(null);
+                                if (draft.fiscal.provider === 'Simulator') {
+                                  alert('Simulator: Connection Successful! (Mock)');
+                                  return;
+                                }
+
+                                const res = await apiFetch(withBranchQuery('/api/manager/settings/test-fiscal'), {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    ip: draft.fiscal.ip,
+                                    port: draft.fiscal.port,
+                                    provider: draft.fiscal.provider
+                                  }),
+                                });
+                                const json = await res.json();
+                                if (res.ok) {
+                                  alert('SUCCESS: ' + (json.message || 'Device is reachable.'));
+                                } else {
+                                  alert('FAILED: ' + (json.error || 'Could not connect.'));
+                                }
+                              } catch (e) {
+                                alert('ERROR: ' + (e instanceof Error ? e.message : 'Network error'));
+                              }
+                            }}
+                            className="h-9 px-4 rounded bg-[#393328] hover:bg-[#4a4234] text-white text-xs font-bold transition-colors"
+                          >
+                            Test Connection
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -2154,38 +2283,38 @@ export const BranchSettings: React.FC = () => {
           }
         >
           <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-bold text-[#b9b09d]">Device Name</label>
+                <Input
+                  value={deviceFormState?.name ?? ''}
+                  onChange={(e) => setDeviceFormState((p) => (p ? { ...p, name: e.target.value } : p))}
+                  className="mt-2"
+                  placeholder="e.g. Main Counter Thermal"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-[#b9b09d]">Device Type</label>
+                <Select
+                  value={deviceFormState?.kind ?? 'Printer'}
+                  onChange={(e) => setDeviceFormState((p) => (p ? { ...p, kind: e.target.value as ConnectedDevice['kind'] } : p))}
+                  className="mt-2"
+                >
+                  <option value="Printer">Printer</option>
+                  <option value="KDS">KDS</option>
+                  <option value="CashDrawer">Cash Drawer</option>
+                </Select>
+              </div>
+            </div>
             <div>
-              <label className="text-sm font-bold text-[#b9b09d]">Device Name</label>
+              <label className="text-sm font-bold text-[#b9b09d]">Model</label>
               <Input
-                value={deviceFormState?.name ?? ''}
-                onChange={(e) => setDeviceFormState((p) => (p ? { ...p, name: e.target.value } : p))}
+                value={deviceFormState?.model ?? ''}
+                onChange={(e) => setDeviceFormState((p) => (p ? { ...p, model: e.target.value } : p))}
                 className="mt-2"
-                placeholder="e.g. Main Counter Thermal"
+                placeholder="e.g. Epson TM-T88V"
               />
             </div>
-            <div>
-              <label className="text-sm font-bold text-[#b9b09d]">Device Type</label>
-              <Select
-                value={deviceFormState?.kind ?? 'Printer'}
-                onChange={(e) => setDeviceFormState((p) => (p ? { ...p, kind: e.target.value as ConnectedDevice['kind'] } : p))}
-                className="mt-2"
-              >
-                <option value="Printer">Printer</option>
-                <option value="KDS">KDS</option>
-                <option value="CashDrawer">Cash Drawer</option>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-bold text-[#b9b09d]">Model</label>
-            <Input
-              value={deviceFormState?.model ?? ''}
-              onChange={(e) => setDeviceFormState((p) => (p ? { ...p, model: e.target.value } : p))}
-              className="mt-2"
-              placeholder="e.g. Epson TM-T88V"
-            />
-          </div>
             {deviceFormState?.connection === 'LAN' && (
               <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-2">
@@ -2582,6 +2711,6 @@ export const BranchSettings: React.FC = () => {
           </div>
         </Modal>
       </div>
-    </div>
+    </div >
   );
 };

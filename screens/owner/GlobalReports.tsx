@@ -16,6 +16,15 @@ import { PortalMenu, type PortalMenuAnchorRect } from '../../components/PortalMe
 import { readSession } from '../../session';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
 import { formatDeviceDateTime } from '../../datetime';
+import {
+  downloadCSV,
+  escapeCSV,
+  formatCurrency,
+  formatReadableDate,
+  generateReportHeader,
+  generateSectionHeader,
+  generateFilename,
+} from '../../utils/exportUtils';
 
 type Branch = { id: string; name: string };
 
@@ -250,76 +259,88 @@ export const GlobalReports: React.FC = () => {
   const exportCsv = () => {
     const r = reports;
     if (!r) return;
-    const generatedAt = new Date().toISOString();
     const scope = locationId ? branches.find((b) => b.id === locationId)?.name || locationId : 'All Locations';
 
+    let generatedBy = '';
+    try {
+      const s = readSession<any>();
+      generatedBy = String(s?.name || s?.username || s?.email || s?.role || '').trim();
+    } catch {
+      // ignore
+    }
+
     const lines: string[] = [];
-    lines.push(`${tenantName} - Global Reports`);
-    lines.push('Powered by MirachPos');
-    lines.push('');
-    lines.push(['GeneratedAt', generatedAt].map(csvEscape).join(','));
-    lines.push(['Location', scope].map(csvEscape).join(','));
-    lines.push(['From', fromIso || ''].map(csvEscape).join(','));
-    lines.push(['To', toIso || ''].map(csvEscape).join(','));
-    lines.push('');
 
-    lines.push('Totals');
-    lines.push(['TransCount', 'NetSales', 'Tax', 'Tips', 'Discounts', 'TotalCollected'].map(csvEscape).join(','));
-    lines.push(
-      [
-        totals.txCount,
-        totals.netSales,
-        totals.tax,
-        totals.tips,
-        -Math.abs(totals.discounts),
-        totals.totalCollected,
-      ]
-        .map(csvEscape)
-        .join(','),
-    );
-    lines.push('');
+    // Professional header
+    const headerLines = generateReportHeader({
+      businessName: tenantName,
+      branchName: scope !== 'All Locations' ? scope : undefined,
+      reportTitle: 'Global Reports',
+      fromDate: fromIso || '',
+      toDate: toIso || '',
+      generatedBy: generatedBy || undefined,
+    });
+    lines.push(...headerLines);
 
+    // Summary Totals
+    lines.push(...generateSectionHeader('Summary Totals'));
+    lines.push([escapeCSV('Metric'), escapeCSV('Value')].join(','));
+    lines.push([escapeCSV('Transactions'), escapeCSV(String(totals.txCount))].join(','));
+    lines.push([escapeCSV('Net Sales'), escapeCSV(formatCurrency(totals.netSales))].join(','));
+    lines.push([escapeCSV('Tax Collected'), escapeCSV(formatCurrency(totals.tax))].join(','));
+    lines.push([escapeCSV('Tips'), escapeCSV(formatCurrency(totals.tips))].join(','));
+    lines.push([escapeCSV('Discounts'), escapeCSV(formatCurrency(-Math.abs(totals.discounts)))].join(','));
+    lines.push([escapeCSV('Total Collected'), escapeCSV(formatCurrency(totals.totalCollected))].join(','));
+
+    // Payment Methods
     const pmRows = Array.isArray((r as any).paymentMethods) ? ((r as any).paymentMethods as any[]) : [];
     if (pmRows.length) {
-      lines.push('Payments (by Method)');
-      lines.push(['Method', 'TxCount', 'Amount'].map(csvEscape).join(','));
+      lines.push(...generateSectionHeader('Payment Methods'));
+      lines.push([escapeCSV('Method'), escapeCSV('Transactions'), escapeCSV('Amount')].join(','));
       for (const p of pmRows) {
-        lines.push([p.name, p.txCount, p.amount].map(csvEscape).join(','));
+        lines.push([escapeCSV(p.name), escapeCSV(String(p.txCount)), escapeCSV(formatCurrency(p.amount))].join(','));
       }
-      lines.push('');
     }
 
+    // Branch Breakdown
     if (!locationId && Array.isArray(r.branchBreakdown) && r.branchBreakdown.length) {
-      lines.push('All Locations - Branch Breakdown');
-      lines.push(['Branch', 'Status', 'TransCount', 'NetSales', 'Tax', 'Tips', 'Discounts', 'TotalCollected'].map(csvEscape).join(','));
+      lines.push(...generateSectionHeader('Branch Performance'));
+      lines.push([escapeCSV('Branch'), escapeCSV('Status'), escapeCSV('Orders'), escapeCSV('Net Sales'), escapeCSV('Tax'), escapeCSV('Tips'), escapeCSV('Discounts'), escapeCSV('Total')].join(','));
       for (const b of r.branchBreakdown) {
-        lines.push(
-          [b.name, b.status, b.txCount, b.netSales, b.tax, b.tips, -Math.abs(b.discounts), b.totalCollected]
-            .map(csvEscape)
-            .join(','),
-        );
+        lines.push([
+          escapeCSV(b.name),
+          escapeCSV(b.status),
+          escapeCSV(String(b.txCount)),
+          escapeCSV(formatCurrency(b.netSales)),
+          escapeCSV(formatCurrency(b.tax)),
+          escapeCSV(formatCurrency(b.tips)),
+          escapeCSV(formatCurrency(-Math.abs(b.discounts))),
+          escapeCSV(formatCurrency(b.totalCollected)),
+        ].join(','));
       }
-      lines.push('');
     }
 
-    lines.push('Daily Sales Ledger');
-    lines.push(['Date', 'TransCount', 'NetSales', 'Tax', 'Tips', 'Discounts', 'TotalCollected'].map(csvEscape).join(','));
+    // Daily Ledger
+    lines.push(...generateSectionHeader('Daily Sales Ledger'));
+    lines.push([escapeCSV('Date'), escapeCSV('Orders'), escapeCSV('Net Sales'), escapeCSV('Tax'), escapeCSV('Tips'), escapeCSV('Discounts'), escapeCSV('Total')].join(','));
     for (const x of r.ledger) {
-      lines.push(
-        [x.date, x.txCount, x.netSales, x.tax, x.tips, -Math.abs(x.discounts), x.totalCollected]
-          .map(csvEscape)
-          .join(','),
-      );
+      lines.push([
+        escapeCSV(formatReadableDate(x.date)),
+        escapeCSV(String(x.txCount)),
+        escapeCSV(formatCurrency(x.netSales)),
+        escapeCSV(formatCurrency(x.tax)),
+        escapeCSV(formatCurrency(x.tips)),
+        escapeCSV(formatCurrency(-Math.abs(x.discounts))),
+        escapeCSV(formatCurrency(x.totalCollected)),
+      ].join(','));
     }
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `global-reports-${locationId || 'all'}-${generatedAt.slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+
+    // Footer
+    lines.push('');
+    lines.push(escapeCSV('Powered by MirachPOS'));
+
+    const filename = generateFilename('global_reports', locationId ? scope : 'all_locations', fromIso, toIso);
+    downloadCSV(lines.join('\n'), filename);
   };
 
   const exportSoldCsv = () => {
@@ -598,11 +619,10 @@ export const GlobalReports: React.FC = () => {
         <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6">
           {banner ? (
             <div
-              className={`rounded-xl border p-4 flex items-center justify-between gap-4 ${
-                banner.kind === 'success'
+              className={`rounded-xl border p-4 flex items-center justify-between gap-4 ${banner.kind === 'success'
                   ? 'border-green-500/20 bg-green-900/10 text-green-200'
                   : 'border-red-500/20 bg-red-900/10 text-red-200'
-              }`}
+                }`}
             >
               <div className="text-sm font-medium">{banner.message}</div>
               <button
@@ -725,88 +745,88 @@ export const GlobalReports: React.FC = () => {
                   <span className="material-symbols-outlined text-[#c9b792] group-hover:text-white text-[18px]">keyboard_arrow_down</span>
                 </button>
 
-              <PortalMenu
-                open={rangeOpen}
-                anchorRect={rangeAnchor}
-                onClose={() => {
-                  setRangeOpen(false);
-                  setRangeAnchor(null);
-                }}
-                width={320}
-              >
-                <div className="p-3">
-                  <div className="text-xs font-bold text-[#c9b792] uppercase tracking-wider">Date Range</div>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    <button onClick={presetThisMonth} className="h-9 rounded-lg bg-[#2a2316] border border-[#483c23] text-sm text-white hover:border-primary/50" type="button">This Month</button>
-                    <button onClick={presetLast30} className="h-9 rounded-lg bg-[#2a2316] border border-[#483c23] text-sm text-white hover:border-primary/50" type="button">Last 30</button>
-                    <button onClick={presetThisYear} className="h-9 rounded-lg bg-[#2a2316] border border-[#483c23] text-sm text-white hover:border-primary/50" type="button">This Year</button>
-                  </div>
+                <PortalMenu
+                  open={rangeOpen}
+                  anchorRect={rangeAnchor}
+                  onClose={() => {
+                    setRangeOpen(false);
+                    setRangeAnchor(null);
+                  }}
+                  width={320}
+                >
+                  <div className="p-3">
+                    <div className="text-xs font-bold text-[#c9b792] uppercase tracking-wider">Date Range</div>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      <button onClick={presetThisMonth} className="h-9 rounded-lg bg-[#2a2316] border border-[#483c23] text-sm text-white hover:border-primary/50" type="button">This Month</button>
+                      <button onClick={presetLast30} className="h-9 rounded-lg bg-[#2a2316] border border-[#483c23] text-sm text-white hover:border-primary/50" type="button">Last 30</button>
+                      <button onClick={presetThisYear} className="h-9 rounded-lg bg-[#2a2316] border border-[#483c23] text-sm text-white hover:border-primary/50" type="button">This Year</button>
+                    </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#c9b792]">From</span>
-                      <input
-                        value={toDateInput(draftFromIso || fromIso)}
-                        onChange={(e) => setDraftFromIso(fromDateInputStartIso(e.target.value))}
-                        type="date"
-                        className="h-9 rounded-lg border border-[#483c23] bg-[#2a2316] text-white px-2 text-sm focus:border-primary focus:outline-none"
-                      />
-                    </label>
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#c9b792]">To</span>
-                      <input
-                        value={toDateInput(draftToIso || toIso)}
-                        onChange={(e) => setDraftToIso(fromDateInputEndIso(e.target.value))}
-                        type="date"
-                        className="h-9 rounded-lg border border-[#483c23] bg-[#2a2316] text-white px-2 text-sm focus:border-primary focus:outline-none"
-                      />
-                    </label>
-                  </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#c9b792]">From</span>
+                        <input
+                          value={toDateInput(draftFromIso || fromIso)}
+                          onChange={(e) => setDraftFromIso(fromDateInputStartIso(e.target.value))}
+                          type="date"
+                          className="h-9 rounded-lg border border-[#483c23] bg-[#2a2316] text-white px-2 text-sm focus:border-primary focus:outline-none"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#c9b792]">To</span>
+                        <input
+                          value={toDateInput(draftToIso || toIso)}
+                          onChange={(e) => setDraftToIso(fromDateInputEndIso(e.target.value))}
+                          type="date"
+                          className="h-9 rounded-lg border border-[#483c23] bg-[#2a2316] text-white px-2 text-sm focus:border-primary focus:outline-none"
+                        />
+                      </label>
+                    </div>
 
-                  <div className="mt-3 flex items-center justify-between gap-2">
-                    <button
-                      onClick={() => {
-                        setRangeOpen(false);
-                        setRangeAnchor(null);
-                      }}
-                      className="h-9 px-3 rounded-lg bg-[#2a2316] border border-[#483c23] text-sm text-[#c9b792] hover:text-white"
-                      type="button"
-                    >
-                      Close
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (draftFromIso) setFromIso(draftFromIso);
-                        if (draftToIso) setToIso(draftToIso);
-                        setRangeOpen(false);
-                        setRangeAnchor(null);
-                      }}
-                      className="h-9 px-3 rounded-lg bg-primary text-[#221c10] text-sm font-bold hover:bg-primary/90"
-                      type="button"
-                    >
-                      Apply
-                    </button>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => {
+                          setRangeOpen(false);
+                          setRangeAnchor(null);
+                        }}
+                        className="h-9 px-3 rounded-lg bg-[#2a2316] border border-[#483c23] text-sm text-[#c9b792] hover:text-white"
+                        type="button"
+                      >
+                        Close
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (draftFromIso) setFromIso(draftFromIso);
+                          if (draftToIso) setToIso(draftToIso);
+                          setRangeOpen(false);
+                          setRangeAnchor(null);
+                        }}
+                        className="h-9 px-3 rounded-lg bg-primary text-[#221c10] text-sm font-bold hover:bg-primary/90"
+                        type="button"
+                      >
+                        Apply
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </PortalMenu>
-            </div>
+                </PortalMenu>
+              </div>
 
-            <div className="flex items-center gap-2 rounded-xl bg-[#2a2316] border border-[#483c23] px-4 h-10">
-              <span className="material-symbols-outlined text-[#c9b792] text-[18px]">storefront</span>
-              <span className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Location</span>
-              <select
-                value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
-                className="h-9 bg-transparent text-sm text-white focus:ring-0 border-none"
-              >
-                <option value="">All Locations</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="flex items-center gap-2 rounded-xl bg-[#2a2316] border border-[#483c23] px-4 h-10">
+                <span className="material-symbols-outlined text-[#c9b792] text-[18px]">storefront</span>
+                <span className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Location</span>
+                <select
+                  value={locationId}
+                  onChange={(e) => setLocationId(e.target.value)}
+                  className="h-9 bg-transparent text-sm text-white focus:ring-0 border-none"
+                >
+                  <option value="">All Locations</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1279,13 +1299,12 @@ export const GlobalReports: React.FC = () => {
                           <td className="whitespace-nowrap px-5 py-3 text-white font-bold">{b.name}</td>
                           <td className="whitespace-nowrap px-5 py-3">
                             <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold border ${
-                                b.status === 'Open'
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold border ${b.status === 'Open'
                                   ? 'bg-green-500/10 text-green-300 border-green-500/20'
                                   : b.status === 'Closed'
                                     ? 'bg-red-500/10 text-red-300 border-red-500/20'
                                     : 'bg-[#2a2316] text-[#c9b792] border-[#483c23]'
-                              }`}
+                                }`}
                             >
                               {b.status}
                             </span>
@@ -1379,64 +1398,64 @@ export const GlobalReports: React.FC = () => {
 
             <div className="overflow-x-auto">
               {tab === 'ledger' ? (
-              <table className="w-full text-left text-sm text-[#c9b792]">
-                <thead className="bg-[#221c11] text-xs uppercase text-[#c9b792] border-b border-[#483c23]">
-                  <tr>
-                    <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider">Date</th>
-                    <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-center">Trans. Count</th>
-                    <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right">Net Sales</th>
-                    <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right">Tax</th>
-                    <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right">Tips</th>
-                    <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right text-red-400">Discounts</th>
-                    <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right text-white">Total Collected</th>
-                    <th className="px-4 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#483c23] font-medium">
-                  {loading ? (
+                <table className="w-full text-left text-sm text-[#c9b792]">
+                  <thead className="bg-[#221c11] text-xs uppercase text-[#c9b792] border-b border-[#483c23]">
                     <tr>
-                      <td className="px-6 py-6" colSpan={8}>
-                        Loading...
-                      </td>
+                      <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider">Date</th>
+                      <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-center">Trans. Count</th>
+                      <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right">Net Sales</th>
+                      <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right">Tax</th>
+                      <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right">Tips</th>
+                      <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right text-red-400">Discounts</th>
+                      <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right text-white">Total Collected</th>
+                      <th className="px-4 py-3"></th>
                     </tr>
-                  ) : pageRows.length === 0 ? (
-                    <tr>
-                      <td className="px-6 py-6" colSpan={8}>
-                        No rows.
-                      </td>
-                    </tr>
-                  ) : (
-                    pageRows.map((r, idx) => (
-                      <tr key={r.date} className={idx % 2 === 1 ? 'bg-[#221c11]/40 hover:bg-[#322a1b] transition-colors' : 'hover:bg-[#322a1b] transition-colors'}>
-                        <td className="whitespace-nowrap px-6 py-4 text-white">{fmtDate(r.date)}</td>
-                        <td className="whitespace-nowrap px-6 py-4 text-center">{r.txCount}</td>
-                        <td className="whitespace-nowrap px-6 py-4 text-right">{money.format(r.netSales)}</td>
-                        <td className="whitespace-nowrap px-6 py-4 text-right">{money.format(r.tax)}</td>
-                        <td className="whitespace-nowrap px-6 py-4 text-right">{money.format(r.tips)}</td>
-                        <td className="whitespace-nowrap px-6 py-4 text-right text-red-400">-{money.format(Math.abs(r.discounts))}</td>
-                        <td className="whitespace-nowrap px-6 py-4 text-right font-bold text-white">{money.format(r.totalCollected)}</td>
-                        <td className="px-4 py-4 text-right">
-                          <button className="text-[#c9b792] hover:text-primary">
-                            <span className="material-symbols-outlined">more_vert</span>
-                          </button>
+                  </thead>
+                  <tbody className="divide-y divide-[#483c23] font-medium">
+                    {loading ? (
+                      <tr>
+                        <td className="px-6 py-6" colSpan={8}>
+                          Loading...
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-                <tfoot className="bg-[#221c11] border-t-2 border-[#483c23]">
-                  <tr>
-                    <td className="px-6 py-4 font-bold text-white uppercase">Totals</td>
-                    <td className="px-6 py-4 text-center font-bold text-white">{totals.txCount}</td>
-                    <td className="px-6 py-4 text-right font-bold text-white">{money.format(totals.netSales)}</td>
-                    <td className="px-6 py-4 text-right font-bold text-white">{money.format(totals.tax)}</td>
-                    <td className="px-6 py-4 text-right font-bold text-white">{money.format(totals.tips)}</td>
-                    <td className="px-6 py-4 text-right font-bold text-red-400">-{money.format(Math.abs(totals.discounts))}</td>
-                    <td className="px-6 py-4 text-right font-bold text-primary text-base">{money.format(totals.totalCollected)}</td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
+                    ) : pageRows.length === 0 ? (
+                      <tr>
+                        <td className="px-6 py-6" colSpan={8}>
+                          No rows.
+                        </td>
+                      </tr>
+                    ) : (
+                      pageRows.map((r, idx) => (
+                        <tr key={r.date} className={idx % 2 === 1 ? 'bg-[#221c11]/40 hover:bg-[#322a1b] transition-colors' : 'hover:bg-[#322a1b] transition-colors'}>
+                          <td className="whitespace-nowrap px-6 py-4 text-white">{fmtDate(r.date)}</td>
+                          <td className="whitespace-nowrap px-6 py-4 text-center">{r.txCount}</td>
+                          <td className="whitespace-nowrap px-6 py-4 text-right">{money.format(r.netSales)}</td>
+                          <td className="whitespace-nowrap px-6 py-4 text-right">{money.format(r.tax)}</td>
+                          <td className="whitespace-nowrap px-6 py-4 text-right">{money.format(r.tips)}</td>
+                          <td className="whitespace-nowrap px-6 py-4 text-right text-red-400">-{money.format(Math.abs(r.discounts))}</td>
+                          <td className="whitespace-nowrap px-6 py-4 text-right font-bold text-white">{money.format(r.totalCollected)}</td>
+                          <td className="px-4 py-4 text-right">
+                            <button className="text-[#c9b792] hover:text-primary">
+                              <span className="material-symbols-outlined">more_vert</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  <tfoot className="bg-[#221c11] border-t-2 border-[#483c23]">
+                    <tr>
+                      <td className="px-6 py-4 font-bold text-white uppercase">Totals</td>
+                      <td className="px-6 py-4 text-center font-bold text-white">{totals.txCount}</td>
+                      <td className="px-6 py-4 text-right font-bold text-white">{money.format(totals.netSales)}</td>
+                      <td className="px-6 py-4 text-right font-bold text-white">{money.format(totals.tax)}</td>
+                      <td className="px-6 py-4 text-right font-bold text-white">{money.format(totals.tips)}</td>
+                      <td className="px-6 py-4 text-right font-bold text-red-400">-{money.format(Math.abs(totals.discounts))}</td>
+                      <td className="px-6 py-4 text-right font-bold text-primary text-base">{money.format(totals.totalCollected)}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
               ) : tab === 'mix' ? (
                 <div className="p-6 text-sm">
                   <div className="text-white font-bold">Product Mix (by Sold Categories)</div>

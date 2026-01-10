@@ -291,17 +291,17 @@ type PosContextType = {
     orderId: string,
     splits:
       | Array<{
-          id: string;
-          status: 'Unpaid' | 'Paid';
-          items: Array<{ productId: string; qty: number }>;
-          subtotal: number;
-          tax: number;
-          serviceCharge: number;
-          total: number;
-          paidAt?: string;
-          paymentMethod?: PaymentMethod;
-          tenderedAmount?: number;
-        }>
+        id: string;
+        status: 'Unpaid' | 'Paid';
+        items: Array<{ productId: string; qty: number }>;
+        subtotal: number;
+        tax: number;
+        serviceCharge: number;
+        total: number;
+        paidAt?: string;
+        paymentMethod?: PaymentMethod;
+        tenderedAmount?: number;
+      }>
       | null,
   ) => void;
   markNotificationRead: (notificationId: string, read: boolean) => void;
@@ -577,71 +577,71 @@ const readState = (): PersistedState => {
 
     const migratedOrders = Array.isArray(parsed.orders)
       ? parsed.orders.map((o) => ({
-          ...o,
-          createdByStaffId: typeof (o as any).createdByStaffId === 'string' ? (o as any).createdByStaffId : undefined,
-          createdByName: typeof (o as any).createdByName === 'string' ? (o as any).createdByName : undefined,
-          syncedToServer: typeof (o as any).syncedToServer === 'boolean' ? (o as any).syncedToServer : false,
-          syncedAt: typeof (o as any).syncedAt === 'string' ? (o as any).syncedAt : undefined,
-          items: Array.isArray(o.items)
-            ? o.items.map((it) => ({
-                ...it,
-                voidedQty: typeof (it as any).voidedQty === 'number' ? (it as any).voidedQty : 0,
-                note: typeof (it as any).note === 'string' ? (it as any).note : '',
-                voidReason: typeof (it as any).voidReason === 'string' ? (it as any).voidReason : undefined,
-              }))
-            : [],
-        }))
+        ...o,
+        createdByStaffId: typeof (o as any).createdByStaffId === 'string' ? (o as any).createdByStaffId : undefined,
+        createdByName: typeof (o as any).createdByName === 'string' ? (o as any).createdByName : undefined,
+        syncedToServer: typeof (o as any).syncedToServer === 'boolean' ? (o as any).syncedToServer : false,
+        syncedAt: typeof (o as any).syncedAt === 'string' ? (o as any).syncedAt : undefined,
+        items: Array.isArray(o.items)
+          ? o.items.map((it) => ({
+            ...it,
+            voidedQty: typeof (it as any).voidedQty === 'number' ? (it as any).voidedQty : 0,
+            note: typeof (it as any).note === 'string' ? (it as any).note : '',
+            voidReason: typeof (it as any).voidReason === 'string' ? (it as any).voidReason : undefined,
+          }))
+          : [],
+      }))
       : seeded.orders;
 
     const migratedTables = Array.isArray(parsed.tables)
       ? parsed.tables.map((t) => ({
-          ...t,
-          openOrderId: typeof t.openOrderId === 'string' || t.openOrderId === null ? t.openOrderId : null,
-          lastOrderId: typeof t.lastOrderId === 'string' || t.lastOrderId === null ? t.lastOrderId : null,
-          assignedStaffId: typeof t.assignedStaffId === 'string' || t.assignedStaffId === null ? t.assignedStaffId : null,
-          assignedStaffName:
-            (() => {
-              const rawName = (t as any).assignedStaffName;
-              const cleaned = typeof rawName === 'string' ? rawName.trim() : '';
-              if (rawName === null) return null;
-              if (cleaned && cleaned.toLowerCase() !== 'waiter') return cleaned;
-              const id = typeof t.assignedStaffId === 'string' ? t.assignedStaffId : '';
-              const cached = resolveStaffName(id);
-              return cached ? cached : null;
-            })(),
-          cartItemCount: typeof t.cartItemCount === 'number' ? t.cartItemCount : 0,
-          currentTotal: typeof t.currentTotal === 'number' ? t.currentTotal : 0,
-        }))
+        ...t,
+        openOrderId: typeof t.openOrderId === 'string' || t.openOrderId === null ? t.openOrderId : null,
+        lastOrderId: typeof t.lastOrderId === 'string' || t.lastOrderId === null ? t.lastOrderId : null,
+        assignedStaffId: typeof t.assignedStaffId === 'string' || t.assignedStaffId === null ? t.assignedStaffId : null,
+        assignedStaffName:
+          (() => {
+            const rawName = (t as any).assignedStaffName;
+            const cleaned = typeof rawName === 'string' ? rawName.trim() : '';
+            if (rawName === null) return null;
+            if (cleaned && cleaned.toLowerCase() !== 'waiter') return cleaned;
+            const id = typeof t.assignedStaffId === 'string' ? t.assignedStaffId : '';
+            const cached = resolveStaffName(id);
+            return cached ? cached : null;
+          })(),
+        cartItemCount: typeof t.cartItemCount === 'number' ? t.cartItemCount : 0,
+        currentTotal: typeof t.currentTotal === 'number' ? t.currentTotal : 0,
+      }))
       : seeded.tables;
 
     const migratedProducts = Array.isArray(parsed.products)
       ? (() => {
-          const src = parsed.products as any[];
-          let last = ensureNextProductCode(seeded.products);
-          const nextProducts: Product[] = [];
+        const src = parsed.products as any[];
+        let last = ensureNextProductCode(seeded.products);
+        const nextProducts: Product[] = [];
 
-          for (const p of src) {
-            const id = typeof p.id === 'string' ? p.id : generateId();
-            const name = typeof p.name === 'string' ? p.name : '';
-            const price = typeof p.price === 'number' ? p.price : 0;
-            const category = typeof p.category === 'string' ? p.category : '';
-            const image = typeof p.image === 'string' ? p.image : '';
-            const stock = typeof p.stock === 'number' ? p.stock : 0;
+        for (const p of src) {
+          const id = typeof p.id === 'string' ? p.id : generateId();
+          const name = typeof p.name === 'string' ? p.name : '';
+          const price = typeof p.price === 'number' ? p.price : 0;
+          const category = typeof p.category === 'string' ? p.category : '';
+          const image = typeof p.image === 'string' ? p.image : '';
+          const stock = typeof p.stock === 'number' ? p.stock : 0;
 
-            const rawCode = typeof p.code === 'string' ? p.code : '';
-            const code = rawCode.trim()
-              ? rawCode
-              : (() => {
-                  last += 1;
-                  return `PRD${last}`;
-                })();
+          const rawCode = typeof p.code === 'string' ? p.code : '';
+          const code = rawCode.trim()
+            ? rawCode
+            : (() => {
+              last += 1;
+              return `PRD${last}`;
+            })();
 
-            nextProducts.push({ id, code, name, price, category, image, stock });
-          }
+          nextProducts.push({ id, code, name, price, category, image, stock });
+        }
 
-          writeCounter(PRODUCT_CODE_COUNTER_KEY, last);
-          return nextProducts;
-        })()
+        writeCounter(PRODUCT_CODE_COUNTER_KEY, last);
+        return nextProducts;
+      })()
       : seeded.products;
 
     return {
@@ -2076,6 +2076,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: updatedOrder!.status }),
               });
+              // Refresh to sync table status with DB
+              void refreshFromServer();
               if (res.ok) return;
               if (res.status === 404) {
                 // Fallback: order might not exist yet, attempt full persist.
@@ -2088,7 +2090,9 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return;
         }
 
-        void persistOrder(updatedOrder);
+        void persistOrder(updatedOrder).then(() => {
+          void refreshFromServer();
+        });
       } catch {
         // ignore
       }
@@ -2341,11 +2345,11 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const nextProducts = shouldCloseTable
         ? s.products.map((p) => {
-            const line = order.items.find((i) => i.productId === p.id);
-            if (!line) return p;
-            const used = effectiveQty(line);
-            return { ...p, stock: Math.max(0, p.stock - used) };
-          })
+          const line = order.items.find((i) => i.productId === p.id);
+          if (!line) return p;
+          const used = effectiveQty(line);
+          return { ...p, stock: Math.max(0, p.stock - used) };
+        })
         : s.products;
 
       const nextTables = s.tables.map((t) =>
@@ -2381,7 +2385,15 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     queueMicrotask(() => {
       try {
-        if (updatedOrder) void persistOrder(updatedOrder);
+        if (updatedOrder) {
+          void persistOrder(updatedOrder).then(() => {
+            // Refresh from server after payment to ensure table status is synced
+            void refreshFromServer();
+          }).catch(() => {
+            // Still try to refresh even if persist failed
+            void refreshFromServer();
+          });
+        }
       } catch {
         // ignore
       }

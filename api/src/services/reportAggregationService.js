@@ -22,6 +22,11 @@ const toDateString = (date) => {
     return d.toISOString().split('T')[0];
 };
 
+const normalizePaymentKey = (method) => {
+    const paymentMethod = String(method || 'Other').trim();
+    return paymentMethod.toLowerCase().replace(/\s+/g, '_') || 'other';
+};
+
 // Aggregate daily sales for a specific tenant and branch
 const aggregateDailySales = async ({ tenantId, branchId, date }) => {
     const dateStr = toDateString(date);
@@ -182,6 +187,121 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
         });
 
     return { orderCount, netSales, itemCount };
+};
+
+// Aggregate staff sales (daily)
+const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
+    const dateStr = toDateString(date);
+    const startOfDay = `${dateStr}T00:00:00.000Z`;
+    const endOfDay = `${dateStr}T23:59:59.999Z`;
+    const nowIso = new Date().toISOString();
+
+    const orders = await db()
+        .select(['id', 'total', 'tax', 'tip', 'discount', 'paid_at', 'payload'])
+        .from('orders')
+        .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
+        .andWhere('paid_at', '>=', startOfDay)
+        .andWhere('paid_at', '<=', endOfDay);
+
+    const byStaff = new Map();
+
+    for (const order of orders) {
+        const payload = safeJsonParse(order.payload, {});
+        const staffId = String(payload?.createdByStaffId || payload?.created_by_staff_id || '').trim() || 'unknown';
+        const staffName = String(payload?.createdByName || payload?.created_by_name || '').trim() || (staffId === 'unknown' ? 'Unknown' : '');
+
+        const total = Number(order.total || 0) || 0;
+        const orderTaxDb = Number(order.tax || 0) || 0;
+        const orderTipDb = Number(order.tip || 0) || 0;
+        const orderDiscount = Number(order.discount || 0) || 0;
+        const paidAt = order.paid_at;
+
+        // Tip is stored in orders.tip, but some historical payloads may keep it in payload.
+        const tipFromPayload = Number(payload?.tip ?? payload?.tipAmount ?? payload?.tip_etb ?? payload?.tipETB ?? 0) || 0;
+        const taxFromPayload = Number(payload?.tax ?? payload?.taxAmount ?? payload?.tax_etb ?? payload?.taxETB ?? 0) || 0;
+        const orderTip = orderTipDb > 0 ? orderTipDb : tipFromPayload;
+        const orderTax = orderTaxDb > 0 ? orderTaxDb : taxFromPayload;
+
+        const pmKey = normalizePaymentKey(payload?.paymentMethod || payload?.method || payload?.tender);
+
+        const cur = byStaff.get(staffId) || {
+            staffId,
+            staffName,
+            orderCount: 0,
+            grossSales: 0,
+            discounts: 0,
+            netSales: 0,
+            tax: 0,
+            tips: 0,
+            totalCollected: 0,
+            paymentBreakdown: {},
+            firstOrderAt: null,
+            lastOrderAt: null,
+        };
+
+        cur.orderCount += 1;
+        cur.grossSales += total + orderDiscount;
+        cur.discounts += orderDiscount;
+        cur.netSales += total;
+        cur.tax += orderTax;
+        cur.tips += orderTip;
+        cur.totalCollected += total + orderTax + orderTip;
+        cur.paymentBreakdown[pmKey] = (cur.paymentBreakdown[pmKey] || 0) + total;
+
+        if (!cur.firstOrderAt || (paidAt && paidAt < cur.firstOrderAt)) cur.firstOrderAt = paidAt;
+        if (!cur.lastOrderAt || (paidAt && paidAt > cur.lastOrderAt)) cur.lastOrderAt = paidAt;
+
+        if (!cur.staffName && staffName) cur.staffName = staffName;
+
+        byStaff.set(staffId, cur);
+    }
+
+    // If there were no orders, we still do nothing. This avoids generating lots of empty rows.
+    for (const row of byStaff.values()) {
+        const avgTicket = row.orderCount > 0 ? row.netSales / row.orderCount : 0;
+        const id = `sss_${tenantId}_${branchId}_${dateStr}_${row.staffId}`;
+
+        await db()
+            .from('staff_sales_summary')
+            .insert({
+                id,
+                tenant_id: tenantId,
+                branch_id: branchId,
+                report_date: dateStr,
+                staff_id: row.staffId,
+                staff_name: row.staffName || null,
+                order_count: row.orderCount,
+                gross_sales_etb: row.grossSales,
+                discounts_etb: row.discounts,
+                net_sales_etb: row.netSales,
+                tax_etb: row.tax,
+                tips_etb: row.tips,
+                total_collected_etb: row.totalCollected,
+                payment_breakdown_json: JSON.stringify(row.paymentBreakdown),
+                avg_ticket_etb: Math.round(avgTicket * 100) / 100,
+                first_order_at: row.firstOrderAt,
+                last_order_at: row.lastOrderAt,
+                computed_at: nowIso,
+            })
+            .onConflict(['tenant_id', 'branch_id', 'report_date', 'staff_id'])
+            .merge({
+                staff_name: row.staffName || null,
+                order_count: row.orderCount,
+                gross_sales_etb: row.grossSales,
+                discounts_etb: row.discounts,
+                net_sales_etb: row.netSales,
+                tax_etb: row.tax,
+                tips_etb: row.tips,
+                total_collected_etb: row.totalCollected,
+                payment_breakdown_json: JSON.stringify(row.paymentBreakdown),
+                avg_ticket_etb: Math.round(avgTicket * 100) / 100,
+                first_order_at: row.firstOrderAt,
+                last_order_at: row.lastOrderAt,
+                computed_at: nowIso,
+            });
+    }
+
+    return { staffCount: byStaff.size, orderCount: orders.length };
 };
 
 // Aggregate hourly sales
@@ -469,10 +589,11 @@ const runDailyAggregation = async (date = null) => {
             await aggregateHourlySales({ tenantId: tenant_id, branchId: branch_id, date: targetDate });
             await aggregateProductSales({ tenantId: tenant_id, branchId: branch_id, date: targetDate });
             await aggregateCategorySales({ tenantId: tenant_id, branchId: branch_id, date: targetDate });
+            await aggregateStaffSales({ tenantId: tenant_id, branchId: branch_id, date: targetDate });
             processed++;
-        } catch (error) {
-            console.error(`[ReportAggregation] Error for ${tenant_id}/${branch_id}:`, error);
+        } catch (e) {
             errors++;
+            console.error(`[ReportAggregation] Error processing branch ${branch_id}:`, e);
         }
     }
 
@@ -481,90 +602,82 @@ const runDailyAggregation = async (date = null) => {
     return { date: dateStr, processed, errors };
 };
 
-// Get pre-aggregated daily sales
-const getDailySalesSummary = async ({ tenantId, branchId = null, fromDate, toDate }) => {
-    let query = db()
-        .select(['*'])
+const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate }) => {
+    const q = db()
         .from('daily_sales_summary')
         .where({ tenant_id: tenantId })
         .andWhere('report_date', '>=', fromDate)
-        .andWhere('report_date', '<=', toDate);
+        .andWhere('report_date', '<=', toDate)
+        .orderBy('report_date', 'asc')
+        .select([
+            'report_date',
+            'branch_id',
+            'order_count',
+            'item_count',
+            'gross_sales_etb',
+            'discounts_etb',
+            'net_sales_etb',
+            'tax_etb',
+            'tips_etb',
+            'total_collected_etb',
+            'payment_breakdown_json',
+            'avg_ticket_etb',
+            'computed_at',
+        ]);
 
-    if (branchId) {
-        query = query.andWhere({ branch_id: branchId });
-    }
+    if (branchId) q.andWhere({ branch_id: branchId });
 
-    const rows = await query.orderBy('report_date', 'asc');
-
+    const rows = await q;
     return rows.map((r) => ({
-        date: r.report_date,
-        branchId: r.branch_id,
-        orderCount: Number(r.order_count || 0),
-        itemCount: Number(r.item_count || 0),
-        grossSales: Number(r.gross_sales_etb || 0),
-        discounts: Number(r.discounts_etb || 0),
-        netSales: Number(r.net_sales_etb || 0),
-        tax: Number(r.tax_etb || 0),
-        tips: Number(r.tips_etb || 0),
-        totalCollected: Number(r.total_collected_etb || 0),
-        voidCount: Number(r.void_count || 0),
-        voidAmount: Number(r.void_amount_etb || 0),
-        refundCount: Number(r.refund_count || 0),
-        refundAmount: Number(r.refund_amount_etb || 0),
+        date: r.report_date ? String(r.report_date).slice(0, 10) : '',
+        branchId: String(r.branch_id || ''),
+        orderCount: Number(r.order_count || 0) || 0,
+        itemCount: Number(r.item_count || 0) || 0,
+        grossSales: Number(r.gross_sales_etb || 0) || 0,
+        discounts: Number(r.discounts_etb || 0) || 0,
+        netSales: Number(r.net_sales_etb || 0) || 0,
+        tax: Number(r.tax_etb || 0) || 0,
+        tips: Number(r.tips_etb || 0) || 0,
+        totalCollected: Number(r.total_collected_etb || 0) || 0,
         paymentBreakdown: safeJsonParse(r.payment_breakdown_json, {}),
-        avgTicket: Number(r.avg_ticket_etb || 0),
-        firstOrderAt: r.first_order_at,
-        lastOrderAt: r.last_order_at,
+        avgTicket: Number(r.avg_ticket_etb || 0) || 0,
+        computedAt: r.computed_at ? new Date(r.computed_at).toISOString() : null,
     }));
 };
 
-// Get hourly sales heatmap data
-const getHourlySalesHeatmap = async ({ tenantId, branchId = null, fromDate, toDate }) => {
-    let query = db()
-        .select([
-            'hour',
-            db().raw('SUM(order_count) as total_orders'),
-            db().raw('SUM(net_sales_etb) as total_sales'),
-            db().raw('AVG(net_sales_etb) as avg_sales'),
-        ])
+const getHourlySalesHeatmap = async ({ tenantId, branchId, fromDate, toDate }) => {
+    const q = db()
         .from('hourly_sales_summary')
         .where({ tenant_id: tenantId })
         .andWhere('report_date', '>=', fromDate)
-        .andWhere('report_date', '<=', toDate);
+        .andWhere('report_date', '<=', toDate)
+        .select([
+            'hour',
+            db().raw('SUM(order_count) as order_count'),
+            db().raw('SUM(total_collected_etb) as total_collected_etb'),
+        ])
+        .groupBy(['hour'])
+        .orderBy('hour', 'asc');
 
-    if (branchId) {
-        query = query.andWhere({ branch_id: branchId });
-    }
+    if (branchId) q.andWhere({ branch_id: branchId });
 
-    const rows = await query.groupBy('hour').orderBy('hour', 'asc');
-
-    // Build 24-hour array
-    const heatmap = Array.from({ length: 24 }, (_, i) => ({
-        hour: i,
-        label: `${String(i).padStart(2, '0')}:00`,
-        orderCount: 0,
-        sales: 0,
-        avgSales: 0,
-    }));
-
-    for (const row of rows) {
-        const hour = Number(row.hour || 0);
-        if (hour >= 0 && hour < 24) {
-            heatmap[hour] = {
-                hour,
-                label: `${String(hour).padStart(2, '0')}:00`,
-                orderCount: Number(row.total_orders || 0),
-                sales: Number(row.total_sales || 0),
-                avgSales: Number(row.avg_sales || 0),
-            };
-        }
-    }
-
-    return heatmap;
+    const rows = await q;
+    return rows.map((r) => {
+        const hour = Number(r.hour || 0) || 0;
+        const sales = Number(r.total_collected_etb || 0) || 0;
+        const orderCount = Number(r.order_count || 0) || 0;
+        const label = `${String(hour).padStart(2, '0')}:00`;
+        return {
+            hour,
+            label,
+            orderCount,
+            sales,
+            avgSales: orderCount > 0 ? Math.round((sales / orderCount) * 100) / 100 : 0,
+        };
+    });
 };
 
-// Get product performance
-const getProductPerformance = async ({ tenantId, branchId = null, fromDate, toDate, limit = 20 }) => {
+const getProductPerformance = async ({ tenantId, branchId, fromDate, toDate, limit }) => {
     let query = db()
         .select([
             'product_id',
@@ -589,12 +702,50 @@ const getProductPerformance = async ({ tenantId, branchId = null, fromDate, toDa
         .limit(limit);
 
     return rows.map((r) => ({
-        productId: r.product_id,
-        name: r.product_name || r.product_id,
-        category: r.category || 'Uncategorized',
-        qtySold: Number(r.total_qty || 0),
-        revenue: Number(r.total_revenue || 0),
-        voidQty: Number(r.total_voids || 0),
+        productId: String(r.product_id || ''),
+        name: String(r.product_name || r.product_id || ''),
+        category: String(r.category || 'Uncategorized'),
+        qtySold: Number(r.total_qty || 0) || 0,
+        revenue: Number(r.total_revenue || 0) || 0,
+        voidQty: Number(r.total_voids || 0) || 0,
+    }));
+};
+
+const getStaffSalesSummary = async ({ tenantId, branchId, fromDate, toDate, limit }) => {
+    let query = db()
+        .from('staff_sales_summary')
+        .where({ tenant_id: tenantId })
+        .andWhere('report_date', '>=', fromDate)
+        .andWhere('report_date', '<=', toDate)
+        .select([
+            'staff_id',
+            'staff_name',
+            db().raw('SUM(order_count) as order_count'),
+            db().raw('SUM(net_sales_etb) as net_sales_etb'),
+            db().raw('SUM(gross_sales_etb) as gross_sales_etb'),
+            db().raw('SUM(discounts_etb) as discounts_etb'),
+            db().raw('SUM(tax_etb) as tax_etb'),
+            db().raw('SUM(tips_etb) as tips_etb'),
+            db().raw('SUM(total_collected_etb) as total_collected_etb'),
+        ]);
+
+    if (branchId) query = query.andWhere({ branch_id: branchId });
+
+    const rows = await query
+        .groupBy(['staff_id', 'staff_name'])
+        .orderBy(db().raw('SUM(net_sales_etb)'), 'desc')
+        .limit(Math.max(1, Math.min(500, Number(limit || 100) || 100)));
+
+    return rows.map((r) => ({
+        staffId: String(r.staff_id || ''),
+        staffName: String(r.staff_name || ''),
+        orderCount: Number(r.order_count || 0) || 0,
+        netSales: Number(r.net_sales_etb || 0) || 0,
+        grossSales: Number(r.gross_sales_etb || 0) || 0,
+        discounts: Number(r.discounts_etb || 0) || 0,
+        tax: Number(r.tax_etb || 0) || 0,
+        tips: Number(r.tips_etb || 0) || 0,
+        totalCollected: Number(r.total_collected_etb || 0) || 0,
     }));
 };
 
@@ -615,6 +766,7 @@ const cleanupOldReports = async () => {
         'hourly_sales_summary',
         'product_sales_summary',
         'category_sales_summary',
+        'staff_sales_summary',
     ];
 
     let totalDeleted = 0;
@@ -638,10 +790,12 @@ module.exports = {
     aggregateHourlySales,
     aggregateProductSales,
     aggregateCategorySales,
+    aggregateStaffSales,
     buildShiftReport,
     runDailyAggregation,
     getDailySalesSummary,
     getHourlySalesHeatmap,
     getProductPerformance,
+    getStaffSalesSummary,
     cleanupOldReports,
 };

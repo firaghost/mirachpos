@@ -1,10 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
-import { updateSession } from '../../session';
+import { updateSession, readSession } from '../../session';
 import { InitializePosModal } from '../../components/InitializePosModal';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatDeviceTime } from '../../datetime';
+import {
+  downloadCSV,
+  escapeCSV,
+  formatCurrency,
+  generateReportHeader,
+  generateSectionHeader,
+} from '../../utils/exportUtils';
 
 const fmtEtb = (n: number) => {
   const v = Number.isFinite(n) ? n : 0;
@@ -145,29 +152,29 @@ export const OwnerDashboard: React.FC = () => {
         },
         branches: Array.isArray(raw?.branches)
           ? raw.branches.map((b: any) => ({
-              id: String(b?.id || ''),
-              name: String(b?.name || ''),
-              manager: String(b?.manager || ''),
-              revenueToday: Number(b?.revenueToday ?? 0) || 0,
-              ordersToday: Number(b?.ordersToday ?? 0) || 0,
-              rating: Number(b?.rating ?? 0) || 0,
-              status: b?.status === 'Closed' ? 'Closed' : 'Open',
-            }))
+            id: String(b?.id || ''),
+            name: String(b?.name || ''),
+            manager: String(b?.manager || ''),
+            revenueToday: Number(b?.revenueToday ?? 0) || 0,
+            ordersToday: Number(b?.ordersToday ?? 0) || 0,
+            rating: Number(b?.rating ?? 0) || 0,
+            status: b?.status === 'Closed' ? 'Closed' : 'Open',
+          }))
           : [],
         alerts: Array.isArray(raw?.alerts)
           ? raw.alerts.map((a: any) => ({
-              title: String(a?.title || ''),
-              detail: String(a?.detail || ''),
-              severity: a?.severity === 'Critical' ? 'Critical' : 'Warning',
-              icon: String(a?.icon || 'warning'),
-            }))
+            title: String(a?.title || ''),
+            detail: String(a?.detail || ''),
+            severity: a?.severity === 'Critical' ? 'Critical' : 'Warning',
+            icon: String(a?.icon || 'warning'),
+          }))
           : [],
         health: Array.isArray(raw?.health)
           ? raw.health.map((h: any) => ({
-              label: String(h?.label || ''),
-              value: String(h?.value || ''),
-              status: h?.status === 'Bad' ? 'Bad' : h?.status === 'Warn' ? 'Warn' : 'Good',
-            }))
+            label: String(h?.label || ''),
+            value: String(h?.value || ''),
+            status: h?.status === 'Bad' ? 'Bad' : h?.status === 'Warn' ? 'Warn' : 'Good',
+          }))
           : [],
       } as typeof overview;
       setOverview(normalized);
@@ -275,25 +282,56 @@ export const OwnerDashboard: React.FC = () => {
   }, [tableQuery, tableStatus, selectedBranchId]);
 
   const exportCsv = () => {
-    const rows = filteredRows;
-    const header = ['BranchId', 'BranchName', 'Manager', 'RevenueToday', 'OrdersToday', 'Status'];
-    const lines = [
-      header.join(','),
-      ...rows.map((r) =>
-        [r.id, r.name, r.manager, r.revenueToday, r.ordersToday, r.status]
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-          .join(','),
-      ),
-    ];
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `branch-performance-${selectedBranchId || 'all'}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    let generatedBy = '';
+    try {
+      const s = readSession<any>();
+      generatedBy = String(s?.name || s?.username || s?.email || s?.role || '').trim();
+    } catch {
+      // ignore
+    }
+
+    const lines: string[] = [];
+
+    // Professional header
+    const headerLines = generateReportHeader({
+      businessName: 'MirachPOS',
+      branchName: selectedBranchId ? (selectedBranchName || selectedBranchId) : 'All Locations',
+      reportTitle: 'Branch Performance Report',
+      fromDate: new Date().toISOString(),
+      toDate: new Date().toISOString(),
+      generatedBy: generatedBy || undefined,
+    });
+    lines.push(...headerLines);
+
+    // Branch Performance Table
+    lines.push(...generateSectionHeader('Branch Performance'));
+    lines.push([
+      escapeCSV('Branch ID'),
+      escapeCSV('Branch Name'),
+      escapeCSV('Manager'),
+      escapeCSV("Today's Revenue"),
+      escapeCSV('Orders Today'),
+      escapeCSV('Status'),
+    ].join(','));
+
+    for (const r of filteredRows) {
+      lines.push([
+        escapeCSV(r.id),
+        escapeCSV(r.name),
+        escapeCSV(r.manager),
+        escapeCSV(formatCurrency(r.revenueToday)),
+        escapeCSV(String(r.ordersToday)),
+        escapeCSV(r.status),
+      ].join(','));
+    }
+
+    // Footer
+    lines.push('');
+    lines.push(escapeCSV('Powered by MirachPOS'));
+
+    const safeBranch = (selectedBranchId || 'all_locations').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+    const filename = `branch_performance_${safeBranch}_${new Date().toISOString().slice(0, 10)}`;
+    downloadCSV(lines.join('\n'), filename);
   };
 
   return (
@@ -470,9 +508,8 @@ export const OwnerDashboard: React.FC = () => {
                     <button
                       key={r}
                       onClick={() => setRange(r)}
-                      className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
-                        range === r ? 'bg-[#181611] text-white shadow-sm' : 'text-[#b9b09d] hover:text-white'
-                      }`}
+                      className={`px-3 py-1 rounded text-xs font-bold transition-colors ${range === r ? 'bg-[#181611] text-white shadow-sm' : 'text-[#b9b09d] hover:text-white'
+                        }`}
                     >
                       {r}
                     </button>
@@ -537,9 +574,8 @@ export const OwnerDashboard: React.FC = () => {
                   {data.alerts.map((a) => (
                     <div
                       key={a.title}
-                      className={`p-3 rounded-lg bg-[#393328]/50 border flex items-start gap-3 ${
-                        a.severity === 'Critical' ? 'border-[#ef4444]/30' : 'border-[#eead2b]/30'
-                      }`}
+                      className={`p-3 rounded-lg bg-[#393328]/50 border flex items-start gap-3 ${a.severity === 'Critical' ? 'border-[#ef4444]/30' : 'border-[#eead2b]/30'
+                        }`}
                     >
                       <span
                         className={`material-symbols-outlined text-lg shrink-0 mt-0.5 ${a.severity === 'Critical' ? 'text-[#ef4444]' : 'text-[#eead2b]'}`}
@@ -619,9 +655,8 @@ export const OwnerDashboard: React.FC = () => {
                       <td className="px-6 py-4 text-[#b9b09d] text-right">{b.ordersToday}</td>
                       <td className="px-6 py-4 text-center">
                         <span
-                          className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${
-                            b.status === 'Open' ? 'bg-[#1e3a23] text-[#4ade80]' : 'bg-[#3a1e1e] text-[#ef4444]'
-                          }`}
+                          className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${b.status === 'Open' ? 'bg-[#1e3a23] text-[#4ade80]' : 'bg-[#3a1e1e] text-[#ef4444]'
+                            }`}
                         >
                           {b.status}
                         </span>

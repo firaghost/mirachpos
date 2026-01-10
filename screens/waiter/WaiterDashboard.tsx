@@ -43,7 +43,7 @@ type AuditRec = {
 };
 
 interface Props {
-    onNavigate: (screen: Screen) => void;
+  onNavigate: (screen: Screen) => void;
 }
 
 export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
@@ -338,18 +338,64 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
     }
 
     if (table.openOrderId) {
-      selectOrder(table.openOrderId);
-      const o = ordersById.get(table.openOrderId);
-      if (table.status === 'Payment' || o?.status === 'Served') {
-        onNavigate(Screen.WAITER_PAYMENT);
-      } else {
-        onNavigate(Screen.WAITER_REVIEW);
+      // Fetch latest status to ensure we navigate to the correct screen
+      // (Local state might be stale if another waiter updated it)
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        // Show a loading state if needed, or just await
+        apiFetch(`/api/pos/orders/${table.openOrderId}`).then(async (res) => {
+          if (!res.ok) {
+            // Fallback to local state if fetch fails
+            handleNavigationLocal(table.id, table.openOrderId!);
+            return;
+          }
+          const json = await res.json();
+          const remoteOrder = json.order;
+          if (!remoteOrder) {
+            handleNavigationLocal(table.id, table.openOrderId!);
+            return;
+          }
+
+          // Sync full state in background
+          void refreshFromServer();
+
+          selectTable(table.id);
+          selectOrder(table.openOrderId!);
+
+          const st = remoteOrder.status;
+          if (st === 'Served' || st === 'Payment' || table.status === 'Payment') {
+            onNavigate(Screen.WAITER_PAYMENT);
+          } else if (st === 'Paid' || st === 'Voided') {
+            // If it's already done, checking it usually goes to receipt or back to dashboard
+            // but if we click the table, we probably want to see the "Done" state or Receipt
+            onNavigate(Screen.WAITER_PAYMENT);
+          } else {
+            onNavigate(Screen.WAITER_REVIEW);
+          }
+        }).catch(() => {
+          handleNavigationLocal(table.id, table.openOrderId!);
+        });
+        return;
       }
+
+      handleNavigationLocal(table.id, table.openOrderId);
       return;
     }
 
     onNavigate(Screen.WAITER_MENU);
   };
+
+  const handleNavigationLocal = (tableId: string, orderId: string) => {
+    selectOrder(orderId);
+    const o = ordersById.get(orderId);
+    const tbl = tables.find(t => t.id === tableId);
+    if (tbl?.status === 'Payment' || o?.status === 'Served') {
+      onNavigate(Screen.WAITER_PAYMENT);
+    } else {
+      onNavigate(Screen.WAITER_REVIEW);
+    }
+  };
+
+
 
   const handleRefresh = async () => {
     setNow(new Date());
@@ -588,9 +634,9 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
               <span className="material-symbols-outlined text-lg">sync</span>
               Refresh
             </button>
-            <button 
-                onClick={handleNewWalkIn}
-                className="flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-[#eead2b] text-[#221c11] hover:bg-[#d49619] shadow-lg shadow-[#eead2b]/20 transition-all text-sm font-bold"
+            <button
+              onClick={handleNewWalkIn}
+              className="flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-[#eead2b] text-[#221c11] hover:bg-[#d49619] shadow-lg shadow-[#eead2b]/20 transition-all text-sm font-bold"
             >
               <span className="material-symbols-outlined text-lg">add</span>
               New Walk-in
@@ -650,26 +696,23 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                   <div
                     key={t.id}
                     onClick={() => handleTableClick(t.id)}
-                    className={`group relative flex flex-col justify-between aspect-[4/3] p-5 rounded-xl cursor-pointer transition-all duration-200 hover:-translate-y-1 ${
-                      isFree
-                        ? 'border border-dashed border-[#483c23] bg-[#211911]/50 hover:bg-[#2c241b] hover:border-solid hover:border-[#eead2b]'
-                        : 'border-l-4 border-l-teal-500 border-y border-r border-[#483c23] bg-[#2c241b] hover:border-teal-500'
-                    }`}
+                    className={`group relative flex flex-col justify-between aspect-[4/3] p-5 rounded-xl cursor-pointer transition-all duration-200 hover:-translate-y-1 ${isFree
+                      ? 'border border-dashed border-[#483c23] bg-[#211911]/50 hover:bg-[#2c241b] hover:border-solid hover:border-[#eead2b]'
+                      : 'border-l-4 border-l-teal-500 border-y border-r border-[#483c23] bg-[#2c241b] hover:border-teal-500'
+                      }`}
                   >
                     <div className="flex justify-between items-start">
                       <span
-                        className={`text-4xl font-black transition-colors ${
-                          isFree ? 'text-[#483c23] group-hover:text-[#eead2b]' : 'text-white opacity-90'
-                        }`}
+                        className={`text-4xl font-black transition-colors ${isFree ? 'text-[#483c23] group-hover:text-[#eead2b]' : 'text-white opacity-90'
+                          }`}
                       >
                         {t.name.replace(/^T-?/i, '')}
                       </span>
                       <div
-                        className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${
-                          isFree
-                            ? 'bg-[#2c241b] text-[#c9b792]'
-                            : 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
-                        }`}
+                        className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${isFree
+                          ? 'bg-[#2c241b] text-[#c9b792]'
+                          : 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                          }`}
                       >
                         {isFree ? 'Free' : t.status === 'Payment' ? 'Payment' : order?.status ?? 'Occupied'}
                       </div>
@@ -738,21 +781,19 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setSideTab('drafts')}
-                      className={`h-9 px-3 rounded-lg text-xs font-black border ${
-                        sideTab === 'drafts'
-                          ? 'bg-[#eead2b] text-[#221c11] border-[#eead2b]'
-                          : 'bg-transparent text-[#c9b792] border-[#483c23] hover:text-white'
-                      }`}
+                      className={`h-9 px-3 rounded-lg text-xs font-black border ${sideTab === 'drafts'
+                        ? 'bg-[#eead2b] text-[#221c11] border-[#eead2b]'
+                        : 'bg-transparent text-[#c9b792] border-[#483c23] hover:text-white'
+                        }`}
                     >
                       Draft Inbox
                     </button>
                     <button
                       onClick={() => setSideTab('activity')}
-                      className={`h-9 px-3 rounded-lg text-xs font-black border ${
-                        sideTab === 'activity'
-                          ? 'bg-[#eead2b] text-[#221c11] border-[#eead2b]'
-                          : 'bg-transparent text-[#c9b792] border-[#483c23] hover:text-white'
-                      }`}
+                      className={`h-9 px-3 rounded-lg text-xs font-black border ${sideTab === 'activity'
+                        ? 'bg-[#eead2b] text-[#221c11] border-[#eead2b]'
+                        : 'bg-transparent text-[#c9b792] border-[#483c23] hover:text-white'
+                        }`}
                     >
                       Activity
                     </button>
