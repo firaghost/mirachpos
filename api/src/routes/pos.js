@@ -131,6 +131,39 @@ const mapTableStatusFromOrderStatus = (orderStatus) => {
   return 'Occupied';
 };
 
+const ensureRestaurantTableRow = async ({ trx, tenantId, branchId, tableId, name, nowIso }) => {
+  try {
+    const tid = String(tenantId || '').trim();
+    const bid = String(branchId || '').trim();
+    const tbl = String(tableId || '').trim();
+    if (!tid || !bid || !tbl) return;
+
+    const nm = String(name || '').trim() || tbl;
+    const at = String(nowIso || '').trim() || new Date().toISOString();
+    const q = trx || db();
+
+    await q('restaurant_tables')
+      .insert({
+        tenant_id: tid,
+        branch_id: bid,
+        id: tbl,
+        name: nm,
+        area: null,
+        status: 'Free',
+        seats: 4,
+        open_order_id: null,
+        last_order_id: null,
+        assigned_staff_id: null,
+        assigned_staff_name: null,
+        updated_at: at,
+      })
+      .onConflict(['tenant_id', 'branch_id', 'id'])
+      .merge({ updated_at: at });
+  } catch {
+    // ignore
+  }
+};
+
 const syncRestaurantTableForOrder = async ({ tenantId, branchId, tableId, orderId, nextStatus, nowIso }) => {
   try {
     const tid = String(tenantId || '').trim();
@@ -140,13 +173,36 @@ const syncRestaurantTableForOrder = async ({ tenantId, branchId, tableId, orderI
     const st = String(nextStatus || '').trim();
     if (!tid || !bid || !tbl || !oid) return;
 
+    await ensureRestaurantTableRow({ tenantId: tid, branchId: bid, tableId: tbl, name: tbl, nowIso });
+
     const terminal = st === 'Paid' || st === 'Voided' || st === 'Refunded';
 
     if (!terminal) {
-      await db()
-        .from('restaurant_tables')
-        .where({ tenant_id: tid, branch_id: bid, id: tbl })
-        .update({ status: mapTableStatusFromOrderStatus(st), open_order_id: oid, last_order_id: oid, updated_at: nowIso });
+      await db().transaction(async (trx) => {
+        const trow = await trx('restaurant_tables')
+          .where({ tenant_id: tid, branch_id: bid, id: tbl })
+          .select(['open_order_id'])
+          .first();
+        const curOpen = trow?.open_order_id ? String(trow.open_order_id) : '';
+
+        if (curOpen && curOpen !== oid) {
+          const curOrder = await trx('orders')
+            .where({ tenant_id: tid, branch_id: bid, id: curOpen })
+            .select(['created_at'])
+            .first();
+          const nextOrder = await trx('orders')
+            .where({ tenant_id: tid, branch_id: bid, id: oid })
+            .select(['created_at'])
+            .first();
+          const curAt = curOrder?.created_at ? String(curOrder.created_at) : '';
+          const nextAt = nextOrder?.created_at ? String(nextOrder.created_at) : '';
+          if (curAt && nextAt && nextAt < curAt) return;
+        }
+
+        await trx('restaurant_tables')
+          .where({ tenant_id: tid, branch_id: bid, id: tbl })
+          .update({ status: mapTableStatusFromOrderStatus(st), open_order_id: oid, last_order_id: oid, updated_at: nowIso });
+      });
       return;
     }
 
@@ -618,7 +674,8 @@ const makeReceiptPayloadFromOrder = ({ orderRow, operatorName }) => {
   lines.push(nl());
 
   lines.push(escAlignCenter);
-  lines.push(txt('Powered by MirachPOS'));
+  const footerBrand = String(payload?.receiptFooterBrand || '').trim();
+  if (footerBrand) lines.push(txt(footerBrand));
   lines.push(nl());
   lines.push(nl());
   lines.push(nl());
@@ -821,6 +878,23 @@ const methodToSettingId = (m) => {
   if (v === 'bank_transfer' || v === 'bank transfer') return 'bank_transfer';
   if (v === 'loyalty') return 'loyalty';
   return v;
+};
+
+const setNoStore = (res) => {
+  try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+    try {
+      res.removeHeader('ETag');
+      res.removeHeader('Last-Modified');
+    } catch {
+      // ignore
+    }
+  } catch {
+    // ignore
+  }
 };
 
 const normalizePaymentReference = (v) => {
@@ -1164,7 +1238,30 @@ const makePosRouter = () => {
           }
         }
 
-        const payload = makeReceiptPayloadFromOrder({ orderRow, operatorName });
+        // Inject effective business/receipt info into payload so printed receipts show the cafe name.
+        let patchedOrderRow = orderRow;
+        try {
+          const settings = await resolveEffectivePosSettings({ tenantId: req.tenant.id, branchId });
+          const p = safeJsonParse(orderRow?.payload, {});
+          const businessName = typeof settings?.business?.businessName === 'string' ? String(settings.business.businessName).trim() : '';
+          const address = typeof settings?.business?.address === 'string' ? String(settings.business.address).trim() : '';
+          const phone = typeof settings?.business?.phone === 'string' ? String(settings.business.phone).trim() : '';
+          const tin = typeof settings?.business?.tin === 'string' ? String(settings.business.tin).trim() : '';
+          const showTin = settings?.receipt?.showTin !== false;
+          const nextPayload = {
+            ...(p && typeof p === 'object' ? p : {}),
+            businessName: businessName || (p && typeof p === 'object' ? (p.businessName || p.branchName) : ''),
+            address: address || (p && typeof p === 'object' ? p.address : ''),
+            phone: phone || (p && typeof p === 'object' ? p.phone : ''),
+            tin: showTin ? (tin || (p && typeof p === 'object' ? p.tin : '')) : '',
+            receiptFooterBrand: '',
+          };
+          patchedOrderRow = { ...orderRow, payload: JSON.stringify(nextPayload) };
+        } catch {
+          // ignore
+        }
+
+        const payload = makeReceiptPayloadFromOrder({ orderRow: patchedOrderRow, operatorName });
         try {
           await sendTcp({ host, port, data: payload, timeoutMs: 8000 });
         } catch (e) {
@@ -1510,6 +1607,8 @@ const makePosRouter = () => {
         const branchId = await resolveBranchId(req);
         if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
+        setNoStore(res);
+
         await backfillRestaurantTablesFromLegacyState({ tenantId: req.tenant.id, branchId });
 
         const rows = await db()
@@ -1518,7 +1617,45 @@ const makePosRouter = () => {
           .select(['id', 'name', 'area', 'status', 'seats', 'open_order_id', 'last_order_id', 'assigned_staff_id', 'assigned_staff_name', 'updated_at'])
           .orderBy('name', 'asc');
 
-        return res.json({ ok: true, tenantId: req.tenant.id, branchId, tables: rows.map(mapRestaurantTableRow).filter(Boolean) });
+        // Derive open orders from the orders table so stale open_order_id never points at a Paid order.
+        // We intentionally keep this dialect-safe by parsing payload JSON in JS.
+        const openOrders = await db()
+          .from('orders')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId })
+          .whereNotIn('status', ['Paid', 'Voided', 'Refunded'])
+          .select(['id', 'status', 'created_at', 'payload'])
+          .orderBy('created_at', 'desc')
+          .limit(1000);
+
+        const openByTableId = new Map();
+        for (const o of openOrders || []) {
+          const p = safeJsonParse(o?.payload, null);
+          const tId = typeof p?.tableId === 'string' ? p.tableId.trim() : typeof p?.table_id === 'string' ? p.table_id.trim() : '';
+          if (!tId) continue;
+          if (openByTableId.has(tId)) continue; // already have newest due to desc order
+          openByTableId.set(tId, { id: String(o?.id || ''), status: String(o?.status || '').trim() });
+        }
+
+        const effective = (rows || []).map((r) => {
+          const tId = String(r?.id || '').trim();
+          if (!tId) return r;
+          const open = openByTableId.get(tId);
+          if (!open || !open.id) {
+            return {
+              ...r,
+              status: 'Free',
+              open_order_id: null,
+            };
+          }
+          return {
+            ...r,
+            status: mapTableStatusFromOrderStatus(open.status),
+            open_order_id: open.id,
+            last_order_id: open.id,
+          };
+        });
+
+        return res.json({ ok: true, tenantId: req.tenant.id, branchId, tables: effective.map(mapRestaurantTableRow).filter(Boolean) });
       } catch (e) {
         return next(e);
       }
@@ -1680,6 +1817,8 @@ const makePosRouter = () => {
         const branchId = await resolveBranchId(req);
         if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
+        setNoStore(res);
+
         const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
         const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 100) || 100));
 
@@ -1720,6 +1859,8 @@ const makePosRouter = () => {
       try {
         const branchId = await resolveBranchId(req);
         if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+        setNoStore(res);
 
         const id = String(req.params.id || '').trim();
         if (!id) return res.status(400).json({ error: 'id_required' });
@@ -1943,25 +2084,25 @@ const makePosRouter = () => {
         const payload = body?.payload && typeof body.payload === 'object' ? body.payload : {};
         const status = typeof body?.status === 'string' && body.status.trim() ? body.status.trim() : 'Pending';
 
+        const tableIdFromPayload =
+          typeof payload?.tableId === 'string'
+            ? payload.tableId.trim()
+            : typeof payload?.table_id === 'string'
+              ? payload.table_id.trim()
+              : '';
+
+        let resolvedTableRow = null;
+
         if (role === 'Waiter') {
           if (!staffId) return res.status(401).json({ error: 'unauthorized' });
 
-          const tableId = typeof payload?.tableId === 'string' ? payload.tableId.trim() : typeof payload?.table_id === 'string' ? payload.table_id.trim() : '';
+          const tableId = tableIdFromPayload;
           if (!tableId) return res.status(400).json({ error: 'table_required' });
 
+          await backfillRestaurantTablesFromLegacyState({ tenantId: req.tenant.id, branchId });
           let table = await loadRestaurantTable({ tenantId: req.tenant.id, branchId, tableId });
-          if (!table) {
-            const stateRow = await db().select(['state_json']).from('pos_state').where({ tenant_id: req.tenant.id, branch_id: branchId }).first();
-            const state = safeJsonParse(stateRow?.state_json, null);
-            const tables = Array.isArray(state?.tables) ? state.tables : [];
-            const found = tables.find((t) => t && String(t.id || '') === tableId) || null;
-            if (!found) return res.status(404).json({ error: 'table_not_found' });
-            table = {
-              id: String(found.id || ''),
-              name: String(found.name || ''),
-              assigned_staff_id: typeof found?.assignedStaffId === 'string' ? String(found.assignedStaffId) : null,
-            };
-          }
+          if (!table) return res.status(404).json({ error: 'table_not_found' });
+          resolvedTableRow = table;
 
           const assigned = table?.assigned_staff_id ? String(table.assigned_staff_id) : '';
           if (assigned && assigned !== staffId) return res.status(403).json({ error: 'table_assigned_to_other' });
@@ -2044,6 +2185,13 @@ const makePosRouter = () => {
         const id = requestedId || uid('ord');
         const nowIso = new Date().toISOString();
 
+        const tableId = tableIdFromPayload;
+        const tableNameForEnsure = (() => {
+          if (resolvedTableRow?.name) return String(resolvedTableRow.name);
+          if (typeof payload?.tableName === 'string' && payload.tableName.trim()) return payload.tableName.trim();
+          return tableId;
+        })();
+
         await db().transaction(async (trx) => {
           await trx
             .from('orders')
@@ -2073,10 +2221,11 @@ const makePosRouter = () => {
 
           const tableId = typeof nextPayload?.tableId === 'string' ? nextPayload.tableId.trim() : '';
           if (tableId) {
+            await ensureRestaurantTableRow({ trx, tenantId: req.tenant.id, branchId, tableId, name: tableNameForEnsure, nowIso });
             const terminal = status === 'Paid' || status === 'Voided' || status === 'Refunded';
             const patch = terminal
               ? { status: 'Free', open_order_id: null, last_order_id: id, updated_at: nowIso }
-              : { status: 'Occupied', open_order_id: id, last_order_id: id, updated_at: nowIso };
+              : { status: mapTableStatusFromOrderStatus(status), open_order_id: id, last_order_id: id, updated_at: nowIso };
             await trx('restaurant_tables')
               .where({ tenant_id: req.tenant.id, branch_id: branchId, id: tableId })
               .update(patch);

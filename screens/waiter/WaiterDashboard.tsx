@@ -324,7 +324,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
       setActionErr('This table is assigned to another waiter. Ask a manager to reassign it.');
       return;
     }
-
+ 
     selectTable(table.id);
 
     // Assign the table to the current waiter on first interaction.
@@ -337,47 +337,74 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
       // ignore
     }
 
-    if (table.openOrderId) {
-      // Fetch latest status to ensure we navigate to the correct screen
-      // (Local state might be stale if another waiter updated it)
-      if (typeof navigator !== 'undefined' && navigator.onLine) {
-        // Show a loading state if needed, or just await
-        apiFetch(`/api/pos/orders/${table.openOrderId}`).then(async (res) => {
-          if (!res.ok) {
-            // Fallback to local state if fetch fails
-            handleNavigationLocal(table.id, table.openOrderId!);
-            return;
-          }
-          const json = await res.json();
-          const remoteOrder = json.order;
-          if (!remoteOrder) {
-            handleNavigationLocal(table.id, table.openOrderId!);
-            return;
-          }
+    const openLocal = table.openOrderId ? String(table.openOrderId) : '';
+    const statusLocal = String((table as any).status || '').trim();
 
-          // Sync full state in background
-          void refreshFromServer();
+    const decideFromOrder = (orderStatus: string, tableStatus: string) => {
+      const st = String(orderStatus || '').trim();
+      const tblSt = String(tableStatus || '').trim();
+      if (st === 'Served' || st === 'Payment' || tblSt === 'Payment') {
+        onNavigate(Screen.WAITER_PAYMENT);
+      } else if (st === 'Paid' || st === 'Voided' || st === 'Refunded') {
+        onNavigate(Screen.WAITER_PAYMENT);
+      } else {
+        onNavigate(Screen.WAITER_REVIEW);
+      }
+    };
 
-          selectTable(table.id);
-          selectOrder(table.openOrderId!);
+    const openOrderOnline = async () => {
+      let effectiveOpenId = openLocal;
+      let effectiveTableStatus = statusLocal;
 
-          const st = remoteOrder.status;
-          if (st === 'Served' || st === 'Payment' || table.status === 'Payment') {
-            onNavigate(Screen.WAITER_PAYMENT);
-          } else if (st === 'Paid' || st === 'Voided') {
-            // If it's already done, checking it usually goes to receipt or back to dashboard
-            // but if we click the table, we probably want to see the "Done" state or Receipt
-            onNavigate(Screen.WAITER_PAYMENT);
-          } else {
-            onNavigate(Screen.WAITER_REVIEW);
-          }
-        }).catch(() => {
-          handleNavigationLocal(table.id, table.openOrderId!);
-        });
+      try {
+        const tres = await apiFetch('/api/pos/tables');
+        const tjson = (await tres.json().catch(() => null)) as any;
+        const list = Array.isArray(tjson?.tables) ? (tjson.tables as any[]) : [];
+        const found = list.find((x) => String(x?.id || '').trim() === String(table.id || '').trim());
+        if (found) {
+          const oid = found?.openOrderId ? String(found.openOrderId) : '';
+          if (oid) effectiveOpenId = oid;
+          effectiveTableStatus = String(found?.status || effectiveTableStatus || '').trim();
+        }
+      } catch {
+        // ignore
+      }
+
+      if (!effectiveOpenId) {
+        onNavigate(Screen.WAITER_MENU);
         return;
       }
 
-      handleNavigationLocal(table.id, table.openOrderId);
+      try {
+        const res = await apiFetch(`/api/pos/orders/${encodeURIComponent(String(effectiveOpenId))}`);
+        if (!res.ok) {
+          handleNavigationLocal(table.id, effectiveOpenId);
+          return;
+        }
+        const json = (await res.json().catch(() => null)) as any;
+        const remoteOrder = json?.order;
+        if (!remoteOrder) {
+          handleNavigationLocal(table.id, effectiveOpenId);
+          return;
+        }
+
+        // Sync full state in background
+        void refreshFromServer();
+
+        selectOrder(effectiveOpenId);
+        decideFromOrder(String(remoteOrder?.status || ''), effectiveTableStatus);
+      } catch {
+        handleNavigationLocal(table.id, effectiveOpenId);
+      }
+    };
+
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      void openOrderOnline();
+      return;
+    }
+
+    if (openLocal) {
+      handleNavigationLocal(table.id, openLocal);
       return;
     }
 

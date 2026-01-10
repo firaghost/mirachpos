@@ -52,10 +52,31 @@ const syncRestaurantTableForOrder = async ({ tenantId, branchId, tableId, orderI
 
         const terminal = st === 'Paid' || st === 'Voided' || st === 'Refunded';
         if (!terminal) {
-            await db()
-                .from('restaurant_tables')
-                .where({ tenant_id: tid, branch_id: bid, id: tbl })
-                .update({ status: mapTableStatusFromOrderStatus(st), open_order_id: oid, last_order_id: oid, updated_at: nowIso });
+            await db().transaction(async (trx) => {
+                const trow = await trx('restaurant_tables')
+                    .where({ tenant_id: tid, branch_id: bid, id: tbl })
+                    .select(['open_order_id'])
+                    .first();
+                const curOpen = trow?.open_order_id ? String(trow.open_order_id) : '';
+
+                if (curOpen && curOpen !== oid) {
+                    const curOrder = await trx('orders')
+                        .where({ tenant_id: tid, branch_id: bid, id: curOpen })
+                        .select(['created_at'])
+                        .first();
+                    const nextOrder = await trx('orders')
+                        .where({ tenant_id: tid, branch_id: bid, id: oid })
+                        .select(['created_at'])
+                        .first();
+                    const curAt = curOrder?.created_at ? String(curOrder.created_at) : '';
+                    const nextAt = nextOrder?.created_at ? String(nextOrder.created_at) : '';
+                    if (curAt && nextAt && nextAt < curAt) return;
+                }
+
+                await trx('restaurant_tables')
+                    .where({ tenant_id: tid, branch_id: bid, id: tbl })
+                    .update({ status: mapTableStatusFromOrderStatus(st), open_order_id: oid, last_order_id: oid, updated_at: nowIso });
+            });
             return;
         }
 

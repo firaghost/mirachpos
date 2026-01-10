@@ -6,6 +6,7 @@ import { usePos } from '../PosContext';
 import { canAccessScreenWithPermissions } from '../rbac';
 import { apiFetch } from '../api';
 import { readSession, updateSession } from '../session';
+import { usePersistedState } from '../usePersistedState';
 import { cn } from './lib/utils';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -21,6 +22,12 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role, logout }) => {
   const { theme, toggleTheme } = useTheme();
   const { orders, notifications } = usePos();
+
+  const [collapsed, setCollapsed] = usePersistedState<boolean>('mirachpos.sidebar.collapsed.v1', false, {
+    validate: (v): v is boolean => typeof v === 'boolean',
+  });
+
+  const [businessName, setBusinessName] = useState<string>('');
 
   const [branding, setBranding] = useState<{ platformName?: string; logoUrl?: string }>(() => {
     try {
@@ -112,6 +119,47 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
     }
   })();
 
+  const withBranchQuery = (url: string) => {
+    try {
+      const s = readSession<any>();
+      const tokenBranch = typeof s?.branchId === 'string' ? s.branchId.trim() : '';
+
+      if (tokenBranch && tokenBranch !== 'global') return url;
+      if (role !== UserRole.CAFE_OWNER) return url;
+
+      const selected =
+        (localStorage.getItem('mirachpos.owner.selectedBranchId.v1') ||
+          localStorage.getItem('mirachpos.manager.selectedBranchId.v1') ||
+          localStorage.getItem('mirachpos.waiter.selectedBranchId.v1') ||
+          '')
+          .trim();
+      if (!selected || selected === 'global') return url;
+      return url.includes('?') ? `${url}&branchId=${encodeURIComponent(selected)}` : `${url}?branchId=${encodeURIComponent(selected)}`;
+    } catch {
+      return url;
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const res = await apiFetch(withBranchQuery('/api/pos/settings'));
+        const json = (await res.json().catch(() => null)) as any;
+        if (!res.ok) return;
+        const bn = typeof json?.business?.businessName === 'string' ? String(json.business.businessName).trim() : '';
+        if (!mounted) return;
+        setBusinessName(bn);
+      } catch {
+        // ignore
+      }
+    };
+    void run();
+    return () => {
+      mounted = false;
+    };
+  }, [role]);
+
   const canReturnToSuperadmin = (() => {
     try {
       const parsed = readSession<any>();
@@ -136,7 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
 
   const headerName = role === UserRole.SUPER_ADMIN
     ? (branding.platformName && branding.platformName.trim() ? branding.platformName.trim() : tenantName)
-    : tenantName;
+    : (businessName && businessName.trim() ? businessName.trim() : tenantName);
 
   const readyBadge = role === UserRole.WAITER || role === UserRole.WAITER_MANAGER ? orders.filter((o) => o.status === 'Ready').length : 0;
   const unreadBadge = role === UserRole.WAITER || role === UserRole.WAITER_MANAGER ? notifications.filter((n) => !n.read).length : 0;
@@ -161,6 +209,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
       <div
         role="button"
         tabIndex={0}
+        title={collapsed ? label : undefined}
         onPointerDown={(e) => {
           // Some environments swallow click events inside scroll containers.
           // PointerDown is more reliable and still respects user intent.
@@ -174,7 +223,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
           }
         }}
         className={cn(
-          'group relative flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all w-full text-left',
+          'group relative flex items-center gap-3 rounded-lg transition-all w-full text-left',
+          collapsed ? 'px-3 py-3 justify-center' : 'px-4 py-2.5',
           active
             ? 'bg-[#eead2b] text-[#221c10]'
             : 'text-[#c9b792] hover:bg-[#2c241b] hover:text-white',
@@ -184,31 +234,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
         <span className={cn('material-symbols-outlined text-[20px]', active ? 'text-[#221c10]' : 'text-[#c9b792] group-hover:text-white')}>
           {icon}
         </span>
-        <span className={cn('text-[11px] font-black uppercase tracking-widest flex-1', active ? 'opacity-100' : 'opacity-80')}>
-          {label}
-        </span>
-        {badge && (
+        {!collapsed ? (
+          <span className={cn('text-[11px] font-black uppercase tracking-widest flex-1', active ? 'opacity-100' : 'opacity-80')}>
+            {label}
+          </span>
+        ) : null}
+        {badge && !collapsed && (
           <Badge className={cn('ml-auto h-5 px-1.5 min-w-[20px] justify-center text-[10px] font-black', active ? 'bg-[#221c10] text-[#eead2b]' : 'bg-[#eead2b] text-[#221c10]')}>
             {badge}
           </Badge>
         )}
+        {badge && collapsed ? (
+          <div className="absolute -top-1 -right-1">
+            <div className="h-4 min-w-4 px-1 rounded-full bg-[#eead2b] text-[#221c10] text-[10px] font-black flex items-center justify-center">
+              {badge}
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   };
 
   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="space-y-1 mb-6">
-      <p className="px-4 text-[10px] font-black uppercase text-[#8e826f] tracking-[0.22em] opacity-90 mb-2">{title}</p>
-      <div className="space-y-1">{children}</div>
+    <div className={cn('space-y-1 mb-6', collapsed ? 'mb-4' : 'mb-6')}>
+      {!collapsed ? <p className="px-4 text-[10px] font-black uppercase text-[#8e826f] tracking-[0.22em] opacity-90 mb-2">{title}</p> : null}
+      <div className={cn('space-y-1', collapsed ? 'px-0' : '')}>{children}</div>
     </div>
   );
 
   const ownerActsAsManager = role === UserRole.CAFE_OWNER && !(Array.isArray(subscription?.modules) ? subscription.modules : []).includes('owner_dashboard');
 
   return (
-    <aside className="w-64 h-full bg-[#1e1910] border-r border-[#483c23] flex flex-col shrink-0 relative z-[200] pointer-events-auto">
-      <div className="p-6 pb-4">
-        <div className="flex items-center gap-3">
+    <aside className={cn('h-full bg-[#1e1910] border-r border-[#483c23] flex flex-col shrink-0 relative z-[200] pointer-events-auto transition-[width] duration-200', collapsed ? 'w-[76px]' : 'w-64')}>
+      <div className={cn('pb-4 relative', collapsed ? 'p-3' : 'p-6')}>
+        <div className={cn('flex items-center gap-3', collapsed ? 'justify-center' : 'justify-start')}>
+          <div className={cn('flex items-center gap-3 min-w-0', collapsed ? 'justify-center' : '')}>
           <div className="relative">
             {branding.logoUrl ? (
               <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#221c10] border border-[#483c23] p-1">
@@ -221,14 +281,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
             )}
             <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-[#1e1910]" />
           </div>
-          <div className="flex flex-col min-w-0">
-            <h1 className="text-white text-sm font-black leading-tight tracking-tight truncate uppercase">{headerName}</h1>
-            <p className="text-[10px] font-bold text-[#c9b792] uppercase tracking-widest mt-1 opacity-70">{getRoleLabel()}</p>
+          {!collapsed ? (
+            <div className="flex flex-col min-w-0">
+              <h1 className="text-white text-sm font-black leading-tight tracking-tight truncate uppercase">{headerName}</h1>
+              <p className="text-[10px] font-bold text-[#c9b792] uppercase tracking-widest mt-1 opacity-70">{getRoleLabel()}</p>
+            </div>
+          ) : null}
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          title={collapsed ? 'Expand' : 'Collapse'}
+          className={cn(
+            'absolute top-6 right-0 translate-x-1/2 size-9 rounded-lg border border-[#483c23] bg-[#2c241b] text-[#c9b792] hover:bg-[#3a2e22] hover:text-white transition-colors flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.25)] z-[500] pointer-events-auto'
+          )}
+        >
+          <span className="material-symbols-outlined text-[20px]">{collapsed ? 'chevron_right' : 'chevron_left'}</span>
+        </button>
       </div>
 
-      <ScrollArea className="flex-1 px-4 py-4">
+      <ScrollArea className={cn('flex-1 py-4', collapsed ? 'px-2' : 'px-4')}>
         {(role === UserRole.WAITER || role === UserRole.WAITER_MANAGER) && (
           <>
             <Section title="Live Operations">
@@ -337,20 +411,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
         )}
       </ScrollArea>
 
-      <div className="p-4 border-t border-[#483c23] space-y-1">
+      <div className={cn('border-t border-[#483c23] space-y-1', collapsed ? 'p-2' : 'p-4')}>
         {canReturnToSuperadmin && (
-          <Button variant="ghost" onClick={returnToSuperadmin} className="w-full justify-start gap-3 h-10 px-4 rounded-lg text-[#eead2b] hover:bg-[#2c241b] hover:text-[#eead2b]">
+          <Button variant="ghost" onClick={returnToSuperadmin} title={collapsed ? 'Back to Admin' : undefined} className={cn('w-full h-10 rounded-lg hover:bg-[#2c241b] hover:text-[#eead2b]', collapsed ? 'justify-center px-0 text-[#eead2b]' : 'justify-start gap-3 px-4 text-[#eead2b]')}>
             <span className="material-symbols-outlined text-[20px]">shield</span>
-            <span className="text-[11px] font-black uppercase tracking-widest">Back to Admin</span>
+            {!collapsed ? <span className="text-[11px] font-black uppercase tracking-widest">Back to Admin</span> : null}
           </Button>
         )}
-        <Button variant="ghost" onClick={toggleTheme} className="w-full justify-start gap-3 h-10 px-4 rounded-lg text-[#c9b792] hover:bg-[#2c241b] hover:text-white">
+        <Button variant="ghost" onClick={toggleTheme} title={collapsed ? (theme === 'dark' ? 'Light Mode' : 'Dark Mode') : undefined} className={cn('w-full h-10 rounded-lg text-[#c9b792] hover:bg-[#2c241b] hover:text-white', collapsed ? 'justify-center px-0' : 'justify-start gap-3 px-4')}>
           <span className="material-symbols-outlined text-[20px]">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
-          <span className="text-[11px] font-black uppercase tracking-widest">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+          {!collapsed ? <span className="text-[11px] font-black uppercase tracking-widest">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span> : null}
         </Button>
-        <Button variant="ghost" onClick={logout} className="w-full justify-start gap-3 h-10 px-4 rounded-lg text-red-300 hover:bg-red-500/10 hover:text-red-200">
+        <Button variant="ghost" onClick={logout} title={collapsed ? 'Sign Out' : undefined} className={cn('w-full h-10 rounded-lg text-red-300 hover:bg-red-500/10 hover:text-red-200', collapsed ? 'justify-center px-0' : 'justify-start gap-3 px-4')}>
           <span className="material-symbols-outlined text-[20px]">logout</span>
-          <span className="text-[11px] font-black uppercase tracking-widest">Sign Out</span>
+          {!collapsed ? <span className="text-[11px] font-black uppercase tracking-widest">Sign Out</span> : null}
         </Button>
       </div>
     </aside>

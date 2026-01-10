@@ -38,7 +38,7 @@ type PosSettingsResponse = {
 const RECEIPT_SPLIT_KEY = 'mirachpos.receipt.splitId.v1';
 
 export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
-  const { confirmPayment, refreshFromServer, products } = usePos();
+  const { confirmPayment, refreshFromServer, products, orders, tables, selectOrder, selectTable } = usePos();
   const order = useSelectedOrder();
   const [method, setMethod] = useState<'Cash' | 'Telebirr' | 'Bank Transfer' | 'Loyalty' | 'Mobile Pay'>('Cash');
   const [isOnline, setIsOnline] = useState(() => {
@@ -60,6 +60,8 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const [discountPin, setDiscountPin] = useState('');
   const [discountErr, setDiscountErr] = useState('');
   const [discountSaving, setDiscountSaving] = useState(false);
+
+  const recoverRef = React.useRef<string>('');
 
   // Telebirr Online States
   const [telebirrOnlineLoading, setTelebirrOnlineLoading] = useState(false);
@@ -103,7 +105,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
     let mounted = true;
     const run = async () => {
       try {
-        const res = await apiFetch('/api/pos/settings');
+        const res = await apiFetch(withBranchQuery('/api/pos/settings'));
         const json = (await res.json().catch(() => null)) as any;
         if (!res.ok) return;
         if (!mounted) return;
@@ -119,6 +121,49 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       if (chapaPollRef.current) clearInterval(chapaPollRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    try {
+      if (!order) return;
+
+      const st = String(order.status || '').trim();
+      const terminal = st === 'Paid' || st === 'Voided' || st === 'Refunded';
+      if (!terminal) return;
+
+      const tableId = String((order as any)?.tableId || '').trim();
+      if (!tableId) return;
+
+      const tbl = Array.isArray(tables) ? tables.find((t: any) => String(t?.id || '').trim() === tableId) : null;
+      const tblStatus = String((tbl as any)?.status || '').trim();
+      if (tblStatus !== 'Payment') return;
+
+      const candidates = (Array.isArray(orders) ? orders : [])
+        .filter((o: any) => String(o?.tableId || '').trim() === tableId)
+        .filter((o: any) => {
+          const s = String(o?.status || '').trim();
+          return s !== 'Paid' && s !== 'Voided' && s !== 'Refunded';
+        })
+        .sort((a: any, b: any) => String(b?.createdAt || '').localeCompare(String(a?.createdAt || '')));
+
+      const recovered = candidates[0];
+      const nextId = recovered?.id ? String(recovered.id) : '';
+      if (!nextId || nextId === String(order.id || '')) return;
+
+      const key = `${String(order.id || '')}->${nextId}`;
+      if (recoverRef.current === key) return;
+      recoverRef.current = key;
+
+      try {
+        selectTable(tableId);
+      } catch {
+        // ignore
+      }
+      selectOrder(nextId);
+      void refreshFromServer();
+    } catch {
+      // ignore
+    }
+  }, [order?.id, (order as any)?.status, (order as any)?.tableId, orders, tables, refreshFromServer, selectOrder, selectTable]);
 
   useEffect(() => {
     // Stop polling if we switch away from Telebirr or close online mode
@@ -375,6 +420,23 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
     return { title: '', image: '', rows: [] as Array<{ k: string; v: string }> };
   }, [posSettings, method]);
 
+  const bankTransferConfigured = useMemo(() => {
+    const q = posSettings?.branchPayments?.qrCodes;
+    const d = posSettings?.branchPayments?.qrDetails;
+    const qr = typeof q?.bank_transfer === 'string' ? q.bank_transfer.trim() : '';
+    const b = d?.bank_transfer;
+    const hasDetails =
+      !!b &&
+      typeof b === 'object' &&
+      (Boolean(typeof (b as any).image === 'string' && String((b as any).image).trim()) ||
+        Boolean(typeof (b as any).bankName === 'string' && String((b as any).bankName).trim()) ||
+        Boolean(typeof (b as any).accountName === 'string' && String((b as any).accountName).trim()) ||
+        Boolean(typeof (b as any).accountNumber === 'string' && String((b as any).accountNumber).trim()) ||
+        Boolean(typeof (b as any).phone === 'string' && String((b as any).phone).trim()) ||
+        Boolean(typeof (b as any).note === 'string' && String((b as any).note).trim()));
+    return Boolean(qr) || hasDetails;
+  }, [posSettings]);
+
   const itemCount = useMemo(() => (order ? order.items.reduce((sum, i) => sum + i.qty, 0) : 0), [order]);
 
   const assetUrl = useMemo(() => {
@@ -425,12 +487,12 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
         const reason = cfg ? cfg.reason : '';
         return { ...d, enabled, reason };
       })
-      .filter((d) => d.id !== 'bank_transfer' || methodConfig.has('bank_transfer') || typeof posSettings?.branchPayments?.qrCodes?.bank_transfer === 'string');
+      .filter((d) => d.id !== 'bank_transfer' || methodConfig.has('bank_transfer') || bankTransferConfigured);
 
     const result = base;
     if (!offline && order?.customer) result.push({ id: 'loyalty', label: 'Loyalty', icon: 'loyalty', value: 'Loyalty', enabled: true, reason: '' } as any);
     return result;
-  }, [isOnline, methodConfig, order?.customer, posSettings]);
+  }, [isOnline, methodConfig, order?.customer, bankTransferConfigured]);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -693,21 +755,21 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const qrImage = assetUrl(paymentDetails.image || qrSrc);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-[#0f0c07] text-white">
       {/* Top Navigation */}
-      <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#483c23] bg-[#2c241b] px-6 py-3">
+      <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#2f281c] bg-[#17130b] px-6 py-3">
         <div className="flex items-center gap-4 text-white">
           <div className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] text-[#221c11]">
             <span className="material-symbols-outlined">payments</span>
           </div>
           <h2 className="text-white text-xl font-bold leading-tight tracking-tight">Payment</h2>
-          <div className="h-6 w-px bg-[#483c23] mx-2"></div>
+          <div className="h-6 w-px bg-[#2f281c] mx-2"></div>
           <div className="flex flex-col">
             <span className="text-sm font-bold leading-none">{order.tableName}</span>
             <span className="text-xs text-[#c9b792] leading-none mt-1">{order.number}</span>
           </div>
         </div>
-        <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#483c23] hover:bg-[#3a2e22] transition-colors text-[#c9b792] text-sm font-medium">
+        <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#2f281c] hover:bg-[#221c11] transition-colors text-[#c9b792] text-sm font-medium">
           <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
         </button>
       </header>
@@ -715,13 +777,13 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       {/* Main Content Grid */}
       <main className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Column: Order Summary */}
-        <section className="w-full lg:w-[340px] min-h-0 flex flex-col lg:border-r border-b lg:border-b-0 border-[#483c23] bg-[#2c241b] shrink-0">
-          <div className="px-4 py-3 border-b border-[#483c23] flex justify-between items-center">
+        <section className="w-full lg:w-[240px] min-h-0 flex flex-col lg:border-r border-b lg:border-b-0 border-[#2f281c] bg-[#17130b] shrink-0">
+          <div className="px-4 py-3 border-b border-[#2f281c] flex justify-between items-center">
             <h3 className="text-base font-bold">Bill Summary</h3>
             <span className="text-[11px] bg-[#3a2e22] px-2 py-1 rounded text-[#c9b792]">{itemCount} Items</span>
           </div>
           {order.customer ? (
-            <div className="px-4 py-2 border-b border-[#483c23]">
+            <div className="px-4 py-2 border-b border-[#2f281c]">
               <div className="text-[11px] text-[#c9b792]">Customer</div>
               <div className="text-sm font-bold text-white truncate">{order.customer.name}</div>
               <div className="text-[11px] text-[#c9b792] truncate">{order.customer.phone}    Points {order.customer.loyaltyPoints}    Balance {settingsUi.currency} {order.customer.loyaltyBalance.toFixed(2)}</div>
@@ -731,9 +793,9 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
           {/* Order List */}
           <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
             {order.items.map((item) => (
-              <div key={item.productId} className="flex items-center gap-3 bg-[#221c11] p-2 rounded-lg border border-transparent hover:border-[#483c23] transition-colors">
+              <div key={item.productId} className="flex items-center gap-3 bg-[#0f0c07] p-2 rounded-lg border border-transparent hover:border-[#2f281c] transition-colors">
                 <div
-                  className="rounded-md size-10 shrink-0 border border-[#483c23] bg-[#1a1612] bg-cover bg-center"
+                  className="rounded-md size-10 shrink-0 border border-[#2f281c] bg-[#1a1612] bg-cover bg-center"
                   style={{ backgroundImage: `url('${String(products.find((p) => p.id === item.productId)?.image || '')}')` }}
                 />
                 <div className="flex flex-col flex-1 min-w-0">
@@ -747,7 +809,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
             ))}
           </div>
           {/* Totals */}
-          <div className="shrink-0 p-4 border-t border-[#483c23] bg-[#3a2e22]/50">
+          <div className="shrink-0 p-4 border-t border-[#2f281c] bg-[#221c11]/40">
             <div className="flex justify-between items-center mb-1">
               <span className="text-[#c9b792] text-[12px]">Subtotal</span>
               <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {order.subtotal.toFixed(2)}</span>
@@ -768,13 +830,13 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 setDiscountValue('');
                 setDiscountOpen(true);
               }}
-              className="w-full h-10 rounded-xl border border-[#483c23] bg-[#221c11] hover:bg-[#2c241b] text-[#c9b792] font-bold transition-colors text-sm"
+              className="w-full h-10 rounded-xl border border-[#2f281c] bg-[#0f0c07] hover:bg-[#221c11] text-[#c9b792] font-bold transition-colors text-sm"
               type="button"
             >
               Discount
             </button>
 
-            <div className="mt-3 pt-3 border-t border-[#483c23] flex justify-between items-center">
+            <div className="mt-3 pt-3 border-t border-[#2f281c] flex justify-between items-center">
               <span className="text-white text-base font-extrabold">Total</span>
               <span className="text-[#eead2b] text-2xl font-black">{settingsUi.currency} {order.total.toFixed(2)}</span>
             </div>
@@ -782,8 +844,8 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
         </section>
 
         {/* Right Column: Payment Interface */}
-        <section className="flex-1 min-h-0 flex flex-col bg-[#221c11] overflow-hidden">
-          <div className="shrink-0 px-6 py-5 bg-[#2c241b] border-b border-[#483c23]">
+        <section className="flex-1 min-h-0 flex flex-col bg-[#0f0c07] overflow-hidden">
+          <div className="shrink-0 px-6 py-5 bg-[#17130b] border-b border-[#2f281c]">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
               <div>
                 <p className="text-[#c9b792] uppercase tracking-widest text-[11px] font-semibold">Total Amount Due</p>
@@ -800,8 +862,8 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
             ) : null}
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr,280px] gap-6 items-start">
-              <div className="flex flex-col gap-6">
+            <div className={`grid grid-cols-1 ${isCash ? 'lg:grid-cols-[420px,1fr]' : 'lg:grid-cols-1'} gap-6 items-start`}>
+              <div className={`flex flex-col gap-6 ${isCash ? 'order-2 lg:order-2' : 'order-1 lg:order-1 mx-auto w-full max-w-[780px]'}`}>
                 {Array.isArray(order.splits) && order.splits.length > 0 ? (
                   <div>
                     <h4 className="text-sm font-bold text-[#c9b792] mb-3 uppercase tracking-wider">Split Bills</h4>
@@ -840,7 +902,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 ) : null}
                 <div>
                   <h4 className="text-sm font-bold text-[#c9b792] mb-3 uppercase tracking-wider">Payment Method</h4>
-                  <div className={`grid gap-3 ${order.customer ? 'grid-cols-1 sm:grid-cols-5' : 'grid-cols-1 sm:grid-cols-4'}`}>
+                  <div className={`grid gap-3 ${order.customer ? 'grid-cols-1 sm:grid-cols-5' : 'grid-cols-1 sm:grid-cols-4'} ${isCash ? '' : 'grid-cols-1 sm:grid-cols-3'}`}>
                     {methodButtons.map((b) => {
                       const selected = method === b.value;
                       const disabled = b.enabled === false;
@@ -850,15 +912,15 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                           disabled={disabled}
                           title={disabled && b.reason ? b.reason : undefined}
                           onClick={() => setMethod(b.value)}
-                          className={`flex flex-col items-center justify-center p-4 rounded-xl transition-all ${disabled
+                          className={`flex flex-col items-center justify-center p-6 min-h-[108px] rounded-2xl transition-all ${disabled
                             ? 'border border-[#483c23] bg-[#2c241b]/40 text-[#c9b792]/60 cursor-not-allowed'
                             : selected
                               ? 'border-2 border-[#eead2b] bg-[#eead2b]/10 text-[#eead2b] shadow-lg ring-2 ring-[#eead2b]/20'
                               : 'border border-[#483c23] bg-[#2c241b] hover:bg-[#3a2e22] text-[#c9b792] hover:text-white'
                             }`}
                         >
-                          <span className="material-symbols-outlined text-3xl mb-1">{b.icon}</span>
-                          <span className="font-bold">{b.label}</span>
+                          <span className="material-symbols-outlined text-4xl mb-1">{b.icon}</span>
+                          <span className="font-bold text-sm">{b.label}</span>
                         </button>
                       );
                     })}
@@ -869,7 +931,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                     <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
                       <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Scan to Pay</div>
                       <div className="mt-3 flex items-center justify-center">
-                        <img src={qrImage} alt="QR" className="max-h-56 max-w-full rounded-lg border border-[#483c23] bg-white p-2" />
+                        <img src={qrImage} alt="QR" className="max-h-80 max-w-full rounded-lg border border-[#483c23] bg-white p-2" />
                       </div>
                     </div>
                   ) : method === 'Mobile Pay' ? (
@@ -918,6 +980,20 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                     <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
                       <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Scan to Pay</div>
                       <div className="mt-2 text-sm text-[#c9b792]">QR code not configured in Branch Settings.</div>
+                    </div>
+                  ) : null}
+
+                  {paymentDetails.rows.length > 0 ? (
+                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                      <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">{paymentDetails.title} Details</div>
+                      <div className="mt-3 space-y-2">
+                        {paymentDetails.rows.map((r) => (
+                          <div key={`${r.k}:${r.v}`} className="flex items-start justify-between gap-3">
+                            <div className="text-xs text-[#c9b792] font-semibold">{r.k}</div>
+                            <div className="text-xs text-white font-bold text-right break-words max-w-[65%]">{r.v}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ) : null}
 
@@ -971,19 +1047,6 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                       <div className={`text-xl font-bold ${loyaltyBalance + 1e-9 >= totalDue ? 'text-green-400' : 'text-red-400'}`}>{settingsUi.currency} {loyaltyBalance.toFixed(2)}</div>
                     </div>
                   ) : null}
-                  {isCash ? (
-                    <>
-                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23] flex justify-between items-center">
-                        <span className="text-[#c9b792] font-medium">Tendered Amount</span>
-                        <div className="text-2xl font-bold text-white border-b-2 border-[#eead2b] px-2 pb-1 min-w-[140px] text-right">{tendered.length ? tendered : ' ”'}</div>
-                      </div>
-                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23] flex justify-between items-center opacity-75">
-                        <span className="text-[#c9b792] font-medium">Change Due</span>
-                        <span className="text-2xl font-bold text-green-400">{settingsUi.currency} {changeDue.toFixed(2)}</span>
-                      </div>
-                    </>
-                  ) : null}
-
                   {method !== 'Mobile Pay' && method !== 'Loyalty' && !selectedSplitId ? (
                     <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
                       <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">TIP (ETB)</div>
@@ -1001,9 +1064,19 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 </div>
               </div>
 
-              <div className="w-full xl:w-[280px] flex flex-col gap-3">
+              <div className={`w-full flex flex-col gap-3 order-1 lg:order-1 ${isCash ? '' : 'hidden'}`}>
                 {isCash ? (
                   <>
+                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[#c9b792] font-medium">Tendered Amount</span>
+                        <div className="text-2xl font-bold text-white border-b-2 border-[#eead2b] px-2 pb-1 min-w-[140px] text-right">{tendered.length ? tendered : ' ”'}</div>
+                      </div>
+                      <div className="mt-3 flex justify-between items-center opacity-75">
+                        <span className="text-[#c9b792] font-medium">Change Due</span>
+                        <span className="text-2xl font-bold text-green-400">{settingsUi.currency} {changeDue.toFixed(2)}</span>
+                      </div>
+                    </div>
                     <h4 className="text-sm font-bold text-[#c9b792] mb-0 uppercase tracking-wider">Quick Entry</h4>
                     <div className="grid grid-cols-4 gap-2">
                       <button onClick={() => setQuickTendered(100)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">100</button>
@@ -1031,9 +1104,9 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-[#483c23] bg-[#2c241b] px-4 md:px-6 py-4">
+          <div className="shrink-0 border-t border-[#2f281c] bg-[#17130b] px-4 md:px-6 py-4">
             <div className="flex flex-col sm:flex-row gap-3">
-              <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="w-full sm:w-1/3 h-12 rounded-xl border border-[#483c23] bg-transparent hover:bg-[#3a2e22] text-white font-bold transition-colors flex items-center justify-center gap-2">Cancel</button>
+              <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="w-full sm:w-1/3 h-12 rounded-xl border border-[#2f281c] bg-transparent hover:bg-[#221c11] text-white font-bold transition-colors flex items-center justify-center gap-2">Cancel</button>
               {method === 'Mobile Pay' ? (
                 <button
                   disabled={chapaOnlineLoading || chapaOnlineActive}
@@ -1044,7 +1117,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 </button>
               ) : (
                 <button disabled={!canConfirm} onClick={handleConfirm} className="w-full sm:flex-1 h-12 rounded-xl bg-[#eead2b] hover:bg-[#d49619] disabled:bg-[#3a2e22] disabled:text-[#c9b792] text-[#221c11] font-extrabold shadow-lg shadow-black/20 transition-all transform active:scale-[0.99] flex items-center justify-center gap-3 disabled:cursor-not-allowed">
-                  <span className="material-symbols-outlined icon-filled">check_circle</span> Confirm Payment
+                  <span className="material-symbols-outlined icon-filled">check_circle</span> Charge {settingsUi.currency} {totalDueWithTip.toFixed(2)}
                 </button>
               )}
             </div>

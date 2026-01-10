@@ -955,7 +955,16 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           const mergedFromServer = serverOrders.map((so) => {
             const lo = localById.get(so.id);
-            if (lo && (lo as any)?.syncedToServer === false) return lo;
+            if (lo && (lo as any)?.syncedToServer === false) {
+              const localStatus = String((lo as any)?.status || '');
+              const serverStatus = String((so as any)?.status || '');
+              const localTerminal = localStatus === 'Paid' || localStatus === 'Voided' || localStatus === 'Refunded';
+
+              // If local says the order is terminal but the server disagrees, trust the server.
+              // This prevents stale optimistic payment updates from blocking payment UI.
+              if (localTerminal && serverStatus && serverStatus !== localStatus) return so;
+              return lo;
+            }
             return so;
           });
 
