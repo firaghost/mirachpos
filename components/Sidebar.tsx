@@ -143,6 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
   useEffect(() => {
     let mounted = true;
     const run = async () => {
+      if (role === UserRole.SUPER_ADMIN) return;
       try {
         const res = await apiFetch(withBranchQuery('/api/pos/settings'));
         const json = (await res.json().catch(() => null)) as any;

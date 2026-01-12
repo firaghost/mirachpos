@@ -79,6 +79,9 @@ const ensureDefaultRoles = async (trx, tenantId) => {
       name: 'Cafe Owner',
       scope: 'global',
       permissions: [
+        'orders.read',
+        'orders.create',
+        'orders.update',
         'roles.read',
         'roles.create',
         'roles.update',
@@ -110,6 +113,9 @@ const ensureDefaultRoles = async (trx, tenantId) => {
       name: 'Branch Manager',
       scope: 'branch',
       permissions: [
+        'orders.read',
+        'orders.create',
+        'orders.update',
         'staff.read',
         'staff.create',
         'staff.update',
@@ -175,6 +181,7 @@ const ensureDefaultRoles = async (trx, tenantId) => {
     }
 
     const current = Array.isArray(safeJsonParse(ex.permissions, [])) ? safeJsonParse(ex.permissions, []).map(String) : [];
+    if (current.includes('*')) continue;
     const base = current.length === 0 || (current.length === 1 && current[0] === '*') ? [] : current;
     const nextPerms = Array.from(new Set([...(base || []), ...(Array.isArray(d.permissions) ? d.permissions : [])]));
     const nextScope = d.scope;

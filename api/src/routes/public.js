@@ -6,9 +6,412 @@ const { config } = require('../config');
 const { loginWithEmailPassword } = require('../services/authService');
 const paymentGatewayService = require('../services/paymentGatewayService');
 const { provisionTenant } = require('../services/provisionService');
+const { fetch } = require('undici');
 
 const makePublicRouter = () => {
   const r = express.Router();
+
+  const safeIso = (v) => {
+    try {
+      if (!v) return '';
+      return new Date(v).toISOString();
+    } catch {
+      return '';
+    }
+  };
+
+  const verifyTurnstile = async ({ token, ip }) => {
+    const secret = String(config.turnstileSecretKey || '').trim();
+    const t = String(token || '').trim();
+    if (!secret) return { ok: false, error: 'turnstile_not_configured' };
+    if (!t) return { ok: false, error: 'turnstile_token_missing' };
+
+    const form = new URLSearchParams();
+    form.append('secret', secret);
+    form.append('response', t);
+    const ipStr = typeof ip === 'string' ? ip.replace(/^::ffff:/, '').trim() : '';
+    if (ipStr) form.append('remoteip', ipStr);
+
+    const resp = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      body: form,
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    });
+
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok) return { ok: false, error: 'turnstile_verify_failed' };
+    if (!json || json.success !== true) return { ok: false, error: 'turnstile_invalid', details: json?.['error-codes'] };
+    return { ok: true };
+  };
+
+  const createMailTransporter = () => {
+    let nodemailer;
+    try {
+      // eslint-disable-next-line global-require
+      nodemailer = require('nodemailer');
+    } catch {
+      return null;
+    }
+
+    const host = String(config.mail?.host || '').trim();
+    const port = Number(config.mail?.port || 587);
+    const user = String(config.mail?.user || '').trim();
+    const pass = String(config.mail?.pass || '').trim();
+    if (!host || !user || !pass) return null;
+
+    const secure = typeof config.mail?.secure === 'boolean' ? config.mail.secure : port === 465;
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: { user, pass },
+      requireTLS: port === 587,
+      tls: { minVersion: 'TLSv1.2', servername: host },
+      connectionTimeout: 20_000,
+      greetingTimeout: 20_000,
+      socketTimeout: 30_000,
+    });
+  };
+
+  const escapeHtml = (value = '') =>
+    String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const renderBrandedEmail = ({ appName, appUrl, logoUrl, title, subtitle, bodyHtml, ctaLabel, ctaUrl, footerNote }) => {
+    const brandAccent = '#C8A870';
+    const headerBg = '#0f141b';
+    const pageBg = '#0b0f14';
+    const creamBg = '#f6f1e8';
+    const safeAppName = escapeHtml(appName);
+    const safeTitle = escapeHtml(title);
+    const safeSubtitle = escapeHtml(subtitle);
+    const safeFooterNote = footerNote ? escapeHtml(footerNote) : '';
+    const safeLogoUrl = logoUrl ? escapeHtml(logoUrl) : '';
+    const hasCta = Boolean(ctaLabel && ctaUrl);
+
+    return `
+      <div style="margin:0;padding:0;background:${pageBg};">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${pageBg};padding:24px 10px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="680" style="width:680px;max-width:100%;border-collapse:separate;border-spacing:0;">
+                <tr>
+                  <td style="background:${headerBg};border-radius:18px 18px 0 0;overflow:hidden;border:1px solid rgba(255,255,255,.10);">
+                    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+                      <tr>
+                        <td style="padding:18px 18px 10px 18px;font-family:Arial,Helvetica,sans-serif;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+                            <tr>
+                              <td style="vertical-align:middle;">
+                                <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                                  <tr>
+                                    ${safeLogoUrl ? `<td style="vertical-align:middle;padding-right:10px;"><img src="${safeLogoUrl}" width="34" height="34" alt="${safeAppName}" style="display:block;border-radius:10px;"/></td>` : ''}
+                                    <td style="vertical-align:middle;">
+                                      <div style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.72);font-weight:700;">${safeAppName}</div>
+                                      <div style="margin-top:4px;font-size:18px;line-height:1.2;color:#ffffff;font-weight:900;">${safeSubtitle}</div>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                              <td align="right" style="vertical-align:middle;">
+                                <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:0;">
+                                  <tr>
+                                    <td style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:8px 10px;border-radius:999px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#e2e8f0;">Welcome</td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="height:4px;line-height:4px;font-size:4px;background:${brandAccent};">&nbsp;</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="background:${creamBg};border-left:1px solid rgba(255,255,255,.10);border-right:1px solid rgba(255,255,255,.10);padding:18px 18px 0 18px;font-family:Arial,Helvetica,sans-serif;">
+                    <div style="font-size:22px;line-height:1.25;font-weight:900;color:#111827;">${safeTitle}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background:${creamBg};border-left:1px solid rgba(255,255,255,.10);border-right:1px solid rgba(255,255,255,.10);padding:10px 18px 0 18px;font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:14px;line-height:1.7;">
+                    ${bodyHtml}
+                  </td>
+                </tr>
+
+                ${hasCta ? `
+                <tr>
+                  <td style="background:${creamBg};border-left:1px solid rgba(255,255,255,.10);border-right:1px solid rgba(255,255,255,.10);padding:16px 18px 0 18px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td bgcolor="${brandAccent}" style="border-radius:12px;">
+                          <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;padding:12px 16px;font-size:13px;font-weight:900;color:#111827;text-decoration:none;font-family:Arial,Helvetica,sans-serif;letter-spacing:.02em;">${escapeHtml(ctaLabel)}</a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                ` : ''}
+
+                <tr>
+                  <td style="background:${headerBg};border-radius:0 0 18px 18px;overflow:hidden;border:1px solid rgba(255,255,255,.10);border-top:0;padding:14px 18px 16px 18px;font-family:Arial,Helvetica,sans-serif;">
+                    <div style="font-size:12px;line-height:1.7;color:#94a3b8;">
+                      <div style="font-weight:700;color:#e2e8f0;">${safeAppName}</div>
+                      <div><a href="${escapeHtml(appUrl)}" style="color:#93c5fd;text-decoration:none;font-weight:700;">${escapeHtml(String(appUrl).replace(/^https?:\/\//, ''))}</a></div>
+                      ${safeFooterNote ? `<div style="margin-top:10px;color:#cbd5e1;">${safeFooterNote}</div>` : ''}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+  };
+
+  const renderPremiumAutoReplyEmail = ({
+    title,
+    intro,
+    detailsTitle,
+    detailsRows,
+    ctaLabel,
+    ctaUrl,
+    footerNote,
+    footerLinks,
+    brandAccent,
+    logoUrl,
+    contactLineHtml,
+    brandName,
+    showWhatNow,
+  }) => {
+    const safeTitle = escapeHtml(title);
+    const safeBrandName = escapeHtml(brandName || 'MirachPOS');
+    const safeIntro = intro ? escapeHtml(intro) : '';
+    const safeDetailsTitle = detailsTitle ? escapeHtml(detailsTitle) : '';
+    const safeFooterNote = footerNote ? escapeHtml(footerNote) : '';
+    const safeLogoUrl = logoUrl ? escapeHtml(logoUrl) : '';
+    const shouldShowWhatNow = showWhatNow !== false;
+    const accent = brandAccent || '#C8A870';
+    const headerBg = '#0f141b';
+    const pageBg = '#0b0f14';
+    const creamBg = '#f6f1e8';
+
+    const safeCtaLabel = ctaLabel ? escapeHtml(ctaLabel) : '';
+    const safeCtaUrl = ctaUrl ? escapeHtml(ctaUrl) : '';
+    const hasCta = Boolean(safeCtaLabel && safeCtaUrl);
+
+    const safeLinks = Array.isArray(footerLinks) ? footerLinks.filter((l) => l && l.url) : [];
+
+    const detailsHtml = Array.isArray(detailsRows)
+      ? detailsRows
+          .filter((row) => row && (row.label || row.valueHtml || row.value))
+          .map((row) => {
+            const isFullWidth = Boolean(row.fullWidth);
+            const label = escapeHtml(row.label || '');
+            const value = row.valueHtml ? row.valueHtml : escapeHtml(row.value ?? '');
+            if (isFullWidth) {
+              return `
+                <tr>
+                  <td colspan="2" style="padding:12px 14px;border-top:1px solid #e5e7eb;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.7;color:#111827;">
+                    ${value}
+                  </td>
+                </tr>
+              `;
+            }
+            return `
+              <tr>
+                <td style="padding:12px 14px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#64748b;width:36%;border-top:1px solid #e5e7eb;">${label}</td>
+                <td style="padding:12px 14px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#111827;border-top:1px solid #e5e7eb;">${value}</td>
+              </tr>
+            `;
+          })
+          .join('')
+      : '';
+
+    const linksHtml = safeLinks.length
+      ? safeLinks
+          .map((link) => {
+            const label = link.label ? String(link.label) : 'Link';
+            return `
+              <td style="padding-right:12px;">
+                <a href="${escapeHtml(link.url)}" style="color:#93c5fd;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;">${escapeHtml(label)}</a>
+              </td>
+            `;
+          })
+          .join('')
+      : '';
+
+    const safeContactLine = contactLineHtml ? String(contactLineHtml) : '';
+
+    return `
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <title>${safeBrandName}</title>
+  </head>
+  <body style="margin:0;padding:0;background:${pageBg};">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${pageBg};">
+      <tr>
+        <td align="center" style="padding:36px 12px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:680px;">
+            <tr>
+              <td style="background:${headerBg};border-radius:18px 18px 0 0;overflow:hidden;border:1px solid rgba(255,255,255,.10);border-bottom:0;padding:18px 18px 16px 18px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td align="left" style="font-family:Arial,Helvetica,sans-serif;color:#e2e8f0;font-weight:900;font-size:14px;letter-spacing:.08em;text-transform:uppercase;">
+                      ${safeLogoUrl ? `<img src="${safeLogoUrl}" alt="${safeBrandName}" height="26" style="display:inline-block;vertical-align:middle;border:0;outline:0;" />` : safeBrandName}
+                    </td>
+                    <td align="right" style="font-family:Arial,Helvetica,sans-serif;color:#94a3b8;font-size:12px;font-weight:700;">
+                      ${safeBrandName}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="background:${creamBg};border:1px solid rgba(255,255,255,.10);border-top:0;padding:22px 18px 18px 18px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="font-family:Arial,Helvetica,sans-serif;">
+                      <div style="font-size:22px;line-height:1.25;color:#0f172a;font-weight:900;margin:0 0 12px 0;">${safeTitle}</div>
+                      ${safeIntro ? `<div style="font-size:14px;line-height:1.75;color:#1f2937;margin:0 0 14px 0;">${safeIntro}</div>` : ''}
+                    </td>
+                  </tr>
+                </table>
+
+                ${safeDetailsTitle || detailsHtml ? `
+                <div style="margin-top:14px;">
+                  ${safeDetailsTitle ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#64748b;letter-spacing:.08em;text-transform:uppercase;font-weight:900;margin:0 0 8px 0;">${safeDetailsTitle}</div>` : ''}
+                  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;background:#ffffff;">
+                    ${detailsHtml}
+                  </table>
+                </div>
+                ` : ''}
+
+                ${shouldShowWhatNow ? `
+                <div style="margin-top:18px;">
+                  <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#64748b;letter-spacing:.08em;text-transform:uppercase;font-weight:900;margin:0 0 8px 0;">What happens next</div>
+                  <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.75;color:#1f2937;">You can sign in immediately using the email and password you created during signup.</div>
+                </div>
+                ` : ''}
+
+                ${hasCta ? `
+                <div style="margin-top:16px;">
+                  <a href="${safeCtaUrl}" style="display:inline-block;background:${escapeHtml(accent)};color:#111827;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:900;font-size:13px;letter-spacing:.02em;padding:12px 16px;border-radius:12px;">${safeCtaLabel}</a>
+                </div>
+                ` : ''}
+
+                ${safeContactLine ? `
+                <div style="margin-top:18px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.7;color:#475569;">${safeContactLine}</div>
+                ` : ''}
+              </td>
+            </tr>
+
+            <tr>
+              <td style="background:${headerBg};border-radius:0 0 18px 18px;overflow:hidden;border:1px solid rgba(255,255,255,.10);border-top:0;padding:14px 18px 16px 18px;font-family:Arial,Helvetica,sans-serif;">
+                <div style="font-size:12px;line-height:1.7;color:#94a3b8;">
+                  <div style="font-weight:700;color:#e2e8f0;">${safeBrandName}</div>
+                  ${safeFooterNote ? `<div style="margin-top:10px;color:#cbd5e1;">${safeFooterNote}</div>` : ''}
+                  ${linksHtml ? `
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:10px;">
+                    <tr>
+                      ${linksHtml}
+                    </tr>
+                  </table>
+                  ` : ''}
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+    `.trim();
+  };
+
+  const sendWelcomeEmail = async ({ toEmail, toName, tenantSlug, tenantName, trialEndsAt }) => {
+    const transporter = createMailTransporter();
+    if (!transporter) return { ok: false, error: 'mail_not_configured' };
+
+    const appName = String(config.app?.name || 'MirachPOS');
+    const appsUrl = String(config.app?.appsUrl || 'https://apps.mirachpos.com');
+    const fromEmail = String(config.mail?.from || config.mail?.user || '').trim();
+    if (!fromEmail) return { ok: false, error: 'mail_from_missing' };
+
+    const safeTo = String(toEmail || '').trim();
+    if (!safeTo) return { ok: false, error: 'mail_to_missing' };
+
+    const loginUrl = `${appsUrl}`;
+    const subject = `Welcome to ${appName} — your workspace is ${tenantSlug}`;
+
+    const intro = `Hi ${toName || 'there'},`;
+    const bodyText = [
+      intro,
+      '',
+      `Your ${appName} workspace is ready.`,
+      '',
+      `Workspace (Tenant): ${tenantSlug}`,
+      `Restaurant: ${tenantName}`,
+      '',
+      `Login here: ${loginUrl}`,
+      '',
+      `Use the email and password you created during signup.`,
+      '',
+      trialEndsAt ? `Your 14-day Pro trial ends on: ${trialEndsAt}` : '',
+    ].filter(Boolean).join('\n');
+
+    const appUrl = String(config.app?.url || 'https://mirachpos.com');
+    const logoUrl = `${appUrl.replace(/\/+$/, '')}/logos/Logo.Icon.png`;
+
+    const footerLinks = [
+      { label: 'Website', url: appUrl },
+      { label: 'Apps', url: loginUrl },
+    ];
+
+    const bodyHtml = renderPremiumAutoReplyEmail({
+      title: `Welcome to ${appName}`,
+      intro: `Hi ${toName || 'there'}, your workspace is ready. Use the details below to sign in.`,
+      detailsTitle: 'Workspace details',
+      detailsRows: [
+        { label: 'Workspace (Tenant)', value: String(tenantSlug || '') },
+        { label: 'Restaurant', value: String(tenantName || '') },
+        ...(trialEndsAt ? [{ label: 'Trial ends', value: String(trialEndsAt) }] : []),
+        { label: 'Login', valueHtml: ` <a href="${escapeHtml(loginUrl)}" style="color:#2563eb;text-decoration:none;font-weight:700;">${escapeHtml(loginUrl)}</a> ` },
+      ],
+      ctaLabel: 'Open MirachPOS',
+      ctaUrl: loginUrl,
+      footerNote: 'Tip: Workspace should match your tenant slug. Save this email for later.',
+      footerLinks,
+      brandAccent: '#C8A870',
+      logoUrl,
+      contactLineHtml: '',
+      brandName: appName,
+      showWhatNow: true,
+    });
+
+    await transporter.sendMail({
+      from: `"${appName}" <${fromEmail}>`,
+      to: safeTo,
+      subject,
+      text: bodyText,
+      html: bodyHtml,
+    });
+    return { ok: true };
+  };
 
   const slugifyWorkspace = (name) => {
     const s = String(name || '')
@@ -28,11 +431,22 @@ const makePublicRouter = () => {
       const ownerName = typeof body?.ownerName === 'string' ? body.ownerName.trim() : '';
       const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
       const password = typeof body?.password === 'string' ? body.password : '';
+      const turnstileToken = typeof body?.turnstileToken === 'string' ? body.turnstileToken.trim() : '';
+      const meta = body?.meta && typeof body.meta === 'object' ? body.meta : null;
+      const phone = typeof meta?.phone === 'string' ? meta.phone.trim() : '';
+      const city = typeof meta?.cityRegion === 'string' ? meta.cityRegion.trim() : '';
+      const address1 = typeof meta?.addressLine === 'string' ? meta.addressLine.trim() : '';
 
       if (!restaurantName) return res.status(400).json({ ok: false, error: 'restaurant_name_required' });
       if (!ownerName) return res.status(400).json({ ok: false, error: 'owner_name_required' });
       if (!email) return res.status(400).json({ ok: false, error: 'email_required' });
       if (!password || password.length < 6) return res.status(400).json({ ok: false, error: 'password_too_short' });
+
+      const turnstile = await verifyTurnstile({ token: turnstileToken, ip: req.ip });
+      if (!turnstile.ok) return res.status(400).json({ ok: false, error: turnstile.error, details: turnstile.details });
+
+      const existingStaff = await db().select(['id']).from('staff').whereRaw('LOWER(email) = ?', [email.toLowerCase()]).first();
+      if (existingStaff) return res.status(409).json({ ok: false, error: 'email_in_use' });
 
       const baseSlug = slugifyWorkspace(restaurantName);
 
@@ -48,6 +462,9 @@ const makePublicRouter = () => {
           ownerEmail: email,
           ownerPassword: password,
           branchName: 'Main Branch',
+          ownerPhone: phone,
+          city,
+          address1,
         });
         if (out && out.ok) {
           provisionOut = out;
@@ -68,6 +485,20 @@ const makePublicRouter = () => {
       const tenantId = String(provisionOut.tenant?.id || '');
       const out = await loginWithEmailPassword({ tenantId, email, password, jwtSecret: config.jwtSecret });
       if (!out.ok) return res.status(401).json({ ok: false, error: out.error });
+
+      try {
+        const trialEndsAt = safeIso(provisionOut.tenant?.trialEndsAt || provisionOut.tenant?.trial_ends_at || '');
+        await sendWelcomeEmail({
+          toEmail: email,
+          toName: ownerName,
+          tenantSlug: String(provisionOut.tenant?.slug || ''),
+          tenantName: restaurantName,
+          trialEndsAt,
+        });
+      } catch {
+        // ignore
+      }
+
       return res.status(201).json({ ok: true, signup: provisionOut, auth: out });
     } catch (e) {
       return next(e);

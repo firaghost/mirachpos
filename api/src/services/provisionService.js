@@ -24,7 +24,7 @@ const validateEmail = (email) => {
   return { ok: true, value: e };
 };
 
-const provisionTenant = async ({ slug, name, trialDays, ownerName, ownerEmail, ownerPassword, branchName }) => {
+const provisionTenant = async ({ slug, name, trialDays, ownerName, ownerEmail, ownerPassword, branchName, ownerPhone, city, address1 }) => {
   const vSlug = validateSlug(slug);
   if (!vSlug.ok) return vSlug;
 
@@ -55,6 +55,12 @@ const provisionTenant = async ({ slug, name, trialDays, ownerName, ownerEmail, o
   const ownerHash = await bcrypt.hash(pw, 10);
   const ownerCode = `${cafeCode(tenantName)}-OWN-0001`;
 
+  const planPro = await db().select(['modules_json', 'price_monthly_etb']).from('plans').where({ tier: 'Pro' }).first();
+  const proModulesJson = planPro?.modules_json != null
+    ? String(planPro.modules_json)
+    : JSON.stringify(['pos', 'orders', 'tables', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'settings', 'owner_dashboard']);
+  const proPriceMonthly = Number(planPro?.price_monthly_etb || 0) || 0;
+
   await db().transaction(async (trx) => {
     await trx
       .insert({
@@ -76,9 +82,9 @@ const provisionTenant = async ({ slug, name, trialDays, ownerName, ownerEmail, o
           ownerName: String(ownerName || '').trim(),
           contactName: String(ownerName || '').trim(),
           contactEmail: vEmail.value,
-          contactPhone: '',
-          address1: '',
-          city: '',
+          contactPhone: String(ownerPhone || '').trim(),
+          address1: String(address1 || '').trim(),
+          city: String(city || '').trim(),
           country: '',
           timezone: '',
           currency: '',
@@ -90,13 +96,13 @@ const provisionTenant = async ({ slug, name, trialDays, ownerName, ownerEmail, o
     await trx
       .insert({
         tenant_id: tenantId,
-        tier: 'Trial',
-        modules_json: JSON.stringify([]),
+        tier: 'Pro',
+        modules_json: proModulesJson,
         cycle: 'Monthly',
         status: 'active',
         method: 'manual',
         next_bill_at: trialEnds.toISOString(),
-        amount_etb: 0,
+        amount_etb: proPriceMonthly,
         grace_ends_at: trialEnds.toISOString(),
         updated_at: createdAt,
       })
@@ -124,12 +130,12 @@ const provisionTenant = async ({ slug, name, trialDays, ownerName, ownerEmail, o
       .insert({
         id: ownerStaffId,
         tenant_id: tenantId,
-        branch_id: null,
+        branch_id: defaultBranchId,
         role_id: ownerRoleId,
         role_name: 'Cafe Owner',
         name: String(ownerName || 'Owner').trim() || 'Owner',
         email: vEmail.value,
-        phone: '',
+        phone: String(ownerPhone || '').trim(),
         code: ownerCode,
         password_hash: ownerHash,
         pin_hash: null,

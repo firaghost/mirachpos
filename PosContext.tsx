@@ -18,6 +18,14 @@ export type PosNotification = {
   read: boolean;
 };
 
+const orderNumberFromId = (id: string) => {
+  const raw = String(id || '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase();
+  const tail = raw.slice(-6);
+  return `#${(tail || raw || '000000').padStart(6, '0')}`;
+};
+
 type BranchSettingsForPrinting = {
   defaultReceiptPrinterId: string | null;
   defaultKitchenPrinterId: string | null;
@@ -1656,7 +1664,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newOrder: PosOrder = {
       id: orderId,
-      number: `#${(snap.orders.length + 1).toString().padStart(4, '0')}`,
+      number: orderNumberFromId(orderId),
       tableId,
       tableName,
       createdByStaffId,
@@ -1883,7 +1891,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newOrder: PosOrder = {
       id: orderId,
-      number: `#${(snap.orders.length + 1).toString().padStart(4, '0')}`,
+      number: orderNumberFromId(orderId),
       tableId,
       tableName,
       createdByStaffId,

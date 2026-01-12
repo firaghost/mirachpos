@@ -135,14 +135,29 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       if (!terminal) return;
 
       const tableId = String((order as any)?.tableId || '').trim();
-      if (!tableId) return;
+      const tableName = String((order as any)?.tableName || '').trim();
+      if (!tableId && !tableName) return;
 
-      const tbl = Array.isArray(tables) ? tables.find((t: any) => String(t?.id || '').trim() === tableId) : null;
+      const tbl = Array.isArray(tables)
+        ? tables.find((t: any) => {
+            const tid = String(t?.id || '').trim();
+            const tnm = String(t?.name || '').trim();
+            if (tableId && tid === tableId) return true;
+            if (tableName && tnm && tnm === tableName) return true;
+            return false;
+          })
+        : null;
       const tblStatus = String((tbl as any)?.status || '').trim();
       if (tblStatus !== 'Payment') return;
 
       const candidates = (Array.isArray(orders) ? orders : [])
-        .filter((o: any) => String(o?.tableId || '').trim() === tableId)
+        .filter((o: any) => {
+          const oid = String(o?.tableId || '').trim();
+          const onm = String(o?.tableName || '').trim();
+          if (tableId && oid === tableId) return true;
+          if (tableName && onm && onm === tableName) return true;
+          return false;
+        })
         .filter((o: any) => {
           const s = String(o?.status || '').trim();
           return s !== 'Paid' && s !== 'Voided' && s !== 'Refunded';
@@ -543,9 +558,24 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
     );
   }
 
+  const tableForOrder = (() => {
+    try {
+      const tableId = String((order as any)?.tableId || '').trim();
+      if (!tableId) return null;
+      return Array.isArray(tables) ? (tables as any[]).find((t: any) => String(t?.id || '').trim() === tableId) : null;
+    } catch {
+      return null;
+    }
+  })();
 
+  const isTerminal = order.status === 'Voided' || order.status === 'Paid' || order.status === 'Refunded';
+  const isPaymentPhase = (() => {
+    if (order.status === 'Served') return true;
+    const tblStatus = String((tableForOrder as any)?.status || '').trim();
+    return tblStatus === 'Payment';
+  })();
 
-  if (order.status === 'Voided' || order.status === 'Paid' || order.status === 'Refunded' || order.status !== 'Served') {
+  if (isTerminal || !isPaymentPhase) {
     const isPaid = order.status === 'Paid';
     return (
       <div className="flex flex-col h-full overflow-hidden bg-[#0f0c07] text-white">
@@ -566,9 +596,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
               {isPaid ? 'Order is already Paid' : 'Payment is not available yet'}
             </div>
             <div className="text-[#c9b792] text-sm">
-              {isPaid
-                ? 'This order has been fully paid.'
-                : 'Orders can be paid only after they are marked Served.'}
+              {isPaid ? 'This order has been fully paid.' : 'Orders can be paid only after they are marked Served.'}
             </div>
             <div className="mt-4 flex gap-3">
               {isPaid ? (
@@ -1007,6 +1035,22 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                           <div className="text-center text-xs text-[#c9b792]">
                             Keep this screen open. Once the customer pays, the receipt will open automatically.
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try {
+                                if (chapaCheckoutUrl) window.open(chapaCheckoutUrl, '_blank', 'noopener,noreferrer');
+                              } catch {
+                                try {
+                                  if (chapaCheckoutUrl) window.location.href = chapaCheckoutUrl;
+                                } catch {
+                                }
+                              }
+                            }}
+                            className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-extrabold transition-colors"
+                          >
+                            Open payment page
+                          </button>
                           <button
                             type="button"
                             onClick={() => {

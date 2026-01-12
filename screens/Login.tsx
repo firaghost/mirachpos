@@ -186,9 +186,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {loading ? 'Signing in ¦' : 'Sign In'}
           </button>
 
-          <div className="text-xs text-[#897c61]">
-            Tip: In dev, workspace should match your tenant slug (for example: <span className="font-bold text-[#c9b792]">cafe1</span>).
-          </div>
+          
         </div>
       </div>
     </div>

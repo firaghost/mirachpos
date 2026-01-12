@@ -19,6 +19,21 @@ const config = {
   provisionKey: String(process.env.PROVISION_KEY || ''),
   corsOrigins: parseList(process.env.CORS_ORIGINS),
   devBypassAuth: process.env.NODE_ENV !== 'production' && String(process.env.DEV_BYPASS_AUTH || '') === '1',
+  turnstileSecretKey: String(process.env.TURNSTILE_SECRET_KEY || ''),
+  mail: {
+    host: String(process.env.MAIL_HOST || ''),
+    port: process.env.MAIL_PORT ? Number(process.env.MAIL_PORT) : 587,
+    secure: String(process.env.MAIL_SECURE || '').trim().toLowerCase() === 'true',
+    user: String(process.env.MAIL_USERNAME || ''),
+    pass: String(process.env.MAIL_PASSWORD || ''),
+    from: String(process.env.CONTACT_SENDER_EMAIL || process.env.MAIL_USERNAME || ''),
+    receiver: String(process.env.CONTACT_RECEIVER_EMAIL || process.env.MAIL_USERNAME || ''),
+  },
+  app: {
+    name: String(process.env.APP_NAME || 'MirachPOS'),
+    url: String(process.env.APP_URL || 'https://mirachpos.com'),
+    appsUrl: String(process.env.APPS_URL || 'https://apps.mirachpos.com'),
+  },
 };
 
 module.exports = { config };

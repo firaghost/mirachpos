@@ -106,6 +106,9 @@ const ensureDefaultRoles = async (trx, tenantId) => {
       name: 'Cafe Owner',
       scope: 'global',
       permissions: [
+        'orders.read',
+        'orders.create',
+        'orders.update',
         'roles.read',
         'roles.create',
         'roles.update',
@@ -138,6 +141,9 @@ const ensureDefaultRoles = async (trx, tenantId) => {
       name: 'Branch Manager',
       scope: 'branch',
       permissions: [
+        'orders.read',
+        'orders.create',
+        'orders.update',
         'staff.read',
         'staff.create',
         'staff.update',
@@ -147,7 +153,6 @@ const ensureDefaultRoles = async (trx, tenantId) => {
         'reports.export',
         'manager.settings.read',
         'manager.settings.write',
-        'orders.read',
         'orders.void',
         'orders.refund',
         'payments.read',
@@ -204,6 +209,7 @@ const ensureDefaultRoles = async (trx, tenantId) => {
     }
 
     const current = Array.isArray(safeJsonParse(ex.permissions, [])) ? safeJsonParse(ex.permissions, []).map(String) : [];
+    if (current.includes('*')) continue;
     const base = current.length === 0 || (current.length === 1 && current[0] === '*') ? [] : current;
     const nextPerms = Array.from(new Set([...(base || []), ...(Array.isArray(d.permissions) ? d.permissions : [])]));
     const nextScope = d.scope;
@@ -710,6 +716,12 @@ const makeOwnerStaffRouter = () => {
         if (!role) return res.status(400).json({ error: 'invalid_role' });
         patch.role_id = roleId;
         patch.role_name = String(role.name);
+      }
+
+      if (typeof req.body?.password === 'string') {
+        const pw = req.body.password;
+        if (pw && pw.length < 4) return res.status(400).json({ error: 'password_too_short' });
+        if (pw) patch.password_hash = await bcrypt.hash(pw, 10);
       }
 
       let tempPin = '';
