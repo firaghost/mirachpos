@@ -82,6 +82,7 @@ import { SA_Addons } from './screens/superadmin/Addons';
 import { Screen, UserRole } from './types';
 
 import { clearSession, initTabSession, readSession, updateSession } from './session';
+import { writeSession } from './session';
 
 import { canAccessScreenWithPermissions, canAccessScreenWithSubscription, homeForRoleWithSubscription } from './rbac';
 
@@ -193,6 +194,107 @@ const AppContent: React.FC = () => {
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('mirachpos-session-changed', onStorage as any);
     };
+  }, []);
+
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      const flag = qs.get('autologin');
+      if (flag !== '1') return;
+
+      const token = String(qs.get('token') || '').trim();
+      const tenantSlug = String(qs.get('tenant') || '').trim().toLowerCase();
+      const tenantId = String(qs.get('tenantId') || '').trim();
+      const staffId = String(qs.get('staffId') || '').trim();
+      const staffName = String(qs.get('staffName') || '').trim();
+      const roleRaw = String(qs.get('role') || '').trim();
+      const branchId = String(qs.get('branchId') || 'global').trim() || 'global';
+      const permissionsRaw = String(qs.get('permissions') || '').trim();
+
+      if (!token || !tenantSlug || !tenantId || !roleRaw) return;
+
+      const mappedRole =
+        roleRaw === UserRole.WAITER
+          ? UserRole.WAITER
+          : roleRaw === UserRole.WAITER_MANAGER
+            ? UserRole.WAITER_MANAGER
+            : roleRaw === UserRole.BRANCH_MANAGER
+              ? UserRole.BRANCH_MANAGER
+              : roleRaw === UserRole.SUPER_ADMIN
+                ? UserRole.SUPER_ADMIN
+                : roleRaw === UserRole.CAFE_OWNER
+                  ? UserRole.CAFE_OWNER
+                  : (roleRaw as any);
+
+      const initialScreen = (() => {
+        if (mappedRole === UserRole.WAITER) return Screen.WAITER_DASHBOARD;
+        if (mappedRole === UserRole.WAITER_MANAGER) return Screen.WAITER_DASHBOARD;
+        if (mappedRole === UserRole.BRANCH_MANAGER) return Screen.MANAGER_DASHBOARD;
+        if (mappedRole === UserRole.SUPER_ADMIN) return Screen.SA_OVERVIEW;
+        if (mappedRole === UserRole.CAFE_OWNER) return Screen.OWNER_DASHBOARD;
+        return Screen.DASHBOARD;
+      })();
+
+      const permissions = (() => {
+        if (!permissionsRaw) return [] as string[];
+        return permissionsRaw
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean);
+      })();
+
+      writeSession({
+        token,
+        role: mappedRole,
+        tenantId,
+        tenantSlug,
+        tenant: { id: tenantId, slug: tenantSlug, name: '' },
+        staffId,
+        staffName,
+        branchId,
+        permissions,
+        subscription: null,
+        billing: null,
+        screen: initialScreen,
+      });
+
+      // Important: the session-changed listener is registered later, so update local React state too.
+      setUserRole(mappedRole);
+      setCurrentScreen(initialScreen);
+      setPermissions(permissions);
+
+      try {
+        localStorage.setItem('mirachpos.lastWorkspace.v1', tenantSlug);
+      } catch {
+        // ignore
+      }
+
+      try {
+        if (mappedRole === UserRole.BRANCH_MANAGER) {
+          localStorage.setItem('mirachpos.manager.selectedBranchId.v1', branchId);
+        }
+        if (mappedRole === UserRole.WAITER) {
+          localStorage.setItem('mirachpos.waiter.selectedBranchId.v1', branchId);
+        }
+        if (mappedRole === UserRole.WAITER_MANAGER) {
+          localStorage.setItem('mirachpos.waiter.selectedBranchId.v1', branchId);
+        }
+        if (mappedRole === UserRole.CAFE_OWNER && branchId && branchId !== 'global') {
+          localStorage.setItem('mirachpos.owner.selectedBranchId.v1', branchId);
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        const cleanUrl = `${window.location.origin}${window.location.pathname}${window.location.hash || ''}`;
+        window.history.replaceState({}, '', cleanUrl);
+      } catch {
+        // ignore
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   const readSessionSubscription = () => {

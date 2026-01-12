@@ -208,7 +208,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
           <button onClick={() => {
             setActionErr('');
             setOrderStatus(o.id, 'Cooking');
-          }} className="w-full bg-blue-600 hover:bg-blue-500 active:scale-[0.98] transition-all text-white font-extrabold text-lg py-4 rounded-lg flex items-center justify-center gap-2 uppercase tracking-wide shadow-lg shadow-blue-600/10">
+          }} className="w-full bg-white-600 hover:bg-white-500 active:scale-[0.98] transition-all text-white font-extrabold text-lg py-4 rounded-lg flex items-center justify-center gap-2 uppercase tracking-wide shadow-lg shadow-white-600/10">
             <span>Start Prep</span>
             <span className="material-symbols-outlined">skillet</span>
           </button>

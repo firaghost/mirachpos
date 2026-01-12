@@ -5,9 +5,74 @@ const { makeId } = require('../utils/ids');
 const { config } = require('../config');
 const { loginWithEmailPassword } = require('../services/authService');
 const paymentGatewayService = require('../services/paymentGatewayService');
+const { provisionTenant } = require('../services/provisionService');
 
 const makePublicRouter = () => {
   const r = express.Router();
+
+  const slugifyWorkspace = (name) => {
+    const s = String(name || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return (s || 'cafe').slice(0, 28);
+  };
+
+  r.post('/public/signup', async (req, res, next) => {
+    try {
+      const body = req.body && typeof req.body === 'object' ? req.body : null;
+      const restaurantName = typeof body?.restaurantName === 'string' ? body.restaurantName.trim() : '';
+      const ownerName = typeof body?.ownerName === 'string' ? body.ownerName.trim() : '';
+      const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
+      const password = typeof body?.password === 'string' ? body.password : '';
+
+      if (!restaurantName) return res.status(400).json({ ok: false, error: 'restaurant_name_required' });
+      if (!ownerName) return res.status(400).json({ ok: false, error: 'owner_name_required' });
+      if (!email) return res.status(400).json({ ok: false, error: 'email_required' });
+      if (!password || password.length < 6) return res.status(400).json({ ok: false, error: 'password_too_short' });
+
+      const baseSlug = slugifyWorkspace(restaurantName);
+
+      let provisionOut = null;
+      for (let i = 0; i < 5; i += 1) {
+        const suffix = i === 0 ? '' : `-${Math.random().toString(16).slice(2, 6)}`;
+        const slug = `${baseSlug}${suffix}`.slice(0, 32).replace(/-+$/g, '');
+        const out = await provisionTenant({
+          slug,
+          name: restaurantName,
+          trialDays: 14,
+          ownerName,
+          ownerEmail: email,
+          ownerPassword: password,
+          branchName: 'Main Branch',
+        });
+        if (out && out.ok) {
+          provisionOut = out;
+          break;
+        }
+        if (!out || out.error !== 'slug_in_use') {
+          provisionOut = out;
+          break;
+        }
+      }
+
+      if (!provisionOut || !provisionOut.ok) {
+        const err = provisionOut?.error ? String(provisionOut.error) : 'signup_failed';
+        const code = err === 'slug_in_use' ? 409 : 400;
+        return res.status(code).json({ ok: false, error: err });
+      }
+
+      const tenantId = String(provisionOut.tenant?.id || '');
+      const out = await loginWithEmailPassword({ tenantId, email, password, jwtSecret: config.jwtSecret });
+      if (!out.ok) return res.status(401).json({ ok: false, error: out.error });
+      return res.status(201).json({ ok: true, signup: provisionOut, auth: out });
+    } catch (e) {
+      return next(e);
+    }
+  });
 
   const sanitizeChapaText = (v) => {
     const s = String(v || '').trim();

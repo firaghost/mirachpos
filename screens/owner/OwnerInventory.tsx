@@ -339,7 +339,7 @@ export const OwnerInventory: React.FC = () => {
     }
   };
 
-  const distColors = ['bg-primary', 'bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-red-500', 'bg-teal-500'];
+  const distColors = ['bg-primary', 'bg-white-500', 'bg-purple-500', 'bg-green-500', 'bg-red-500', 'bg-teal-500'];
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">

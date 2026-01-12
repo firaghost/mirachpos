@@ -463,7 +463,7 @@ export const Guests: React.FC = () => {
                                                                     <div className="flex items-center gap-1 mt-0.5">
                                                                         <span className={`inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-bold ring-1 ring-inset ${
                                                                             guest.role === 'VIP' ? 'bg-[#eead2b]/20 text-[#eead2b] ring-[#eead2b]/30' :
-                                                                            guest.role === 'Staff' ? 'bg-blue-900/30 text-blue-400 ring-blue-800/50' :
+                                                                            guest.role === 'Staff' ? 'bg-white-900/30 text-white-400 ring-white-800/50' :
                                                                             'bg-purple-900/30 text-purple-400 ring-purple-800/50'
                                                                         }`}>{guest.role.toUpperCase()}</span>
                                                                         <span className="text-[#c9b792] text-xs">ID: #{guest.id}</span>

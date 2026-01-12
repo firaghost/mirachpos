@@ -1220,7 +1220,7 @@ export const PaymentConfig: React.FC = () => {
           </div>
           <div className="bg-[#2c2616] border border-[#473e24] rounded-xl p-5 flex flex-col gap-1 relative overflow-hidden">
             <div className="absolute right-0 top-0 p-4 opacity-10">
-              <span className="material-symbols-outlined text-6xl text-blue-300">analytics</span>
+              <span className="material-symbols-outlined text-6xl text-white-300">analytics</span>
             </div>
             <p className="text-[#c8ba93] text-sm font-medium z-10">Avg Invoice Value</p>
             <div className="flex items-baseline gap-2 z-10">
@@ -1715,7 +1715,7 @@ export const PaymentConfig: React.FC = () => {
           </div>
 
           <div className="flex flex-col gap-1 rounded-xl p-5 bg-[#2c2616] border border-[#473e24] relative overflow-hidden">
-            <div className="absolute right-4 top-4 text-blue-300 bg-blue-500/10 p-1 rounded-md">
+            <div className="absolute right-4 top-4 text-white-300 bg-white-500/10 p-1 rounded-md">
               <span className="material-symbols-outlined">sync</span>
             </div>
             <p className="text-[#c8ba93] text-sm font-medium">Last ERCA Sync</p>
@@ -2987,7 +2987,7 @@ export const PaymentConfig: React.FC = () => {
                   <div className="p-5 rounded-xl bg-[#2c2616] border border-[#473e24] hover:border-[#eead2b]/50 transition-all shadow-lg relative">
                     <div className="flex items-start gap-4">
                       <div className="size-12 rounded-lg bg-white p-2 flex items-center justify-center flex-none">
-                        <div className="w-full h-full bg-gradient-to-br from-blue-500 to-cyan-400 rounded-md" />
+                        <div className="w-full h-full bg-gradient-to-br from-white-500 to-cyan-400 rounded-md" />
                       </div>
                       <div className="flex flex-col flex-1">
                         <div className="flex items-center justify-between gap-4">

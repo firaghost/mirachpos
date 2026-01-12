@@ -65,7 +65,7 @@ type PlanCycle = 'Monthly' | 'Yearly';
 const gatewayInfo: Record<string, { icon: string; gradient: string; name: string }> = {
     bank_transfer: { icon: 'account_balance', gradient: 'from-indigo-600 to-indigo-800', name: 'Bank Transfer' },
     chapa: { icon: 'credit_card', gradient: 'from-green-500 to-green-700', name: 'Chapa' },
-    telebirr: { icon: 'phone_android', gradient: 'from-blue-500 to-blue-700', name: 'Telebirr' },
+    telebirr: { icon: 'phone_android', gradient: 'from-white-500 to-white-700', name: 'Telebirr' },
     cbe_birr: { icon: 'account_balance_wallet', gradient: 'from-purple-500 to-purple-700', name: 'CBE Birr' }
 };
 

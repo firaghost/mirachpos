@@ -117,7 +117,7 @@ export const Dashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                                             <span className="text-white font-mono font-bold text-sm">ETB {order.total}</span>
                                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                                                 order.status === 'Cooking' ? 'bg-warning/20 text-warning' :
-                                                order.status === 'Ready' ? 'bg-blue-500/20 text-blue-400' :
+                                                order.status === 'Ready' ? 'bg-white-500/20 text-white-400' :
                                                 'bg-success/20 text-success'
                                             }`}>
                                                 {order.status}

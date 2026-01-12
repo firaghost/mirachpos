@@ -543,7 +543,7 @@ export const OwnerBranches: React.FC = () => {
                     <p className="text-[#b9b09d] text-sm font-medium mb-1">Active Staff</p>
                     <p className="text-3xl font-bold text-[#111418] dark:text-white">{totalStaff}</p>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+                <div className="h-10 w-10 rounded-full bg-white-500/10 flex items-center justify-center text-white-500">
                     <span className="material-symbols-outlined">badge</span>
                 </div>
             </div>

@@ -42,9 +42,9 @@ type ConnectedDevice = {
   model: string;
   ip: string;
   port: string;
-  connection: 'LAN' | 'Bluetooth' | 'Cloud';
+  connection: 'LAN' | 'whitetooth' | 'Cloud';
   setupMode: 'Auto' | 'Manual';
-  bluetoothName?: string;
+  whitetoothName?: string;
   cloudId?: string;
   profile: 'Receipt' | 'Kitchen' | 'Bar';
   usage: string;
@@ -879,14 +879,14 @@ export const BranchSettings: React.FC = () => {
     if (!deviceFormState) return true;
     if (!deviceFormState.name.trim()) return true;
     if (deviceFormState.connection === 'LAN') return !deviceFormState.ip.trim() || !deviceFormState.port.trim();
-    if (deviceFormState.connection === 'Bluetooth') return !deviceFormState.bluetoothName?.trim();
+    if (deviceFormState.connection === 'whitetooth') return !deviceFormState.whitetoothName?.trim();
     if (deviceFormState.connection === 'Cloud') return !deviceFormState.cloudId?.trim();
     return true;
   }, [deviceFormState]);
 
-  const canUseBluetooth = useMemo(() => {
+  const canUsewhitetooth = useMemo(() => {
     try {
-      return typeof (navigator as unknown as { bluetooth?: unknown }).bluetooth !== 'undefined';
+      return typeof (navigator as unknown as { whitetooth?: unknown }).whitetooth !== 'undefined';
     } catch {
       return false;
     }
@@ -989,7 +989,7 @@ export const BranchSettings: React.FC = () => {
     setSettingsDeviceDraft({
       connection: 'LAN',
       setupMode: 'Manual',
-      bluetoothName: '',
+      whitetoothName: '',
       cloudId: '',
       profile:
         (settingsDevice as Partial<ConnectedDevice>).profile ??
@@ -1020,7 +1020,7 @@ export const BranchSettings: React.FC = () => {
       port: '9100',
       connection: 'LAN',
       setupMode: 'Manual',
-      bluetoothName: '',
+      whitetoothName: '',
       cloudId: '',
       profile: 'Receipt',
       usage: '',
@@ -1035,7 +1035,7 @@ export const BranchSettings: React.FC = () => {
     setDeviceFormState({
       connection: 'LAN',
       setupMode: 'Manual',
-      bluetoothName: '',
+      whitetoothName: '',
       cloudId: '',
       profile:
         (device as Partial<ConnectedDevice>).profile ??
@@ -1199,10 +1199,10 @@ export const BranchSettings: React.FC = () => {
                                 </div>
                               </>
                             )}
-                            {d.connection === 'Bluetooth' && (
+                            {d.connection === 'whitetooth' && (
                               <div className="flex justify-between text-sm">
-                                <span className="text-[#b9b09d]">Bluetooth</span>
-                                <span className="text-white">{d.bluetoothName || ' ”'}</span>
+                                <span className="text-[#b9b09d]">whitetooth</span>
+                                <span className="text-white">{d.whitetoothName || ' ”'}</span>
                               </div>
                             )}
                             {d.connection === 'Cloud' && (
@@ -2350,12 +2350,12 @@ export const BranchSettings: React.FC = () => {
               </div>
             )}
 
-            {deviceFormState?.connection === 'Bluetooth' && (
+            {deviceFormState?.connection === 'whitetooth' && (
               <div>
-                <label className="text-sm font-bold text-[#b9b09d]">Bluetooth Printer</label>
+                <label className="text-sm font-bold text-[#b9b09d]">whitetooth Printer</label>
                 <Input
-                  value={deviceFormState?.bluetoothName ?? ''}
-                  onChange={(e) => setDeviceFormState((p) => (p ? { ...p, bluetoothName: e.target.value } : p))}
+                  value={deviceFormState?.whitetoothName ?? ''}
+                  onChange={(e) => setDeviceFormState((p) => (p ? { ...p, whitetoothName: e.target.value } : p))}
                   className="mt-2"
                   placeholder="Paired device name"
                 />
@@ -2460,7 +2460,7 @@ export const BranchSettings: React.FC = () => {
                     className="mt-2"
                   >
                     <option value="LAN">LAN</option>
-                    <option value="Bluetooth">Bluetooth</option>
+                    <option value="whitetooth">whitetooth</option>
                     <option value="Cloud">Cloud</option>
                   </Select>
                 </div>
@@ -2512,12 +2512,12 @@ export const BranchSettings: React.FC = () => {
                 </div>
               ) : null}
 
-              {settingsDeviceDraft.connection === 'Bluetooth' ? (
+              {settingsDeviceDraft.connection === 'whitetooth' ? (
                 <div>
-                  <label className="text-sm font-bold text-[#b9b09d]">Bluetooth Printer</label>
+                  <label className="text-sm font-bold text-[#b9b09d]">whitetooth Printer</label>
                   <Input
-                    value={settingsDeviceDraft.bluetoothName ?? ''}
-                    onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, bluetoothName: e.target.value } : p))}
+                    value={settingsDeviceDraft.whitetoothName ?? ''}
+                    onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, whitetoothName: e.target.value } : p))}
                     className="mt-2"
                     placeholder="Paired device name"
                   />
@@ -2590,7 +2590,7 @@ export const BranchSettings: React.FC = () => {
                     }
                   }
 
-                  // Fallback (Bluetooth/Cloud): keep browser print preview for now.
+                  // Fallback (whitetooth/Cloud): keep browser print preview for now.
                   if (device.profile === 'Kitchen') {
                     openPrintWindow(
                       kitchenSampleHtml({

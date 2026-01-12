@@ -133,7 +133,7 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
                                  ) : null}
                                   <span className={`px-2 py-1 rounded text-xs font-bold ${
                                      order.status === 'Cooking' ? 'bg-yellow-500/20 text-yellow-500' :
-                                     order.status === 'Ready' ? 'bg-blue-500/20 text-blue-500' :
+                                     order.status === 'Ready' ? 'bg-white-500/20 text-white-500' :
                                      order.status === 'Served' ? 'bg-green-500/20 text-green-500' :
                                      order.status === 'Paid' ? 'bg-green-500/20 text-green-500' :
                                      order.status === 'Voided' ? 'bg-red-500/25 text-red-300 border border-red-500/30' :

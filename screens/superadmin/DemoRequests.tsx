@@ -260,7 +260,7 @@ export const SA_DemoRequests: React.FC = () => {
                         (String(d.status || '').toLowerCase() === 'new'
                           ? 'bg-[#2d261a] text-[#eead2b] border-[#eead2b]/30'
                           : String(d.status || '').toLowerCase() === 'contacted'
-                            ? 'bg-blue-900/20 text-blue-300 border-blue-900/30'
+                            ? 'bg-white-900/20 text-white-300 border-white-900/30'
                             : String(d.status || '').toLowerCase() === 'rejected'
                               ? 'bg-red-900/20 text-red-300 border-red-900/30'
                               : String(d.status || '').toLowerCase() === 'provisioned'

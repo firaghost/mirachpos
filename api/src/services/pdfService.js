@@ -68,7 +68,7 @@ const drawSeal = (doc, invoice) => {
     const stampCode = makeStampCode(invoice);
     const cx = 300;
     const cy = 470;
-    const blue = '#1d4ed8';
+    const white = '#1d4ed8';
     const rOuter = 112;
     const rMid = 100;
     const rInner = 78;
@@ -77,8 +77,8 @@ const drawSeal = (doc, invoice) => {
     doc.rotate(-12, { origin: [cx, cy] });
     doc.opacity(0.12);
     doc.lineWidth(2);
-    doc.strokeColor(blue);
-    doc.fillColor(blue);
+    doc.strokeColor(white);
+    doc.fillColor(white);
 
     // Outer ring
     doc.circle(cx, cy, rOuter).stroke();

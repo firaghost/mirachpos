@@ -719,7 +719,7 @@ export const OwnerFinance: React.FC = () => {
                         <td className="p-4 pl-6 text-sm text-white font-medium">{r.date}</td>
                         <td className="p-4 text-sm text-[#c9b792] font-mono">{r.transactionId}</td>
                         <td className="p-4 text-sm text-white font-bold flex items-center gap-2">
-                          <div className="size-6 rounded bg-blue-500/20 text-blue-400 flex items-center justify-center text-[10px] font-bold">{r.vendorInitial}</div>
+                          <div className="size-6 rounded bg-white-500/20 text-white-400 flex items-center justify-center text-[10px] font-bold">{r.vendorInitial}</div>
                           {r.vendor}
                         </td>
                         <td className="p-4 text-sm text-[#c9b792]">{r.category}</td>

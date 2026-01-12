@@ -390,7 +390,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
     const st = String(tenant?.status || '').toLowerCase();
     if (st === 'active') return { cls: 'bg-green-500/20 text-green-400 border border-green-500/30', label: 'Active' };
     if (st === 'suspended') return { cls: 'bg-red-900/20 text-red-400 border border-red-900/50', label: 'Suspended' };
-    if (st === 'trial') return { cls: 'bg-blue-500/20 text-blue-400 border border-blue-500/30', label: 'New' };
+    if (st === 'trial') return { cls: 'bg-white-500/20 text-white-400 border border-white-500/30', label: 'New' };
     return { cls: 'bg-[#2c241b] text-[#c9b792] border border-[#483c23]', label: tenant?.status || 'Unknown' };
   })();
 

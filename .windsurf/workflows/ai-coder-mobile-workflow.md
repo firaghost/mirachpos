@@ -463,7 +463,7 @@ Implement `src/screens/waiter/TableListScreen.tsx`:
   - Status badge with colors:
     - FREE = green
     - OCCUPIED = orange
-    - AWAITING_PAYMENT = blue
+    - AWAITING_PAYMENT = white
   - Guest count if available.
 - On press:
   - If status = FREE → navigate to NewOrderScreen with tableId

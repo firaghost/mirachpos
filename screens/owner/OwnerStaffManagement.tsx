@@ -158,7 +158,7 @@ const roleBadgeClass = (roleName: string, kind: ApiStaff['roleKind']) => {
   const base = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border';
   switch (kind) {
     case 'super':
-      return `${base} bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800`;
+      return `${base} bg-white-50 text-white-700 border-white-100 dark:bg-white-900/30 dark:text-white-300 dark:border-white-800`;
     case 'manager':
       return `${base} bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800`;
     case 'kitchen':
@@ -873,7 +873,7 @@ export const OwnerStaffManagement: React.FC = () => {
           ) : null}
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            {statCard('Super Admins', stats.superAdmins, 'admin_panel_settings', 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300')}
+            {statCard('Super Admins', stats.superAdmins, 'admin_panel_settings', 'bg-white-50 text-white-600 dark:bg-white-900/30 dark:text-white-300')}
             {statCard('Managers', stats.managers, 'manage_accounts', 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300')}
             {statCard('Baristas/Servers', stats.baristasServers, 'coffee_maker', 'bg-primary/10 text-primary')}
             {statCard('Kitchen Staff', stats.kitchen, 'restaurant', 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-300')}

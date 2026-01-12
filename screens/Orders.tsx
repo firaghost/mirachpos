@@ -79,7 +79,7 @@ export const Orders: React.FC = () => {
                             <td className="p-4">
                                 <span className={`text-xs px-2 py-1 rounded-full font-bold ${
                                     order.status === 'Cooking' ? 'bg-warning/20 text-warning' :
-                                    order.status === 'Ready' ? 'bg-blue-500/20 text-blue-400' :
+                                    order.status === 'Ready' ? 'bg-white-500/20 text-white-400' :
                                     order.status === 'Pending' ? 'bg-gray-500/20 text-gray-400' :
                                     'bg-success/20 text-success'
                                 }`}>

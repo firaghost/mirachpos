@@ -185,13 +185,13 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
     const v = String(s || '').toLowerCase();
     if (v === 'active') return { label: 'Active', cls: 'bg-green-900/30 text-green-400 ring-green-900/40', border: 'border-border-dark', cardBorder: 'border-border-dark hover:border-primary/40' };
     if (v === 'suspended') return { label: 'Suspended', cls: 'bg-red-900/30 text-red-400 ring-red-900/40', border: 'border-red-900/30', cardBorder: 'border-red-900/30 hover:border-red-500/40' };
-    if (v === 'trial') return { label: 'New', cls: 'bg-blue-900/30 text-blue-400 ring-blue-900/40', border: 'border-border-dark', cardBorder: 'border-border-dark hover:border-primary/40' };
+    if (v === 'trial') return { label: 'New', cls: 'bg-white-900/30 text-white-400 ring-white-900/40', border: 'border-border-dark', cardBorder: 'border-border-dark hover:border-primary/40' };
     return { label: s || 'Unknown', cls: 'bg-yellow-900/30 text-yellow-500 ring-yellow-900/40', border: 'border-border-dark', cardBorder: 'border-border-dark hover:border-yellow-500/40' };
   };
 
   const usageColor = (pct: number) => {
     if (pct >= 90) return 'bg-yellow-500';
-    if (pct >= 60) return 'bg-blue-500';
+    if (pct >= 60) return 'bg-white-500';
     return 'bg-green-500';
   };
 
