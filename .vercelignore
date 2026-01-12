@@ -1,2 +1,5 @@
 api/**
 api
+
+package-lock.json
+api/package-lock.json
