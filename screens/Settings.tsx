@@ -667,18 +667,63 @@ export const Settings: React.FC = () => {
       setBanner({ kind: 'error', message: 'Logo must be an image (png, jpg, jpeg, webp).' });
       return;
     }
-    // ~250KB cap to keep settings payload small (backend enforces a larger cap as well)
-    if (file.size > 250 * 1024) {
-      setBanner({ kind: 'error', message: 'Logo is too large. Please use an image under 250KB.' });
+    setBanner(null);
+
+    const readFileAsDataUrl = async (f: File) => {
+      return await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result || ''));
+        r.onerror = () => reject(new Error('Failed to read file'));
+        r.readAsDataURL(f);
+      });
+    };
+
+    const resizeToDataUrl = async (inputDataUrl: string) => {
+      const maxW = 360;
+      const maxH = 180;
+      const qualitySteps = [0.9, 0.82, 0.74, 0.66];
+
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error('Failed to decode image'));
+        i.src = inputDataUrl;
+      });
+
+      const w0 = Math.max(1, Number(img.naturalWidth || img.width || 1));
+      const h0 = Math.max(1, Number(img.naturalHeight || img.height || 1));
+
+      const scale = Math.min(1, maxW / w0, maxH / h0);
+      const w = Math.max(1, Math.round(w0 * scale));
+      const h = Math.max(1, Math.round(h0 * scale));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('canvas_not_supported');
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+
+      // Prefer WebP when available to keep payload small.
+      for (const q of qualitySteps) {
+        const out = canvas.toDataURL('image/webp', q);
+        if (out && out.length <= 250 * 1024) return out;
+      }
+
+      // Fallback: PNG at least respects alpha, but can be larger.
+      const outPng = canvas.toDataURL('image/png');
+      if (outPng && outPng.length <= 250 * 1024) return outPng;
+      return '';
+    };
+
+    const dataUrlRaw = await readFileAsDataUrl(file);
+    const dataUrl = await resizeToDataUrl(dataUrlRaw);
+    if (!dataUrl) {
+      setBanner({ kind: 'error', message: 'Logo is too large. Please use a smaller image.' });
       return;
     }
-    setBanner(null);
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(String(r.result || ''));
-      r.onerror = () => reject(new Error('Failed to read file'));
-      r.readAsDataURL(file);
-    });
     setDraft({
       ...draft,
       receipt: { ...draft.receipt, logoDataUrl: dataUrl },

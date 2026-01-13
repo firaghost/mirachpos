@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Screen } from '../../types';
 import { usePos, useSelectedOrder } from '../../PosContext';
-import { apiFetch } from '../../api';
+import { apiFetch, resolveAssetUrl } from '../../api';
 import { Modal } from '../../components/Modal';
 import { usePersistedState } from '../../usePersistedState';
 import { readSession } from '../../session';
@@ -459,35 +459,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const itemCount = useMemo(() => (order ? order.items.reduce((sum, i) => sum + i.qty, 0) : 0), [order]);
 
   const assetUrl = useMemo(() => {
-    const host = (() => {
-      try {
-        const envBase = (import.meta as any)?.env?.VITE_API_BASE;
-        const s = typeof envBase === 'string' ? envBase.trim() : '';
-        if (s) return s.replace(/\/+$/, '');
-      } catch {
-        // ignore
-      }
-      try {
-        const loc = typeof window !== 'undefined' ? window.location : null;
-        const h = loc ? String(loc.hostname || '') : '';
-        if (!h) return '';
-        // Local dev API
-        if (h === 'localhost' || h === '127.0.0.1') return 'http://127.0.0.1:3001';
-        // Production: keep same-origin so it stays HTTPS and uses the /api proxy.
-        return '';
-      } catch {
-        // ignore
-      }
-      return '';
-    })();
-
-    return (raw: string): string => {
-      const s = String(raw || '').trim();
-      if (!s) return '';
-      if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:')) return s;
-      if (s.startsWith('/uploads/') || s.startsWith('/api/uploads/')) return host ? `${host}${s}` : s;
-      return s;
-    };
+    return (raw: string): string => resolveAssetUrl(raw);
   }, []);
 
   const methodButtons = useMemo(() => {

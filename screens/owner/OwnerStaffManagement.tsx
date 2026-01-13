@@ -616,6 +616,32 @@ export const OwnerStaffManagement: React.FC = () => {
     }
   };
 
+  const resetStaffPassword = async () => {
+    if (staffEditLoading || !staffEditTarget) return;
+    setStaffEditLoading(true);
+    try {
+      const res = await apiFetch(`/api/owner/staff/${encodeURIComponent(staffEditTarget.id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resetPassword: true }),
+      });
+      const payload = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(payload?.error || String(res.status));
+      const tp = typeof payload?.tempPassword === 'string' ? payload.tempPassword : '';
+      setStaffEditLoading(false);
+      if (tp) {
+        await copyText(tp);
+        setBanner({ kind: 'success', message: `Password reset and copied: ${tp}` });
+      } else {
+        setBanner({ kind: 'success', message: 'Password reset.' });
+      }
+      await fetchStaff();
+    } catch (e) {
+      setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to reset password.' });
+      setStaffEditLoading(false);
+    }
+  };
+
   const openRoleCreate = () => {
     setBanner(null);
     setRoleCreateOpen(true);
@@ -1168,6 +1194,36 @@ export const OwnerStaffManagement: React.FC = () => {
                                     Reset PIN
                                   </button>
                                 ) : null}
+
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const res = await apiFetch(`/api/owner/staff/${encodeURIComponent(s.id)}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ resetPassword: true }),
+                                      });
+                                      const payload = (await res.json().catch(() => null)) as any;
+                                      if (!res.ok) throw new Error(payload?.error || String(res.status));
+                                      const tp = typeof payload?.tempPassword === 'string' ? payload.tempPassword : '';
+                                      if (tp) {
+                                        await copyText(tp);
+                                        setBanner({ kind: 'success', message: `Password reset and copied: ${tp}` });
+                                      } else {
+                                        setBanner({ kind: 'success', message: 'Password reset.' });
+                                      }
+                                      setRowMenuStaffId(null);
+                                      setRowMenuAnchor(null);
+                                      await fetchStaff();
+                                    } catch (e) {
+                                      setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to reset password.' });
+                                    }
+                                  }}
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b]"
+                                  type="button"
+                                >
+                                  Reset Password
+                                </button>
                                 <div className="h-px bg-[#675532]/40" />
                                 <button
                                   onClick={async () => {

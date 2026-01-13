@@ -134,4 +134,75 @@ const loginWithEmailPassword = async ({ tenantId, email, password, jwtSecret }) 
   };
 };
 
-module.exports = { loginWithEmailPassword };
+const loginWithCodePin = async ({ tenantId, code, pin, jwtSecret }) => {
+  const c = String(code || '').trim();
+  const p = String(pin || '').trim();
+  if (!tenantId || !c || !p) return { ok: false, error: 'invalid_credentials' };
+
+  const tenant = await db()
+    .select(['id', 'slug', 'name', 'status', 'trial_ends_at', 'plan', 'created_at'])
+    .from('tenants')
+    .where({ id: tenantId })
+    .first();
+
+  if (!tenant) return { ok: false, error: 'tenant_not_found' };
+  if (String(tenant.status) === 'suspended') return { ok: false, error: 'tenant_suspended' };
+
+  await maybeDowngradeDueSubscription(String(tenant.id));
+
+  const staff = await db()
+    .select(['id', 'tenant_id', 'branch_id', 'role_name', 'name', 'email', 'pin_hash', 'code'])
+    .from('staff')
+    .where({ tenant_id: tenantId, code: c })
+    .first();
+
+  if (!staff) return { ok: false, error: 'invalid_credentials' };
+  if (String(staff.role_name || '').trim() !== 'Waiter') return { ok: false, error: 'forbidden' };
+
+  const hash = String(staff.pin_hash || '');
+  if (!hash) return { ok: false, error: 'invalid_credentials' };
+  const match = await bcrypt.compare(p, hash);
+  if (!match) return { ok: false, error: 'invalid_credentials' };
+
+  const token = jwt.sign(
+    {
+      tenantId: staff.tenant_id,
+      staffId: staff.id,
+      role: staff.role_name,
+      branchId: staff.branch_id || 'global',
+    },
+    jwtSecret,
+    { expiresIn: '12h' },
+  );
+
+  const branchId = staff.branch_id || 'global';
+  const branch = await (async () => {
+    if (!staff.branch_id) return { id: 'global', name: 'Global' };
+    const b = await db().select(['id', 'name']).from('branches').where({ tenant_id: tenantId, id: String(staff.branch_id) }).first();
+    if (!b) return { id: String(staff.branch_id), name: '' };
+    return { id: String(b.id), name: String(b.name || '') };
+  })();
+
+  const ent = await computeTenantEntitlements({ tenant });
+  if (ent) await upsertTenantEntitlementsSnapshot({ tenantId: tenant.id, entitlements: ent });
+
+  const permissions = await readRolePermissions({ tenantId: tenant.id, roleName: staff.role_name });
+
+  return {
+    ok: true,
+    token,
+    role: staff.role_name,
+    permissions,
+    branchId,
+    tenantId: String(staff.tenant_id),
+    staffId: String(staff.id),
+    staffName: String(staff.name || ''),
+    tenant: { id: String(tenant.id), slug: String(tenant.slug || ''), name: String(tenant.name || '') },
+    branch,
+    subscription: ent?.subscription || { tier: 'Trial', modules: [] },
+    billing: ent?.billing || { cycle: 'Monthly', status: 'active', method: 'manual', nextBillAt: '', amountEtb: 0, graceEndsAt: '' },
+    limits: ent?.limits || {},
+  };
+};
+
+module.exports = { loginWithEmailPassword, loginWithCodePin };

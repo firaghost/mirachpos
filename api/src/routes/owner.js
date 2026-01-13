@@ -1022,6 +1022,17 @@ const makeOwnerRouter = () => {
       const prev = safeJsonParse(row?.settings_json, {});
       const body = req.body?.settings || req.body;
       const nextSettings = normalizeOwnerSettings(body, prev);
+
+      try {
+        const rawLogo = String(nextSettings?.receipt?.logoDataUrl || '').trim();
+        if (rawLogo) {
+          const okPrefix = /^data:image\/(png|jpe?g|webp);base64,/i.test(rawLogo);
+          if (!okPrefix) return res.status(400).json({ error: 'invalid_logo' });
+          if (rawLogo.length > 900_000) return res.status(400).json({ error: 'logo_too_large' });
+        }
+      } catch {
+        return res.status(400).json({ error: 'invalid_logo' });
+      }
       const nowIso = new Date().toISOString();
 
       await db()

@@ -4,7 +4,7 @@ const { requireAuth } = require('../middleware/auth');
 const { validateLogin } = require('../middleware/validators');
 const { config } = require('../config');
 const { db } = require('../db');
-const { loginWithEmailPassword } = require('../services/authService');
+const { loginWithEmailPassword, loginWithCodePin } = require('../services/authService');
 
 const { computeTenantEntitlements, upsertTenantEntitlementsSnapshot } = require('../services/entitlements');
 
@@ -97,6 +97,30 @@ const makeAuthRouter = () => {
   r.post('/login', tenantMiddleware, validateLogin, handler);
   // Backward-compatible: existing frontend calls /api/auth/login
   r.post('/auth/login', tenantMiddleware, validateLogin, handler);
+
+  r.post('/login-pin', tenantMiddleware, async (req, res, next) => {
+    try {
+      const code = typeof req.body?.code === 'string' ? req.body.code : '';
+      const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
+      const out = await loginWithCodePin({ tenantId: req.tenant.id, code, pin, jwtSecret: config.jwtSecret });
+      if (!out.ok) return res.status(out.error === 'forbidden' ? 403 : 401).json({ error: out.error });
+      return res.json(out);
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.post('/auth/login-pin', tenantMiddleware, async (req, res, next) => {
+    try {
+      const code = typeof req.body?.code === 'string' ? req.body.code : '';
+      const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
+      const out = await loginWithCodePin({ tenantId: req.tenant.id, code, pin, jwtSecret: config.jwtSecret });
+      if (!out.ok) return res.status(out.error === 'forbidden' ? 403 : 401).json({ error: out.error });
+      return res.json(out);
+    } catch (e) {
+      return next(e);
+    }
+  });
 
   const meHandler = async (req, res, next) => {
     try {

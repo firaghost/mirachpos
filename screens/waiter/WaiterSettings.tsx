@@ -74,7 +74,7 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
       if (passwordError) throw new Error(passwordError);
       if (pinError) throw new Error(pinError);
 
-      const res = await apiFetch('/api/waiter/account', {
+      const res = await apiFetch('/api/staff/account', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -141,7 +141,12 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
           <div className="text-xs text-[#b9b09d] mt-1">Security    Password & PIN</div>
         </div>
         <button
-          onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}
+          onClick={() => {
+            const r = String(role || '').trim();
+            if (r === 'Branch Manager') onNavigate(Screen.MANAGER_DASHBOARD);
+            else if (r === 'Cafe Owner') onNavigate(Screen.OWNER_DASHBOARD);
+            else onNavigate(Screen.WAITER_DASHBOARD);
+          }}
           className="h-10 px-4 rounded-lg border border-[#393328] bg-[#181611] hover:bg-[#2c241b] text-[#c9b792] font-bold"
         >
           Back

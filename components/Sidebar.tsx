@@ -351,6 +351,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
               <NavItem screen={Screen.MANAGER_REPORTS} icon="analytics" label="Analytics" />
               <NavItem screen={Screen.MANAGER_SETTINGS} icon="settings" label="App Config" />
               <NavItem screen={Screen.SUPPORT_REQUEST} icon="support_agent" label="Support" />
+              <NavItem screen={Screen.WAITER_SETTINGS} icon="lock" label="Auth Settings" />
             </Section>
 
             {ownerActsAsManager && (

@@ -82,11 +82,38 @@ const apiBase = (): string => {
   try {
     const host = typeof window !== 'undefined' ? String(window.location?.hostname || '') : '';
     if (host === 'localhost' || host === '127.0.0.1') return 'http://127.0.0.1:3001';
+
+    if (host === 'apps.mirachpos.com') return 'https://apa.mirachpos.com';
   } catch {
     // ignore
   }
 
   return '';
+};
+
+export const resolveAssetUrl = (raw: string): string => {
+  const s0 = String(raw || '').trim();
+  if (!s0) return '';
+  if (s0.startsWith('http://') || s0.startsWith('https://') || s0.startsWith('data:')) return s0;
+
+  const normalized = (() => {
+    const s = s0.replace(/\\/g, '/');
+    const idxApi = s.indexOf('/api/uploads/');
+    if (idxApi >= 0) return s.slice(idxApi);
+    const idx = s.indexOf('/uploads/');
+    if (idx >= 0) return s.slice(idx);
+    return s;
+  })();
+
+  const needsPrefix = normalized.startsWith('/api/uploads/') || normalized.startsWith('/uploads/');
+  if (!needsPrefix) return normalized;
+
+  const base = apiBase();
+  if (base) return `${base}${normalized}`;
+
+  const isFileProtocol = typeof window !== 'undefined' && window.location?.protocol === 'file:';
+  if (isFileProtocol) return `https://apa.mirachpos.com${normalized}`;
+  return normalized;
 };
 
 export const authHeader = (): Record<string, string> => {
@@ -137,7 +164,7 @@ export const apiFetch = async (input: RequestInfo | URL, init: ApiFetchOptions =
     if (isRelativeApi && base) {
       finalInput = `${base}${input}`;
     } else if (isRelativeApi && isFileProtocol) {
-      finalInput = `http://127.0.0.1:3001${input}`;
+      finalInput = `https://apa.mirachpos.com${input}`;
     }
   }
 

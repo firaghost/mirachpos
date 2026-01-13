@@ -1,5 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+const rawApiBase = process.env.MIRACHPOS_API_BASE || process.env.MIRACHPOS_API_ORIGIN || '';
+const apiBase = (typeof rawApiBase === 'string' ? rawApiBase.trim() : '') || 'https://apa.mirachpos.com';
+
 contextBridge.exposeInMainWorld('mirachpos', {
   platform: process.platform,
   versions: {
@@ -8,7 +11,7 @@ contextBridge.exposeInMainWorld('mirachpos', {
     electron: process.versions.electron,
   },
   config: {
-    apiBase: process.env.MIRACHPOS_API_BASE || process.env.MIRACHPOS_API_ORIGIN || '',
+    apiBase,
   },
   db: {
     get: (key) => ipcRenderer.invoke('mirachpos.db.get', key),

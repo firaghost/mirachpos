@@ -117,6 +117,7 @@ export const canAccessScreen = (role: UserRole, screen: Screen): boolean => {
       screen === Screen.MANAGER_SETTINGS ||
       screen === Screen.MANAGER_FINANCE ||
       screen === Screen.MANAGER_REPORTS ||
+      screen === Screen.WAITER_SETTINGS ||
       screen === Screen.TABLE_ASSIGNMENT ||
       screen === Screen.GUESTS ||
       screen === Screen.SUPPORT_REQUEST
@@ -151,6 +152,7 @@ export const canAccessScreen = (role: UserRole, screen: Screen): boolean => {
       screen === Screen.MANAGER_SETTINGS ||
       screen === Screen.MANAGER_FINANCE ||
       screen === Screen.MANAGER_REPORTS ||
+      screen === Screen.WAITER_SETTINGS ||
       screen === Screen.TABLE_ASSIGNMENT ||
       screen === Screen.GUESTS ||
       screen === Screen.OWNER_BILLING

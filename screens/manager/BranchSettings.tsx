@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiFetch } from '../../api';
+import { apiFetch, resolveAssetUrl } from '../../api';
 import { Screen } from '../../types';
 import { Modal } from '../../components/Modal';
 import { formatDeviceTime } from '../../datetime';
@@ -1610,7 +1610,7 @@ export const BranchSettings: React.FC = () => {
                         {draft.payments.qrDetails.telebirr.image ? (
                           <div className="mt-3 flex items-center justify-center">
                             <img
-                              src={draft.payments.qrDetails.telebirr.image}
+                              src={resolveAssetUrl(draft.payments.qrDetails.telebirr.image)}
                               alt="Telebirr QR"
                               className="max-h-44 max-w-full rounded-lg border border-[#393328] bg-white p-2"
                             />

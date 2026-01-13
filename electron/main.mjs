@@ -19,7 +19,7 @@ try {
 
 const isDev = !app.isPackaged;
 const DEV_SERVER_URL = process.env.MIRACHPOS_DEV_URL || 'http://localhost:3001';
-const API_ORIGIN = process.env.MIRACHPOS_API_ORIGIN || 'http://127.0.0.1:3001';
+const API_ORIGIN = process.env.MIRACHPOS_API_ORIGIN || (isDev ? 'http://127.0.0.1:3001' : 'https://apa.mirachpos.com');
 
 let apiProc = null;
 

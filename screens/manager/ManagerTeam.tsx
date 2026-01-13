@@ -83,6 +83,7 @@ export const ManagerTeam: React.FC = () => {
   const [editPhone, setEditPhone] = useState('');
   const [editStatus, setEditStatus] = useState<ApiStaff['status']>('Active');
   const [editPin, setEditPin] = useState('');
+  const [editPassword, setEditPassword] = useState('');
 
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
@@ -225,6 +226,29 @@ export const ManagerTeam: React.FC = () => {
     }
   };
 
+  const resetPassword = async () => {
+    if (editLoading || !editTarget) return;
+    setEditLoading(true);
+    try {
+      const res = await apiFetch(`/api/manager/staff/${encodeURIComponent(editTarget.id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resetPassword: true }),
+      });
+      const payload = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(payload?.error || String(res.status));
+      const tp = typeof payload?.tempPassword === 'string' ? payload.tempPassword : '';
+      setEditPassword('');
+      setBanner({ kind: 'success', message: tp ? `Password reset. Temp password: ${tp}` : 'Password reset.' });
+      await fetchStaff();
+      if (tab === 'activity') await fetchActivity();
+    } catch (e) {
+      setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to reset password.' });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   const closeAdd = () => {
     setAddOpen(false);
     setAddLoading(false);
@@ -294,6 +318,7 @@ export const ManagerTeam: React.FC = () => {
     setEditPhone(s.phone || '');
     setEditStatus(s.status || 'Active');
     setEditPin('');
+    setEditPassword('');
     setEditOpen(true);
     setEditLoading(false);
   };
@@ -335,13 +360,16 @@ export const ManagerTeam: React.FC = () => {
           phone: editPhone.trim(),
           status: editStatus,
           pin: editPin,
+          password: editPassword,
         }),
       });
       const payload = (await res.json().catch(() => null)) as any;
       if (!res.ok) throw new Error(payload?.error || String(res.status));
       closeEdit();
       const tpin = typeof payload?.tempPin === 'string' ? payload.tempPin : '';
-      setBanner({ kind: 'success', message: tpin ? `Staff updated. PIN: ${tpin}` : 'Staff updated.' });
+      const tp = typeof payload?.tempPassword === 'string' ? payload.tempPassword : '';
+      const msg = tp && tpin ? `Staff updated. Temp password: ${tp}. PIN: ${tpin}` : tp ? `Staff updated. Temp password: ${tp}` : tpin ? `Staff updated. PIN: ${tpin}` : 'Staff updated.';
+      setBanner({ kind: 'success', message: msg });
       await fetchStaff();
       if (tab === 'activity') await fetchActivity();
     } catch (e) {
@@ -687,6 +715,12 @@ export const ManagerTeam: React.FC = () => {
             <input value={editPin} onChange={(e) => setEditPin(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
           </div>
 
+          <div>
+            <label className="text-xs font-bold text-[#b9b09d]">Set New Password (optional)</label>
+            <input value={editPassword} onChange={(e) => setEditPassword(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
+            <div className="mt-1 text-[11px] text-[#b9b09d]">Leave empty unless you want to manually set a new password.</div>
+          </div>
+
           <button
             type="button"
             onClick={resetPin}
@@ -694,6 +728,15 @@ export const ManagerTeam: React.FC = () => {
             className="h-10 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] text-white font-bold disabled:opacity-50"
           >
             Reset PIN
+          </button>
+
+          <button
+            type="button"
+            onClick={resetPassword}
+            disabled={editLoading || !editTarget}
+            className="h-10 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] text-white font-bold disabled:opacity-50"
+          >
+            Reset Password
           </button>
 
           <div className="text-xs text-[#b9b09d]">Role changes are not allowed for Branch Managers.</div>

@@ -759,8 +759,6 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const pos = w?.mirachpos?.pos;
     const outbox = w?.mirachpos?.outbox;
     return {
-      posGet: typeof pos?.getState === 'function' ? (pos.getState as (k: string) => Promise<any>) : null,
-      posSet: typeof pos?.setState === 'function' ? (pos.setState as (k: string, v: any) => Promise<any>) : null,
       posUpsertProducts: typeof pos?.upsertProducts === 'function' ? (pos.upsertProducts as (p: any) => Promise<any>) : null,
       posListProducts: typeof pos?.listProducts === 'function' ? (pos.listProducts as (p: any) => Promise<any>) : null,
       posUpsertOrderBundle: typeof pos?.upsertOrderBundle === 'function' ? (pos.upsertOrderBundle as (p: any) => Promise<any>) : null,
@@ -795,6 +793,24 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [electronApis],
   );
 
+  const [sessionRev, setSessionRev] = useState(0);
+
+  useEffect(() => {
+    const onChange = () => setSessionRev((n) => n + 1);
+    try {
+      window.addEventListener('mirachpos-session-changed', onChange);
+    } catch {
+      // ignore
+    }
+    return () => {
+      try {
+        window.removeEventListener('mirachpos-session-changed', onChange);
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
   const isBranchUser = useMemo(() => {
     try {
       const s = readSession<any>();
@@ -809,7 +825,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       return false;
     }
-  }, []);
+  }, [sessionRev]);
 
   const [remoteReady, setRemoteReady] = useState(false);
 
@@ -942,6 +958,113 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [electronApis, isBranchUser]);
 
+  const buildLocalOrderBundle = useCallback(
+    (order: PosOrder) => {
+      try {
+        const itemsRaw = Array.isArray((order as any)?.items) ? ((order as any).items as any[]) : [];
+        const splitsRaw = Array.isArray((order as any)?.splits) ? ((order as any).splits as any[]) : [];
+        const paymentsRaw = Array.isArray((order as any)?.payments) ? ((order as any).payments as any[]) : [];
+
+        const items = itemsRaw
+          .map((it, idx) => {
+            const name = String(it?.name || '').trim();
+            if (!name) return null;
+            return {
+              id: String(it?.id || `${order.id}:item:${idx}`),
+              productId: it?.productId ? String(it.productId) : it?.product_id ? String(it.product_id) : null,
+              code: it?.code ? String(it.code) : it?.product_code ? String(it.product_code) : null,
+              name,
+              unitPrice: Number(it?.unitPrice ?? it?.unit_price ?? it?.price ?? 0) || 0,
+              qty: Number(it?.qty ?? 0) || 0,
+              taxAmount: Number(it?.taxAmount ?? it?.tax_amount ?? 0) || 0,
+              discountAmount: Number(it?.discountAmount ?? it?.discount_amount ?? 0) || 0,
+              note: it?.note ? String(it.note) : null,
+              voidedQty: Number(it?.voidedQty ?? it?.voided_qty ?? 0) || 0,
+              voidReason: it?.voidReason ? String(it.voidReason) : it?.void_reason ? String(it.void_reason) : null,
+            };
+          })
+          .filter(Boolean) as any[];
+
+        const splits = splitsRaw
+          .map((s, idx) => {
+            const id = String(s?.id || `${order.id}:split:${idx}`);
+            if (!id.trim()) return null;
+            return {
+              id,
+              mode: s?.mode ? String(s.mode) : s?.splitMode ? String(s.splitMode) : 'amount',
+              amount: s?.amount != null ? Number(s.amount) : s?.targetAmount != null ? Number(s.targetAmount) : null,
+              label: s?.label ? String(s.label) : null,
+              status: s?.status ? String(s.status) : 'open',
+              subtotal: Number(s?.subtotal || 0) || 0,
+              tax: Number(s?.tax || 0) || 0,
+              tip: Number(s?.tip || 0) || 0,
+              discount: Number(s?.discount || 0) || 0,
+              total: Number(s?.total || 0) || 0,
+            };
+          })
+          .filter(Boolean) as any[];
+
+        const splitItemsRaw = Array.isArray((order as any)?.splitItems) ? ((order as any).splitItems as any[]) : [];
+        const splitItems = splitItemsRaw
+          .map((si, idx) => {
+            const splitId = String(si?.splitId || si?.split_id || '').trim();
+            const orderItemId = String(si?.orderItemId || si?.order_item_id || '').trim();
+            if (!splitId || !orderItemId) return null;
+            return {
+              id: String(si?.id || `${order.id}:split_item:${idx}`),
+              splitId,
+              orderItemId,
+              qty: Number(si?.qty || 0) || 0,
+            };
+          })
+          .filter(Boolean) as any[];
+
+        const payments = paymentsRaw
+          .map((p, idx) => {
+            const method = String(p?.method || p?.paymentMethod || '').trim();
+            if (!method) return null;
+            return {
+              id: String(p?.id || `${order.id}:payment:${idx}`),
+              splitId: p?.splitId ? String(p.splitId) : p?.split_id ? String(p.split_id) : null,
+              method,
+              amount: Number(p?.amount || 0) || 0,
+              currency: p?.currency ? String(p.currency) : 'ETB',
+              reference: p?.reference ? String(p.reference) : p?.paymentReference ? String(p.paymentReference) : null,
+              status: p?.status ? String(p.status) : 'confirmed',
+              paidAt: p?.paidAt ? String(p.paidAt) : null,
+              paidByStaffId: p?.paidByStaffId ? String(p.paidByStaffId) : null,
+              paidByName: p?.paidByName ? String(p.paidByName) : null,
+            };
+          })
+          .filter(Boolean) as any[];
+
+        return { order, items, splits, splitItems, payments };
+      } catch {
+        return { order, items: [], splits: [], splitItems: [], payments: [] };
+      }
+    },
+    [],
+  );
+
+  const upsertLocalOrderBundle = useCallback(
+    (order: PosOrder) => {
+      try {
+        const scopeKey = getBranchScopeKey();
+        if (!scopeKey) return;
+        if (!electronApis.posUpsertOrderBundle) return;
+        const bundle = buildLocalOrderBundle(order);
+        void electronApis
+          .posUpsertOrderBundle({ scopeKey, order: bundle.order, items: bundle.items, splits: bundle.splits, splitItems: bundle.splitItems, payments: bundle.payments })
+          .catch(() => {
+            // ignore
+          });
+      } catch {
+        // ignore
+      }
+    },
+    [electronApis, buildLocalOrderBundle],
+  );
+
   const refreshFromServer = useCallback(async () => {
     try {
       if (!isBranchUser) return;
@@ -989,6 +1112,19 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }))
             .filter((p) => p.id && p.name);
           if (nextProducts.length) setState((prev) => ({ ...prev, products: nextProducts }));
+
+          try {
+            const scopeKey = getBranchScopeKey();
+            if (scopeKey && electronApis.posUpsertProducts && nextProducts.length) {
+              void electronApis
+                .posUpsertProducts({ scopeKey, products: nextProducts })
+                .catch(() => {
+                  // ignore
+                });
+            }
+          } catch {
+            // ignore
+          }
         }
       } catch {
         // ignore
@@ -1148,13 +1284,30 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           return { ...prev, orders: mergedOrders, tables: updateTableComputed(nextTables as any, prev.cartByTableId) };
         });
+
+        try {
+          const scopeKey = getBranchScopeKey();
+          if (scopeKey && electronApis.posUpsertOrderBundle && serverOrders.length) {
+            for (const o of serverOrders.slice(0, 200)) {
+              const bundle = buildLocalOrderBundle({ ...o, syncedToServer: true } as any);
+              // eslint-disable-next-line no-await-in-loop
+              void electronApis
+                .posUpsertOrderBundle({ scopeKey, order: bundle.order, items: bundle.items, splits: bundle.splits, splitItems: bundle.splitItems, payments: bundle.payments })
+                .catch(() => {
+                  // ignore
+                });
+            }
+          }
+        } catch {
+          // ignore
+        }
       } catch {
         // ignore
       }
     } catch {
       // ignore
     }
-  }, [isBranchUser]);
+  }, [isBranchUser, electronApis, buildLocalOrderBundle]);
 
   const persistOrder = useCallback(
     async (order: PosOrder) => {
@@ -1229,12 +1382,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const scopeKey = getBranchScopeKey();
 
-        if (electronApis.posGet && scopeKey) {
-          const local = await electronApis.posGet(scopeKey);
-          if (mounted && local && typeof local === 'object') {
-            setState((prev) => mergeBranchState(prev, local));
-          }
-        }
+        // Legacy pos_state JSON hydration removed. Electron offline now hydrates from
+        // normalized SQLite tables (products + order bundles).
 
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
           if (!mounted) return;
@@ -1254,26 +1403,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       mounted = false;
     };
-  }, [isBranchUser, electronApis, refreshFromServer]);
-
-  // Persist branch POS state to SQLite (Electron) on every change.
-  useEffect(() => {
-    if (!isBranchUser) return;
-    if (!electronApis.posSet) return;
-    const scopeKey = getBranchScopeKey();
-    if (!scopeKey) return;
-
-    const id = window.setTimeout(() => {
-      void electronApis
-        .posSet!(scopeKey, state)
-        .catch(() => {
-          // ignore
-        });
-    }, 120);
-    return () => {
-      window.clearTimeout(id);
-    };
-  }, [isBranchUser, state, electronApis]);
+  }, [isBranchUser, refreshFromServer]);
 
   useEffect(() => {
     const trySync = async () => {
@@ -1804,6 +1934,12 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
+    try {
+      upsertLocalOrderBundle(newOrder);
+    } catch {
+      // ignore
+    }
+
     // Persist early so subsequent status changes + kitchen print don't race DB insertion.
     void (async () => {
       try {
@@ -2026,6 +2162,11 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     queueMicrotask(() => {
       try {
+        try {
+          upsertLocalOrderBundle(newOrder);
+        } catch {
+          // ignore
+        }
         void persistOrder(newOrder);
       } catch {
         // ignore
@@ -2138,6 +2279,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setPendingOrderItemQty = (orderId: string, productId: string, qty: number) => {
+    let updatedOrder: PosOrder | null = null;
     setState((s) => {
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
@@ -2154,11 +2296,22 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { ...o, items: nextItems, subtotal, tax, serviceCharge, total, syncedToServer: false };
       });
 
+      updatedOrder = nextOrders.find((o) => o.id === orderId) || null;
+
       return { ...s, orders: nextOrders };
+    });
+
+    queueMicrotask(() => {
+      try {
+        if (updatedOrder) upsertLocalOrderBundle(updatedOrder);
+      } catch {
+        // ignore
+      }
     });
   };
 
   const setPendingOrderItemNote = (orderId: string, productId: string, note: string) => {
+    let updatedOrder: PosOrder | null = null;
     setState((s) => {
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
@@ -2170,7 +2323,17 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { ...o, items: nextItems, syncedToServer: false };
       });
 
+      updatedOrder = nextOrders.find((o) => o.id === orderId) || null;
+
       return { ...s, orders: nextOrders };
+    });
+
+    queueMicrotask(() => {
+      try {
+        if (updatedOrder) upsertLocalOrderBundle(updatedOrder);
+      } catch {
+        // ignore
+      }
     });
   };
 
@@ -2229,6 +2392,12 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     queueMicrotask(() => {
       try {
         if (!updatedOrder) return;
+
+        try {
+          upsertLocalOrderBundle(updatedOrder);
+        } catch {
+          // ignore
+        }
 
         // Persist status-only updates to avoid backend rejecting full payload updates
         // for non-owner waiter workflows.
@@ -2329,7 +2498,10 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     queueMicrotask(() => {
       try {
-        if (updatedOrder) void persistOrder(updatedOrder);
+        if (updatedOrder) {
+          upsertLocalOrderBundle(updatedOrder);
+          void persistOrder(updatedOrder);
+        }
       } catch {
         // ignore
       }
@@ -2425,7 +2597,10 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     queueMicrotask(() => {
       try {
-        if (updatedOrder) void persistOrder(updatedOrder);
+        if (updatedOrder) {
+          upsertLocalOrderBundle(updatedOrder);
+          void persistOrder(updatedOrder);
+        }
       } catch {
         // ignore
       }
@@ -2583,6 +2758,11 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     queueMicrotask(() => {
       try {
         if (updatedOrder) {
+          try {
+            upsertLocalOrderBundle(updatedOrder);
+          } catch {
+            // ignore
+          }
           void persistOrder(updatedOrder).then(() => {
             // Refresh from server after payment to ensure table status is synced
             void refreshFromServer();
@@ -2615,7 +2795,10 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     queueMicrotask(() => {
       try {
-        if (updatedOrder) void persistOrder(updatedOrder);
+        if (updatedOrder) {
+          upsertLocalOrderBundle(updatedOrder);
+          void persistOrder(updatedOrder);
+        }
       } catch {
         // ignore
       }
@@ -2640,7 +2823,10 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     queueMicrotask(() => {
       try {
-        if (updatedOrder) void persistOrder(updatedOrder);
+        if (updatedOrder) {
+          upsertLocalOrderBundle(updatedOrder);
+          void persistOrder(updatedOrder);
+        }
       } catch {
         // ignore
       }

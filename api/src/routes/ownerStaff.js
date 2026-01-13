@@ -56,6 +56,13 @@ const randomCode = (len) => {
   return out;
 };
 
+const randomPassword = (len = 10) => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  for (let i = 0; i < len; i += 1) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+};
+
 const cafeCode = (name) => {
   const s = String(name || '')
     .trim()
@@ -63,17 +70,17 @@ const cafeCode = (name) => {
     .replace(/\s+/g, ' ')
     .replace(/[^A-Z0-9 ]/g, '')
     .replace(/\s+/g, '');
-  return (s || 'CAFE').slice(0, 6);
+  return (s || 'CAFE').slice(0, 3);
 };
 
 const staffRoleCode = (roleName) => {
   const r = String(roleName || '').toLowerCase();
-  if (r.includes('owner')) return 'OWN';
-  if (r.includes('manager')) return 'MGR';
-  if (r.includes('wait')) return 'WTR';
-  if (r.includes('kitchen') || r.includes('chef')) return 'KDS';
-  if (r.includes('bar')) return 'BAR';
-  return 'STF';
+  if (r.includes('owner')) return 'O';
+  if (r.includes('manager')) return 'M';
+  if (r.includes('wait')) return 'W';
+  if (r.includes('kitchen') || r.includes('chef')) return 'K';
+  if (r.includes('bar')) return 'B';
+  return 'S';
 };
 
 const nextStaffCode = async (trx, { tenantId, cafeName, roleName }) => {
@@ -96,7 +103,7 @@ const nextStaffCode = async (trx, { tenantId, cafeName, roleName }) => {
     if (Number.isFinite(n)) max = Math.max(max, n);
   }
   const next = max + 1;
-  return `${prefix}${String(next).padStart(4, '0')}`;
+  return `${prefix}${String(next).padStart(3, '0')}`;
 };
 
 const ensureDefaultRoles = async (trx, tenantId) => {
@@ -718,7 +725,11 @@ const makeOwnerStaffRouter = () => {
         patch.role_name = String(role.name);
       }
 
-      if (typeof req.body?.password === 'string') {
+      let tempPassword = '';
+      if (req.body?.resetPassword === true) {
+        tempPassword = randomPassword(10);
+        patch.password_hash = await bcrypt.hash(tempPassword, 10);
+      } else if (typeof req.body?.password === 'string') {
         const pw = req.body.password;
         if (pw && pw.length < 4) return res.status(400).json({ error: 'password_too_short' });
         if (pw) patch.password_hash = await bcrypt.hash(pw, 10);
@@ -748,7 +759,7 @@ const makeOwnerStaffRouter = () => {
         payload: { staffId: id },
       });
 
-      return res.json({ ok: true, tempPin: tempPin || undefined });
+      return res.json({ ok: true, tempPin: tempPin || undefined, tempPassword: tempPassword || undefined });
     } catch (e) {
       return next(e);
     }

@@ -29,6 +29,13 @@ const randomPin = (len = 6) => {
   return out;
 };
 
+const randomPassword = (len = 10) => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  for (let i = 0; i < len; i += 1) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+};
+
 const cafeCode = (name) => {
   const s = String(name || '')
     .trim()
@@ -36,17 +43,17 @@ const cafeCode = (name) => {
     .replace(/\s+/g, ' ')
     .replace(/[^A-Z0-9 ]/g, '')
     .replace(/\s+/g, '');
-  return (s || 'CAFE').slice(0, 6);
+  return (s || 'CAFE').slice(0, 3);
 };
 
 const staffRoleCode = (roleName) => {
   const r = String(roleName || '').toLowerCase();
-  if (r.includes('owner')) return 'OWN';
-  if (r.includes('manager')) return 'MGR';
-  if (r.includes('wait')) return 'WTR';
-  if (r.includes('kitchen') || r.includes('chef')) return 'KDS';
-  if (r.includes('bar')) return 'BAR';
-  return 'STF';
+  if (r.includes('owner')) return 'O';
+  if (r.includes('manager')) return 'M';
+  if (r.includes('wait')) return 'W';
+  if (r.includes('kitchen') || r.includes('chef')) return 'K';
+  if (r.includes('bar')) return 'B';
+  return 'S';
 };
 
 const nextStaffCode = async (trx, { tenantId, cafeName, roleName }) => {
@@ -69,7 +76,7 @@ const nextStaffCode = async (trx, { tenantId, cafeName, roleName }) => {
     if (Number.isFinite(n)) max = Math.max(max, n);
   }
   const next = max + 1;
-  return `${prefix}${String(next).padStart(4, '0')}`;
+  return `${prefix}${String(next).padStart(3, '0')}`;
 };
 
 const ensureDefaultRoles = async (trx, tenantId) => {
@@ -397,6 +404,7 @@ const makeManagerStaffRouter = () => {
       const code = typeof body?.code === 'string' ? body.code.trim() : '';
       const status = typeof body?.status === 'string' ? body.status.trim() : '';
       const pin = typeof body?.pin === 'string' ? body.pin.trim() : '';
+      const password = typeof body?.password === 'string' ? body.password : '';
       const roleName = typeof body?.roleName === 'string' ? body.roleName.trim() : '';
 
       const existing = await db()
@@ -413,6 +421,15 @@ const makeManagerStaffRouter = () => {
       if (typeof phone === 'string') patch.phone = phone;
       if (typeof code === 'string') patch.code = code;
       if (status) patch.status = status;
+
+      let tempPassword = '';
+      if (body?.resetPassword === true) {
+        tempPassword = randomPassword(10);
+        patch.password_hash = await bcrypt.hash(tempPassword, 10);
+      } else if (password) {
+        if (String(password).length < 4) return res.status(400).json({ error: 'password_too_short' });
+        patch.password_hash = await bcrypt.hash(String(password), 10);
+      }
 
       let tempPin = '';
       if (body?.resetPin === true) {
@@ -441,7 +458,7 @@ const makeManagerStaffRouter = () => {
         at: nowIso(),
       });
 
-      return res.json({ ok: true, tempPin: tempPin || undefined });
+      return res.json({ ok: true, tempPin: tempPin || undefined, tempPassword: tempPassword || undefined });
     } catch (e) {
       return next(e);
     }

@@ -1,5 +1,7 @@
 const express = require('express');
 
+const bcrypt = require('bcryptjs');
+
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
@@ -10,6 +12,56 @@ const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const makeStaffRouter = () => {
   const r = express.Router();
+
+  r.put('/staff/account', tenantMiddleware, requireAuth, async (req, res, next) => {
+    try {
+      if (req.auth?.tenantId !== req.tenant.id) return res.status(403).json({ error: 'forbidden' });
+
+      const staffId = String(req.auth?.staffId || '').trim();
+      if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+
+      const body = req.body && typeof req.body === 'object' ? req.body : null;
+      const currentPassword = typeof body?.currentPassword === 'string' ? body.currentPassword : '';
+      const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
+      const currentPin = typeof body?.currentPin === 'string' ? body.currentPin : '';
+      const newPin = typeof body?.newPin === 'string' ? body.newPin : '';
+
+      if (!newPassword && !newPin) return res.status(400).json({ error: 'no_changes' });
+      if (newPassword && newPassword.length < 4) return res.status(400).json({ error: 'password_too_short' });
+      if (newPin && newPin.length < 3) return res.status(400).json({ error: 'pin_too_short' });
+
+      const staff = await db()
+        .select(['id', 'tenant_id', 'password_hash', 'pin_hash'])
+        .from('staff')
+        .where({ tenant_id: req.tenant.id, id: staffId })
+        .first();
+
+      if (!staff) return res.status(404).json({ error: 'staff_not_found' });
+
+      if (newPassword) {
+        const match = await bcrypt.compare(String(currentPassword || ''), String(staff.password_hash || ''));
+        if (!match) return res.status(401).json({ error: 'invalid_credentials' });
+      }
+
+      if (newPin) {
+        const pinHash = String(staff.pin_hash || '');
+        if (pinHash) {
+          const match = await bcrypt.compare(String(currentPin || ''), pinHash);
+          if (!match) return res.status(401).json({ error: 'invalid_credentials' });
+        }
+      }
+
+      const patch = {};
+      if (newPassword) patch.password_hash = await bcrypt.hash(String(newPassword), 10);
+      if (newPin) patch.pin_hash = await bcrypt.hash(String(newPin), 10);
+      if (Object.keys(patch).length === 0) return res.json({ ok: true });
+
+      await db().from('staff').where({ tenant_id: req.tenant.id, id: staffId }).update({ ...patch, updated_at: new Date().toISOString() });
+      return res.json({ ok: true });
+    } catch (e) {
+      return next(e);
+    }
+  });
 
   r.get(
     '/staff/shifts',
