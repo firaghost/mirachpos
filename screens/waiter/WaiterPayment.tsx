@@ -82,6 +82,8 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
   const paymentCompleteRef = React.useRef<string>('');
 
+  const serverRefreshRef = React.useRef<any>(null);
+
   const withBranchQuery = (url: string) => {
     try {
       const s = readSession<any>();
@@ -125,6 +127,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       mounted = false;
       if (pollRef.current) clearInterval(pollRef.current);
       if (chapaPollRef.current) clearInterval(chapaPollRef.current);
+      if (serverRefreshRef.current) clearInterval(serverRefreshRef.current);
     };
   }, []);
 
@@ -221,10 +224,44 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
         clearInterval(chapaPollRef.current);
         chapaPollRef.current = null;
       }
+      if (serverRefreshRef.current) {
+        clearInterval(serverRefreshRef.current);
+        serverRefreshRef.current = null;
+      }
     } catch {
       // ignore
     }
   };
+
+  useEffect(() => {
+    // Prod resilience: even if gateway status polling is blocked/failing,
+    // keep refreshing from server while we are in an online-waiting state.
+    // This lets us observe order.status -> Paid via webhook/server updates.
+    if (!telebirrOnlineActive && !chapaOnlineActive) {
+      if (serverRefreshRef.current) {
+        clearInterval(serverRefreshRef.current);
+        serverRefreshRef.current = null;
+      }
+      return;
+    }
+
+    if (serverRefreshRef.current) return;
+
+    serverRefreshRef.current = setInterval(() => {
+      try {
+        void refreshFromServer();
+      } catch {
+        // ignore
+      }
+    }, 2500);
+
+    return () => {
+      if (serverRefreshRef.current) {
+        clearInterval(serverRefreshRef.current);
+        serverRefreshRef.current = null;
+      }
+    };
+  }, [telebirrOnlineActive, chapaOnlineActive, refreshFromServer]);
 
   const onPaymentCompleted = async () => {
     const oid = order?.id ? String(order.id) : '';
