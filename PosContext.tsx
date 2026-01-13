@@ -940,7 +940,11 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               setState((s) => {
                 const existing = new Map<string, PosOrder>();
                 for (const o of s.orders) existing.set(o.id, o);
-                const merged = nextOrders.map((o) => (existing.has(o.id) ? existing.get(o.id)! : o));
+                const merged = nextOrders.map((o) => {
+                  const prev = existing.get(o.id);
+                  if (prev && (prev as any)?.syncedToServer === false) return prev;
+                  return o;
+                });
                 return { ...s, orders: merged };
               });
             }

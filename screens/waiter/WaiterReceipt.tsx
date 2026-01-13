@@ -84,6 +84,25 @@ const receiptHtml = (
     showTin: boolean;
   },
 ) => {
+  const expandNewlines = (v: string) => {
+    try {
+      // Some tenants store multi-line values as literal "\n" or "\\n".
+      // Normalize both forms into actual newlines.
+      return String(v || '')
+        .replace(/\\\\n/g, '\n')
+        .replace(/\\n/g, '\n');
+    } catch {
+      return String(v || '');
+    }
+  };
+  const splitLines = (v: string) => {
+    const raw = expandNewlines(v);
+    return raw
+      .split(/\r?\n/)
+      .map((x) => String(x || '').trim())
+      .filter(Boolean);
+  };
+
   const cur = escapeHtml(settings.currency);
   const biz = escapeHtml(settings.businessName);
   const tin = escapeHtml(settings.tin);
@@ -113,7 +132,7 @@ const receiptHtml = (
 
   const timeStr = (() => {
     try {
-      return formatDeviceTime(dt, { hour: '2-digit', minute: '2-digit' });
+      return formatDeviceTime(dt, { hour: '2-digit', minute: '2-digit', hour12: true });
     } catch {
       const hh = String(dt.getHours()).padStart(2, '0');
       const mi = String(dt.getMinutes()).padStart(2, '0');
@@ -237,8 +256,19 @@ const receiptHtml = (
   };
 
   const receiptLines: string[] = [];
-  receiptLines.push(center(biz || '-', cols));
-  if (addressLine) receiptLines.push(center(addressLine, cols));
+  const headerBizLines = splitLines(settings.businessName);
+  const headerAddrLines = splitLines(settings.address);
+
+  if (headerBizLines.length) {
+    for (const l of headerBizLines) receiptLines.push(center(escapeHtml(l), cols));
+  } else {
+    receiptLines.push(center(biz || '-', cols));
+  }
+  if (headerAddrLines.length) {
+    for (const l of headerAddrLines) receiptLines.push(center(escapeHtml(l), cols));
+  } else if (addressLine) {
+    receiptLines.push(center(addressLine, cols));
+  }
   if (phoneLine) receiptLines.push(center(phoneLine, cols));
   if (settings.showTin) receiptLines.push(center(tin ? `TIN: ${tin}` : 'TIN: -', cols));
   receiptLines.push('');
@@ -282,27 +312,31 @@ const receiptHtml = (
     receiptLines.push(twoCol('Change', fmtAmt(change)));
   }
   receiptLines.push('');
+  for (const l of splitLines(settings.footer1)) receiptLines.push(center(escapeHtml(l), cols));
+  for (const l of splitLines(settings.footer2)) receiptLines.push(center(escapeHtml(l), cols));
   receiptLines.push(center('Powered by MirachPOS', cols));
 
-  return `
-  <!doctype html>
+  const html = `
   <html>
     <head>
       <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <meta name="viewport" content="width=device-width,initial-scale=1" />
       <title>Receipt</title>
       <style>
         *{box-sizing:border-box;}
-        body{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; margin:0; padding:12px; color:#111;}
-        pre{margin:0; font-size:12px; line-height:1.25; white-space:pre;}
-        @media print{body{padding:0}}
+        body{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; margin:0; padding:12px; color:#111; width:80mm;}
+        pre{margin:0; font-size:12px; line-height:1.25; white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere;}
+        @page{size:80mm auto; margin:4mm;}
+        @media print{body{padding:0; width:80mm;}}
       </style>
     </head>
     <body>
-      <pre>${escapeHtml(receiptLines.join('\\n'))}</pre>
+      <pre>${escapeHtml(receiptLines.join('\n'))}</pre>
     </body>
   </html>
   `;
+
+  return html;
 };
 
 interface Props {
