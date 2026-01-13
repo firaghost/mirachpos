@@ -2,6 +2,8 @@
   "name": "mirachpos",
   "private": true,
   "version": "0.1.0",
+  "description": "MirachPOS desktop point-of-sale application.",
+  "author": "Fira.N",
   "type": "module",
   "main": "electron/main.mjs",
   "engines": {
@@ -45,6 +47,7 @@
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.1",
     "electron": "^38.0.0",
+    "electron-builder": "^25.1.8",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.8.2",
@@ -84,7 +87,10 @@
     "nsis": {
       "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "license": "electron/installer-license.txt",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "publish": [
       {

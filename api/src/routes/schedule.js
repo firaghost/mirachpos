@@ -56,7 +56,6 @@ const makeScheduleRouter = () => {
     requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
     loadEntitlements,
     requireModule('staff'),
-    requirePermission('staff.read'),
     requireBranchId(),
     async (req, res, next) => {
     try {

@@ -65,6 +65,11 @@ export const initTabSession = () => {
   if (legacyRaw && legacyRaw.trim()) {
     safeSet(store, SESSION_KEY, legacyRaw);
     safeRemove(legacy, SESSION_KEY);
+    try {
+      window.dispatchEvent(new Event('mirachpos-session-changed'));
+    } catch {
+      // ignore
+    }
     return;
   }
 
@@ -74,6 +79,11 @@ export const initTabSession = () => {
     const byRole = safeGet(legacy, legacyKeyForRole(lastRole));
     if (byRole && byRole.trim()) {
       safeSet(store, SESSION_KEY, byRole);
+      try {
+        window.dispatchEvent(new Event('mirachpos-session-changed'));
+      } catch {
+        // ignore
+      }
       return;
     }
   }

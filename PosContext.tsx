@@ -330,6 +330,7 @@ type PersistedState = {
 };
 
 const STORAGE_KEY = 'mirachpos.state.v1';
+const BRANCH_CACHE_PREFIX = 'mirachpos.pos.branchCache.v1.';
 
 const INVENTORY_ITEMS_KEY = 'mirachpos.inventory.items.v1';
 const RECIPES_KEY = 'mirachpos.inventory.recipes.v1';
@@ -571,6 +572,28 @@ const seedState = (): PersistedState => {
     selectedTableId: null,
     selectedOrderId: null,
   };
+};
+
+const readBranchCache = (scopeKey: string): Partial<PersistedState> | null => {
+  try {
+    const key = `${BRANCH_CACHE_PREFIX}${String(scopeKey || '')}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as any;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed as Partial<PersistedState>;
+  } catch {
+    return null;
+  }
+};
+
+const writeBranchCache = (scopeKey: string, patch: Partial<PersistedState>) => {
+  try {
+    const key = `${BRANCH_CACHE_PREFIX}${String(scopeKey || '')}`;
+    localStorage.setItem(key, JSON.stringify({ version: 1, ...(patch || {}) }));
+  } catch {
+    // ignore
+  }
 };
 
 const readState = (): PersistedState => {
@@ -830,6 +853,31 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [remoteReady, setRemoteReady] = useState(false);
 
   useEffect(() => {
+    try {
+      if (!isBranchUser) return;
+      const scopeKey = getBranchScopeKey();
+      if (!scopeKey) return;
+      const cached = readBranchCache(scopeKey);
+      if (!cached) return;
+      setState((s) => mergeBranchState(s, cached));
+    } catch {
+      // ignore
+    }
+  }, [isBranchUser, sessionRev]);
+
+  useEffect(() => {
+    try {
+      if (!isBranchUser) return;
+      const scopeKey = getBranchScopeKey();
+      if (!scopeKey) return;
+      if (Array.isArray(state.tables) && state.tables.length) writeBranchCache(scopeKey, { tables: state.tables });
+      if (Array.isArray(state.products) && state.products.length) writeBranchCache(scopeKey, { products: state.products });
+    } catch {
+      // ignore
+    }
+  }, [isBranchUser, sessionRev, state.tables, state.products]);
+
+  useEffect(() => {
     let mounted = true;
     const run = async () => {
       try {
@@ -1074,6 +1122,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!isBranchUser) return;
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 
+      const scopeKey = getBranchScopeKey();
+
       // 1) Refresh tables from DB
       try {
         const tres = await apiFetch(withBranchQuery('/api/pos/tables'));
@@ -1082,6 +1132,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const rows = Array.isArray(tjson?.tables) ? (tjson.tables as any[]) : [];
           const incomingTables = toPosTables(rows);
           setState((s) => ({ ...s, tables: updateTableComputed(incomingTables, s.cartByTableId) }));
+          if (scopeKey && incomingTables.length) writeBranchCache(scopeKey, { tables: incomingTables });
         } else {
           // If tables are missing, try initialize then re-fetch.
           await apiFetch(withBranchQuery('/api/pos/initialize'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
@@ -1091,6 +1142,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const rows2 = Array.isArray(tjson2?.tables) ? (tjson2.tables as any[]) : [];
             const incomingTables2 = toPosTables(rows2);
             setState((s) => ({ ...s, tables: updateTableComputed(incomingTables2, s.cartByTableId) }));
+            if (scopeKey && incomingTables2.length) writeBranchCache(scopeKey, { tables: incomingTables2 });
           }
         }
       } catch {
