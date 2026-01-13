@@ -191,6 +191,117 @@ export const openKvDb = (dbDir) => {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS pos_products (
+      scope_key TEXT NOT NULL,
+      id TEXT NOT NULL,
+      code TEXT NULL,
+      name TEXT NOT NULL,
+      category TEXT NULL,
+      price REAL NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'Active',
+      image TEXT NULL,
+      stock REAL NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (scope_key, id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pos_products_scope_name ON pos_products (scope_key, name);
+
+    CREATE TABLE IF NOT EXISTS pos_orders (
+      scope_key TEXT NOT NULL,
+      id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      display_number TEXT NULL,
+      table_id TEXT NULL,
+      table_name TEXT NULL,
+      subtotal REAL NOT NULL DEFAULT 0,
+      tax REAL NOT NULL DEFAULT 0,
+      tip REAL NOT NULL DEFAULT 0,
+      discount REAL NOT NULL DEFAULT 0,
+      total REAL NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      paid_at TEXT NULL,
+      created_by_staff_id TEXT NULL,
+      created_by_name TEXT NULL,
+      paid_by_staff_id TEXT NULL,
+      paid_by_name TEXT NULL,
+      payment_method TEXT NULL,
+      payment_reference TEXT NULL,
+      tendered_amount REAL NULL,
+      notes TEXT NULL,
+      synced_to_server INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (scope_key, id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pos_orders_scope_created ON pos_orders (scope_key, created_at);
+    CREATE INDEX IF NOT EXISTS idx_pos_orders_scope_table ON pos_orders (scope_key, table_id);
+
+    CREATE TABLE IF NOT EXISTS pos_order_items (
+      scope_key TEXT NOT NULL,
+      id TEXT NOT NULL,
+      order_id TEXT NOT NULL,
+      product_id TEXT NULL,
+      product_code TEXT NULL,
+      name TEXT NOT NULL,
+      unit_price REAL NOT NULL DEFAULT 0,
+      qty REAL NOT NULL DEFAULT 0,
+      tax_amount REAL NOT NULL DEFAULT 0,
+      discount_amount REAL NOT NULL DEFAULT 0,
+      note TEXT NULL,
+      voided_qty REAL NOT NULL DEFAULT 0,
+      void_reason TEXT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (scope_key, id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pos_order_items_scope_order ON pos_order_items (scope_key, order_id);
+
+    CREATE TABLE IF NOT EXISTS pos_order_splits (
+      scope_key TEXT NOT NULL,
+      id TEXT NOT NULL,
+      order_id TEXT NOT NULL,
+      mode TEXT NOT NULL DEFAULT 'amount',
+      target_amount REAL NULL,
+      label TEXT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      subtotal REAL NOT NULL DEFAULT 0,
+      tax REAL NOT NULL DEFAULT 0,
+      tip REAL NOT NULL DEFAULT 0,
+      discount REAL NOT NULL DEFAULT 0,
+      total REAL NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (scope_key, id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pos_order_splits_scope_order ON pos_order_splits (scope_key, order_id);
+
+    CREATE TABLE IF NOT EXISTS pos_order_split_items (
+      scope_key TEXT NOT NULL,
+      id TEXT NOT NULL,
+      order_id TEXT NOT NULL,
+      split_id TEXT NOT NULL,
+      order_item_id TEXT NOT NULL,
+      qty REAL NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (scope_key, id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pos_order_split_items_scope_split ON pos_order_split_items (scope_key, split_id);
+
+    CREATE TABLE IF NOT EXISTS pos_order_payments (
+      scope_key TEXT NOT NULL,
+      id TEXT NOT NULL,
+      order_id TEXT NOT NULL,
+      split_id TEXT NULL,
+      method TEXT NOT NULL,
+      amount REAL NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'ETB',
+      reference TEXT NULL,
+      status TEXT NOT NULL DEFAULT 'confirmed',
+      paid_at TEXT NULL,
+      paid_by_staff_id TEXT NULL,
+      paid_by_name TEXT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (scope_key, id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pos_order_payments_scope_order ON pos_order_payments (scope_key, order_id);
+
     CREATE TABLE IF NOT EXISTS sync_outbox (
       id TEXT PRIMARY KEY,
       scope_key TEXT NOT NULL,
@@ -256,6 +367,104 @@ export const openKvDb = (dbDir) => {
   const stmtPosGet = db.prepare('SELECT value FROM pos_state WHERE scope_key = ?');
   const stmtPosSet = db.prepare(
     'INSERT INTO pos_state (scope_key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(scope_key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+  );
+
+  const stmtPosProductsUpsert = db.prepare(
+    `INSERT INTO pos_products (scope_key, id, code, name, category, price, status, image, stock, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(scope_key, id) DO UPDATE SET
+      code=excluded.code,
+      name=excluded.name,
+      category=excluded.category,
+      price=excluded.price,
+      status=excluded.status,
+      image=excluded.image,
+      stock=excluded.stock,
+      updated_at=excluded.updated_at`,
+  );
+  const stmtPosProductsList = db.prepare(
+    'SELECT id,code,name,category,price,status,image,stock,updated_at FROM pos_products WHERE scope_key = ? ORDER BY name ASC LIMIT ?',
+  );
+
+  const stmtPosOrderUpsert = db.prepare(
+    `INSERT INTO pos_orders (
+        scope_key, id, status, display_number, table_id, table_name,
+        subtotal, tax, tip, discount, total,
+        created_at, paid_at,
+        created_by_staff_id, created_by_name,
+        paid_by_staff_id, paid_by_name,
+        payment_method, payment_reference, tendered_amount,
+        notes, synced_to_server, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(scope_key, id) DO UPDATE SET
+        status=excluded.status,
+        display_number=excluded.display_number,
+        table_id=excluded.table_id,
+        table_name=excluded.table_name,
+        subtotal=excluded.subtotal,
+        tax=excluded.tax,
+        tip=excluded.tip,
+        discount=excluded.discount,
+        total=excluded.total,
+        paid_at=excluded.paid_at,
+        created_by_staff_id=excluded.created_by_staff_id,
+        created_by_name=excluded.created_by_name,
+        paid_by_staff_id=excluded.paid_by_staff_id,
+        paid_by_name=excluded.paid_by_name,
+        payment_method=excluded.payment_method,
+        payment_reference=excluded.payment_reference,
+        tendered_amount=excluded.tendered_amount,
+        notes=excluded.notes,
+        synced_to_server=excluded.synced_to_server,
+        updated_at=excluded.updated_at`,
+  );
+  const stmtPosOrdersList = db.prepare(
+    'SELECT * FROM pos_orders WHERE scope_key = ? ORDER BY created_at DESC LIMIT ?',
+  );
+  const stmtPosOrderGet = db.prepare('SELECT * FROM pos_orders WHERE scope_key = ? AND id = ?');
+
+  const stmtPosOrderItemsDeleteByOrder = db.prepare('DELETE FROM pos_order_items WHERE scope_key = ? AND order_id = ?');
+  const stmtPosOrderItemsInsert = db.prepare(
+    `INSERT INTO pos_order_items (
+        scope_key, id, order_id, product_id, product_code, name,
+        unit_price, qty, tax_amount, discount_amount,
+        note, voided_qty, void_reason, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const stmtPosOrderItemsListByOrder = db.prepare(
+    'SELECT * FROM pos_order_items WHERE scope_key = ? AND order_id = ? ORDER BY name ASC',
+  );
+
+  const stmtPosOrderSplitsDeleteByOrder = db.prepare('DELETE FROM pos_order_splits WHERE scope_key = ? AND order_id = ?');
+  const stmtPosOrderSplitsInsert = db.prepare(
+    `INSERT INTO pos_order_splits (
+        scope_key, id, order_id, mode, target_amount, label, status,
+        subtotal, tax, tip, discount, total, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const stmtPosOrderSplitsListByOrder = db.prepare(
+    'SELECT * FROM pos_order_splits WHERE scope_key = ? AND order_id = ? ORDER BY id ASC',
+  );
+
+  const stmtPosSplitItemsDeleteByOrder = db.prepare('DELETE FROM pos_order_split_items WHERE scope_key = ? AND order_id = ?');
+  const stmtPosSplitItemsInsert = db.prepare(
+    `INSERT INTO pos_order_split_items (
+        scope_key, id, order_id, split_id, order_item_id, qty, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const stmtPosSplitItemsListByOrder = db.prepare(
+    'SELECT * FROM pos_order_split_items WHERE scope_key = ? AND order_id = ? ORDER BY id ASC',
+  );
+
+  const stmtPosPaymentsDeleteByOrder = db.prepare('DELETE FROM pos_order_payments WHERE scope_key = ? AND order_id = ?');
+  const stmtPosPaymentsInsert = db.prepare(
+    `INSERT INTO pos_order_payments (
+        scope_key, id, order_id, split_id, method, amount, currency,
+        reference, status, paid_at, paid_by_staff_id, paid_by_name, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const stmtPosPaymentsListByOrder = db.prepare(
+    'SELECT * FROM pos_order_payments WHERE scope_key = ? AND order_id = ? ORDER BY paid_at DESC, id DESC',
   );
 
   const stmtOutboxInsert = db.prepare(
@@ -367,6 +576,187 @@ export const openKvDb = (dbDir) => {
       const payload = JSON.stringify(value ?? null);
       stmtPosSet.run(k, payload, now);
       return true;
+    },
+
+    posUpsertProducts: (args) => {
+      const scopeKey = String(args?.scopeKey || '').trim();
+      if (!scopeKey) return { ok: false };
+      const rows = Array.isArray(args?.products) ? args.products : [];
+      const now = new Date().toISOString();
+      const tx = db.transaction((items) => {
+        for (const p of items) {
+          const id = String(p?.id || '').trim();
+          const name = String(p?.name || '').trim();
+          if (!id || !name) continue;
+          stmtPosProductsUpsert.run(
+            scopeKey,
+            id,
+            p?.code ? String(p.code) : null,
+            name,
+            p?.category ? String(p.category) : null,
+            Number(p?.price || 0) || 0,
+            p?.status ? String(p.status) : 'Active',
+            p?.image ? String(p.image) : null,
+            Number(p?.stock || 0) || 0,
+            now,
+          );
+        }
+      });
+      tx(rows);
+      return { ok: true };
+    },
+    posListProducts: (args) => {
+      const scopeKey = String(args?.scopeKey || '').trim();
+      if (!scopeKey) return [];
+      const limit = Number.isFinite(Number(args?.limit)) ? Math.max(1, Math.min(2000, Number(args.limit))) : 500;
+      return stmtPosProductsList.all(scopeKey, limit);
+    },
+
+    posUpsertOrderBundle: (args) => {
+      const scopeKey = String(args?.scopeKey || '').trim();
+      const order = args?.order && typeof args.order === 'object' ? args.order : null;
+      if (!scopeKey || !order) return { ok: false };
+
+      const id = String(order?.id || '').trim();
+      if (!id) return { ok: false };
+
+      const now = new Date().toISOString();
+      const synced = order?.syncedToServer === true || order?.synced_to_server === 1 ? 1 : 0;
+
+      const tx = db.transaction(() => {
+        stmtPosOrderUpsert.run(
+          scopeKey,
+          id,
+          String(order?.status || 'Pending'),
+          order?.number ? String(order.number) : null,
+          order?.tableId ? String(order.tableId) : null,
+          order?.tableName ? String(order.tableName) : null,
+          Number(order?.subtotal || 0) || 0,
+          Number(order?.tax || 0) || 0,
+          Number(order?.tip || 0) || 0,
+          Number(order?.discount || 0) || 0,
+          Number(order?.total || 0) || 0,
+          order?.createdAt ? String(order.createdAt) : now,
+          order?.paidAt ? String(order.paidAt) : null,
+          order?.createdByStaffId ? String(order.createdByStaffId) : null,
+          order?.createdByName ? String(order.createdByName) : null,
+          order?.paidByStaffId ? String(order.paidByStaffId) : null,
+          order?.paidByName ? String(order.paidByName) : null,
+          order?.paymentMethod ? String(order.paymentMethod) : null,
+          order?.paymentReference ? String(order.paymentReference) : null,
+          order?.tenderedAmount != null ? Number(order.tenderedAmount) : null,
+          order?.notes ? String(order.notes) : null,
+          synced,
+          now,
+        );
+
+        const items = Array.isArray(args?.items) ? args.items : [];
+        const splits = Array.isArray(args?.splits) ? args.splits : [];
+        const splitItems = Array.isArray(args?.splitItems) ? args.splitItems : [];
+        const payments = Array.isArray(args?.payments) ? args.payments : [];
+
+        stmtPosOrderItemsDeleteByOrder.run(scopeKey, id);
+        for (const it of items) {
+          const itId = String(it?.id || '').trim();
+          const name = String(it?.name || '').trim();
+          if (!itId || !name) continue;
+          stmtPosOrderItemsInsert.run(
+            scopeKey,
+            itId,
+            id,
+            it?.productId ? String(it.productId) : null,
+            it?.code ? String(it.code) : null,
+            name,
+            Number(it?.unitPrice || 0) || 0,
+            Number(it?.qty || 0) || 0,
+            Number(it?.taxAmount || 0) || 0,
+            Number(it?.discountAmount || 0) || 0,
+            it?.note ? String(it.note) : null,
+            Number(it?.voidedQty || 0) || 0,
+            it?.voidReason ? String(it.voidReason) : null,
+            now,
+          );
+        }
+
+        stmtPosOrderSplitsDeleteByOrder.run(scopeKey, id);
+        for (const s of splits) {
+          const sid = String(s?.id || '').trim();
+          if (!sid) continue;
+          stmtPosOrderSplitsInsert.run(
+            scopeKey,
+            sid,
+            id,
+            s?.mode ? String(s.mode) : 'amount',
+            s?.amount != null ? Number(s.amount) : null,
+            s?.label ? String(s.label) : null,
+            s?.status ? String(s.status) : 'open',
+            Number(s?.subtotal || 0) || 0,
+            Number(s?.tax || 0) || 0,
+            Number(s?.tip || 0) || 0,
+            Number(s?.discount || 0) || 0,
+            Number(s?.total || 0) || 0,
+            now,
+          );
+        }
+
+        stmtPosSplitItemsDeleteByOrder.run(scopeKey, id);
+        for (const si of splitItems) {
+          const siId = String(si?.id || '').trim();
+          if (!siId) continue;
+          stmtPosSplitItemsInsert.run(
+            scopeKey,
+            siId,
+            id,
+            String(si?.splitId || ''),
+            String(si?.orderItemId || ''),
+            Number(si?.qty || 0) || 0,
+            now,
+          );
+        }
+
+        stmtPosPaymentsDeleteByOrder.run(scopeKey, id);
+        for (const p of payments) {
+          const pid = String(p?.id || '').trim();
+          const method = String(p?.method || '').trim();
+          if (!pid || !method) continue;
+          stmtPosPaymentsInsert.run(
+            scopeKey,
+            pid,
+            id,
+            p?.splitId ? String(p.splitId) : null,
+            method,
+            Number(p?.amount || 0) || 0,
+            p?.currency ? String(p.currency) : 'ETB',
+            p?.reference ? String(p.reference) : null,
+            p?.status ? String(p.status) : 'confirmed',
+            p?.paidAt ? String(p.paidAt) : null,
+            p?.paidByStaffId ? String(p.paidByStaffId) : null,
+            p?.paidByName ? String(p.paidByName) : null,
+            now,
+          );
+        }
+      });
+
+      tx();
+      return { ok: true };
+    },
+    posGetOrderBundle: (args) => {
+      const scopeKey = String(args?.scopeKey || '').trim();
+      const orderId = String(args?.orderId || '').trim();
+      if (!scopeKey || !orderId) return null;
+      const order = stmtPosOrderGet.get(scopeKey, orderId);
+      if (!order) return null;
+      const items = stmtPosOrderItemsListByOrder.all(scopeKey, orderId);
+      const splits = stmtPosOrderSplitsListByOrder.all(scopeKey, orderId);
+      const splitItems = stmtPosSplitItemsListByOrder.all(scopeKey, orderId);
+      const payments = stmtPosPaymentsListByOrder.all(scopeKey, orderId);
+      return { order, items, splits, splitItems, payments };
+    },
+    posListOrders: (args) => {
+      const scopeKey = String(args?.scopeKey || '').trim();
+      if (!scopeKey) return [];
+      const limit = Number.isFinite(Number(args?.limit)) ? Math.max(1, Math.min(1000, Number(args.limit))) : 200;
+      return stmtPosOrdersList.all(scopeKey, limit);
     },
 
     outboxEnqueue: (args) => {

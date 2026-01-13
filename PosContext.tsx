@@ -761,6 +761,11 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return {
       posGet: typeof pos?.getState === 'function' ? (pos.getState as (k: string) => Promise<any>) : null,
       posSet: typeof pos?.setState === 'function' ? (pos.setState as (k: string, v: any) => Promise<any>) : null,
+      posUpsertProducts: typeof pos?.upsertProducts === 'function' ? (pos.upsertProducts as (p: any) => Promise<any>) : null,
+      posListProducts: typeof pos?.listProducts === 'function' ? (pos.listProducts as (p: any) => Promise<any>) : null,
+      posUpsertOrderBundle: typeof pos?.upsertOrderBundle === 'function' ? (pos.upsertOrderBundle as (p: any) => Promise<any>) : null,
+      posGetOrderBundle: typeof pos?.getOrderBundle === 'function' ? (pos.getOrderBundle as (p: any) => Promise<any>) : null,
+      posListOrders: typeof pos?.listOrders === 'function' ? (pos.listOrders as (p: any) => Promise<any>) : null,
       outboxEnqueue: typeof outbox?.enqueue === 'function' ? (outbox.enqueue as (p: any) => Promise<any>) : null,
       outboxListReady: typeof outbox?.listReady === 'function' ? (outbox.listReady as (p: any) => Promise<any>) : null,
       outboxAck: typeof outbox?.ack === 'function' ? (outbox.ack as (p: any) => Promise<any>) : null,
@@ -808,26 +813,141 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [remoteReady, setRemoteReady] = useState(false);
 
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        if (!isBranchUser) return;
+        const scopeKey = getBranchScopeKey();
+        if (!scopeKey) return;
+        if (!electronApis.posListProducts && !electronApis.posListOrders) return;
+
+        // 0) Hydrate from local SQLite cache (Electron) for fast startup + offline.
+        try {
+          if (electronApis.posListProducts) {
+            const rows = await electronApis.posListProducts({ scopeKey, limit: 800 });
+            const nextProducts = Array.isArray(rows)
+              ? rows
+                  .map((p: any) => ({
+                    id: String(p?.id || ''),
+                    code: String(p?.code || ''),
+                    name: String(p?.name || ''),
+                    price: Number(p?.price ?? 0) || 0,
+                    category: String(p?.category || ''),
+                    image: String(p?.image || ''),
+                    stock: Number(p?.stock ?? 0) || 0,
+                  }))
+                  .filter((p: any) => p.id && p.name)
+              : [];
+            if (mounted && nextProducts.length) {
+              setState((s) => ({ ...s, products: nextProducts }));
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        try {
+          if (electronApis.posListOrders) {
+            const baseOrders = await electronApis.posListOrders({ scopeKey, limit: 200 });
+            const list = Array.isArray(baseOrders) ? baseOrders : [];
+
+            const bundles: any[] = [];
+            if (electronApis.posGetOrderBundle) {
+              for (const o of list.slice(0, 100)) {
+                const id = String(o?.id || '').trim();
+                if (!id) continue;
+                // eslint-disable-next-line no-await-in-loop
+                const b = await electronApis.posGetOrderBundle({ scopeKey, orderId: id });
+                if (b) bundles.push(b);
+              }
+            }
+
+            const byId = new Map<string, any>();
+            for (const b of bundles) {
+              const oid = String(b?.order?.id || '').trim();
+              if (!oid) continue;
+              byId.set(oid, b);
+            }
+
+            const nextOrders: PosOrder[] = list
+              .map((o: any) => {
+                const id = String(o?.id || '').trim();
+                if (!id) return null;
+                const bundle = byId.get(id);
+                const itemsRaw = Array.isArray(bundle?.items) ? bundle.items : [];
+                const splitsRaw = Array.isArray(bundle?.splits) ? bundle.splits : [];
+                const paymentsRaw = Array.isArray(bundle?.payments) ? bundle.payments : [];
+
+                return {
+                  id,
+                  number: String(o?.display_number || o?.displayNumber || o?.number || id),
+                  tableId: String(o?.table_id || o?.tableId || ''),
+                  tableName: String(o?.table_name || o?.tableName || ''),
+                  createdByStaffId: o?.created_by_staff_id ? String(o.created_by_staff_id) : undefined,
+                  createdByName: o?.created_by_name ? String(o.created_by_name) : undefined,
+                  items: itemsRaw.map((it: any) => ({
+                    productId: String(it?.product_id || it?.productId || ''),
+                    name: String(it?.name || ''),
+                    unitPrice: Number(it?.unit_price ?? it?.unitPrice ?? 0) || 0,
+                    qty: Number(it?.qty ?? 0) || 0,
+                    voidedQty: Number(it?.voided_qty ?? it?.voidedQty ?? 0) || 0,
+                    note: String(it?.note || ''),
+                    voidReason: it?.void_reason ? String(it.void_reason) : undefined,
+                  })),
+                  subtotal: Number(o?.subtotal ?? 0) || 0,
+                  tax: Number(o?.tax ?? 0) || 0,
+                  serviceCharge: 0,
+                  total: Number(o?.total ?? 0) || 0,
+                  status: String(o?.status || 'Pending') as any,
+                  createdAt: String(o?.created_at || o?.createdAt || new Date().toISOString()),
+                  paidAt: o?.paid_at ? String(o.paid_at) : undefined,
+                  paymentMethod: o?.payment_method ? String(o.payment_method) : undefined,
+                  paymentReference: o?.payment_reference ? String(o.payment_reference) : undefined,
+                  tenderedAmount: o?.tendered_amount != null ? Number(o.tendered_amount) : undefined,
+                  notes: o?.notes ? String(o.notes) : undefined,
+                  splits: splitsRaw as any,
+                  syncedToServer: Number(o?.synced_to_server ?? o?.syncedToServer ?? 0) === 1,
+                  syncedAt: String(o?.updated_at || o?.updatedAt || new Date().toISOString()),
+                  tip: Number(o?.tip ?? 0) || 0,
+                  discount: Number(o?.discount ?? 0) || 0,
+                  // keep payments raw in payload-derived fields if needed
+                  paidByStaffId: o?.paid_by_staff_id ? String(o.paid_by_staff_id) : undefined,
+                  paidByName: o?.paid_by_name ? String(o.paid_by_name) : undefined,
+                  customer: undefined,
+                  inventoryDeducted: true,
+                } as any;
+              })
+              .filter(Boolean) as any;
+
+            if (mounted && nextOrders.length) {
+              setState((s) => {
+                const existing = new Map<string, PosOrder>();
+                for (const o of s.orders) existing.set(o.id, o);
+                const merged = nextOrders.map((o) => (existing.has(o.id) ? existing.get(o.id)! : o));
+                return { ...s, orders: merged };
+              });
+            }
+          }
+        } catch {
+          // ignore
+        }
+      } catch {
+        // ignore
+      }
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [electronApis, isBranchUser]);
+
   const refreshFromServer = useCallback(async () => {
     try {
       if (!isBranchUser) return;
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 
-      // 1) Refresh POS state (UI cache only; tables come from /pos/tables)
-      try {
-        const res = await apiFetch(withBranchQuery('/api/pos/state'));
-        if (res.ok) {
-          const json = (await res.json().catch(() => null)) as any;
-          const st = json?.state;
-          if (st && typeof st === 'object') {
-            setState((prev) => mergeBranchState(prev, st));
-          }
-        }
-      } catch {
-        // ignore
-      }
-
-      // 1a) Refresh tables from DB
+      // 1) Refresh tables from DB
       try {
         const tres = await apiFetch(withBranchQuery('/api/pos/tables'));
         const tjson = (await tres.json().catch(() => null)) as any;
@@ -1205,12 +1325,14 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     headers: hdrs,
                     body: hasBody ? JSON.stringify(body ?? null) : undefined,
                   });
+                } else if (kind === 'pos.state') {
+                  // Deprecated legacy behavior.
+                  // We no longer sync whole POS JSON state to the server.
+                  await electronApis.outboxBump!({ id, delayMs: 60_000 });
+                  continue;
                 } else {
-                  res = await apiFetch(withBranchQuery('/api/pos/state'), {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload ?? {}),
-                  });
+                  await electronApis.outboxBump!({ id, delayMs: 30_000 });
+                  continue;
                 }
                 if (!res.ok) {
                   await electronApis.outboxBump!({ id, delayMs: 15000 });
@@ -1244,30 +1366,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }));
       }
 
-      // Persist POS state to DB.
-      try {
-        const serialized = JSON.stringify({ state: snapshot });
-        if (serialized && lastSentRef.current === serialized) return;
-        const res = await apiFetch(withBranchQuery('/api/pos/state'), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ state: snapshot }),
-        });
-        if (!res.ok) return;
-        lastSentRef.current = serialized;
-      } catch {
-        if (electronApis.outboxEnqueue && scopeKey) {
-          try {
-            await electronApis.outboxEnqueue({
-              scopeKey,
-              kind: 'pos.state',
-              payload: { state: snapshot },
-            });
-          } catch {
-            // ignore
-          }
-        }
-      }
+      // Note: We no longer persist whole POS JSON state to the server.
     };
 
     const id = window.setInterval(() => {
@@ -1302,30 +1401,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // Don't block state persistence on remoteReady; if the server is reachable, persist now.
           // If persistence fails, fall back to Electron outbox.
 
-          const serialized = JSON.stringify({ state: snapshot });
-          if (serialized && lastSentRef.current === serialized) return;
-
-          try {
-            const res = await apiFetch(withBranchQuery('/api/pos/state'), {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ state: snapshot }),
-            });
-            if (!res.ok) throw new Error('sync_failed');
-            lastSentRef.current = serialized;
-          } catch {
-            if (electronApis.outboxEnqueue) {
-              void electronApis
-                .outboxEnqueue({
-                  scopeKey,
-                  kind: 'pos.state',
-                  payload: { state: snapshot },
-                })
-                .catch(() => {
-                  // ignore
-                });
-            }
-          }
+          // Deprecated: we no longer sync whole POS JSON state to the server.
         } catch {
           // ignore
         }

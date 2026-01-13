@@ -1,5 +1,5 @@
 {
-  "name": "mirachpos---ethiopian-edition",
+  "name": "mirachpos",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -86,7 +86,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://example.com/mirachpos/updates/"
+        "url": "https://apps.mirachpos.com/mirachpos/updates/"
       }
     ]
   }

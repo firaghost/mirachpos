@@ -21,6 +21,304 @@ const safeJsonParse = (raw, fallback) => {
   }
 };
 
+const num = (v, fallback = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const toIso = (v, fallback = null) => {
+  if (!v) return fallback;
+  try {
+    const d = new Date(v);
+    const t = d.getTime();
+    if (!Number.isFinite(t)) return fallback;
+    return d.toISOString();
+  } catch {
+    return fallback;
+  }
+};
+
+const normalizeOrderColsFromPayload = ({ payload, status, nowIso }) => {
+  const p = payload && typeof payload === 'object' ? payload : {};
+  return {
+    display_number: typeof p?.number === 'string' && p.number.trim() ? String(p.number).trim() : null,
+    table_id: typeof p?.tableId === 'string' && p.tableId.trim() ? String(p.tableId).trim() : null,
+    table_name: typeof p?.tableName === 'string' && p.tableName.trim() ? String(p.tableName).trim() : null,
+    created_by_staff_id: typeof p?.createdByStaffId === 'string' && p.createdByStaffId.trim() ? String(p.createdByStaffId).trim() : null,
+    created_by_name: typeof p?.createdByName === 'string' && p.createdByName.trim() ? String(p.createdByName).trim() : null,
+    paid_by_staff_id: typeof p?.paidByStaffId === 'string' && p.paidByStaffId.trim() ? String(p.paidByStaffId).trim() : null,
+    paid_by_name: typeof p?.paidByName === 'string' && p.paidByName.trim() ? String(p.paidByName).trim() : null,
+    payment_method: typeof p?.paymentMethod === 'string' && p.paymentMethod.trim() ? String(p.paymentMethod).trim() : null,
+    payment_reference: typeof p?.paymentReference === 'string' && p.paymentReference.trim() ? String(p.paymentReference).trim() : null,
+    tendered_amount: p?.tenderedAmount != null ? num(p.tenderedAmount, null) : null,
+    notes: typeof p?.notes === 'string' && p.notes.trim() ? String(p.notes).trim() : null,
+    updated_at: nowIso,
+    paid_at: status === 'Paid' ? nowIso : null,
+  };
+};
+
+const normalizeItemsFromPayload = ({ tenantId, branchId, orderId, payload, nowIso }) => {
+  const p = payload && typeof payload === 'object' ? payload : {};
+  const items = Array.isArray(p?.items) ? p.items : [];
+  return items
+    .map((it) => {
+      const qty = num(it?.qty, 0);
+      const unitPrice = num(it?.unitPrice ?? it?.price, 0);
+      const name = String(it?.name || '').trim();
+      if (!name || qty <= 0) return null;
+      return {
+        id: uid('oit'),
+        tenant_id: tenantId,
+        branch_id: branchId,
+        order_id: orderId,
+        product_id: it?.productId ? String(it.productId) : null,
+        product_code: it?.code ? String(it.code) : null,
+        name,
+        unit_price: unitPrice,
+        qty,
+        tax_amount: num(it?.taxAmount, 0),
+        discount_amount: num(it?.discountAmount, 0),
+        note: typeof it?.note === 'string' && it.note.trim() ? String(it.note).trim() : null,
+        voided_qty: num(it?.voidedQty, 0),
+        void_reason: typeof it?.voidReason === 'string' && it.voidReason.trim() ? String(it.voidReason).trim() : null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+    })
+    .filter(Boolean);
+};
+
+const normalizeSplitsFromPayload = ({ tenantId, branchId, orderId, payload, nowIso }) => {
+  const p = payload && typeof payload === 'object' ? payload : {};
+  const splits = Array.isArray(p?.splits) ? p.splits : [];
+
+  const out = [];
+  for (const s of splits) {
+    const splitId = s?.id ? String(s.id).trim() : uid('spl');
+    const hasItemAlloc = Array.isArray(s?.items) && s.items.length > 0;
+    const hasAmount = s?.amount != null && Number.isFinite(Number(s.amount));
+    const mode = hasItemAlloc && hasAmount ? 'mixed' : hasItemAlloc ? 'items' : 'amount';
+
+    out.push({
+      id: splitId,
+      tenant_id: tenantId,
+      branch_id: branchId,
+      order_id: orderId,
+      mode,
+      target_amount: hasAmount ? num(s.amount, 0) : null,
+      label: typeof s?.label === 'string' && s.label.trim() ? String(s.label).trim() : null,
+      status: typeof s?.status === 'string' && s.status.trim() ? String(s.status).trim() : 'open',
+      subtotal: num(s?.subtotal, 0),
+      tax: num(s?.tax, 0),
+      tip: num(s?.tip, 0),
+      discount: num(s?.discount, 0),
+      total: num(s?.total, 0),
+      created_at: nowIso,
+      updated_at: nowIso,
+    });
+  }
+  return out;
+};
+
+const hydratePayloadFromNormalized = ({ orderRow, payloadFallback, itemRows, splitRows, splitItemRows, paymentRows }) => {
+  const p = payloadFallback && typeof payloadFallback === 'object' ? { ...payloadFallback } : {};
+
+  const number = orderRow?.display_number ? String(orderRow.display_number) : '';
+  if (number) p.number = number;
+  const tableId = orderRow?.table_id ? String(orderRow.table_id) : '';
+  if (tableId) p.tableId = tableId;
+  const tableName = orderRow?.table_name ? String(orderRow.table_name) : '';
+  if (tableName) p.tableName = tableName;
+
+  const createdByStaffId = orderRow?.created_by_staff_id ? String(orderRow.created_by_staff_id) : '';
+  const createdByName = orderRow?.created_by_name ? String(orderRow.created_by_name) : '';
+  if (createdByStaffId) p.createdByStaffId = createdByStaffId;
+  if (createdByName) p.createdByName = createdByName;
+
+  const paidByStaffId = orderRow?.paid_by_staff_id ? String(orderRow.paid_by_staff_id) : '';
+  const paidByName = orderRow?.paid_by_name ? String(orderRow.paid_by_name) : '';
+  if (paidByStaffId) p.paidByStaffId = paidByStaffId;
+  if (paidByName) p.paidByName = paidByName;
+
+  const pm = orderRow?.payment_method ? String(orderRow.payment_method) : '';
+  const pref = orderRow?.payment_reference ? String(orderRow.payment_reference) : '';
+  if (pm) p.paymentMethod = pm;
+  if (pref) p.paymentReference = pref;
+  if (orderRow?.tendered_amount != null) p.tenderedAmount = Number(orderRow.tendered_amount);
+
+  const notes = orderRow?.notes ? String(orderRow.notes) : '';
+  if (notes) p.notes = notes;
+
+  if (Array.isArray(itemRows) && itemRows.length > 0) {
+    p.items = itemRows.map((r) => ({
+      productId: r.product_id ? String(r.product_id) : null,
+      code: r.product_code ? String(r.product_code) : null,
+      name: String(r.name || ''),
+      unitPrice: Number(r.unit_price || 0) || 0,
+      qty: Number(r.qty || 0) || 0,
+      taxAmount: Number(r.tax_amount || 0) || 0,
+      discountAmount: Number(r.discount_amount || 0) || 0,
+      note: r.note ? String(r.note) : '',
+      voidedQty: Number(r.voided_qty || 0) || 0,
+      voidReason: r.void_reason ? String(r.void_reason) : null,
+    }));
+  }
+
+  if (Array.isArray(splitRows) && splitRows.length > 0) {
+    const itemsBySplit = new Map();
+    if (Array.isArray(splitItemRows) && splitItemRows.length > 0) {
+      for (const si of splitItemRows) {
+        const sid = String(si.split_id || '').trim();
+        if (!sid) continue;
+        const list = itemsBySplit.get(sid) || [];
+        list.push(si);
+        itemsBySplit.set(sid, list);
+      }
+    }
+
+    p.splits = splitRows.map((s) => {
+      const sid = String(s.id || '').trim();
+      const list = itemsBySplit.get(sid) || [];
+      return {
+        id: sid,
+        label: s.label ? String(s.label) : null,
+        status: String(s.status || 'open'),
+        mode: String(s.mode || 'amount'),
+        amount: s.target_amount != null ? Number(s.target_amount) : null,
+        subtotal: Number(s.subtotal || 0) || 0,
+        tax: Number(s.tax || 0) || 0,
+        tip: Number(s.tip || 0) || 0,
+        discount: Number(s.discount || 0) || 0,
+        total: Number(s.total || 0) || 0,
+        items: list.map((x) => ({ orderItemId: String(x.order_item_id || ''), qty: Number(x.qty || 0) || 0 })),
+      };
+    });
+  }
+
+  if (Array.isArray(paymentRows) && paymentRows.length > 0) {
+    // Best-effort: set top-level payment method/reference from the most recent payment.
+    const last = paymentRows
+      .slice()
+      .sort((a, b) => String(b.paid_at || b.created_at || '').localeCompare(String(a.paid_at || a.created_at || '')))[0];
+    if (last) {
+      if (last.method) p.paymentMethod = String(last.method);
+      if (last.reference) p.paymentReference = String(last.reference);
+    }
+  }
+
+  return p;
+};
+
+const normalizeSplitItemsFromPayload = ({ tenantId, branchId, orderId, splitRows, orderItemRows, payload, nowIso }) => {
+  const p = payload && typeof payload === 'object' ? payload : {};
+  const splits = Array.isArray(p?.splits) ? p.splits : [];
+
+  const bySplitId = new Map();
+  for (const r of splitRows) bySplitId.set(String(r.id), r);
+
+  const out = [];
+  for (const s of splits) {
+    const splitId = s?.id ? String(s.id).trim() : '';
+    if (!splitId) continue;
+    if (!bySplitId.has(splitId)) continue;
+
+    const items = Array.isArray(s?.items) ? s.items : [];
+    for (const it of items) {
+      const qty = num(it?.qty, 0);
+      if (qty <= 0) continue;
+      const productId = it?.productId ? String(it.productId) : '';
+      const name = String(it?.name || '').trim();
+      const match = orderItemRows.find((r) => {
+        const pid = r.product_id ? String(r.product_id) : '';
+        if (productId && pid && productId === pid) return true;
+        if (name && r.name && name === r.name) return true;
+        return false;
+      });
+      if (!match) continue;
+
+      out.push({
+        id: uid('spi'),
+        tenant_id: tenantId,
+        branch_id: branchId,
+        order_id: orderId,
+        split_id: splitId,
+        order_item_id: match.id,
+        qty,
+        created_at: nowIso,
+      });
+    }
+  }
+  return out;
+};
+
+const normalizePaymentsFromPayload = ({ tenantId, branchId, orderId, status, payload, nowIso }) => {
+  const p = payload && typeof payload === 'object' ? payload : {};
+  const out = [];
+
+  if (status === 'Paid') {
+    const splits = Array.isArray(p?.splits) ? p.splits : [];
+    const hasSplits = splits.length > 0;
+
+    if (hasSplits) {
+      for (const s of splits) {
+        const st = String(s?.status || '').trim();
+        if (st && st !== 'Paid' && st !== 'paid') continue;
+
+        const splitId = s?.id ? String(s.id).trim() : null;
+        const method = typeof s?.paymentMethod === 'string' && s.paymentMethod.trim() ? String(s.paymentMethod).trim() : typeof p?.paymentMethod === 'string' ? String(p.paymentMethod).trim() : '';
+        if (!method) continue;
+
+        const amt = s?.paidAmount != null ? num(s.paidAmount, 0) : s?.amount != null ? num(s.amount, 0) : num(s?.total, 0);
+        if (!(amt > 0)) continue;
+
+        out.push({
+          id: uid('pay'),
+          tenant_id: tenantId,
+          branch_id: branchId,
+          order_id: orderId,
+          split_id: splitId,
+          method,
+          amount: amt,
+          currency: 'ETB',
+          reference: typeof s?.paymentReference === 'string' && s.paymentReference.trim() ? String(s.paymentReference).trim() : typeof p?.paymentReference === 'string' && p.paymentReference.trim() ? String(p.paymentReference).trim() : null,
+          status: 'confirmed',
+          paid_at: toIso(s?.paidAt, nowIso) || nowIso,
+          paid_by_staff_id: typeof p?.paidByStaffId === 'string' && p.paidByStaffId.trim() ? String(p.paidByStaffId).trim() : null,
+          paid_by_name: typeof p?.paidByName === 'string' && p.paidByName.trim() ? String(p.paidByName).trim() : null,
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
+      }
+    } else {
+      const method = typeof p?.paymentMethod === 'string' && p.paymentMethod.trim() ? String(p.paymentMethod).trim() : '';
+      if (method) {
+        const amt = num(p?.total, 0);
+        if (amt > 0) {
+          out.push({
+            id: uid('pay'),
+            tenant_id: tenantId,
+            branch_id: branchId,
+            order_id: orderId,
+            split_id: null,
+            method,
+            amount: amt,
+            currency: 'ETB',
+            reference: typeof p?.paymentReference === 'string' && p.paymentReference.trim() ? String(p.paymentReference).trim() : null,
+            status: 'confirmed',
+            paid_at: nowIso,
+            paid_by_staff_id: typeof p?.paidByStaffId === 'string' && p.paidByStaffId.trim() ? String(p.paidByStaffId).trim() : null,
+            paid_by_name: typeof p?.paidByName === 'string' && p.paidByName.trim() ? String(p.paidByName).trim() : null,
+            created_at: nowIso,
+            updated_at: nowIso,
+          });
+        }
+      }
+    }
+  }
+
+  return out;
+};
+
 const stripTablesFromPosState = (state) => {
   if (!state || typeof state !== 'object') return null;
   // eslint-disable-next-line no-unused-vars
@@ -37,55 +335,9 @@ const backfillRestaurantTablesFromLegacyState = async ({ tenantId, branchId }) =
       .limit(1);
     if (existing && existing.length > 0) return;
 
-    const stateRow = await db().select(['state_json']).from('pos_state').where({ tenant_id: tenantId, branch_id: branchId }).first();
-    const state = safeJsonParse(stateRow?.state_json, null);
-    const tables = Array.isArray(state?.tables) ? state.tables : [];
-    if (!tables.length) return;
-
-    const nowIso = new Date().toISOString();
-    const inserts = tables
-      .filter((t) => t && (t.id || t.name))
-      .map((t) => ({
-        tenant_id: tenantId,
-        branch_id: branchId,
-        id: String(t.id || '').trim() || uid('tbl'),
-        name: String(t.name || '').trim() || 'Table',
-        area: typeof t.area === 'string' && t.area.trim() ? t.area.trim() : null,
-        status: typeof t.status === 'string' && t.status.trim() ? t.status.trim() : 'Free',
-        seats: Number.isFinite(Number(t.seats)) ? Number(t.seats) : 4,
-        open_order_id: t.openOrderId ? String(t.openOrderId) : null,
-        last_order_id: t.lastOrderId ? String(t.lastOrderId) : null,
-        assigned_staff_id: t.assignedStaffId ? String(t.assignedStaffId) : null,
-        assigned_staff_name: t.assignedStaffName ? String(t.assignedStaffName) : null,
-        updated_at: nowIso,
-      }));
-
-    if (inserts.length) {
-      await db().transaction(async (trx) => {
-        for (const rec of inserts) {
-          // eslint-disable-next-line no-await-in-loop
-          await trx('restaurant_tables')
-            .insert(rec)
-            .onConflict(['tenant_id', 'branch_id', 'id'])
-            .merge({
-              name: rec.name,
-              area: rec.area,
-              status: rec.status,
-              seats: rec.seats,
-              open_order_id: rec.open_order_id,
-              last_order_id: rec.last_order_id,
-              assigned_staff_id: rec.assigned_staff_id,
-              assigned_staff_name: rec.assigned_staff_name,
-              updated_at: nowIso,
-            });
-        }
-
-        const stripped = stripTablesFromPosState(state) || {};
-        await trx('pos_state')
-          .where({ tenant_id: tenantId, branch_id: branchId })
-          .update({ state_json: JSON.stringify(stripped), updated_at: nowIso });
-      });
-    }
+    // Legacy backfill from pos_state has been removed.
+    // restaurant_tables are now the authoritative source of tables.
+    // If restaurant_tables are missing for a branch, call /api/pos/initialize to seed them.
   } catch {
     // ignore
   }
@@ -704,7 +956,6 @@ const loadBranchSettings = async ({ tenantId, branchId }) => {
     return {};
   }
 };
-
 const normalizeSettingsForPos = (raw) => {
   const s = raw && typeof raw === 'object' ? raw : {};
   const taxes = s.taxes && typeof s.taxes === 'object' ? s.taxes : {};
@@ -1114,13 +1365,6 @@ const makePosRouter = () => {
         if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
         const force = String(req.query?.force || '').trim() === '1' || String(req.query?.force || '').trim().toLowerCase() === 'true';
-        const existingRow = await db().select(['state_json']).from('pos_state').where({ tenant_id: req.tenant.id, branch_id: branchId }).first();
-        const existing = safeJsonParse(existingRow?.state_json, null);
-        const hasExisting = existing && typeof existing === 'object';
-
-        if (hasExisting && !force) {
-          return res.json({ ok: true, alreadyInitialized: true, tenantId: req.tenant.id, branchId });
-        }
 
         const body = req.body && typeof req.body === 'object' ? req.body : {};
         const count = Number(body?.tablesCount || 12);
@@ -1166,15 +1410,6 @@ const makePosRouter = () => {
           if (inserts.length) await db().from('restaurant_tables').insert(inserts);
         }
 
-        const nextState = makeInitialPosState();
-        const id = `pos_${req.tenant.id}_${branchId}`;
-
-        await db()
-          .from('pos_state')
-          .insert({ id, tenant_id: req.tenant.id, branch_id: branchId, state_json: JSON.stringify(nextState), updated_at: nowIso })
-          .onConflict(['tenant_id', 'branch_id'])
-          .merge({ state_json: JSON.stringify(nextState), updated_at: nowIso });
-
         return res.json({ ok: true, tenantId: req.tenant.id, branchId, initialized: true, updatedAt: nowIso });
       } catch (e) {
         return next(e);
@@ -1216,14 +1451,40 @@ const makePosRouter = () => {
         const orderRow = await db()
           .from('orders')
           .where({ tenant_id: req.tenant.id, branch_id: branchId, id: orderId })
-          .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'paid_at', 'created_at', 'payload'])
+          .select([
+            'id',
+            'status',
+            'total',
+            'tax',
+            'tip',
+            'discount',
+            'paid_at',
+            'created_at',
+            'payload',
+            'display_number',
+            'table_id',
+            'table_name',
+            'created_by_staff_id',
+            'created_by_name',
+            'paid_by_staff_id',
+            'paid_by_name',
+            'payment_method',
+            'payment_reference',
+            'tendered_amount',
+            'notes',
+          ])
           .first();
 
         if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
 
+        const itemRows = await db().from('order_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+        const splitRows = await db().from('order_splits').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+        const splitItemRows = await db().from('order_split_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+        const paymentRows = await db().from('order_payments').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+
         if (role === 'Waiter') {
           if (!staffId) return res.status(401).json({ error: 'unauthorized' });
-          const p = safeJsonParse(orderRow.payload, {});
+          const p = hydratePayloadFromNormalized({ orderRow, payloadFallback: safeJsonParse(orderRow.payload, {}), itemRows, splitRows, splitItemRows, paymentRows });
           const createdBy = typeof p?.createdByStaffId === 'string' ? String(p.createdByStaffId) : '';
           if (!createdBy || createdBy !== staffId) return res.status(403).json({ error: 'forbidden' });
         }
@@ -1238,22 +1499,22 @@ const makePosRouter = () => {
           }
         }
 
-        // Inject effective business/receipt info into payload so printed receipts show the cafe name.
+        // Build a runtime payload from normalized tables, then inject business info.
         let patchedOrderRow = orderRow;
         try {
           const settings = await resolveEffectivePosSettings({ tenantId: req.tenant.id, branchId });
-          const p = safeJsonParse(orderRow?.payload, {});
+          const basePayload = hydratePayloadFromNormalized({ orderRow, payloadFallback: safeJsonParse(orderRow?.payload, {}), itemRows, splitRows, splitItemRows, paymentRows });
           const businessName = typeof settings?.business?.businessName === 'string' ? String(settings.business.businessName).trim() : '';
           const address = typeof settings?.business?.address === 'string' ? String(settings.business.address).trim() : '';
           const phone = typeof settings?.business?.phone === 'string' ? String(settings.business.phone).trim() : '';
           const tin = typeof settings?.business?.tin === 'string' ? String(settings.business.tin).trim() : '';
           const showTin = settings?.receipt?.showTin !== false;
           const nextPayload = {
-            ...(p && typeof p === 'object' ? p : {}),
-            businessName: businessName || (p && typeof p === 'object' ? (p.businessName || p.branchName) : ''),
-            address: address || (p && typeof p === 'object' ? p.address : ''),
-            phone: phone || (p && typeof p === 'object' ? p.phone : ''),
-            tin: showTin ? (tin || (p && typeof p === 'object' ? p.tin : '')) : '',
+            ...(basePayload && typeof basePayload === 'object' ? basePayload : {}),
+            businessName: businessName || (basePayload && typeof basePayload === 'object' ? (basePayload.businessName || basePayload.branchName) : ''),
+            address: address || (basePayload && typeof basePayload === 'object' ? basePayload.address : ''),
+            phone: phone || (basePayload && typeof basePayload === 'object' ? basePayload.phone : ''),
+            tin: showTin ? (tin || (basePayload && typeof basePayload === 'object' ? basePayload.tin : '')) : '',
             receiptFooterBrand: '',
           };
           patchedOrderRow = { ...orderRow, payload: JSON.stringify(nextPayload) };
@@ -1424,14 +1685,43 @@ const makePosRouter = () => {
         const orderRow = await db()
           .from('orders')
           .where({ tenant_id: req.tenant.id, branch_id: branchId, id: orderId })
-          .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'paid_at', 'created_at', 'payload'])
+          .select([
+            'id',
+            'status',
+            'total',
+            'tax',
+            'tip',
+            'discount',
+            'paid_at',
+            'created_at',
+            'payload',
+            'display_number',
+            'table_id',
+            'table_name',
+            'created_by_staff_id',
+            'created_by_name',
+            'paid_by_staff_id',
+            'paid_by_name',
+            'payment_method',
+            'payment_reference',
+            'tendered_amount',
+            'notes',
+          ])
           .first();
 
         if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
 
+        const itemRows = await db().from('order_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+        const splitRows = await db().from('order_splits').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+        const splitItemRows = await db().from('order_split_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+        const paymentRows = await db().from('order_payments').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+
+        const basePayload = hydratePayloadFromNormalized({ orderRow, payloadFallback: safeJsonParse(orderRow?.payload, {}), itemRows, splitRows, splitItemRows, paymentRows });
+        const patchedOrderRow = { ...orderRow, payload: JSON.stringify(basePayload) };
+
         const lines = Array.isArray(req.body?.lines) ? req.body.lines : null;
         const beep = req.body?.beep === true;
-        const payload = makeKitchenTicketPayload({ title: 'Kitchen Ticket', orderRow, lines, beep });
+        const payload = makeKitchenTicketPayload({ title: 'Kitchen Ticket', orderRow: patchedOrderRow, lines, beep });
         try {
           await sendTcp({ host, port, data: payload, timeoutMs: 8000 });
         } catch (e) {
@@ -1476,14 +1766,43 @@ const makePosRouter = () => {
         const orderRow = await db()
           .from('orders')
           .where({ tenant_id: req.tenant.id, branch_id: branchId, id: orderId })
-          .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'paid_at', 'created_at', 'payload'])
+          .select([
+            'id',
+            'status',
+            'total',
+            'tax',
+            'tip',
+            'discount',
+            'paid_at',
+            'created_at',
+            'payload',
+            'display_number',
+            'table_id',
+            'table_name',
+            'created_by_staff_id',
+            'created_by_name',
+            'paid_by_staff_id',
+            'paid_by_name',
+            'payment_method',
+            'payment_reference',
+            'tendered_amount',
+            'notes',
+          ])
           .first();
 
         if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
 
+        const itemRows = await db().from('order_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+        const splitRows = await db().from('order_splits').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+        const splitItemRows = await db().from('order_split_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+        const paymentRows = await db().from('order_payments').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+
+        const basePayload = hydratePayloadFromNormalized({ orderRow, payloadFallback: safeJsonParse(orderRow?.payload, {}), itemRows, splitRows, splitItemRows, paymentRows });
+        const patchedOrderRow = { ...orderRow, payload: JSON.stringify(basePayload) };
+
         const lines = Array.isArray(req.body?.lines) ? req.body.lines : null;
         const beep = req.body?.beep === true;
-        const payload = makeKitchenTicketPayload({ title: 'Bar Ticket', orderRow, lines, beep });
+        const payload = makeKitchenTicketPayload({ title: 'Bar Ticket', orderRow: patchedOrderRow, lines, beep });
         try {
           await sendTcp({ host, port, data: payload, timeoutMs: 8000 });
         } catch (e) {
@@ -1492,33 +1811,6 @@ const makePosRouter = () => {
         }
 
         return res.json({ ok: true });
-      } catch (e) {
-        return next(e);
-      }
-    });
-
-  r.get(
-    '/pos/state',
-    tenantMiddleware,
-    requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
-    loadEntitlements,
-    requireModule('pos'),
-    requirePermission('orders.read'),
-    async (req, res, next) => {
-      try {
-        const branchId = await resolveBranchId(req);
-        if (!branchId) return res.status(400).json({ error: 'branch_required' });
-
-        const row = await db()
-          .select(['state_json', 'updated_at'])
-          .from('pos_state')
-          .where({ tenant_id: req.tenant.id, branch_id: branchId })
-          .first();
-
-        const state = safeJsonParse(row?.state_json, null);
-        const stripped = stripTablesFromPosState(state);
-        return res.json({ ok: true, tenantId: req.tenant.id, branchId, state: stripped, updatedAt: row?.updated_at || null });
       } catch (e) {
         return next(e);
       }
@@ -1556,39 +1848,6 @@ const makePosRouter = () => {
         if (!ok) return res.status(401).json({ error: 'pin_required' });
 
         return res.json({ ok: true, staff: { id: String(staffRow.id), name: String(staffRow.name || ''), roleName: String(staffRow.role_name || '') } });
-      } catch (e) {
-        return next(e);
-      }
-    });
-
-  r.put(
-    '/pos/state',
-    tenantMiddleware,
-    requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
-    loadEntitlements,
-    requireModule('pos'),
-    requirePermission('orders.read'),
-    async (req, res, next) => {
-      try {
-        const branchId = await resolveBranchId(req);
-        if (!branchId) return res.status(400).json({ error: 'branch_required' });
-
-        const incoming = req.body && typeof req.body === 'object' ? req.body.state : null;
-        if (!incoming || typeof incoming !== 'object') return res.status(400).json({ error: 'invalid_state' });
-
-        const cleaned = stripTablesFromPosState(incoming);
-        if (!cleaned) return res.status(400).json({ error: 'invalid_state' });
-
-        const nowIso = new Date().toISOString();
-        const id = `pos_${req.tenant.id}_${branchId}`;
-        await db()
-          .from('pos_state')
-          .insert({ id, tenant_id: req.tenant.id, branch_id: branchId, state_json: JSON.stringify(cleaned), updated_at: nowIso })
-          .onConflict(['tenant_id', 'branch_id'])
-          .merge({ state_json: JSON.stringify(cleaned), updated_at: nowIso });
-
-        return res.json({ ok: true, tenantId: req.tenant.id, branchId, updatedAt: nowIso });
       } catch (e) {
         return next(e);
       }
@@ -1822,11 +2081,84 @@ const makePosRouter = () => {
         const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
         const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 100) || 100));
 
-        let q = db().select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'created_at', 'paid_at', 'payload']).from('orders').where({ tenant_id: req.tenant.id, branch_id: branchId });
+        let q = db()
+          .select([
+            'id',
+            'status',
+            'total',
+            'tax',
+            'tip',
+            'discount',
+            'created_at',
+            'paid_at',
+            'payload',
+            'display_number',
+            'table_id',
+            'table_name',
+            'created_by_staff_id',
+            'created_by_name',
+            'paid_by_staff_id',
+            'paid_by_name',
+            'payment_method',
+            'payment_reference',
+            'tendered_amount',
+            'notes',
+            'updated_at',
+          ])
+          .from('orders')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId });
         if (status) q = q.andWhere({ status });
         q = q.orderBy('created_at', 'desc').limit(limit);
 
         const rows = await q;
+
+        const orderIds = rows.map((r0) => String(r0.id || '')).filter(Boolean);
+        const itemRows = orderIds.length
+          ? await db().from('order_items').where({ tenant_id: req.tenant.id, branch_id: branchId }).whereIn('order_id', orderIds)
+          : [];
+        const splitRows = orderIds.length
+          ? await db().from('order_splits').where({ tenant_id: req.tenant.id, branch_id: branchId }).whereIn('order_id', orderIds)
+          : [];
+        const splitItemRows = orderIds.length
+          ? await db().from('order_split_items').where({ tenant_id: req.tenant.id, branch_id: branchId }).whereIn('order_id', orderIds)
+          : [];
+        const paymentRows = orderIds.length
+          ? await db().from('order_payments').where({ tenant_id: req.tenant.id, branch_id: branchId }).whereIn('order_id', orderIds)
+          : [];
+
+        const itemsByOrder = new Map();
+        for (const it of itemRows) {
+          const oid = String(it.order_id || '').trim();
+          if (!oid) continue;
+          const list = itemsByOrder.get(oid) || [];
+          list.push(it);
+          itemsByOrder.set(oid, list);
+        }
+        const splitsByOrder = new Map();
+        for (const s of splitRows) {
+          const oid = String(s.order_id || '').trim();
+          if (!oid) continue;
+          const list = splitsByOrder.get(oid) || [];
+          list.push(s);
+          splitsByOrder.set(oid, list);
+        }
+        const splitItemsByOrder = new Map();
+        for (const si of splitItemRows) {
+          const oid = String(si.order_id || '').trim();
+          if (!oid) continue;
+          const list = splitItemsByOrder.get(oid) || [];
+          list.push(si);
+          splitItemsByOrder.set(oid, list);
+        }
+        const paymentsByOrder = new Map();
+        for (const p0 of paymentRows) {
+          const oid = String(p0.order_id || '').trim();
+          if (!oid) continue;
+          const list = paymentsByOrder.get(oid) || [];
+          list.push(p0);
+          paymentsByOrder.set(oid, list);
+        }
+
         const orders = rows.map((row) => ({
           id: row.id,
           status: row.status,
@@ -1841,7 +2173,14 @@ const makePosRouter = () => {
           })(),
           createdAt: row.created_at,
           paidAt: row.paid_at,
-          payload: safeJsonParse(row.payload, null),
+          payload: hydratePayloadFromNormalized({
+            orderRow: row,
+            payloadFallback: safeJsonParse(row.payload, null),
+            itemRows: itemsByOrder.get(String(row.id)) || [],
+            splitRows: splitsByOrder.get(String(row.id)) || [],
+            splitItemRows: splitItemsByOrder.get(String(row.id)) || [],
+            paymentRows: paymentsByOrder.get(String(row.id)) || [],
+          }),
         }));
 
         return res.json({ ok: true, tenantId: req.tenant.id, branchId, orders });
@@ -1874,12 +2213,39 @@ const makePosRouter = () => {
         const beforeStatus = String(beforeRow.status || '').trim();
 
         const row = await db()
-          .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'created_at', 'paid_at', 'payload'])
+          .select([
+            'id',
+            'status',
+            'total',
+            'tax',
+            'tip',
+            'discount',
+            'created_at',
+            'paid_at',
+            'payload',
+            'display_number',
+            'table_id',
+            'table_name',
+            'created_by_staff_id',
+            'created_by_name',
+            'paid_by_staff_id',
+            'paid_by_name',
+            'payment_method',
+            'payment_reference',
+            'tendered_amount',
+            'notes',
+            'updated_at',
+          ])
           .from('orders')
           .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
           .first();
 
         if (!row) return res.status(404).json({ error: 'order_not_found' });
+
+        const itemRows = await db().from('order_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id });
+        const splitRows = await db().from('order_splits').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id });
+        const splitItemRows = await db().from('order_split_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id });
+        const paymentRows = await db().from('order_payments').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id });
 
         const order = {
           id: row.id,
@@ -1895,7 +2261,7 @@ const makePosRouter = () => {
           })(),
           createdAt: row.created_at,
           paidAt: row.paid_at,
-          payload: safeJsonParse(row.payload, null),
+          payload: hydratePayloadFromNormalized({ orderRow: row, payloadFallback: safeJsonParse(row.payload, null), itemRows, splitRows, splitItemRows, paymentRows }),
         };
 
         return res.json({ ok: true, tenantId: req.tenant.id, branchId, order });
@@ -2185,6 +2551,12 @@ const makePosRouter = () => {
         const id = requestedId || uid('ord');
         const nowIso = new Date().toISOString();
 
+        const normalizedCols = normalizeOrderColsFromPayload({ payload: nextPayload, status, nowIso });
+        const orderItemRows = normalizeItemsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, payload: nextPayload, nowIso });
+        const splitRows = normalizeSplitsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, payload: nextPayload, nowIso });
+        const splitItemRows = normalizeSplitItemsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, splitRows, orderItemRows, payload: nextPayload, nowIso });
+        const paymentRows = normalizePaymentsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, status, payload: nextPayload, nowIso });
+
         const tableId = tableIdFromPayload;
         const tableNameForEnsure = (() => {
           if (resolvedTableRow?.name) return String(resolvedTableRow.name);
@@ -2206,6 +2578,18 @@ const makePosRouter = () => {
               discount: computed.discount,
               created_at: nowIso,
               paid_at: status === 'Paid' ? nowIso : null,
+              display_number: normalizedCols.display_number,
+              table_id: normalizedCols.table_id,
+              table_name: normalizedCols.table_name,
+              created_by_staff_id: normalizedCols.created_by_staff_id,
+              created_by_name: normalizedCols.created_by_name,
+              paid_by_staff_id: normalizedCols.paid_by_staff_id,
+              paid_by_name: normalizedCols.paid_by_name,
+              payment_method: normalizedCols.payment_method,
+              payment_reference: normalizedCols.payment_reference,
+              tendered_amount: normalizedCols.tendered_amount,
+              notes: normalizedCols.notes,
+              updated_at: nowIso,
               payload: JSON.stringify(nextPayload),
             })
             .onConflict(['id'])
@@ -2216,8 +2600,35 @@ const makePosRouter = () => {
               tip,
               discount: computed.discount,
               paid_at: status === 'Paid' ? nowIso : null,
+              display_number: normalizedCols.display_number,
+              table_id: normalizedCols.table_id,
+              table_name: normalizedCols.table_name,
+              created_by_staff_id: normalizedCols.created_by_staff_id,
+              created_by_name: normalizedCols.created_by_name,
+              paid_by_staff_id: normalizedCols.paid_by_staff_id,
+              paid_by_name: normalizedCols.paid_by_name,
+              payment_method: normalizedCols.payment_method,
+              payment_reference: normalizedCols.payment_reference,
+              tendered_amount: normalizedCols.tendered_amount,
+              notes: normalizedCols.notes,
+              updated_at: nowIso,
               payload: JSON.stringify(nextPayload),
             });
+
+          // Dual-write: normalized tables (best-effort; do not fail order creation if missing tables during rollout)
+          try {
+            await trx('order_payments').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id }).del();
+            await trx('order_split_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id }).del();
+            await trx('order_splits').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id }).del();
+            await trx('order_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id }).del();
+
+            if (orderItemRows.length) await trx('order_items').insert(orderItemRows);
+            if (splitRows.length) await trx('order_splits').insert(splitRows);
+            if (splitItemRows.length) await trx('order_split_items').insert(splitItemRows);
+            if (paymentRows.length) await trx('order_payments').insert(paymentRows);
+          } catch {
+            // ignore
+          }
 
           const tableId = typeof nextPayload?.tableId === 'string' ? nextPayload.tableId.trim() : '';
           if (tableId) {
@@ -2401,12 +2812,62 @@ const makePosRouter = () => {
 
           // Rebuild payload after enforcing required reference, so DB stores correct value.
           patch.payload = JSON.stringify(payloadWithTotals);
+
+          // POS v2 dual-write (normalized tables/cols)
+          try {
+            const nowIso = new Date().toISOString();
+            const effectiveStatus = typeof patch.status === 'string' ? String(patch.status) : beforeStatus;
+
+            const normalizedCols = normalizeOrderColsFromPayload({ payload: payloadWithTotals, status: effectiveStatus, nowIso });
+            patch.display_number = normalizedCols.display_number;
+            patch.table_id = normalizedCols.table_id;
+            patch.table_name = normalizedCols.table_name;
+            patch.created_by_staff_id = normalizedCols.created_by_staff_id;
+            patch.created_by_name = normalizedCols.created_by_name;
+            patch.paid_by_staff_id = normalizedCols.paid_by_staff_id;
+            patch.paid_by_name = normalizedCols.paid_by_name;
+            patch.payment_method = normalizedCols.payment_method;
+            patch.payment_reference = normalizedCols.payment_reference;
+            patch.tendered_amount = normalizedCols.tendered_amount;
+            patch.notes = normalizedCols.notes;
+            patch.updated_at = nowIso;
+          } catch {
+            // ignore
+          }
         }
 
         if (Object.keys(patch).length === 0) return res.json({ ok: true });
 
         const updated = await db().from('orders').where({ tenant_id: req.tenant.id, branch_id: branchId, id }).update(patch);
         if (!updated) return res.status(404).json({ error: 'order_not_found' });
+
+        // Dual-write normalized tables only when we received a payload (so we can rebuild items/splits).
+        if (incomingPayload && typeof patch.payload === 'string' && patch.payload.trim()) {
+          try {
+            const nowIso = new Date().toISOString();
+            const effectiveStatus = typeof patch.status === 'string' ? String(patch.status) : beforeStatus;
+            const payloadObj = safeJsonParse(patch.payload, {}) || {};
+
+            const orderItemRows = normalizeItemsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, payload: payloadObj, nowIso });
+            const splitRows = normalizeSplitsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, payload: payloadObj, nowIso });
+            const splitItemRows = normalizeSplitItemsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, splitRows, orderItemRows, payload: payloadObj, nowIso });
+            const paymentRows = normalizePaymentsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, status: effectiveStatus, payload: payloadObj, nowIso });
+
+            await db().transaction(async (trx) => {
+              await trx('order_payments').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id }).del();
+              await trx('order_split_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id }).del();
+              await trx('order_splits').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id }).del();
+              await trx('order_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id }).del();
+
+              if (orderItemRows.length) await trx('order_items').insert(orderItemRows);
+              if (splitRows.length) await trx('order_splits').insert(splitRows);
+              if (splitItemRows.length) await trx('order_split_items').insert(splitItemRows);
+              if (paymentRows.length) await trx('order_payments').insert(paymentRows);
+            });
+          } catch {
+            // ignore
+          }
+        }
 
         const afterStatus = typeof patch.status === 'string' ? String(patch.status) : beforeStatus;
         const afterPayload = (() => {

@@ -123,6 +123,23 @@ app.whenReady().then(async () => {
     return db.setPosState ? db.setPosState(String(scopeKey || ''), value) : false;
   });
 
+  ipcMain.handle('mirachpos.pos.upsertProducts', async (_evt, payload) => {
+    return db.posUpsertProducts ? db.posUpsertProducts(payload) : { ok: false };
+  });
+  ipcMain.handle('mirachpos.pos.listProducts', async (_evt, payload) => {
+    return db.posListProducts ? db.posListProducts(payload) : [];
+  });
+
+  ipcMain.handle('mirachpos.pos.upsertOrderBundle', async (_evt, payload) => {
+    return db.posUpsertOrderBundle ? db.posUpsertOrderBundle(payload) : { ok: false };
+  });
+  ipcMain.handle('mirachpos.pos.getOrderBundle', async (_evt, payload) => {
+    return db.posGetOrderBundle ? db.posGetOrderBundle(payload) : null;
+  });
+  ipcMain.handle('mirachpos.pos.listOrders', async (_evt, payload) => {
+    return db.posListOrders ? db.posListOrders(payload) : [];
+  });
+
   ipcMain.handle('mirachpos.outbox.enqueue', async (_evt, payload) => {
     return db.outboxEnqueue ? db.outboxEnqueue(payload) : { ok: false };
   });
