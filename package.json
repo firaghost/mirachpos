@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "MirachPOS desktop point-of-sale application.",
-  "author": "Fira.N",
+  "author": "MirachPos",
   "type": "module",
   "main": "electron/main.mjs",
   "engines": {

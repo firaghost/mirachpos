@@ -67,12 +67,41 @@ const makeManagerRouter = () => {
     loadEntitlements,
     requireModule('reports'),
     requirePermission('reports.read'),
-    requireBranchId(),
     async (req, res, next) => {
       try {
-        const branchId = req.branchId || resolveBranchId(req);
+        try {
+          res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+          res.set('Pragma', 'no-cache');
+          res.set('Expires', '0');
+          res.set('Vary', 'Origin, Authorization, X-Tenant');
+        } catch {
+          // ignore
+        }
 
-        const range = typeof req.query?.range === 'string' ? req.query.range.trim() : 'Daily';
+        let branchId = req.branchId || resolveBranchId(req);
+        if (!branchId) {
+          const row = await db()
+            .select(['id'])
+            .from('branches')
+            .where({ tenant_id: req.tenant.id })
+            .orderBy('name', 'asc')
+            .first();
+          branchId = row?.id ? String(row.id) : '';
+        }
+        if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+        const rangeRaw = typeof req.query?.range === 'string' ? req.query.range.trim() : 'Daily';
+        const rangeKey = String(rangeRaw.split(':')[0] || '').trim();
+        const range = ['Daily', 'Weekly', 'Monthly'].includes(rangeKey) ? rangeKey : 'Daily';
+
+        // Log warning if range was malformed (like Daily:1)
+        if (rangeRaw !== range && rangeRaw !== 'Daily') {
+          try {
+            if (req.log?.warn) req.log.warn({ rangeRaw, range }, 'manager/overview received malformed range parameter');
+            else console.warn(`manager/overview received malformed range parameter: "${rangeRaw}"`);
+          } catch { /* ignore */ }
+        }
+
         const now = new Date();
 
         const days = range === 'Monthly' ? 180 : range === 'Weekly' ? 60 : 14;

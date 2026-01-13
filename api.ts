@@ -14,8 +14,8 @@ const tenantFromHostname = (): string => {
     // Do not treat the API host itself as a tenant.
     if (h.startsWith('api.')) return '';
 
-    // Option A: <tenant>.mirach.com
-    if (h.endsWith('.mirach.com')) {
+    // Option A: <tenant>.mirach.com or <tenant>.mirachpos.com
+    if (h.endsWith('.mirach.com') || h.endsWith('.mirachpos.com')) {
       const parts = h.split('.').filter(Boolean);
       if (parts.length >= 3) return parts[0];
     }

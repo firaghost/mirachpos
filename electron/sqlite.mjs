@@ -191,6 +191,23 @@ export const openKvDb = (dbDir) => {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS restaurant_tables (
+      scope_key TEXT NOT NULL,
+      id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      area TEXT NULL,
+      status TEXT NOT NULL DEFAULT 'Free',
+      seats INTEGER NOT NULL DEFAULT 4,
+      open_order_id TEXT NULL,
+      last_order_id TEXT NULL,
+      assigned_staff_id TEXT NULL,
+      assigned_staff_name TEXT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (scope_key, id)
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_restaurant_tables_scope_name ON restaurant_tables (scope_key, name);
+    CREATE INDEX IF NOT EXISTS idx_restaurant_tables_scope_status ON restaurant_tables (scope_key, status);
+
     CREATE TABLE IF NOT EXISTS pos_products (
       scope_key TEXT NOT NULL,
       id TEXT NOT NULL,
@@ -367,6 +384,28 @@ export const openKvDb = (dbDir) => {
   const stmtPosGet = db.prepare('SELECT value FROM pos_state WHERE scope_key = ?');
   const stmtPosSet = db.prepare(
     'INSERT INTO pos_state (scope_key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(scope_key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+  );
+
+  const stmtRestaurantTablesUpsert = db.prepare(
+    `INSERT INTO restaurant_tables (
+        scope_key, id, name, area, status, seats,
+        open_order_id, last_order_id,
+        assigned_staff_id, assigned_staff_name,
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(scope_key, id) DO UPDATE SET
+        name=excluded.name,
+        area=excluded.area,
+        status=excluded.status,
+        seats=excluded.seats,
+        open_order_id=excluded.open_order_id,
+        last_order_id=excluded.last_order_id,
+        assigned_staff_id=excluded.assigned_staff_id,
+        assigned_staff_name=excluded.assigned_staff_name,
+        updated_at=excluded.updated_at`,
+  );
+  const stmtRestaurantTablesList = db.prepare(
+    'SELECT id,name,area,status,seats,open_order_id,last_order_id,assigned_staff_id,assigned_staff_name,updated_at FROM restaurant_tables WHERE scope_key = ? ORDER BY name ASC LIMIT ?',
   );
 
   const stmtPosProductsUpsert = db.prepare(
@@ -576,6 +615,41 @@ export const openKvDb = (dbDir) => {
       const payload = JSON.stringify(value ?? null);
       stmtPosSet.run(k, payload, now);
       return true;
+    },
+
+    posUpsertRestaurantTables: (args) => {
+      const scopeKey = String(args?.scopeKey || '').trim();
+      if (!scopeKey) return { ok: false };
+      const rows = Array.isArray(args?.tables) ? args.tables : [];
+      const now = new Date().toISOString();
+      const tx = db.transaction((items) => {
+        for (const t of items) {
+          const id = String(t?.id || '').trim();
+          const name = String(t?.name || '').trim();
+          if (!id || !name) continue;
+          stmtRestaurantTablesUpsert.run(
+            scopeKey,
+            id,
+            name,
+            t?.area != null && String(t.area).trim() ? String(t.area) : null,
+            t?.status ? String(t.status) : 'Free',
+            Number(t?.seats ?? 4) || 4,
+            t?.openOrderId ? String(t.openOrderId) : t?.open_order_id ? String(t.open_order_id) : null,
+            t?.lastOrderId ? String(t.lastOrderId) : t?.last_order_id ? String(t.last_order_id) : null,
+            t?.assignedStaffId ? String(t.assignedStaffId) : t?.assigned_staff_id ? String(t.assigned_staff_id) : null,
+            t?.assignedStaffName ? String(t.assignedStaffName) : t?.assigned_staff_name ? String(t.assigned_staff_name) : null,
+            now,
+          );
+        }
+      });
+      tx(rows);
+      return { ok: true };
+    },
+    posListRestaurantTables: (args) => {
+      const scopeKey = String(args?.scopeKey || '').trim();
+      if (!scopeKey) return [];
+      const limit = Number.isFinite(Number(args?.limit)) ? Math.max(1, Math.min(2000, Number(args.limit))) : 500;
+      return stmtRestaurantTablesList.all(scopeKey, limit);
     },
 
     posUpsertProducts: (args) => {

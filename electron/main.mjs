@@ -18,7 +18,7 @@ try {
 }
 
 const isDev = !app.isPackaged;
-const DEV_SERVER_URL = process.env.MIRACHPOS_DEV_URL || 'http://localhost:3001';
+const DEV_SERVER_URL = process.env.MIRACHPOS_DEV_URL || 'http://localhost:5173';
 const API_ORIGIN = process.env.MIRACHPOS_API_ORIGIN || (isDev ? 'http://127.0.0.1:3001' : 'https://apa.mirachpos.com');
 
 let apiProc = null;
@@ -121,6 +121,13 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('mirachpos.pos.setState', async (_evt, scopeKey, value) => {
     return db.setPosState ? db.setPosState(String(scopeKey || ''), value) : false;
+  });
+
+  ipcMain.handle('mirachpos.pos.upsertTables', async (_evt, payload) => {
+    return db.posUpsertRestaurantTables ? db.posUpsertRestaurantTables(payload) : { ok: false };
+  });
+  ipcMain.handle('mirachpos.pos.listTables', async (_evt, payload) => {
+    return db.posListRestaurantTables ? db.posListRestaurantTables(payload) : [];
   });
 
   ipcMain.handle('mirachpos.pos.upsertProducts', async (_evt, payload) => {

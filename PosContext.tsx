@@ -782,6 +782,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const pos = w?.mirachpos?.pos;
     const outbox = w?.mirachpos?.outbox;
     return {
+      posUpsertTables: typeof pos?.upsertTables === 'function' ? (pos.upsertTables as (p: any) => Promise<any>) : null,
+      posListTables: typeof pos?.listTables === 'function' ? (pos.listTables as (p: any) => Promise<any>) : null,
       posUpsertProducts: typeof pos?.upsertProducts === 'function' ? (pos.upsertProducts as (p: any) => Promise<any>) : null,
       posListProducts: typeof pos?.listProducts === 'function' ? (pos.listProducts as (p: any) => Promise<any>) : null,
       posUpsertOrderBundle: typeof pos?.upsertOrderBundle === 'function' ? (pos.upsertOrderBundle as (p: any) => Promise<any>) : null,
@@ -793,6 +795,19 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       outboxBump: typeof outbox?.bump === 'function' ? (outbox.bump as (p: any) => Promise<any>) : null,
     };
   }, []);
+
+  const persistTablesToElectron = useCallback(
+    async (scopeKey: string, tables: any[]) => {
+      try {
+        if (!scopeKey) return;
+        if (!electronApis.posUpsertTables) return;
+        await electronApis.posUpsertTables({ scopeKey, tables });
+      } catch {
+        // ignore
+      }
+    },
+    [electronApis.posUpsertTables],
+  );
 
   const enqueueOutboxHttp = useCallback(
     async (args: { url: string; method: string; body?: any; headers?: Record<string, string> }) => {
@@ -872,10 +887,11 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!scopeKey) return;
       if (Array.isArray(state.tables) && state.tables.length) writeBranchCache(scopeKey, { tables: state.tables });
       if (Array.isArray(state.products) && state.products.length) writeBranchCache(scopeKey, { products: state.products });
+      if (Array.isArray(state.tables) && state.tables.length) void persistTablesToElectron(scopeKey, state.tables);
     } catch {
       // ignore
     }
-  }, [isBranchUser, sessionRev, state.tables, state.products]);
+  }, [isBranchUser, sessionRev, state.tables, state.products, persistTablesToElectron]);
 
   useEffect(() => {
     let mounted = true;
@@ -884,7 +900,34 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!isBranchUser) return;
         const scopeKey = getBranchScopeKey();
         if (!scopeKey) return;
-        if (!electronApis.posListProducts && !electronApis.posListOrders) return;
+        if (!electronApis.posListTables && !electronApis.posListProducts && !electronApis.posListOrders) return;
+
+        // 0) Hydrate tables from local SQLite cache (Electron) for fast startup + offline.
+        try {
+          if (electronApis.posListTables) {
+            const rows = await electronApis.posListTables({ scopeKey, limit: 800 });
+            const localTables = Array.isArray(rows)
+              ? rows
+                  .map((t: any) => ({
+                    id: String(t?.id || ''),
+                    name: String(t?.name || ''),
+                    area: t?.area != null ? String(t.area) : null,
+                    status: String(t?.status || 'Free'),
+                    seats: Number(t?.seats ?? 4) || 4,
+                    openOrderId: t?.open_order_id ? String(t.open_order_id) : null,
+                    lastOrderId: t?.last_order_id ? String(t.last_order_id) : null,
+                    assignedStaffId: t?.assigned_staff_id ? String(t.assigned_staff_id) : null,
+                    assignedStaffName: t?.assigned_staff_name ? String(t.assigned_staff_name) : null,
+                  }))
+                  .filter((t: any) => t.id && t.name)
+              : [];
+            if (mounted && localTables.length) {
+              setState((s) => ({ ...s, tables: updateTableComputed(localTables as any, s.cartByTableId) }));
+            }
+          }
+        } catch {
+          // ignore
+        }
 
         // 0) Hydrate from local SQLite cache (Electron) for fast startup + offline.
         try {
@@ -1133,6 +1176,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const incomingTables = toPosTables(rows);
           setState((s) => ({ ...s, tables: updateTableComputed(incomingTables, s.cartByTableId) }));
           if (scopeKey && incomingTables.length) writeBranchCache(scopeKey, { tables: incomingTables });
+          if (scopeKey && incomingTables.length) void persistTablesToElectron(scopeKey, incomingTables);
         } else {
           // If tables are missing, try initialize then re-fetch.
           await apiFetch(withBranchQuery('/api/pos/initialize'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
@@ -1143,6 +1187,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const incomingTables2 = toPosTables(rows2);
             setState((s) => ({ ...s, tables: updateTableComputed(incomingTables2, s.cartByTableId) }));
             if (scopeKey && incomingTables2.length) writeBranchCache(scopeKey, { tables: incomingTables2 });
+            if (scopeKey && incomingTables2.length) void persistTablesToElectron(scopeKey, incomingTables2);
           }
         }
       } catch {
@@ -1363,7 +1408,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       // ignore
     }
-  }, [isBranchUser, electronApis, buildLocalOrderBundle]);
+  }, [isBranchUser, electronApis, buildLocalOrderBundle, persistTablesToElectron]);
 
   const persistOrder = useCallback(
     async (order: PosOrder) => {

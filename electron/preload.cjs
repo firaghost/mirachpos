@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('mirachpos', {
   pos: {
     getState: (scopeKey) => ipcRenderer.invoke('mirachpos.pos.getState', scopeKey),
     setState: (scopeKey, value) => ipcRenderer.invoke('mirachpos.pos.setState', scopeKey, value),
+    upsertTables: (payload) => ipcRenderer.invoke('mirachpos.pos.upsertTables', payload),
+    listTables: (payload) => ipcRenderer.invoke('mirachpos.pos.listTables', payload),
     upsertProducts: (payload) => ipcRenderer.invoke('mirachpos.pos.upsertProducts', payload),
     listProducts: (payload) => ipcRenderer.invoke('mirachpos.pos.listProducts', payload),
     upsertOrderBundle: (payload) => ipcRenderer.invoke('mirachpos.pos.upsertOrderBundle', payload),
