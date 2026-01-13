@@ -28,6 +28,13 @@ const maskSecret = (s) => {
   return `${v.slice(0, 4)}****${v.slice(-4)}`;
 };
 
+const randomPassword = (len = 10) => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  for (let i = 0; i < len; i += 1) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+};
+
 const toIso = (v) => {
   try {
     if (!v) return '';
@@ -145,6 +152,49 @@ const makeSuperadminRouter = () => {
 
   r.get('/superadmin', requireSuperadmin, async (_req, res) => {
     return res.json({ ok: true });
+  });
+
+  r.post('/superadmin/tenants/reset-owner-password', requireSuperadmin, async (req, res, next) => {
+    try {
+      const tenantId = String(req.body?.tenantId || '').trim();
+      if (!tenantId) return res.status(400).json({ error: 'tenant_required' });
+
+      const tenantRow = await db().select(['id']).from('tenants').where({ id: tenantId }).first();
+      if (!tenantRow) return res.status(404).json({ error: 'not_found' });
+
+      const owner = await db()
+        .select(['id', 'email', 'name', 'role_name'])
+        .from('staff')
+        .where({ tenant_id: tenantId, role_name: 'Cafe Owner' })
+        .orderBy('created_at', 'asc')
+        .first();
+
+      if (!owner) return res.status(404).json({ error: 'owner_not_found' });
+
+      const tempPassword = randomPassword(10);
+      const hash = await bcrypt.hash(tempPassword, 10);
+      const nowIso = new Date().toISOString();
+
+      await db().from('staff').where({ tenant_id: tenantId, id: String(owner.id) }).update({ password_hash: hash, updated_at: nowIso });
+
+      try {
+        await logAudit({
+          tenantId,
+          branchId: null,
+          actorStaffId: null,
+          actorRole: 'Super Admin',
+          type: 'superadmin.owner_password_reset',
+          summary: 'Superadmin reset owner password',
+          payload: { staffId: String(owner.id) },
+        });
+      } catch {
+        // ignore
+      }
+
+      return res.json({ ok: true, tenantId, ownerStaffId: String(owner.id), ownerEmail: String(owner.email || ''), tempPassword });
+    } catch (e) {
+      return next(e);
+    }
   });
 
   // Plan management (prices/modules/limits)

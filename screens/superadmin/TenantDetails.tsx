@@ -122,6 +122,27 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
     }
   };
 
+  const resetOwnerPassword = async () => {
+    if (!tenant?.id) return;
+    setError(null);
+    setToast(null);
+    try {
+      const res = await apiFetch('/api/superadmin/tenants/reset-owner-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId: tenant.id }),
+      });
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      const pw = String(json?.tempPassword || '');
+      const em = String(json?.ownerEmail || '');
+      setToast(`Owner temp password${em ? ` (${em})` : ''}: ${pw}`);
+      setTimeout(() => setToast(null), 8000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Reset owner password failed');
+    }
+  };
+
   const hasUnsavedAccessChanges = useMemo(() => {
     const a = [...enabledModules].map(String).sort().join('|');
     const b = [...baselineModules].map(String).sort().join('|');

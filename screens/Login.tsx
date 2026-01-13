@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../api';
 import { Screen, UserRole } from '../types';
 import { writeSession } from '../session';
@@ -17,13 +17,179 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       return '';
     }
   });
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => {
+    try {
+      return String(localStorage.getItem('mirachpos.lastEmail.v1') || '').trim();
+    } catch {
+      return '';
+    }
+  });
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(() => {
+    try {
+      const v = localStorage.getItem('mirachpos.rememberMe.v1');
+      if (v === '0') return false;
+      if (v === '1') return true;
+      // Backward compatibility
+      if (localStorage.getItem('mirachpos.rememberPassword.v1') === '1') return true;
+      if ((localStorage.getItem('mirachpos.rememberEmail.v1') || '1') !== '0') return true;
+      return true;
+    } catch {
+      return true;
+    }
+  });
   const [code, setCode] = useState('');
   const [pin, setPin] = useState('');
   const [mode, setMode] = useState<'email' | 'pin'>('email');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgot, setShowForgot] = useState(false);
+  const [fpStep, setFpStep] = useState<'request' | 'confirm'>('request');
+  const [fpEmail, setFpEmail] = useState('');
+  const [fpOtp, setFpOtp] = useState('');
+  const [fpPw1, setFpPw1] = useState('');
+  const [fpPw2, setFpPw2] = useState('');
+  const [fpBusy, setFpBusy] = useState(false);
+  const [fpMsg, setFpMsg] = useState('');
+  const [fpErr, setFpErr] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const db = (window as any)?.mirachpos?.db;
+        if (!db?.get) return;
+
+        const [ws, em, pw, re] = await Promise.all([
+          db.get('mirachpos.lastWorkspace.v1'),
+          db.get('mirachpos.lastEmail.v1'),
+          db.get('mirachpos.lastPassword.v1'),
+          db.get('mirachpos.rememberMe.v1'),
+        ]);
+
+        if (cancelled) return;
+
+        if (typeof ws === 'string' && ws.trim() && !workspace.trim()) setWorkspace(ws.trim());
+        if (typeof em === 'string' && em.trim() && !email.trim()) setEmail(em.trim());
+
+        const nextRememberMe = String(re ?? '') !== '0';
+        setRememberMe(nextRememberMe);
+
+        if (nextRememberMe && typeof pw === 'string' && pw && !password) setPassword(pw);
+      } catch {
+        // ignore
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const openForgot = () => {
+    setFpErr('');
+    setFpMsg('');
+    setFpStep('request');
+    setFpEmail(email.trim().toLowerCase());
+    setFpOtp('');
+    setFpPw1('');
+    setFpPw2('');
+    setShowForgot(true);
+  };
+
+  const forgotRequest = async () => {
+    if (fpBusy) return;
+    setFpErr('');
+    setFpMsg('');
+    const ws = workspace.trim().toLowerCase();
+    const em = fpEmail.trim().toLowerCase();
+    if (!ws) {
+      setFpErr('Workspace (tenant) is required.');
+      return;
+    }
+    if (!em) {
+      setFpErr('Email is required.');
+      return;
+    }
+    setFpBusy(true);
+    try {
+      const res = await apiFetch('/api/auth/forgot-password/request', {
+        auth: false,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Tenant': ws },
+        body: JSON.stringify({ email: em }),
+      });
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(String(json?.error || `HTTP ${res.status}`));
+      setFpStep('confirm');
+      const dbg = json?.debug?.mail;
+      const env = dbg?.env;
+      const envLine =
+        env && typeof env === 'object'
+          ? ` env(host=${String(env.host || '')} port=${String(env.port || '')} user=${String(env.user || '')} hasPass=${String(Boolean(env.hasPass))} from=${String(env.from || '')})`
+          : '';
+      const dbgLine =
+        dbg && typeof dbg === 'object'
+          ? ` SMTP: configured=${String(dbg.configured)} attempted=${String(dbg.attempted)} sent=${String(dbg.sent)}${dbg.error ? ` error=${String(dbg.error)}` : ''}${envLine}`
+          : '';
+      setFpMsg(`If the email exists, we sent an OTP code. Check your inbox.${dbgLine}`);
+    } catch (e) {
+      setFpErr(e instanceof Error ? e.message : 'Request failed');
+    } finally {
+      setFpBusy(false);
+    }
+  };
+
+  const forgotConfirm = async () => {
+    if (fpBusy) return;
+    setFpErr('');
+    setFpMsg('');
+    const ws = workspace.trim().toLowerCase();
+    const em = fpEmail.trim().toLowerCase();
+    const otp = fpOtp.trim();
+    if (!ws) {
+      setFpErr('Workspace (tenant) is required.');
+      return;
+    }
+    if (!em) {
+      setFpErr('Email is required.');
+      return;
+    }
+    if (!otp) {
+      setFpErr('OTP is required.');
+      return;
+    }
+    if (!fpPw1 || fpPw1.length < 6) {
+      setFpErr('Password must be at least 6 characters.');
+      return;
+    }
+    if (fpPw1 !== fpPw2) {
+      setFpErr('Passwords do not match.');
+      return;
+    }
+    setFpBusy(true);
+    try {
+      const res = await apiFetch('/api/auth/forgot-password/confirm', {
+        auth: false,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Tenant': ws },
+        body: JSON.stringify({ email: em, otp, password: fpPw1, passwordConfirm: fpPw2 }),
+      });
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(String(json?.error || `HTTP ${res.status}`));
+      setFpMsg('Password updated. You can now sign in.');
+      setShowForgot(false);
+      setEmail(em);
+      setPassword('');
+    } catch (e) {
+      setFpErr(e instanceof Error ? e.message : 'Reset failed');
+    } finally {
+      setFpBusy(false);
+    }
+  };
 
   const canSubmit = useMemo(() => {
     if (!workspace.trim()) return false;
@@ -61,6 +227,26 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     try {
       try {
         localStorage.setItem('mirachpos.lastWorkspace.v1', ws);
+        localStorage.setItem('mirachpos.rememberMe.v1', rememberMe ? '1' : '0');
+        if (rememberMe) {
+          if (em) localStorage.setItem('mirachpos.lastEmail.v1', em);
+          localStorage.setItem('mirachpos.lastPassword.v1', pw);
+        } else {
+          localStorage.removeItem('mirachpos.lastEmail.v1');
+          localStorage.removeItem('mirachpos.lastPassword.v1');
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        const db = (window as any)?.mirachpos?.db;
+        if (db?.set) {
+          await db.set('mirachpos.lastWorkspace.v1', ws);
+          await db.set('mirachpos.rememberMe.v1', rememberMe ? '1' : '0');
+          await db.set('mirachpos.lastEmail.v1', rememberMe ? em : '');
+          await db.set('mirachpos.lastPassword.v1', rememberMe ? pw : '');
+        }
       } catch {
         // ignore
       }
@@ -245,6 +431,25 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   autoComplete="current-password"
                 />
               </label>
+
+              <div className="flex items-center justify-between gap-3">
+                <label className="flex items-center gap-2 text-xs text-[#c9b792] font-black select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="h-4 w-4 accent-[#eead2b]"
+                  />
+                  Remember me
+                </label>
+                <button
+                  type="button"
+                  onClick={openForgot}
+                  className="text-xs font-black text-[#c9b792] hover:text-white underline decoration-[#483c23] hover:decoration-[#eead2b] underline-offset-4"
+                >
+                  Forgot password?
+                </button>
+              </div>
             </>
           )}
 
@@ -260,7 +465,124 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {loading ? 'Signing in ¦' : 'Sign In'}
           </button>
 
-          
+          {showForgot ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-md rounded-2xl border border-[#3d3226] bg-[#221c10] shadow-2xl overflow-hidden">
+                <div className="p-4 border-b border-[#3d3226] flex items-center justify-between">
+                  <div className="font-black">Reset Password</div>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgot(false)}
+                    className="text-[#c9b792] hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="p-4 flex flex-col gap-3">
+                  {fpErr ? <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{fpErr}</div> : null}
+                  {fpMsg ? <div className="rounded-lg border border-[#eead2b]/30 bg-[#eead2b]/10 p-3 text-sm text-[#f3e2b8]">{fpMsg}</div> : null}
+
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Email</span>
+                    <input
+                      value={fpEmail}
+                      onChange={(e) => setFpEmail(e.target.value)}
+                      className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                      placeholder="name@company.com"
+                      autoComplete="email"
+                    />
+                  </label>
+
+                  {fpStep === 'confirm' ? (
+                    <>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">OTP Code</span>
+                        <input
+                          value={fpOtp}
+                          onChange={(e) => setFpOtp(e.target.value)}
+                          className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                          placeholder="123456"
+                          autoComplete="one-time-code"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">New Password</span>
+                        <input
+                          value={fpPw1}
+                          onChange={(e) => setFpPw1(e.target.value)}
+                          className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                          type="password"
+                          autoComplete="new-password"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Confirm Password</span>
+                        <input
+                          value={fpPw2}
+                          onChange={(e) => setFpPw2(e.target.value)}
+                          className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                          type="password"
+                          autoComplete="new-password"
+                        />
+                      </label>
+                    </>
+                  ) : null}
+
+                  <div className="flex gap-2">
+                    {fpStep === 'request' ? (
+                      <button
+                        type="button"
+                        onClick={forgotRequest}
+                        disabled={fpBusy}
+                        className={cx(
+                          'h-11 flex-1 rounded-lg font-black text-sm transition-colors',
+                          fpBusy ? 'bg-[#3d3226] text-[#b9b09d] cursor-not-allowed' : 'bg-[#eead2b] hover:bg-[#d49a26] text-[#181611]',
+                        )}
+                      >
+                        {fpBusy ? 'Sending ¦' : 'Send OTP'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={forgotConfirm}
+                        disabled={fpBusy}
+                        className={cx(
+                          'h-11 flex-1 rounded-lg font-black text-sm transition-colors',
+                          fpBusy ? 'bg-[#3d3226] text-[#b9b09d] cursor-not-allowed' : 'bg-[#eead2b] hover:bg-[#d49a26] text-[#181611]',
+                        )}
+                      >
+                        {fpBusy ? 'Saving ¦' : 'Set New Password'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowForgot(false)}
+                      className="h-11 px-4 rounded-lg border border-[#3d3226] bg-[#181611] text-white font-black text-sm hover:border-[#eead2b]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  {fpStep === 'confirm' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFpStep('request');
+                        setFpErr('');
+                        setFpMsg('');
+                        setFpOtp('');
+                        setFpPw1('');
+                        setFpPw2('');
+                      }}
+                      className="text-xs font-black text-[#c9b792] hover:text-white self-start"
+                    >
+                      Resend OTP
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

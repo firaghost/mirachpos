@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 
 // Load root .env.local first (developer machine / Vite), then fallback to api/.env.
 dotenv.config({ path: path.join(__dirname, '../../.env.local') });
-dotenv.config({ path: path.join(__dirname, '../.env') });
+dotenv.config({ path: path.join(__dirname, '../.env'), override: true });
 
 const parseList = (raw) =>
   String(raw || '')
@@ -23,7 +23,12 @@ const config = {
   mail: {
     host: String(process.env.MAIL_HOST || ''),
     port: process.env.MAIL_PORT ? Number(process.env.MAIL_PORT) : 587,
-    secure: String(process.env.MAIL_SECURE || '').trim().toLowerCase() === 'true',
+    secure: (() => {
+      const raw = String(process.env.MAIL_SECURE || '').trim().toLowerCase();
+      if (raw) return raw === 'true';
+      const port = process.env.MAIL_PORT ? Number(process.env.MAIL_PORT) : 587;
+      return port === 465;
+    })(),
     user: String(process.env.MAIL_USERNAME || ''),
     pass: String(process.env.MAIL_PASSWORD || ''),
     from: String(process.env.CONTACT_SENDER_EMAIL || process.env.MAIL_USERNAME || ''),

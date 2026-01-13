@@ -160,11 +160,43 @@ export const apiFetch = async (input: RequestInfo | URL, init: ApiFetchOptions =
   if (typeof input === 'string') {
     const isRelativeApi = input.startsWith('/api/');
     const isFileProtocol = typeof window !== 'undefined' && window.location?.protocol === 'file:';
+
+    // If an owner is using manager endpoints, many routes require branchId.
+    // Auto-append branchId from local selection when missing.
+    let pathWithQuery = input;
+    try {
+      if (input.startsWith('/api/manager/')) {
+        const s = readSession<any>();
+        const role = typeof s?.role === 'string' ? s.role : '';
+        const tokenBranch = typeof s?.branchId === 'string' ? s.branchId : '';
+        if (role === 'Cafe Owner' && (!tokenBranch || tokenBranch === 'global')) {
+          const hasBranchId = /[?&]branchId=/.test(input);
+          if (!hasBranchId) {
+            const selected =
+              (localStorage.getItem('mirachpos.owner.selectedBranchId.v1') ||
+                localStorage.getItem('mirachpos.manager.selectedBranchId.v1') ||
+                localStorage.getItem('mirachpos.waiter.selectedBranchId.v1') ||
+                '')
+                .trim();
+            if (selected && selected !== 'global') {
+              pathWithQuery = input.includes('?')
+                ? `${input}&branchId=${encodeURIComponent(selected)}`
+                : `${input}?branchId=${encodeURIComponent(selected)}`;
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     const base = apiBase();
     if (isRelativeApi && base) {
-      finalInput = `${base}${input}`;
+      finalInput = `${base}${pathWithQuery}`;
     } else if (isRelativeApi && isFileProtocol) {
-      finalInput = `https://apa.mirachpos.com${input}`;
+      finalInput = `https://apa.mirachpos.com${pathWithQuery}`;
+    } else {
+      finalInput = pathWithQuery;
     }
   }
 

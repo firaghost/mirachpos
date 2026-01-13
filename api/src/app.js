@@ -8,7 +8,7 @@ const { isAllowedOrigin } = require('./utils/cors');
 const { logger, requestLogger } = require('./utils/logger');
 const { errorHandler } = require('./utils/errors');
 const { requestIdMiddleware, addRequestIdToResponse } = require('./middleware/requestId');
-const { globalLimiter, authLimiter } = require('./middleware/rateLimiter');
+const { globalLimiter, authLimiter, strictLimiter } = require('./middleware/rateLimiter');
 
 // Route imports
 const { makeAdminRouter } = require('./routes/admin');
@@ -780,6 +780,8 @@ const createApp = () => {
   // Apply stricter rate limiting to auth endpoints
   app.use('/api/login', authLimiter);
   app.use('/api/auth/login', authLimiter);
+  app.use('/api/auth/forgot-password', authLimiter);
+  app.use('/api/auth/forgot-password', strictLimiter);
   app.use('/api/superadmin/login', authLimiter);
 
   // ==========================================================================
