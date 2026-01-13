@@ -80,6 +80,8 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const chapaPollRef = React.useRef<any>(null);
   const chapaInitAttemptRef = React.useRef<string>('');
 
+  const paymentCompleteRef = React.useRef<string>('');
+
   const withBranchQuery = (url: string) => {
     try {
       const s = readSession<any>();
@@ -209,6 +211,76 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
     void refreshFromServer();
   }, []);
 
+  const stopOnlinePollers = () => {
+    try {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      if (chapaPollRef.current) {
+        clearInterval(chapaPollRef.current);
+        chapaPollRef.current = null;
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const onPaymentCompleted = async () => {
+    const oid = order?.id ? String(order.id) : '';
+    if (!oid) return;
+    if (paymentCompleteRef.current === oid) return;
+    paymentCompleteRef.current = oid;
+
+    stopOnlinePollers();
+    setTelebirrOnlineActive(false);
+    setTelebirrCheckoutUrl(null);
+    setChapaOnlineActive(false);
+    setChapaCheckoutUrl(null);
+
+    try {
+      await refreshFromServer();
+    } catch {
+      // ignore
+    }
+
+    // Print immediately after confirming payment (LAN only via backend).
+    try {
+      const enabled = settingsUi.autoPrintReceipts === true;
+      const deviceId = typeof settingsUi.defaultReceiptPrinterId === 'string' ? settingsUi.defaultReceiptPrinterId : null;
+      if (enabled && deviceId) {
+        const key = `mirachpos.printedReceipt.${oid}.full`;
+        if (sessionStorage.getItem(key) !== '1') {
+          sessionStorage.setItem(key, '1');
+          void apiFetch(withBranchQuery(`/api/pos/print/receipt/${encodeURIComponent(oid)}`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId }),
+          }).catch(() => {
+            // ignore
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    onNavigate(Screen.WAITER_RECEIPT);
+  };
+
+  useEffect(() => {
+    try {
+      if (!order) return;
+      const st = String((order as any)?.status || '').trim();
+      if (st !== 'Paid') return;
+      if (telebirrOnlineActive || chapaOnlineActive) {
+        void onPaymentCompleted();
+      }
+    } catch {
+      // ignore
+    }
+  }, [order?.id, (order as any)?.status, telebirrOnlineActive, chapaOnlineActive]);
+
   useEffect(() => {
     // Reset attempt tracking when leaving Mobile Pay or changing order.
     const oid = order?.id ? String(order.id) : '';
@@ -253,7 +325,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
             clearInterval(pollRef.current);
             pollRef.current = null;
             // Success!
-            onNavigate(Screen.WAITER_RECEIPT);
+            void onPaymentCompleted();
           }
         } catch {
           // ignore polling errors
@@ -298,15 +370,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
           if (sRes.ok && sJson && sJson.paid) {
             clearInterval(chapaPollRef.current);
             chapaPollRef.current = null;
-
-            // Pull authoritative status so the order becomes Paid locally.
-            try {
-              await refreshFromServer();
-            } catch {
-              // ignore
-            }
-
-            onNavigate(Screen.WAITER_RECEIPT);
+            void onPaymentCompleted();
           }
         } catch {
           // ignore polling errors
