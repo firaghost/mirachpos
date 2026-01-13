@@ -7,6 +7,9 @@
   "engines": {
     "node": "^22.0.0 || ^20.0.0"
   },
+  "overrides": {
+    "whitebird": "file:vendor/whitebird"
+  },
   "scripts": {
     "postinstall": "node -e \"process.exit(process.env.VERCEL ? 0 : 1)\" || electron-builder install-app-deps || exit 0",
     "rebuild:electron": "electron-builder install-app-deps",
