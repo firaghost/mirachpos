@@ -567,8 +567,9 @@ const AppContent: React.FC = () => {
     } else if (role === UserRole.SUPER_ADMIN) {
       navigate(Screen.SA_OVERVIEW);
     } else if (role === UserRole.CAFE_OWNER) {
-      const mods = Array.isArray((subscription as any)?.modules) ? (subscription as any).modules : [];
-      navigate(mods.includes('owner_dashboard') ? Screen.OWNER_DASHBOARD : Screen.MANAGER_DASHBOARD);
+      const sess = readSession<any>() as any;
+      const sub = sess?.subscription ?? subscription;
+      navigate(homeForRoleWithSubscription(role, sub));
     } else if (role === UserRole.BRANCH_MANAGER) {
       navigate(Screen.MANAGER_DASHBOARD);
     } else {

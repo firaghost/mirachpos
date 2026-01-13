@@ -3,8 +3,13 @@ const path = require('path');
 const dotenv = require('dotenv');
 
 // Load root .env.local first (developer machine / Vite), then fallback to api/.env.
-dotenv.config({ path: path.join(__dirname, '../../.env.local') });
-dotenv.config({ path: path.join(__dirname, '../.env'), override: true });
+// IMPORTANT: Do not override real server env vars in production.
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: path.join(__dirname, '../../.env.local') });
+  dotenv.config({ path: path.join(__dirname, '../.env'), override: true });
+} else {
+  dotenv.config();
+}
 
 const parseList = (raw) =>
   String(raw || '')

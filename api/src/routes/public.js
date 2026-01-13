@@ -610,6 +610,19 @@ const makePublicRouter = () => {
       })();
       return res.json({ ok: true, settings });
     } catch (e) {
+      // Production safety: do not block login if platform_settings is missing/misconfigured.
+      try {
+        const code = String(e?.code || '');
+        const msg = String(e?.message || '');
+        const looksLikeMissing =
+          code === 'ER_NO_SUCH_TABLE' ||
+          code === 'SQLITE_ERROR' ||
+          /no such table/i.test(msg) ||
+          /platform_settings/i.test(msg);
+        if (looksLikeMissing) return res.json({ ok: true, settings: {} });
+      } catch {
+        // ignore
+      }
       return next(e);
     }
   });

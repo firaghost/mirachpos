@@ -71,7 +71,7 @@ export const homeForRoleWithSubscription = (
 ): Screen => {
   if (role !== UserRole.CAFE_OWNER) return homeForRole(role);
   const mods = normalizedModules(subscription);
-  if (!mods.includes('owner_dashboard')) return Screen.MANAGER_DASHBOARD;
+  if (!mods.includes('owner_dashboard')) return Screen.OWNER_BILLING;
   return Screen.OWNER_DASHBOARD;
 };
 

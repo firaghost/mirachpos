@@ -3,7 +3,10 @@ const path = require('path');
 const dotenv = require('dotenv');
 
 // Prefer repo-root .env.local (dev) then fallback to default dotenv behavior.
-dotenv.config({ path: path.join(__dirname, '../.env.local') });
+// IMPORTANT: Do not load .env.local in production, as it can override real server env vars.
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: path.join(__dirname, '../.env.local') });
+}
 dotenv.config();
 
 const cfg = {

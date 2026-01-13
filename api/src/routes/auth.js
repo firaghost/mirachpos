@@ -19,7 +19,7 @@ const safeIso = (v) => {
   }
 };
 
-const createMailTransporter = () => {
+const createMailTransporter = (overrides) => {
   let nodemailer;
   try {
     // eslint-disable-next-line global-require
@@ -29,13 +29,17 @@ const createMailTransporter = () => {
   }
 
   const host = String(config.mail?.host || '').trim();
-  const port = Number(config.mail?.port || 587);
+  const port = Number(overrides?.port || config.mail?.port || 587);
   const user = String(config.mail?.user || '').trim();
   const pass = String(config.mail?.pass || '').trim();
   if (!host || !user || !pass) return null;
 
-  const secure = typeof config.mail?.secure === 'boolean' ? config.mail.secure : port === 465;
-  // Match LandingPage transporter defaults to avoid TLS negotiation issues.
+  const secure =
+    typeof overrides?.secure === 'boolean'
+      ? overrides.secure
+      : typeof config.mail?.secure === 'boolean'
+        ? config.mail.secure
+        : port === 465;
   return nodemailer.createTransport({
     host,
     port,
@@ -43,11 +47,11 @@ const createMailTransporter = () => {
     auth: { user, pass },
     // Windows sometimes prefers IPv6 first; forcing IPv4 avoids hanging greetings on some hosts.
     family: 4,
-    // Help TLS/SNI for providers that require it (especially on 465).
-    tls: { servername: host },
-    connectionTimeout: 60_000,
-    greetingTimeout: 60_000,
-    socketTimeout: 60_000,
+    requireTLS: !secure && port === 587,
+    tls: { minVersion: 'TLSv1.2', servername: host },
+    connectionTimeout: 20_000,
+    greetingTimeout: 20_000,
+    socketTimeout: 30_000,
   });
 };
 
@@ -289,9 +293,41 @@ const makeAuthRouter = () => {
 
             if (debug) debug.mail.sent = true;
           } catch (e) {
+            const code = String(e?.code || '');
+            const curPort = Number(config.mail?.port || 587);
+            const shouldRetry = (code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || code === 'EHOSTUNREACH') && curPort === 587;
+            if (shouldRetry) {
+              try {
+                const transporter465 = createMailTransporter({ port: 465, secure: true });
+                if (transporter465) {
+                  await transporter465.sendMail({
+                    from: `"${appName}" <${fromEmail}>`,
+                    to: email,
+                    subject,
+                    text,
+                    html,
+                  });
+                  if (debug) debug.mail.sent = true;
+                  return;
+                }
+              } catch (e2) {
+                if (debug) debug.mail.error = e2 instanceof Error ? e2.message : String(e2);
+                try {
+                  if (req.log?.error)
+                    req.log.error(
+                      { err: e2, to: email, host: String(config.mail?.host || ''), port: 465 },
+                      'forgot-password email send failed (retry 465)'
+                    );
+                } catch {
+                  // ignore
+                }
+              }
+            }
+
             if (debug) debug.mail.error = e instanceof Error ? e.message : String(e);
             try {
-              if (req.log?.error) req.log.error({ err: e, to: email, host: String(config.mail?.host || ''), port: Number(config.mail?.port || 0) }, 'forgot-password email send failed');
+              if (req.log?.error)
+                req.log.error({ err: e, to: email, host: String(config.mail?.host || ''), port: Number(config.mail?.port || 0) }, 'forgot-password email send failed');
               // eslint-disable-next-line no-console
               else console.error('forgot-password email send failed', e);
             } catch {

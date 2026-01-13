@@ -534,7 +534,6 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
           </button>
           <div className="hidden md:flex flex-col">
             <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">Tenant Details</h2>
-            <div className="text-[11px] text-[#c9b792] font-medium">Super Admin / Tenants / {tenant?.name || 'Tenant'}</div>
           </div>
         </div>
         <div className="flex flex-1 justify-end gap-6">
