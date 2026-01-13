@@ -105,6 +105,24 @@ const createApp = () => {
     next();
   });
 
+  // Prevent caching of authenticated API responses.
+  // This avoids stale lists (needing hard refresh) behind browser/proxy/CDN caches.
+  app.use('/api', (req, res, next) => {
+    try {
+      const p = String(req.path || '');
+      const isCacheable = p.startsWith('/uploads/') || p.startsWith('/public/');
+      if (!isCacheable) {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
+        res.set('Vary', 'Origin, Authorization, X-Tenant');
+      }
+    } catch {
+      // ignore
+    }
+    return next();
+  });
+
   app.get('/p/:token', (req, res) => {
     const token = String(req.params.token || '').trim();
     const xfProto = String(req.header('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();

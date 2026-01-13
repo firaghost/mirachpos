@@ -200,7 +200,10 @@ export const apiFetch = async (input: RequestInfo | URL, init: ApiFetchOptions =
     }
   }
 
-  const res = await fetch(finalInput, { ...rest, headers: mergedHeaders });
+  const method = typeof (rest as any)?.method === 'string' ? String((rest as any).method).toUpperCase() : 'GET';
+  const cacheMode = (rest as any)?.cache;
+  const finalCache = cacheMode != null ? cacheMode : method === 'GET' ? 'no-store' : undefined;
+  const res = await fetch(finalInput, { ...rest, cache: finalCache, headers: mergedHeaders });
 
   if (res.status === 402) {
     try {

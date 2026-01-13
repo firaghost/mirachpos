@@ -64,6 +64,15 @@ const makeInventoryRouter = () => {
     requirePermission('inventory.read'),
     async (req, res, next) => {
     try {
+      try {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
+        res.set('Vary', 'Origin, Authorization, X-Tenant');
+      } catch {
+        // ignore
+      }
+
       const branchId = await resolveBranchId(req);
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
@@ -140,7 +149,7 @@ const makeInventoryRouter = () => {
       await db().from('inventory_items').insert({
         id,
         tenant_id: req.tenant.id,
-        branch_id: null,
+        branch_id: branchId,
         name,
         category: category || null,
         status: 'Active',

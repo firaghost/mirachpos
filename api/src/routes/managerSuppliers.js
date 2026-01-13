@@ -20,6 +20,14 @@ const safeJsonParse = (raw, fallback) => {
 const makeManagerSuppliersRouter = () => {
   const r = express.Router();
 
+  const branchIdAliases = (branchId) => {
+    const bid = String(branchId || '').trim();
+    if (!bid) return [];
+    if (bid.startsWith('br_')) return [bid, `b_${bid.slice(3)}`];
+    if (bid.startsWith('b_') && !bid.startsWith('br_')) return [bid, `br_${bid.slice(2)}`];
+    return [bid];
+  };
+
   const requireManagerOrOwner = (req, res) => {
     if (req.auth?.tenantId !== req.tenant.id) {
       res.status(403).json({ error: 'forbidden' });
@@ -52,12 +60,22 @@ const makeManagerSuppliersRouter = () => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
+      try {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
+        res.set('Vary', 'Origin, Authorization, X-Tenant');
+      } catch {
+        // ignore
+      }
+
       const branchId = req.branchId || resolveBranchId(req);
+      const branchIds = branchIdAliases(branchId);
 
       const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
       const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 200) || 200));
 
-      let base = db().from('suppliers').where({ tenant_id: req.tenant.id, branch_id: branchId });
+      let base = db().from('suppliers').where({ tenant_id: req.tenant.id }).whereIn('branch_id', branchIds);
       if (q) base = base.andWhere((b) => b.where('name', 'like', `%${q}%`).orWhere('email', 'like', `%${q}%`).orWhere('phone', 'like', `%${q}%`));
 
       const rows = await base.select(['id', 'branch_id', 'name', 'phone', 'email', 'address', 'status', 'supplier_json', 'updated_at']).orderBy('updated_at', 'desc').limit(limit);
