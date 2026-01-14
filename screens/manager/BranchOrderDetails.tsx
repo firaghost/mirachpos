@@ -292,6 +292,18 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
                   <span className="text-white font-medium">ETB {order.serviceCharge.toFixed(2)}</span>
                 </div>
                 {(() => {
+                  const p = (order as any)?.payload && typeof (order as any).payload === 'object' ? (order as any).payload : null;
+                  const orderType = String((order as any)?.orderType ?? p?.orderType ?? p?.order_type ?? '').trim().toLowerCase();
+                  const takeawayFee = Math.max(0, Number((order as any)?.takeawayFee ?? p?.takeawayFee ?? p?.takeaway_fee ?? 0) || 0);
+                  if (orderType !== 'takeaway' && !(takeawayFee > 0.0001)) return null;
+                  return (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-[#c9b792]">Takeaway Fee</span>
+                      <span className="text-white font-medium">ETB {takeawayFee.toFixed(2)}</span>
+                    </div>
+                  );
+                })()}
+                {(() => {
                   const direct = Number((order as any)?.tip ?? 0) || 0;
                   const p = (order as any)?.payload && typeof (order as any).payload === 'object' ? (order as any).payload : null;
                   const fromBreakdown = (Number(p?.tipAmount ?? 0) || 0) + (Number(p?.tipPctAmount ?? 0) || 0);

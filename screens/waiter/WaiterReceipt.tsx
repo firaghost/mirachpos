@@ -154,7 +154,23 @@ const receiptHtml = (
 
   const discount = Number((order as any)?.discount ?? 0) || 0;
   const discountPct = Number((order as any)?.discountPct ?? (order as any)?.payload?.discountPct ?? 0) || 0;
-  const serviceCharge = Number(order.serviceCharge) || 0;
+  const payloadObj = (order as any)?.payload && typeof (order as any).payload === 'object' ? (order as any).payload : null;
+  const payloadSubtotal = Number(payloadObj?.subtotal ?? 0) || 0;
+  const payloadDiscount = Number(payloadObj?.discount ?? 0) || 0;
+  const payloadTax = Number(payloadObj?.tax ?? 0) || 0;
+  const payloadTip = Number(payloadObj?.tip ?? 0) || 0;
+  const payloadServiceCharge = Number(payloadObj?.serviceCharge ?? payloadObj?.service_charge ?? 0) || 0;
+
+  const takeawayFee = Math.max(0, Number((order as any)?.takeawayFee ?? payloadObj?.takeawayFee ?? payloadObj?.takeaway_fee ?? 0) || 0);
+  const orderType = String((order as any)?.orderType ?? payloadObj?.orderType ?? payloadObj?.order_type ?? '').trim();
+
+  const baseSubtotal = Number(order.subtotal || 0) || payloadSubtotal;
+  const baseDiscount = discount || payloadDiscount;
+  const baseTax = Number(order.tax || 0) || payloadTax;
+  const baseTip = Number((order as any)?.tip ?? 0) || payloadTip;
+  const totalForDerive = Number(order.total || 0) || Number(payloadObj?.total ?? 0) || 0;
+  const derivedServiceCharge = Math.max(0, totalForDerive - Math.max(0, baseSubtotal - baseDiscount) - baseTax - baseTip - takeawayFee);
+  const serviceCharge = Number(order.serviceCharge) || payloadServiceCharge || derivedServiceCharge;
   const taxableBase = Math.max(0, Number(order.subtotal || 0) - discount + serviceCharge);
   const taxRateLabel = settings.vatEnabled ? `${settings.vatRate.toFixed(2)}%` : '';
   const serviceLabel = settings.serviceEnabled ? `SERVICE CHARGE +${settings.serviceRate.toFixed(0)}%` : 'SERVICE CHARGE';
@@ -172,6 +188,7 @@ const receiptHtml = (
   const tendered = Number((order as any)?.tenderedAmount ?? 0) || 0;
   const change = Math.max(0, tendered - Number(order.total || 0));
   const payMethod = String((order as any)?.paymentMethod || order.paymentMethod || 'CASH').toUpperCase();
+  const ref = String((order as any)?.paymentReference || '').trim();
 
   const norm = (v: string) => v.trim().replace(/\s+/g, ' ');
   const normKey = (v: string) => norm(v).toLowerCase();
@@ -275,10 +292,12 @@ const receiptHtml = (
   receiptLines.push(twoCol(dateStr, timeStr));
   receiptLines.push('');
   if (String(order.number || '').trim()) receiptLines.push(padR(`Order: ${String(order.number).trim()}`, cols));
-  if ((order as any)?.paymentReference) receiptLines.push(padR(`Ref: ${String((order as any).paymentReference).trim()}`, cols));
+  if (ref) receiptLines.push(padR(`Ref: ${ref}`, cols));
+  if (payMethod) receiptLines.push(padR(`Payment: ${payMethod}`, cols));
   if (operator) receiptLines.push(padR(`Operator: ${operator}`, cols));
   if (waiter) receiptLines.push(padR(`Waiter: ${waiter}`, cols));
   if (tableNo) receiptLines.push(padR(`Table: ${tableNo}`, cols));
+  if (orderType === 'takeaway') receiptLines.push(padR('Order Type: TAKEAWAY', cols));
   if (customerLabel) receiptLines.push(padR(`Customer: ${customerLabel}`, cols));
   receiptLines.push(dash);
   receiptLines.push(twoCol('Description', 'Amount'));
@@ -303,6 +322,7 @@ const receiptHtml = (
   }
   if (serviceCharge > 0.0001) receiptLines.push(twoCol(serviceLabel, fmtAmt(serviceCharge)));
   if (settings.vatEnabled) receiptLines.push(twoCol(`TAX ${taxRateLabel}`, fmtAmt(Number(order.tax || 0))));
+  if (takeawayFee > 0.0001) receiptLines.push(twoCol('TAKEAWAY FEE', fmtAmt(takeawayFee)));
   if (tip > 0.0001) receiptLines.push(twoCol('TIP', fmtAmt(tip)));
   receiptLines.push(dash);
   receiptLines.push(twoCol('TOTAL', `${fmtAmt(Number(order.total || 0))} ${cur}`));

@@ -384,6 +384,12 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                   <span className="text-[#c9b792]">Service Charge</span>
                   <span className="text-white font-medium">ETB {order.serviceCharge.toFixed(2)}</span>
                 </div>
+                {Number((order as any)?.takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0) > 0 ? (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-[#c9b792]">Takeaway Fee</span>
+                    <span className="text-white font-medium">ETB {Number((order as any)?.takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0).toFixed(2)}</span>
+                  </div>
+                ) : null}
               </div>
               <div className="p-5 bg-[#3a2e22]/30">
                 <div className="flex justify-between items-end">

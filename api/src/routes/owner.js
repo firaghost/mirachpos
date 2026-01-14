@@ -1809,6 +1809,7 @@ const makeOwnerRouter = () => {
       const prevRevenue = Number(prevRevenueRow?.revenue || 0) || 0;
 
       let expenseBase = db().from('finance_ledger').where({ tenant_id: req.tenant.id, type: 'expense' }).andWhere('at', '>=', fromIso).andWhere('at', '<=', toIso);
+      expenseBase = expenseBase.andWhere((b) => b.whereNull('payload_json').orWhere('payload_json', 'not like', '%"scope":"daily"%'));
       if (category) expenseBase = expenseBase.andWhere('category', category);
       if (q) {
         expenseBase = expenseBase.andWhere((b) => b.where('id', 'like', `%${q}%`).orWhere('memo', 'like', `%${q}%`).orWhere('payload_json', 'like', `%${q}%`));
@@ -1940,6 +1941,8 @@ const makeOwnerRouter = () => {
         .where({ 'f.tenant_id': req.tenant.id, 'f.type': 'expense' })
         .andWhere('f.at', '>=', fromIso)
         .andWhere('f.at', '<=', toIso);
+
+      ledgerQ = ledgerQ.andWhere((q0) => q0.whereNull('f.payload_json').orWhere('f.payload_json', 'not like', '%"scope":"daily"%'));
 
       if (category) ledgerQ = ledgerQ.andWhere('f.category', category);
       if (q) {
@@ -2091,6 +2094,7 @@ const makeOwnerRouter = () => {
       const id = uid('fin');
       const nowIso = new Date().toISOString();
       const payload = {
+        scope: 'monthly',
         vendor,
         transactionId,
         status,

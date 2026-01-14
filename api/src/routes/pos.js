@@ -793,10 +793,23 @@ const makeReceiptPayloadFromOrder = ({ orderRow, operatorName }) => {
   const waiterName = String(payload?.createdByName || payload?.cashierName || '').trim();
   const operator = String(payload?.paidByName || operatorName || payload?.paidByStaffId || '').trim();
 
+  const orderType = String(payload?.orderType || payload?.order_type || '').trim().toLowerCase();
+  const takeawayFee = Math.max(0, Number(payload?.takeawayFee ?? payload?.takeaway_fee ?? 0) || 0);
+  const serviceChargeRaw = Math.max(0, Number(payload?.serviceCharge ?? payload?.service_charge ?? 0) || 0);
+  const payloadSubtotal = Math.max(0, Number(payload?.subtotal ?? 0) || 0);
+
   const total = Number(orderRow?.total || 0) || 0;
   const tax = Number(orderRow?.tax || 0) || 0;
   const discount = Number(orderRow?.discount || 0) || 0;
+  const discountPct = Number(payload?.discountPct ?? payload?.discount_pct ?? 0) || 0;
   const tip = Number(orderRow?.tip || 0) || 0;
+
+  const derivedServiceCharge = Math.max(0, total - Math.max(0, payloadSubtotal - discount) - tax - tip - takeawayFee);
+  const serviceCharge = serviceChargeRaw > 0.0001 ? serviceChargeRaw : derivedServiceCharge;
+
+  const paymentMethod = String(payload?.paymentMethod || payload?.payment_method || orderRow?.payment_method || '').trim();
+  const tenderedAmount = Number(payload?.tenderedAmount ?? payload?.tendered_amount ?? 0) || 0;
+  const changeDue = Math.max(0, tenderedAmount - total);
 
   const paidAt = orderRow?.paid_at ? new Date(orderRow.paid_at) : null;
 
@@ -867,6 +880,10 @@ const makeReceiptPayloadFromOrder = ({ orderRow, operatorName }) => {
     lines.push(nl());
     lines.push(txt(padR(`Ref: ${ref}`, cols)));
   }
+  if (paymentMethod) {
+    lines.push(nl());
+    lines.push(txt(padR(`Payment: ${String(paymentMethod).toUpperCase()}`, cols)));
+  }
   if (operator) {
     lines.push(nl());
     lines.push(txt(padR(`Operator: ${operator}`, cols)));
@@ -879,6 +896,11 @@ const makeReceiptPayloadFromOrder = ({ orderRow, operatorName }) => {
     lines.push(nl());
     lines.push(txt(padR(`Table: ${tableName}`, cols)));
   }
+  if (orderType === 'takeaway') {
+    lines.push(nl());
+    lines.push(txt(padR('Order Type: TAKEAWAY', cols)));
+  }
+
   lines.push(nl());
   lines.push(txt(dash));
   lines.push(nl());
@@ -903,14 +925,23 @@ const makeReceiptPayloadFromOrder = ({ orderRow, operatorName }) => {
 
   lines.push(txt(dash));
   lines.push(nl());
-  lines.push(txt(twoCol('SUBTOTAL', fmt(Math.max(0, total - tax - tip + discount)))));
+  lines.push(txt(twoCol('SUBTOTAL', fmt(payloadSubtotal || Math.max(0, total - tax - tip + discount - serviceCharge - takeawayFee)))));
   lines.push(nl());
-  if (discount > 0.0001) {
-    lines.push(txt(twoCol('DISCOUNT', fmt(discount))));
+  if (discount > 0.0001 || discountPct > 0.0001) {
+    const lab = discountPct > 0.0001 ? `DISCOUNT ${Math.round(discountPct)}%` : 'DISCOUNT';
+    lines.push(txt(twoCol(lab, fmt(discount))));
+    lines.push(nl());
+  }
+  if (serviceCharge > 0.0001) {
+    lines.push(txt(twoCol('SERVICE', fmt(serviceCharge))));
     lines.push(nl());
   }
   if (tax > 0.0001) {
     lines.push(txt(twoCol('TAX', fmt(tax))));
+    lines.push(nl());
+  }
+  if (takeawayFee > 0.0001) {
+    lines.push(txt(twoCol('TAKEAWAY FEE', fmt(takeawayFee))));
     lines.push(nl());
   }
   if (tip > 0.0001) {
@@ -923,6 +954,12 @@ const makeReceiptPayloadFromOrder = ({ orderRow, operatorName }) => {
   lines.push(txt(twoCol('TOTAL', fmt(total))));
   lines.push(escBoldOff);
   lines.push(nl());
+  if (String(paymentMethod || '').trim().toLowerCase() === 'cash' && tenderedAmount > 0.0001) {
+    lines.push(txt(twoCol('Tendered', fmt(tenderedAmount))));
+    lines.push(nl());
+    lines.push(txt(twoCol('Change', fmt(changeDue))));
+    lines.push(nl());
+  }
   lines.push(nl());
 
   lines.push(escAlignCenter);
@@ -1167,6 +1204,10 @@ const computeOrderTotalsFromPayload = ({ payload, tip, discount, discountPct, se
     return sum + qty * unit;
   }, 0);
 
+  const orderType = String(payload?.orderType || payload?.order_type || '').trim().toLowerCase();
+  const takeawayFeeRaw = Number(payload?.takeawayFee ?? payload?.takeaway_fee ?? 0) || 0;
+  const takeawayFee = orderType === 'takeaway' ? Math.max(0, takeawayFeeRaw) : 0;
+
   const maxPct = Number(settings?.policies?.maxDiscountPctWithoutApproval ?? 10) || 0;
   const maxPctClamped = Math.max(0, Math.min(90, maxPct));
   const canOverride = allowOverMax === true;
@@ -1190,7 +1231,7 @@ const computeOrderTotalsFromPayload = ({ payload, tip, discount, discountPct, se
   const serviceCharge = settings?.taxes?.serviceChargeEnabled ? taxableBase * (svcRate / 100) : 0;
 
   const tipAmt = Math.max(0, Number(tip || 0) || 0);
-  const total = taxableBase + vat + serviceCharge + tipAmt;
+  const total = taxableBase + vat + serviceCharge + tipAmt + takeawayFee;
 
   return {
     subtotal,
@@ -1199,6 +1240,8 @@ const computeOrderTotalsFromPayload = ({ payload, tip, discount, discountPct, se
     tax: vat,
     serviceCharge,
     tip: tipAmt,
+    takeawayFee,
+    orderType: orderType === 'takeaway' ? 'takeaway' : 'dine_in',
     total,
   };
 };

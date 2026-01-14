@@ -96,6 +96,11 @@ const makeManagerPaymentsRouter = () => {
           const tenderedAmount = payload?.tenderedAmount != null ? Number(payload.tenderedAmount || 0) || 0 : null;
           const discountPct = payload?.discountPct != null ? Number(payload.discountPct || 0) || 0 : 0;
 
+          const orderTypeRaw = String(payload?.orderType ?? payload?.order_type ?? '').trim().toLowerCase();
+          const orderType = orderTypeRaw === 'takeaway' ? 'takeaway' : 'dine_in';
+          const takeawayFeeRaw = Number(payload?.takeawayFee ?? payload?.takeaway_fee ?? 0) || 0;
+          const takeawayFee = orderType === 'takeaway' ? Math.max(0, takeawayFeeRaw) : 0;
+
           const createdByStaffId = typeof payload?.createdByStaffId === 'string' ? payload.createdByStaffId : '';
           const createdByName = typeof payload?.createdByName === 'string' ? payload.createdByName : '';
           const number = typeof payload?.number === 'string' ? payload.number : '';
@@ -109,6 +114,8 @@ const makeManagerPaymentsRouter = () => {
             createdByStaffId: createdByStaffId || '',
             createdByName: createdByName || '',
             items,
+            orderType,
+            takeawayFee,
             total: Number(row.total || 0) || 0,
             tax: Number(row.tax || 0) || 0,
             tip: Number(row.tip || 0) || 0,

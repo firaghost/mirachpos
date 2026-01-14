@@ -595,6 +595,16 @@ export const BranchReports: React.FC = () => {
   const shiftLogs = useMemo(() => (remote?.shiftLogs && Array.isArray(remote.shiftLogs) ? remote.shiftLogs : []), [remote]);
   const cashSessions = useMemo(() => (remote?.cashSessions && Array.isArray(remote.cashSessions) ? remote.cashSessions : []), [remote]);
 
+  const paymentsScoped = useMemo(() => {
+    if (!selectedStaffId) return payments;
+    return payments.filter((p) => String(p.createdByStaffId || '') === String(selectedStaffId));
+  }, [payments, selectedStaffId]);
+
+  const paymentsPrevScoped = useMemo(() => {
+    if (!selectedStaffId) return paymentsPrev;
+    return paymentsPrev.filter((p) => String(p.createdByStaffId || '') === String(selectedStaffId));
+  }, [paymentsPrev, selectedStaffId]);
+
   const businessHeader = useMemo<BusinessHeader | null>(() => {
     const bh = remote?.businessHeader && typeof remote.businessHeader === 'object' ? (remote.businessHeader as any) : null;
     if (!bh) return null;
@@ -614,19 +624,19 @@ export const BranchReports: React.FC = () => {
   }, [remote]);
 
   const paymentsSorted = useMemo(() => {
-    return [...payments].sort((a, b) => {
+    return [...paymentsScoped].sort((a, b) => {
       const atA = new Date(a.paidAt ?? a.createdAt ?? '').getTime();
       const atB = new Date(b.paidAt ?? b.createdAt ?? '').getTime();
       return (Number.isFinite(atB) ? atB : 0) - (Number.isFinite(atA) ? atA : 0);
     });
-  }, [payments]);
+  }, [paymentsScoped]);
 
-  const totalRevenue = useMemo(() => payments.reduce((sum, p) => sum + (p.total ?? 0), 0), [payments]);
-  const ordersProcessed = useMemo(() => payments.length, [payments.length]);
+  const totalRevenue = useMemo(() => paymentsScoped.reduce((sum, p) => sum + (p.total ?? 0), 0), [paymentsScoped]);
+  const ordersProcessed = useMemo(() => paymentsScoped.length, [paymentsScoped.length]);
   const avgOrderValue = useMemo(() => (ordersProcessed ? totalRevenue / ordersProcessed : 0), [ordersProcessed, totalRevenue]);
 
-  const totalRevenuePrev = useMemo(() => paymentsPrev.reduce((sum, p) => sum + (p.total ?? 0), 0), [paymentsPrev]);
-  const ordersProcessedPrev = useMemo(() => paymentsPrev.length, [paymentsPrev.length]);
+  const totalRevenuePrev = useMemo(() => paymentsPrevScoped.reduce((sum, p) => sum + (p.total ?? 0), 0), [paymentsPrevScoped]);
+  const ordersProcessedPrev = useMemo(() => paymentsPrevScoped.length, [paymentsPrevScoped.length]);
   const avgOrderValuePrev = useMemo(() => (ordersProcessedPrev ? totalRevenuePrev / ordersProcessedPrev : 0), [ordersProcessedPrev, totalRevenuePrev]);
 
   const expensesInRange = useMemo(() => {
@@ -664,6 +674,18 @@ export const BranchReports: React.FC = () => {
   const aovDelta = useMemo(() => pctDelta(avgOrderValue, avgOrderValuePrev), [avgOrderValue, avgOrderValuePrev]);
 
   const paymentBreakdown = useMemo(() => {
+    if (selectedStaffId) {
+      const m = new Map<string, { sum: number; count: number }>();
+      for (const p of paymentsScoped) {
+        const key = p.method || 'Unknown';
+        const cur = m.get(key) ?? { sum: 0, count: 0 };
+        cur.sum += p.total ?? 0;
+        cur.count += 1;
+        m.set(key, cur);
+      }
+      return Array.from(m.entries()).sort((a, b) => b[1].sum - a[1].sum);
+    }
+
     const agg = new Map<string, { sum: number; count: number }>();
     for (const d of dailyAgg) {
       const pb = d.paymentBreakdown && typeof d.paymentBreakdown === 'object' ? d.paymentBreakdown : null;
@@ -680,7 +702,7 @@ export const BranchReports: React.FC = () => {
     if (agg.size > 0) return Array.from(agg.entries()).sort((a, b) => b[1].sum - a[1].sum);
 
     const m = new Map<string, { sum: number; count: number }>();
-    for (const p of payments) {
+    for (const p of paymentsScoped) {
       const key = p.method || 'Unknown';
       const cur = m.get(key) ?? { sum: 0, count: 0 };
       cur.sum += p.total ?? 0;
@@ -688,7 +710,7 @@ export const BranchReports: React.FC = () => {
       m.set(key, cur);
     }
     return Array.from(m.entries()).sort((a, b) => b[1].sum - a[1].sum);
-  }, [dailyAgg, payments]);
+  }, [dailyAgg, paymentsScoped, selectedStaffId]);
 
   const topCategories = useMemo(() => {
     if (categoryAgg.length > 0) {
@@ -701,7 +723,7 @@ export const BranchReports: React.FC = () => {
       });
     }
     const map = new Map<string, number>();
-    for (const p of payments) {
+    for (const p of paymentsScoped) {
       for (const it of p.items) {
         const cat = String((it as any)?.category || '').trim() || 'Uncategorized';
         map.set(cat, (map.get(cat) ?? 0) + (it.qty ?? 0));
@@ -717,7 +739,7 @@ export const BranchReports: React.FC = () => {
       const pct = max > 0 ? (qty / max) * 100 : 0;
       return { ...s, pct: Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0 };
     });
-  }, [categoryAgg, payments]);
+  }, [categoryAgg, paymentsScoped]);
 
   const staffPerformance = useMemo(() => {
     const startMs = effectiveRange.start.getTime();
@@ -738,6 +760,7 @@ export const BranchReports: React.FC = () => {
 
     const revenueByStaffId = new Map<string, number>();
     const ordersByStaffId = new Map<string, number>();
+    const tipsByStaffId = new Map<string, number>();
     const byStaffName = new Map<string, string>();
 
     if (staffAgg.length > 0) {
@@ -746,14 +769,16 @@ export const BranchReports: React.FC = () => {
         if (!sid) continue;
         revenueByStaffId.set(sid, (revenueByStaffId.get(sid) ?? 0) + (s.netSales ?? 0));
         ordersByStaffId.set(sid, (ordersByStaffId.get(sid) ?? 0) + (s.orderCount ?? 0));
+        tipsByStaffId.set(sid, (tipsByStaffId.get(sid) ?? 0) + (s.tips ?? 0));
         if (s.staffName) byStaffName.set(sid, s.staffName);
       }
     } else {
-      for (const p of payments) {
+      for (const p of paymentsScoped) {
         const sid = p.createdByStaffId;
         if (!sid) continue;
         revenueByStaffId.set(sid, (revenueByStaffId.get(sid) ?? 0) + (p.total ?? 0));
         ordersByStaffId.set(sid, (ordersByStaffId.get(sid) ?? 0) + 1);
+        tipsByStaffId.set(sid, (tipsByStaffId.get(sid) ?? 0) + (p.tip ?? 0));
         if (p.createdByName) byStaffName.set(sid, p.createdByName);
       }
     }
@@ -773,10 +798,11 @@ export const BranchReports: React.FC = () => {
         const hours = hoursByStaffId.get(id) ?? 0;
         const orderCount = ordersByStaffId.get(id) ?? 0;
         const revenue = revenueByStaffId.get(id) ?? 0;
+        const tips = tipsByStaffId.get(id) ?? 0;
         const aov = orderCount ? revenue / orderCount : 0;
         const revPerHour = hours > 0.01 ? revenue / hours : 0;
         const shifts = shiftsByStaffId.get(id) ?? 0;
-        return { id, name, role, hours, orderCount, revenue, aov, revPerHour, shifts };
+        return { id, name, role, hours, orderCount, revenue, tips, aov, revPerHour, shifts };
       })
       .filter((r) => r.name)
       .filter((r) => isWorkerRole(r.role))
@@ -786,8 +812,8 @@ export const BranchReports: React.FC = () => {
 
     const totalHours = filteredRows.reduce((sum, r) => sum + r.hours, 0);
     const top = filteredRows[0];
-    return { rows: filteredRows, totalHours, top };
-  }, [effectiveRange.end, effectiveRange.start, payments, shiftLogs, staff, staffAgg, selectedStaffId]);
+    return { allRows: rows, rows: filteredRows, totalHours, top };
+  }, [effectiveRange.end, effectiveRange.start, paymentsScoped, shiftLogs, staff, staffAgg, selectedStaffId]);
 
   const cashSummary = useMemo(() => {
     const startMs = effectiveRange.start.getTime();
@@ -1184,10 +1210,10 @@ export const BranchReports: React.FC = () => {
     lines.push([escapeCSV('Staff Name'), escapeCSV('Orders'), escapeCSV('Net Sales'), escapeCSV('Tips'), escapeCSV('Hours')].join(','));
     const baseStaffRows = staffAgg.length
       ? [...staffAgg]
-      : staffPerformance.rows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, tips: 0 }));
+      : staffPerformance.allRows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, tips: (r as any).tips ?? 0 }));
     const filtered = selectedStaffId ? baseStaffRows.filter((r) => r.staffId === selectedStaffId) : baseStaffRows;
     for (const r of filtered) {
-      const hours = staffPerformance.rows.find((x) => x.id === r.staffId)?.hours ?? 0;
+      const hours = staffPerformance.allRows.find((x) => x.id === r.staffId)?.hours ?? 0;
       lines.push([
         escapeCSV(r.staffName || r.staffId),
         escapeCSV(String(r.orderCount ?? 0)),
@@ -1232,7 +1258,7 @@ export const BranchReports: React.FC = () => {
 
     const staffRows = staffAgg.length
       ? [...staffAgg]
-      : staffPerformance.rows.map((r) => ({
+      : staffPerformance.allRows.map((r) => ({
         staffId: r.id,
         staffName: r.name,
         orderCount: r.orderCount,
@@ -1240,7 +1266,7 @@ export const BranchReports: React.FC = () => {
         grossSales: r.revenue,
         discounts: 0,
         tax: 0,
-        tips: 0,
+        tips: (r as any).tips ?? 0,
         totalCollected: r.revenue,
       }));
 
@@ -1330,7 +1356,7 @@ export const BranchReports: React.FC = () => {
 
     const staffRows = staffAgg.length
       ? [...staffAgg]
-      : staffPerformance.rows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, tips: 0 }));
+      : staffPerformance.allRows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, tips: (r as any).tips ?? 0 }));
     const filteredStaff = selectedStaffId ? staffRows.filter((s) => s.staffId === selectedStaffId) : staffRows;
 
     const notes: string[] = [];
@@ -1365,13 +1391,7 @@ export const BranchReports: React.FC = () => {
       cursorY += 18;
     }
 
-    if (headerLogo && headerLogo.startsWith('data:image/')) {
-      try {
-        doc.addImage(headerLogo, 'PNG', pageW - margin - 48, 54, 48, 48);
-      } catch {
-        // ignore
-      }
-    }
+    void headerLogo;
 
     cursorY = Math.max(cursorY + 24, 120);
 
@@ -1493,7 +1513,7 @@ export const BranchReports: React.FC = () => {
 
     const staffRows = staffAgg.length
       ? [...staffAgg]
-      : staffPerformance.rows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, tips: 0 }));
+      : staffPerformance.allRows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, tips: (r as any).tips ?? 0 }));
     const filteredStaff = selectedStaffId ? staffRows.filter((s) => s.staffId === selectedStaffId) : staffRows;
 
     const wb = new ExcelJS.Workbook();
@@ -1646,7 +1666,8 @@ export const BranchReports: React.FC = () => {
                     style={{ colorScheme: 'dark' }}
                   >
                     <option value="">All</option>
-                    {(staffAgg.length ? staffAgg : staffPerformance.rows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, grossSales: r.revenue, discounts: 0, tax: 0, tips: 0, totalCollected: r.revenue })))
+                    {staffPerformance.allRows
+                      .map((r) => ({ staffId: r.id, staffName: r.name }))
                       .filter((s) => s.staffId && s.staffName)
                       .map((s) => (
                         <option key={s.staffId} value={s.staffId}>

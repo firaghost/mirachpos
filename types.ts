@@ -151,6 +151,8 @@ export interface PosOrder {
   number: string;
   tableId: string;
   tableName: string;
+  orderType?: 'dine_in' | 'takeaway';
+  takeawayFee?: number;
   createdByStaffId?: string;
   createdByName?: string;
   items: PosOrderItem[];

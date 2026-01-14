@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Header } from '../components/Header';
 import { apiFetch } from '../api';
 import { readSession } from '../session';
 import { formatDeviceDate, formatDeviceDateTime, formatDeviceTime } from '../datetime';
 
-type RangeKey = 'Today' | 'Yesterday' | '7 Days';
+type RangeKey = 'Today' | 'Yesterday' | '7 Days' | 'This Month';
 
 type CashSession = {
   id: string;
@@ -21,6 +23,7 @@ type CashSession = {
 
 type Expense = {
   id: string;
+  category: string;
   title: string;
   vendor: string;
   amount: number;
@@ -35,6 +38,7 @@ type PaymentTx = {
   tip: number;
   discount: number;
   discountPct?: number;
+  items?: Array<{ productId: string; name: string; qty: number; unitPrice: number }>;
   createdAt: string | null;
   paidAt: string | null;
   method: string;
@@ -50,6 +54,19 @@ const startOfDay = (d: Date) => {
   return x;
 };
 
+const startOfMonth = (d: Date) => {
+  const x = new Date(d);
+  x.setDate(1);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+
+const addMonths = (d: Date, months: number) => {
+  const x = new Date(d);
+  x.setMonth(x.getMonth() + months);
+  return x;
+};
+
 const addDays = (d: Date, days: number) => {
   const x = new Date(d);
   x.setDate(x.getDate() + days);
@@ -59,6 +76,11 @@ const addDays = (d: Date, days: number) => {
 const formatMoney = (n: number) => {
   const v = Number.isFinite(n) ? n : 0;
   return `ETB ${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const fmtN = (n: number) => {
+  const v = Number.isFinite(n) ? n : 0;
+  return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 const formatTime12 = (iso: string) => {
@@ -72,9 +94,10 @@ export const Finance: React.FC = () => {
   const [tab, setTab] = useState<'Cash Sessions' | 'Expenses'>('Cash Sessions');
   const [query, setQuery] = useState('');
   const [expenseEditingId, setExpenseEditingId] = useState<string | null>(null);
-  const [expenseDraft, setExpenseDraft] = useState<{ title: string; vendor: string; amount: string }>({ title: '', vendor: '', amount: '' });
+  const [expenseDraft, setExpenseDraft] = useState<{ category: string; title: string; vendor: string; amount: string }>({ category: 'Expense', title: '', vendor: '', amount: '' });
   const [expenseCreateOpen, setExpenseCreateOpen] = useState(false);
-  const [expenseCreateDraft, setExpenseCreateDraft] = useState<{ title: string; vendor: string; amount: string; icon: Expense['icon'] }>(() => ({
+  const [expenseCreateDraft, setExpenseCreateDraft] = useState<{ category: string; title: string; vendor: string; amount: string; icon: Expense['icon'] }>(() => ({
+    category: 'Expense',
     title: '',
     vendor: '',
     amount: '',
@@ -131,8 +154,25 @@ export const Finance: React.FC = () => {
     const r = rangeOverride || range;
     const now = new Date();
     const todayStart = startOfDay(now);
-    const start = r === 'Today' ? todayStart : r === 'Yesterday' ? addDays(todayStart, -1) : addDays(todayStart, -6);
-    const endExclusive = r === 'Yesterday' ? todayStart : addDays(todayStart, 1);
+    const monthStart = startOfMonth(now);
+    const start =
+      r === 'Today'
+        ? todayStart
+        : r === 'Yesterday'
+          ? addDays(todayStart, -1)
+          : r === 'This Month'
+            ? monthStart
+            : r === 'Last Month'
+              ? addMonths(monthStart, -1)
+              : addDays(todayStart, -6);
+    const endExclusive =
+      r === 'Yesterday'
+        ? todayStart
+        : r === 'This Month'
+          ? addMonths(monthStart, 1)
+          : r === 'Last Month'
+            ? monthStart
+            : addDays(todayStart, 1);
     const toInclusiveIso = new Date(endExclusive.getTime() - 1).toISOString();
     const fromIso = `${isoDate(start)}T00:00:00.000Z`;
     const bid = resolveBranchId();
@@ -158,7 +198,19 @@ export const Finance: React.FC = () => {
     if (!payRes.ok) throw new Error(payJson?.error || `HTTP ${payRes.status}`);
 
     const nextCashSessions = Array.isArray(csJson?.cashSessions) ? (csJson.cashSessions as CashSession[]) : [];
-    const nextExpenses = Array.isArray(exJson?.expenses) ? (exJson.expenses as Expense[]) : [];
+    const nextExpenses: Expense[] = Array.isArray(exJson?.expenses)
+      ? (exJson.expenses as any[])
+          .map((e) => ({
+            id: String(e?.id || ''),
+            category: String(e?.category || 'Expense'),
+            title: String(e?.title || ''),
+            vendor: String(e?.vendor || ''),
+            amount: Number(e?.amount ?? 0) || 0,
+            createdAt: String(e?.createdAt || ''),
+            icon: (String(e?.icon || 'receipt_long') as any) || 'receipt_long',
+          }))
+          .filter((e) => e.id)
+      : [];
     const rows = Array.isArray(payJson?.payments) ? (payJson.payments as any[]) : [];
     const nextPayments: PaymentTx[] = rows
       .map((p) => ({
@@ -168,6 +220,18 @@ export const Finance: React.FC = () => {
         tip: Number(p.tip ?? 0) || 0,
         discount: Number(p.discount ?? 0) || 0,
         discountPct: p.discountPct == null ? undefined : Number(p.discountPct ?? 0) || 0,
+        orderType: typeof p.orderType === 'string' ? p.orderType : undefined,
+        takeawayFee: p.takeawayFee == null ? undefined : Number(p.takeawayFee ?? 0) || 0,
+        items: Array.isArray((p as any)?.items)
+          ? ((p as any).items as any[])
+              .map((it) => ({
+                productId: String((it as any)?.productId || ''),
+                name: String((it as any)?.name || ''),
+                qty: Number((it as any)?.qty ?? 0) || 0,
+                unitPrice: Number((it as any)?.unitPrice ?? 0) || 0,
+              }))
+              .filter((it) => (it.productId || it.name) && Number.isFinite(it.qty) && it.qty > 0 && Number.isFinite(it.unitPrice) && it.unitPrice >= 0)
+          : undefined,
         createdAt: typeof p.createdAt === 'string' ? p.createdAt : null,
         paidAt: typeof p.paidAt === 'string' ? p.paidAt : null,
         method: String(p.method || 'Unknown'),
@@ -213,6 +277,14 @@ export const Finance: React.FC = () => {
     const todayStart = startOfDay(now);
     if (range === 'Today') return { start: todayStart, end: addDays(todayStart, 1) };
     if (range === 'Yesterday') return { start: addDays(todayStart, -1), end: todayStart };
+    if (range === 'This Month') {
+      const m0 = startOfMonth(now);
+      return { start: m0, end: addMonths(m0, 1) };
+    }
+    if (range === 'Last Month') {
+      const m0 = startOfMonth(now);
+      return { start: addMonths(m0, -1), end: m0 };
+    }
     return { start: addDays(todayStart, -6), end: addDays(todayStart, 1) };
   }, [range]);
 
@@ -412,6 +484,7 @@ export const Finance: React.FC = () => {
     expensesRows: Expense[];
     totals: { revenue: number; expenses: number; net: number };
     payment: Array<[string, { sum: number; count: number }]>;
+    paymentsRows: PaymentTx[];
   }) => {
     const esc = (s: string) =>
       String(s ?? '')
@@ -420,6 +493,36 @@ export const Finance: React.FC = () => {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+
+    const productsMap = new Map<
+      string,
+      {
+        name: string;
+        qty: number;
+        sales: number;
+      }
+    >();
+    for (const p of opts.paymentsRows as any[]) {
+      const items = Array.isArray((p as any)?.items) ? ((p as any).items as any[]) : [];
+      for (const it of items) {
+        if (!it || typeof it !== 'object') continue;
+        const productId = String((it as any).productId || (it as any).product_id || '').trim();
+        const name = String((it as any).name || productId || 'Item').trim();
+        const qty = Number((it as any).qty ?? (it as any).quantity ?? 0) || 0;
+        const unitPrice = Number((it as any).unitPrice ?? (it as any).unit_price ?? 0) || 0;
+        if (!name || qty <= 0 || unitPrice < 0) continue;
+        const key = productId || name;
+        const cur = productsMap.get(key) ?? { name, qty: 0, sales: 0 };
+        cur.name = name || cur.name;
+        cur.qty += qty;
+        cur.sales += qty * unitPrice;
+        productsMap.set(key, cur);
+      }
+    }
+    const productRows = Array.from(productsMap.values())
+      .filter((r) => r.qty > 0.0001)
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 15);
 
     const sessionRows = opts.sessions
       .map((s) => {
@@ -440,6 +543,17 @@ export const Finance: React.FC = () => {
             <td style="text-align:right">${esc(formatMoney(s.expectedCash))}</td>
             <td style="text-align:right">${esc(actual != null ? formatMoney(actual) : '--')}</td>
             <td style="text-align:right">${esc(actual != null ? (variance >= 0 ? '+' : '-') + formatMoney(Math.abs(variance)).replace('ETB ', 'ETB ') : '--')}</td>
+          </tr>`;
+      })
+      .join('');
+
+    const productSalesRows = productRows
+      .map((r) => {
+        return `
+          <tr>
+            <td>${esc(r.name)}</td>
+            <td class="right">${esc(String(Math.round(r.qty)))}</td>
+            <td class="right">${esc(formatMoney(r.sales))}</td>
           </tr>`;
       })
       .join('');
@@ -469,9 +583,10 @@ export const Finance: React.FC = () => {
       .join('');
 
     const grossSales = Number(opts.totals.revenue || 0) || 0;
-    const salesTax = payments.reduce((s, p) => s + (p.tax ?? 0), 0);
-    const discounts = payments.reduce((s, p) => s + (p.discount ?? 0), 0);
-    const tips = payments.reduce((s, p) => s + (p.tip ?? 0), 0);
+    const salesTax = opts.paymentsRows.reduce((s, p) => s + (p.tax ?? 0), 0);
+    const discounts = opts.paymentsRows.reduce((s, p) => s + (p.discount ?? 0), 0);
+    const tips = opts.paymentsRows.reduce((s, p) => s + (p.tip ?? 0), 0);
+    const takeawayFees = opts.paymentsRows.reduce((s, p: any) => s + (Number(p.takeawayFee ?? 0) || 0), 0);
     const netSales = grossSales - salesTax;
 
     const tenderedTotal = opts.payment.reduce((s, [, v]) => s + (v.sum ?? 0), 0);
@@ -541,6 +656,7 @@ export const Finance: React.FC = () => {
               <table>
                 <tbody>
                   <tr><td>Gross Sales</td><td class="right">${esc(formatMoney(grossSales))}</td></tr>
+                  <tr><td class="muted">Takeaway Fees (included)</td><td class="right">${esc(formatMoney(takeawayFees))}</td></tr>
                   <tr><td>Net Sales (excl. tax)</td><td class="right">${esc(formatMoney(netSales))}</td></tr>
                   <tr><td>Sales Tax</td><td class="right">${esc(formatMoney(salesTax))}</td></tr>
                   <tr><td>Discounts</td><td class="right">-${esc(formatMoney(discounts))}</td></tr>
@@ -559,7 +675,19 @@ export const Finance: React.FC = () => {
                 </thead>
                 <tbody>
                   ${paymentRows || `<tr><td class="muted" colspan="3">No payments in range.</td></tr>`}
-                  <tr><td class="muted">Total Expected Payments</td><td class="right">${esc(formatMoney(tenderedTotal))}</td><td class="right">${esc(String(payments.length))}</td></tr>
+                  <tr><td class="muted">Total Expected Payments</td><td class="right">${esc(formatMoney(tenderedTotal))}</td><td class="right">${esc(String(opts.paymentsRows.length))}</td></tr>
+                </tbody>
+              </table>
+
+              <div class="sep"></div>
+
+              <div class="h">Products Sold (Top 15)</div>
+              <table>
+                <thead>
+                  <tr><th>Product</th><th class="right">Qty</th><th class="right">Sales</th></tr>
+                </thead>
+                <tbody>
+                  ${productSalesRows || `<tr><td class="muted" colspan="3">No products in range.</td></tr>`}
                 </tbody>
               </table>
 
@@ -721,7 +849,7 @@ export const Finance: React.FC = () => {
           cur.count += 1;
           m.set(key, cur);
         }
-        const paymentRows = Array.from(m.entries());
+        const paymentRows: Array<[string, { sum: number; count: number }]> = Array.from(m.entries());
 
         const sessionsTotal = out.cashSessions.length;
         const sessionsActive = out.cashSessions.filter((s) => s.status === 'Active').length;
@@ -755,11 +883,375 @@ export const Finance: React.FC = () => {
           expensesRows: out.expenses,
           totals,
           payment: paymentRows,
+          paymentsRows: out.payments,
         });
       } catch {
         setFlash({ kind: 'warning', message: 'Failed to close shift / generate report.' });
       }
     })();
+  };
+
+  const exportProfitPdf = () => {
+    const nowIso = new Date().toISOString();
+    const startMs = rangeWindow.start.getTime();
+    const endMs = rangeWindow.end.getTime();
+
+    const paymentsInRange = payments.filter((p) => {
+      const t = new Date(p.paidAt || p.createdAt || '').getTime();
+      return Number.isFinite(t) && t >= startMs && t < endMs;
+    });
+
+    const expensesInRange = expenses.filter((e) => {
+      const t = new Date(e.createdAt).getTime();
+      return Number.isFinite(t) && t >= startMs && t < endMs;
+    });
+
+    const sessionsInRange = cashSessions.filter((s) => {
+      const t = new Date(s.openedAt).getTime();
+      return Number.isFinite(t) && t >= startMs && t < endMs;
+    });
+
+    const totals = {
+      revenue: paymentsInRange.reduce((s, p) => s + (p.total ?? 0), 0),
+      expenses: expensesInRange.reduce((s, e) => s + (e.amount ?? 0), 0),
+      net: 0,
+    };
+    totals.net = totals.revenue - totals.expenses;
+
+    const m = new Map<string, { sum: number; count: number }>();
+    for (const p of paymentsInRange) {
+      const key = p.method || 'Unknown';
+      const cur = m.get(key) ?? { sum: 0, count: 0 };
+      cur.sum += p.total ?? 0;
+      cur.count += 1;
+      m.set(key, cur);
+    }
+    const paymentRows: Array<[string, { sum: number; count: number }]> = Array.from(m.entries());
+    const paymentRowsForTable: Array<[string, { sum: number; count: number }]> = paymentRows.length ? paymentRows : [['—', { count: 0, sum: 0 }]];
+
+    const tax = paymentsInRange.reduce((s, p) => s + (p.tax ?? 0), 0);
+    const discounts = paymentsInRange.reduce((s, p) => s + (p.discount ?? 0), 0);
+    const tips = paymentsInRange.reduce((s, p) => s + (p.tip ?? 0), 0);
+    const takeawayFees = paymentsInRange.reduce((s, p: any) => s + (Number(p.takeawayFee ?? 0) || 0), 0);
+    const netSales = totals.revenue - tax;
+
+    const byCategory = new Map<string, { count: number; amount: number }>();
+    for (const e of expensesInRange) {
+      const cat = String(e.category || 'Expense');
+      const cur = byCategory.get(cat) ?? { count: 0, amount: 0 };
+      cur.count += 1;
+      cur.amount += Number(e.amount ?? 0) || 0;
+      byCategory.set(cat, cur);
+    }
+    const categoryRows = Array.from(byCategory.entries())
+      .map(([category, v]) => ({ category, ...v }))
+      .sort((a, b) => b.amount - a.amount);
+
+    const productsMap = new Map<
+      string,
+      {
+        name: string;
+        qty: number;
+        sales: number;
+      }
+    >();
+    for (const p of paymentsInRange as any[]) {
+      const items = Array.isArray((p as any)?.items) ? ((p as any).items as any[]) : [];
+      for (const it of items) {
+        if (!it || typeof it !== 'object') continue;
+        const productId = String((it as any).productId || (it as any).product_id || '').trim();
+        const name = String((it as any).name || productId || 'Item').trim();
+        const qty = Number((it as any).qty ?? (it as any).quantity ?? 0) || 0;
+        const unitPrice = Number((it as any).unitPrice ?? (it as any).unit_price ?? 0) || 0;
+        if (!name || qty <= 0 || unitPrice < 0) continue;
+        const key = productId || name;
+        const cur = productsMap.get(key) ?? { name, qty: 0, sales: 0 };
+        cur.name = name || cur.name;
+        cur.qty += qty;
+        cur.sales += qty * unitPrice;
+        productsMap.set(key, cur);
+      }
+    }
+    const productRows = Array.from(productsMap.values())
+      .filter((r) => r.qty > 0.0001)
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 15);
+
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 40;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('Profit Report', margin, 48);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(90);
+    doc.text(
+      [`Range: ${range}`, `Period: ${formatDateLabel(new Date(rangeWindow.start))}  ${formatDateLabel(new Date(rangeWindow.end.getTime() - 1))}`, `Generated: ${formatDeviceDateTime(nowIso) || nowIso}`],
+      margin,
+      66,
+    );
+    doc.setTextColor(0);
+
+    let y = 98;
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 10, cellPadding: 5 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Metric', 'Amount (ETB)']],
+      body: [
+        ['Gross Sales (Total)', fmtN(totals.revenue)],
+        ['Takeaway Fees (included)', fmtN(takeawayFees)],
+        ['Net Sales (excl. tax)', fmtN(netSales)],
+        ['Sales Tax', fmtN(tax)],
+        ['Discounts', `-${fmtN(discounts)}`],
+        ['Tips', fmtN(tips)],
+        ['Expenses', `-${fmtN(totals.expenses)}`],
+        ['Net Profit', fmtN(totals.net)],
+      ],
+      columnStyles: { 1: { halign: 'right' } },
+    });
+
+    y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : y + 170;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Payment Breakdown', margin, y);
+    y += 8;
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Method', 'Count', 'Amount (ETB)']],
+      body: paymentRowsForTable.map(([method, v]) => [String(method), String(v.count ?? 0), fmtN(Number(v.sum ?? 0) || 0)]),
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
+    });
+
+    y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : y + 160;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Expenses Breakdown', margin, y);
+    y += 8;
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Category', 'Entries', 'Amount (ETB)']],
+      body: (categoryRows.length ? categoryRows : [{ category: '—', count: 0, amount: 0 }]).map((r) => [String(r.category), String(r.count), `-${fmtN(r.amount)}`]),
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
+    });
+
+    y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : y + 160;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Products Sold (Top 15)', margin, y);
+    y += 8;
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Product', 'Qty', 'Sales (ETB)']],
+      body: (productRows.length ? productRows : [{ name: '—', qty: 0, sales: 0 }]).map((r) => [String(r.name), String(Math.round(r.qty)), fmtN(Number(r.sales ?? 0) || 0)]),
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
+    });
+
+    y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : y + 160;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Expense Ledger (Top 25)', margin, y);
+    y += 8;
+    const ledgerRows = [...expensesInRange]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 25)
+      .map((e) => [
+        formatDeviceDateTime(e.createdAt, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) || String(e.createdAt || ''),
+        String(e.category || ''),
+        String(e.title || ''),
+        String(e.vendor || ''),
+        `-${fmtN(Number(e.amount ?? 0) || 0)}`,
+      ]);
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Date', 'Category', 'Title', 'Vendor', 'Amount (ETB)']],
+      body: ledgerRows.length ? ledgerRows : [['—', '—', '—', '—', '0.00']],
+      columnStyles: { 4: { halign: 'right' } },
+    });
+
+    const fileName = `profit-${range.toLowerCase().replace(/\s+/g, '-')}-${isoDate(new Date(rangeWindow.start))}.pdf`;
+
+    try {
+      doc.save(fileName);
+      return;
+    } catch {
+      // ignore
+    }
+
+    try {
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.rel = 'noopener noreferrer';
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          // ignore
+        }
+      }, 5000);
+      return;
+    } catch {
+      // ignore
+    }
+
+    try {
+      setFlash({ kind: 'warning', message: 'Failed to generate PDF. Please allow popups/downloads and try again.' });
+    } catch {
+      // ignore
+    }
+  };
+
+  const exportOrdersSoldPdf = () => {
+    const nowIso = new Date().toISOString();
+    const startMs = rangeWindow.start.getTime();
+    const endMs = rangeWindow.end.getTime();
+
+    const paymentsInRange = payments.filter((p) => {
+      const t = new Date(p.paidAt || p.createdAt || '').getTime();
+      return Number.isFinite(t) && t >= startMs && t < endMs;
+    });
+
+    const productsMap = new Map<
+      string,
+      {
+        name: string;
+        qty: number;
+        sales: number;
+      }
+    >();
+
+    for (const p of paymentsInRange as any[]) {
+      const items = Array.isArray((p as any)?.items) ? ((p as any).items as any[]) : [];
+      for (const it of items) {
+        if (!it || typeof it !== 'object') continue;
+        const productId = String((it as any).productId || (it as any).product_id || '').trim();
+        const name = String((it as any).name || productId || 'Item').trim();
+        const qty = Number((it as any).qty ?? (it as any).quantity ?? 0) || 0;
+        const unitPrice = Number((it as any).unitPrice ?? (it as any).unit_price ?? 0) || 0;
+        if (!name || qty <= 0 || unitPrice < 0) continue;
+        const key = productId || name;
+        const cur = productsMap.get(key) ?? { name, qty: 0, sales: 0 };
+        cur.name = name || cur.name;
+        cur.qty += qty;
+        cur.sales += qty * unitPrice;
+        productsMap.set(key, cur);
+      }
+    }
+
+    const productRows = Array.from(productsMap.values())
+      .filter((r) => r.qty > 0.0001)
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 50);
+
+    const totalQty = productRows.reduce((s, r) => s + (Number(r.qty || 0) || 0), 0);
+    const totalSales = paymentsInRange.reduce((s, p) => s + (Number(p.total ?? 0) || 0), 0);
+
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const margin = 40;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('Orders Sold Report', margin, 48);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(90);
+    doc.text(
+      [`Range: ${range}`, `Period: ${formatDateLabel(new Date(rangeWindow.start))}    ${formatDateLabel(new Date(rangeWindow.end.getTime() - 1))}`, `Generated: ${formatDeviceDateTime(nowIso) || nowIso}`],
+      margin,
+      66,
+    );
+    doc.setTextColor(0);
+
+    let y = 98;
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 10, cellPadding: 5 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Metric', 'Value']],
+      body: [
+        ['Paid Orders', String(paymentsInRange.length)],
+        ['Units Sold (Top items)', String(Math.round(totalQty))],
+        ['Gross Sales (Total)', fmtN(totalSales)],
+      ],
+      columnStyles: { 1: { halign: 'right' } },
+    });
+
+    y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : y + 170;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Products Sold (Top 50)', margin, y);
+    y += 8;
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Product', 'Qty', 'Sales (ETB)']],
+      body: (productRows.length ? productRows : [{ name: '—', qty: 0, sales: 0 }]).map((r) => [String(r.name), String(Math.round(r.qty)), fmtN(Number(r.sales ?? 0) || 0)]),
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
+    });
+
+    const fileName = `orders-sold-${range.toLowerCase().replace(/\s+/g, '-')}-${isoDate(new Date(rangeWindow.start))}.pdf`;
+    try {
+      doc.save(fileName);
+      return;
+    } catch {
+      // ignore
+    }
+
+    try {
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.rel = 'noopener noreferrer';
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          // ignore
+        }
+      }, 5000);
+    } catch {
+      setFlash({ kind: 'warning', message: 'Failed to generate Orders Sold PDF. Please allow popups/downloads and try again.' });
+    }
   };
 
   const openNewSession = () => {
@@ -884,10 +1376,11 @@ export const Finance: React.FC = () => {
 
   const startEditExpense = (e: Expense) => {
     setExpenseEditingId(e.id);
-    setExpenseDraft({ title: e.title, vendor: e.vendor, amount: String(e.amount) });
+    setExpenseDraft({ category: 'Expense', title: e.title, vendor: e.vendor, amount: String(e.amount) });
   };
 
   const saveExpenseEdit = (id: string) => {
+    const category = String(expenseDraft.category || '').trim() || 'Expense';
     const amount = parseFloat(expenseDraft.amount || '0');
     if (!Number.isFinite(amount) || amount < 0) {
       setFlash({ kind: 'warning', message: 'Invalid amount.' });
@@ -901,7 +1394,7 @@ export const Finance: React.FC = () => {
         const res = await apiFetch(`/api/manager/finance/expenses/${encodeURIComponent(id)}${qs.toString() ? `?${qs.toString()}` : ''}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: expenseDraft.title, vendor: expenseDraft.vendor, amount }),
+          body: JSON.stringify({ category, title: expenseDraft.title, vendor: expenseDraft.vendor, amount }),
         });
         const json = (await res.json().catch(() => null)) as any;
         if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
@@ -933,11 +1426,12 @@ export const Finance: React.FC = () => {
   };
 
   const addExpense = () => {
-    setExpenseCreateDraft({ title: '', vendor: '', amount: '', icon: 'receipt_long' });
+    setExpenseCreateDraft({ category: 'Expense', title: '', vendor: '', amount: '', icon: 'receipt_long' });
     setExpenseCreateOpen(true);
   };
 
   const submitNewExpense = () => {
+    const category = String(expenseCreateDraft.category || '').trim() || 'Expense';
     const title = String(expenseCreateDraft.title || '').trim();
     const vendor = String(expenseCreateDraft.vendor || '').trim();
     const amount = Number(expenseCreateDraft.amount || 0);
@@ -958,7 +1452,7 @@ export const Finance: React.FC = () => {
         const res = await apiFetch(`/api/manager/finance/expenses${qs.toString() ? `?${qs.toString()}` : ''}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, vendor, amount, createdAt: now, icon: expenseCreateDraft.icon }),
+          body: JSON.stringify({ category, title, vendor, amount, createdAt: now, icon: expenseCreateDraft.icon }),
         });
         const json = (await res.json().catch(() => null)) as any;
         if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
@@ -1005,6 +1499,15 @@ export const Finance: React.FC = () => {
                   </button>
                 </div>
                 <div className="p-5 space-y-4">
+                  <div className="space-y-1">
+                    <div className="text-xs text-[#c9b792] font-bold">Category</div>
+                    <input
+                      value={expenseCreateDraft.category}
+                      onChange={(e) => setExpenseCreateDraft((d) => ({ ...d, category: e.target.value }))}
+                      className="w-full bg-[#483c23] border border-white/5 rounded px-3 py-2 text-sm text-white"
+                      placeholder="Rent / Salary / Utilities / Supplies"
+                    />
+                  </div>
                   <div className="space-y-1">
                     <div className="text-xs text-[#c9b792] font-bold">Title</div>
                     <input
@@ -1131,14 +1634,16 @@ export const Finance: React.FC = () => {
           )}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="flex flex-col gap-1">
-              <h1 className="text-white text-3xl font-black tracking-tight">Finance Overview</h1>
               <p className="text-[#c9b792] text-base">
-                Daily financial summary for <span className="text-white font-medium">{formatDateLabel(new Date(rangeWindow.start))}</span>
+                Financial summary: <span className="text-white font-medium">{range}</span>
+              </p>
+              <p className="text-[#c9b792] text-xs">
+                {formatDateLabel(new Date(rangeWindow.start))} â†’ {formatDateLabel(new Date(rangeWindow.end.getTime() - 1))}
               </p>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex bg-[#2c241b] p-1 rounded-lg border border-[#483c23]">
-                {(['Today', 'Yesterday', '7 Days'] as const).map((k) => (
+                {(['Today', 'Yesterday', '7 Days', 'This Month'] as const).map((k) => (
                   <button
                     key={k}
                     onClick={() => setRange(k)}
@@ -1156,6 +1661,22 @@ export const Finance: React.FC = () => {
               >
                 <span className="material-symbols-outlined text-[18px]">download</span>
                 Export Report
+              </button>
+
+              <button
+                onClick={exportOrdersSoldPdf}
+                className="flex items-center gap-2 bg-[#2c241b] hover:bg-[#483c23]/50 text-white px-4 py-2.5 rounded-lg text-sm font-bold border border-[#483c23] transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">inventory_2</span>
+                Orders Sold PDF
+              </button>
+
+              <button
+                onClick={exportProfitPdf}
+                className="flex items-center gap-2 bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] px-4 py-2.5 rounded-lg text-sm font-black transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                Profit PDF
               </button>
             </div>
           </div>
@@ -1230,9 +1751,9 @@ export const Finance: React.FC = () => {
                 const h = Math.max(6, Math.round((r.revenue / dayFlow.max) * 100));
                 const expH = Math.max(2, Math.round((r.expenses / dayFlow.max) * 100));
                 return (
-                  <div key={r.time} className="flex-1 relative group">
+                  <div key={r.time} className="flex-1 relative group h-full">
                     <div
-                      className="w-full transition-all rounded-t-sm"
+                      className="absolute left-0 right-0 bottom-0 transition-all rounded-t-sm"
                       style={{
                         height: `${h}%`,
                         background: 'linear-gradient(180deg, rgba(238,173,43,0.40), rgba(238,173,43,0.18))',

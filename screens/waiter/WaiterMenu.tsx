@@ -9,7 +9,7 @@ interface Props {
 }
 
 export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
-  const { products, selectedTableId, getCartItems, addToCart, setCartQty, setCartItemNote, sendOrderToKitchen, selectOrder } = usePos();
+  const { products, selectedTableId, getCartItems, addToCart, setCartQty, setCartItemNote, sendOrderToKitchen, selectOrder, getDraftOrderMeta, setDraftOrderMeta } = usePos();
   const selectedTable = useSelectedTable();
 
   const [actionErr, setActionErr] = useState('');
@@ -23,6 +23,10 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
   const tableId = selectedTableId ?? selectedTable?.id ?? '';
   const cartItems = getCartItems(tableId);
 
+  const draftMeta = useMemo(() => (tableId ? getDraftOrderMeta(tableId) : {}), [tableId, getDraftOrderMeta]);
+  const draftOrderType = draftMeta?.orderType === 'takeaway' ? 'takeaway' : 'dine_in';
+  const takeawayFee = draftOrderType === 'takeaway' ? Math.max(0, Number(draftMeta?.takeawayFee ?? 0) || 0) : 0;
+
   const subtotal = useMemo(() => cartItems.reduce((sum, i) => sum + i.unitPrice * i.qty, 0), [cartItems]);
   const total = useMemo(() => {
     if (selectedTable && typeof (selectedTable as any).currentTotal === 'number') {
@@ -30,7 +34,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
     }
     return subtotal;
   }, [selectedTable, subtotal]);
-  const tax = useMemo(() => Math.max(0, total - subtotal), [subtotal, total]);
+  const taxAndService = useMemo(() => Math.max(0, total - subtotal - takeawayFee), [subtotal, total, takeawayFee]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -220,29 +224,76 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
 
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
             {actionErr ? <div className="text-sm text-red-300 font-semibold">{actionErr}</div> : null}
+
+            {!selectedTable?.openOrderId ? (
+              <div className="bg-[#1a1612] p-4 rounded-2xl border border-[#483c23]">
+                <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Order Type</div>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDraftOrderMeta(tableId, { orderType: 'dine_in', takeawayFee: 0 })}
+                    className={`flex-1 h-10 rounded-xl border text-sm font-bold ${
+                      draftOrderType === 'dine_in' ? 'bg-[#eead2b] border-[#eead2b] text-[#221c11]' : 'bg-[#2c241b] border-[#483c23] text-[#c9b792] hover:text-white'
+                    }`}
+                  >
+                    Dine-in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDraftOrderMeta(tableId, { orderType: 'takeaway' })}
+                    className={`flex-1 h-10 rounded-xl border text-sm font-bold ${
+                      draftOrderType === 'takeaway' ? 'bg-[#eead2b] border-[#eead2b] text-[#221c11]' : 'bg-[#2c241b] border-[#483c23] text-[#c9b792] hover:text-white'
+                    }`}
+                  >
+                    Takeaway
+                  </button>
+                </div>
+
+                {draftOrderType === 'takeaway' ? (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between text-sm text-[#c9b792] font-medium">
+                      <span>Takeaway Fee</span>
+                      <span className="text-white font-bold">ETB {takeawayFee.toFixed(2)}</span>
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={String(takeawayFee)}
+                      onChange={(e) => setDraftOrderMeta(tableId, { takeawayFee: Number(e.target.value || 0) || 0 })}
+                      className="mt-2 w-full h-10 bg-[#2c241b] border border-[#483c23] rounded-xl px-3 text-sm text-white"
+                      placeholder="0.00"
+                    />
+                    <div className="mt-2 text-[11px] text-[#c9b792]">
+                      This fee is added to the total and shown on the receipt.
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {/* Cart Item 1 */}
             {cartItems.length === 0 ? (
               <div className="text-[#c9b792] text-sm">No items in cart</div>
             ) : (
               cartItems.map((item) => (
-                <div key={item.productId} className="bg-[#1a1612] p-3 rounded-2xl shadow-sm border border-[#483c23] group relative">
-                  <div className="flex gap-4 items-start">
+                <div key={item.productId} className="bg-[#1a1612] p-2.5 rounded-xl shadow-sm border border-[#483c23] group relative">
+                  <div className="flex gap-3 items-start">
                     <div
-                      className="w-16 h-16 rounded-xl bg-cover bg-center flex-none shadow-inner"
+                      className="w-12 h-12 rounded-lg bg-cover bg-center flex-none shadow-inner"
                       style={{ backgroundImage: `url('${products.find((p) => p.id === item.productId)?.image ?? ''}')` }}
                     ></div>
                     <div className="flex-1 min-w-0 pt-0.5">
-                      <div className="flex justify-between items-start mb-1">
-                        <p className="font-bold text-white truncate text-lg">{item.name}</p>
-                        <p className="font-bold text-white text-lg">ETB {(item.unitPrice * item.qty).toFixed(2)}</p>
+                      <div className="flex justify-between items-start mb-0.5">
+                        <p className="font-bold text-white truncate text-[15px]">{item.name}</p>
+                        <p className="font-bold text-white text-[14px]">ETB {(item.unitPrice * item.qty).toFixed(2)}</p>
                       </div>
-                      <div className="text-sm text-[#c9b792] space-y-1">
-                        <p>{`x${item.qty}`}</p>
-                        {item.note?.trim() ? <p className="text-xs text-[#c9b792]">{item.note.trim()}</p> : null}
+                      <div className="text-[12px] text-[#c9b792] space-y-0.5">
+                        <p className="leading-none">{`x${item.qty}`}</p>
+                        {item.note?.trim() ? <p className="text-[11px] text-[#c9b792] truncate">{item.note.trim()}</p> : null}
                       </div>
                     </div>
                   </div>
-                  <div className="mt-4 flex items-center justify-between pl-20">
+                  <div className="mt-2.5 flex items-center justify-between pl-14">
                     <button
                       onClick={() => {
                         setEditItemId(item.productId);
@@ -254,23 +305,23 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                     </button>
                     <button
                       onClick={() => setCartQty(tableId, item.productId, 0)}
-                      className="h-9 w-9 rounded-xl border border-[#483c23] bg-[#2c241b] text-red-300 hover:text-white hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
+                      className="h-8 w-8 rounded-lg border border-[#483c23] bg-[#2c241b] text-red-300 hover:text-white hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
                       title="Remove"
                       type="button"
                     >
                       <span className="material-symbols-outlined text-[18px]">delete</span>
                     </button>
-                    <div className="flex items-center bg-[#2c241b] rounded-xl border border-[#483c23] h-9 overflow-hidden">
+                    <div className="flex items-center bg-[#2c241b] rounded-lg border border-[#483c23] h-8 overflow-hidden">
                       <button
                         onClick={() => setCartQty(tableId, item.productId, Math.max(0, item.qty - 1))}
-                        className="w-9 h-full flex items-center justify-center text-[#c9b792] hover:text-white hover:bg-[#3a2e22] transition-colors"
+                        className="w-8 h-full flex items-center justify-center text-[#c9b792] hover:text-white hover:bg-[#3a2e22] transition-colors"
                       >
                         <span className="material-symbols-outlined text-[18px]">remove</span>
                       </button>
-                      <span className="w-8 text-center font-bold text-base text-white bg-[#1a1612] h-full flex items-center justify-center border-x border-[#483c23]">{item.qty}</span>
+                      <span className="w-7 text-center font-bold text-[13px] text-white bg-[#1a1612] h-full flex items-center justify-center border-x border-[#483c23]">{item.qty}</span>
                       <button
                         onClick={() => setCartQty(tableId, item.productId, item.qty + 1)}
-                        className="w-9 h-full flex items-center justify-center text-[#eead2b] hover:bg-[#eead2b] hover:text-[#221c11] transition-colors"
+                        className="w-8 h-full flex items-center justify-center text-[#eead2b] hover:bg-[#eead2b] hover:text-[#221c11] transition-colors"
                       >
                         <span className="material-symbols-outlined text-[18px]">add</span>
                       </button>
@@ -289,8 +340,14 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
               </div>
               <div className="flex justify-between text-sm text-[#c9b792] font-medium">
                 <span>Tax/Service</span>
-                <span className="text-white">ETB {tax.toFixed(2)}</span>
+                <span className="text-white">ETB {taxAndService.toFixed(2)}</span>
               </div>
+              {takeawayFee > 0.0001 ? (
+                <div className="flex justify-between text-sm text-[#c9b792] font-medium">
+                  <span>Takeaway Fee</span>
+                  <span className="text-white">ETB {takeawayFee.toFixed(2)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between items-end pt-4 border-t border-dashed border-[#483c23] mt-3">
                 <div className="flex flex-col">
                   <span className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Total Due</span>

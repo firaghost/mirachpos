@@ -112,6 +112,12 @@ export const WaiterActiveOrders: React.FC<Props> = ({ onNavigate }) => {
                     <span className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">{o.tableName}</span>
                     <span className="text-white font-mono font-bold">{o.number}</span>
                     <span className="text-xs text-[#c9b792]">{o.timeLabel}</span>
+                    {(o as any)?.orderType === 'takeaway' ? (
+                      <span className="mt-1 inline-flex items-center gap-2 text-xs font-bold text-[#eead2b]">
+                        <span className="px-2 py-0.5 rounded-full bg-[#eead2b]/15 border border-[#eead2b]/25">Takeaway</span>
+                        {Number((o as any)?.takeawayFee ?? 0) > 0 ? <span className="text-[#c9b792]">Fee ETB {Number((o as any).takeawayFee).toFixed(2)}</span> : null}
+                      </span>
+                    ) : null}
                     {o.status === 'Voided' && o.voidReason ? (
                       <span className="text-xs text-red-400 font-semibold mt-1">Reason: {o.voidReason}</span>
                     ) : null}

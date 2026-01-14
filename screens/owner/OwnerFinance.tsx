@@ -13,6 +13,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
 import { PortalMenu, type PortalMenuAnchorRect } from '../../components/PortalMenu';
 
@@ -84,6 +86,11 @@ const fmtMoneyCompact = (n: number) => {
   if (abs >= 1_000_000) return `ETB ${(v / 1_000_000).toFixed(1)}M`;
   if (abs >= 1_000) return `ETB ${(v / 1_000).toFixed(1)}k`;
   return fmtMoney(v);
+};
+
+const fmtN = (n: number) => {
+  const v = Number.isFinite(n) ? n : 0;
+  return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 const badge = (kind: 'up' | 'down' | 'flat', pct: number) => {
@@ -167,6 +174,94 @@ export const OwnerFinance: React.FC = () => {
     } catch {
       // ignore
     }
+  };
+
+  const exportProfitPdf = () => {
+    if (!data) return;
+    const generatedAt = new Date().toISOString();
+
+    const revenue = Number(data.kpis?.revenue ?? 0) || 0;
+    const opex = Number(data.kpis?.opex ?? 0) || 0;
+    const net = Number(data.kpis?.netProfit ?? 0) || 0;
+
+    const rows = Array.isArray(data.ledger?.items) ? data.ledger.items : [];
+    const byCategory = new Map<string, { count: number; amount: number }>();
+    for (const r of rows) {
+      const cat = String(r.category || 'Uncategorized');
+      const cur = byCategory.get(cat) ?? { count: 0, amount: 0 };
+      cur.count += 1;
+      cur.amount += Number(r.amount ?? 0) || 0;
+      byCategory.set(cat, cur);
+    }
+    const cats = Array.from(byCategory.entries())
+      .map(([category, v]) => ({ category, ...v }))
+      .sort((a, b) => b.amount - a.amount);
+
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 40;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('Monthly Profit Report', margin, 48);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(90);
+    doc.text([`Period: ${granularity} ${periodLabel}`, `Generated: ${formatDeviceDateTime(generatedAt) || generatedAt}`], pageW - margin, 48, { align: 'right' });
+    doc.setTextColor(0);
+
+    let y = 78;
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 10, cellPadding: 5 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Metric', 'Amount (ETB)']],
+      body: [
+        ['Revenue', fmtN(revenue)],
+        ['Monthly Expenses', `-${fmtN(opex)}`],
+        ['Net Profit', fmtN(net)],
+      ],
+      columnStyles: { 1: { halign: 'right' } },
+    });
+
+    y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : y + 120;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Monthly Expenses Breakdown', margin, y);
+    y += 8;
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Category', 'Entries', 'Amount (ETB)']],
+      body: (cats.length ? cats : [{ category: '—', count: 0, amount: 0 }]).map((c) => [c.category, String(c.count), `-${fmtN(c.amount)}`]),
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
+    });
+
+    y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : y + 180;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Expense Ledger (This Period)', margin, y);
+    y += 8;
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [34, 28, 16] },
+      head: [['Date', 'Vendor', 'Category', 'Amount (ETB)']],
+      body: (rows.length ? rows : [{ date: '', vendor: '', category: '', amount: 0 }] as any[]).slice(0, 60).map((r) => [String(r.date || ''), String(r.vendor || ''), String(r.category || ''), `-${fmtN(Number(r.amount ?? 0) || 0)}`]),
+      columnStyles: { 3: { halign: 'right' } },
+    });
+
+    doc.save(`profit-${granularity}-${period}.pdf`);
   };
 
   const periodLabel = useMemo(() => {
@@ -504,6 +599,16 @@ export const OwnerFinance: React.FC = () => {
               >
                 <span className="material-symbols-outlined text-[18px]">download</span>
                 <span>Export Report</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={exportProfitPdf}
+                className="flex items-center gap-2 bg-[#221c10] hover:bg-[#2c241b] border border-[#483c23] text-[#eead2b] px-4 py-2 rounded-lg text-sm font-bold transition-all disabled:opacity-60"
+                disabled={!data || loading}
+              >
+                <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                <span>Profit PDF</span>
               </button>
             </div>
           </div>

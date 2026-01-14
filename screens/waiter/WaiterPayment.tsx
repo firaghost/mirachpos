@@ -724,6 +724,8 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
           number: (order as any).number,
           tableId: (order as any).tableId,
           tableName: (order as any).tableName,
+          orderType: (order as any).orderType ?? (order as any)?.payload?.orderType ?? null,
+          takeawayFee: Number((order as any).takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0) || 0,
           items: Array.isArray((order as any).items) ? (order as any).items : [],
           subtotal: Number((order as any).subtotal ?? 0) || 0,
           tax: Number((order as any).tax ?? 0) || 0,
@@ -940,6 +942,12 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 <span className="text-[#c9b792] text-[12px]">Service ({Math.round((order.serviceCharge / Math.max(1, order.subtotal)) * 100)}%)</span>
                 <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {order.serviceCharge.toFixed(2)}</span>
               </div>
+              {Number((order as any)?.takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0) > 0 ? (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-[#c9b792] text-[12px]">Takeaway Fee</span>
+                  <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {Number((order as any)?.takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0).toFixed(2)}</span>
+                </div>
+              ) : null}
 
               <button
                 onClick={() => {

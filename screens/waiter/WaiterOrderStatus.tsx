@@ -164,6 +164,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
                     <div className="flex flex-col">
                       <span className="text-xs text-[#cf7317] font-bold uppercase tracking-wider">{o.tableName}</span>
                       <span className="text-xs text-[#c8ad93]">{o.number}    {o.timeLabel}</span>
+                      {(o as any)?.orderType === 'takeaway' ? <span className="text-[10px] text-[#c8ad93] font-bold">TAKEAWAY</span> : null}
                     </div>
                   </div>
                   <span className="px-3 py-1 rounded-full bg-[#cf7317] text-white text-xs font-bold shadow-sm uppercase tracking-wide animate-pulse">Ready</span>
@@ -238,6 +239,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
                     <div className="flex flex-col">
                       <span className="text-xs text-[#c8ad93] font-bold uppercase tracking-wider group-hover:text-[#cf7317] transition-colors">{o.tableName}</span>
                       <span className="text-xs text-[#c9b792]/70">{o.number}    {o.timeLabel}</span>
+                      {(o as any)?.orderType === 'takeaway' ? <span className="text-[10px] text-[#c8ad93] font-bold">TAKEAWAY</span> : null}
                     </div>
                   </div>
                   {o.status === 'Cooking' ? (

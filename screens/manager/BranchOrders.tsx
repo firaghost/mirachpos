@@ -32,11 +32,14 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
         q.length === 0
           ? true
           : o.number.toLowerCase().includes(q) || o.tableName.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || (o.createdByName ?? '').toLowerCase().includes(q);
-      const inferredChannel = o.tableName.toLowerCase().includes('takeaway')
-        ? 'Takeaway'
-        : o.tableName.toLowerCase().includes('delivery')
-          ? 'Delivery'
-          : 'Dine-in';
+      const inferredChannel =
+        (o as any)?.orderType === 'takeaway'
+          ? 'Takeaway'
+          : o.tableName.toLowerCase().includes('takeaway')
+            ? 'Takeaway'
+            : o.tableName.toLowerCase().includes('delivery')
+              ? 'Delivery'
+              : 'Dine-in';
       const matchesChannel = channel === 'All' ? true : inferredChannel === channel;
 
       const createdAt = new Date(o.createdAt);
@@ -120,7 +123,12 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
                             <td className="px-6 py-4 font-mono font-bold">{order.number}</td>
                             <td className="px-6 py-4 text-[#c9b792]">{formatDeviceDate(order.createdAt, { year: 'numeric', month: 'short', day: '2-digit' })}</td>
                             <td className="px-6 py-4 text-[#c9b792]">{formatDeviceTime((order as any).paidAt || order.createdAt, { hour: '2-digit', minute: '2-digit' })}</td>
-                            <td className="px-6 py-4">{order.tableName}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-col">
+                                <span>{order.tableName}</span>
+                                {(order as any)?.orderType === 'takeaway' ? <span className="text-xs text-[#c9b792]">Takeaway</span> : null}
+                              </div>
+                            </td>
                             <td className="px-6 py-4 text-[#c9b792]">{order.createdByName ?? (order.createdByStaffId ?? ' ”')}</td>
                             <td className="px-6 py-4 text-[#c9b792] truncate max-w-[200px]">{order.items.map((x) => `${x.qty} — ${x.name}`).join(', ')}</td>
                             <td className="px-6 py-4 text-right font-bold">ETB {Number((order as any).tip ?? 0).toFixed(2)}</td>

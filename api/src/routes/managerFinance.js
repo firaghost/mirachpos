@@ -167,6 +167,9 @@ const makeManagerFinanceRouter = () => {
       if (!title) return res.status(400).json({ error: 'title_required' });
       if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'invalid_amount' });
 
+      const categoryRaw = String(req.body?.category || '').trim();
+      const category = categoryRaw || 'Expense';
+
       const at = normalizeIso(req.body?.createdAt || req.body?.at) || new Date().toISOString();
 
       const id = uid('fin');
@@ -176,12 +179,12 @@ const makeManagerFinanceRouter = () => {
         id,
         tenant_id: req.tenant.id,
         branch_id: branchId,
-        category: 'expense',
+        category,
         type: 'expense',
         amount,
         currency: 'ETB',
         memo: vendor || title,
-        payload_json: JSON.stringify({ title, vendor, icon: req.body?.icon || 'receipt_long' }),
+        payload_json: JSON.stringify({ scope: 'daily', title, vendor, icon: req.body?.icon || 'receipt_long' }),
         at,
         created_at: nowIso,
         updated_at: nowIso,
@@ -226,6 +229,11 @@ const makeManagerFinanceRouter = () => {
       if (typeof req.body?.icon === 'string') nextPayload.icon = req.body.icon.trim();
 
       const patch = { updated_at: new Date().toISOString() };
+
+      if (typeof req.body?.category === 'string') {
+        const c = req.body.category.trim();
+        patch.category = c || 'Expense';
+      }
 
       if (req.body?.amount != null) {
         const amount = Number(req.body.amount);

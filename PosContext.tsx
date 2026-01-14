@@ -273,6 +273,8 @@ type PosContextType = {
   setCartQty: (tableId: string, productId: string, qty: number) => void;
   setCartItemNote: (tableId: string, productId: string, note: string) => void;
   clearCart: (tableId: string) => void;
+  getDraftOrderMeta: (tableId: string) => { orderType?: 'dine_in' | 'takeaway'; takeawayFee?: number };
+  setDraftOrderMeta: (tableId: string, meta: { orderType?: 'dine_in' | 'takeaway'; takeawayFee?: number }) => void;
   addProduct: (product: { name: string; category: string; price: number; image: string; stock?: number; description?: string }) => string;
   updateProductDetails: (
     productId: string,
@@ -325,6 +327,7 @@ type PersistedState = {
   orders: PosOrder[];
   notifications: PosNotification[];
   cartByTableId: Record<string, PosOrderItem[]>;
+  draftMetaByTableId: Record<string, { orderType?: 'dine_in' | 'takeaway'; takeawayFee?: number }>;
   selectedTableId: string | null;
   selectedOrderId: string | null;
 };
@@ -569,6 +572,7 @@ const seedState = (): PersistedState => {
     orders: [],
     notifications: [],
     cartByTableId: {},
+    draftMetaByTableId: {},
     selectedTableId: null,
     selectedOrderId: null,
   };
@@ -922,7 +926,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   .filter((t: any) => t.id && t.name)
               : [];
             if (mounted && localTables.length) {
-              setState((s) => ({ ...s, tables: updateTableComputed(localTables as any, s.cartByTableId) }));
+              setState((s) => ({ ...s, tables: updateTableComputed(localTables as any, s.cartByTableId, s.draftMetaByTableId) }));
             }
           }
         } catch {
@@ -1174,7 +1178,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (tres.ok) {
           const rows = Array.isArray(tjson?.tables) ? (tjson.tables as any[]) : [];
           const incomingTables = toPosTables(rows);
-          setState((s) => ({ ...s, tables: updateTableComputed(incomingTables, s.cartByTableId) }));
+          setState((s) => ({ ...s, tables: updateTableComputed(incomingTables, s.cartByTableId, s.draftMetaByTableId) }));
           if (scopeKey && incomingTables.length) writeBranchCache(scopeKey, { tables: incomingTables });
           if (scopeKey && incomingTables.length) void persistTablesToElectron(scopeKey, incomingTables);
         } else {
@@ -1185,7 +1189,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (tres2.ok) {
             const rows2 = Array.isArray(tjson2?.tables) ? (tjson2.tables as any[]) : [];
             const incomingTables2 = toPosTables(rows2);
-            setState((s) => ({ ...s, tables: updateTableComputed(incomingTables2, s.cartByTableId) }));
+            setState((s) => ({ ...s, tables: updateTableComputed(incomingTables2, s.cartByTableId, s.draftMetaByTableId) }));
             if (scopeKey && incomingTables2.length) writeBranchCache(scopeKey, { tables: incomingTables2 });
             if (scopeKey && incomingTables2.length) void persistTablesToElectron(scopeKey, incomingTables2);
           }
@@ -1314,6 +1318,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           })
           .filter((o) => o.id);
 
+        let selectedMissingId: string | null = null;
+
         setState((prev) => {
           const localById = new Map<string, PosOrder>();
           for (const o of prev.orders) localById.set(o.id, o);
@@ -1339,6 +1345,9 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           const orderById = new Map<string, PosOrder>();
           for (const o of mergedOrders) orderById.set(o.id, o);
+
+          const sel = prev.selectedOrderId ? String(prev.selectedOrderId) : '';
+          if (sel && !orderById.has(sel)) selectedMissingId = sel;
 
           const openOrderByTableId = new Map<string, string>();
           for (const o of mergedOrders) {
@@ -1383,8 +1392,99 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return { ...t, status: 'Occupied', openOrderId: openId } as any;
           });
 
-          return { ...prev, orders: mergedOrders, tables: updateTableComputed(nextTables as any, prev.cartByTableId) };
+          return { ...prev, orders: mergedOrders, tables: updateTableComputed(nextTables as any, prev.cartByTableId, prev.draftMetaByTableId) };
         });
+
+        // If the user is on an order details screen and the selected order is not in the latest
+        // list (limit=200), fetch it explicitly so refresh keeps the page open.
+        if (selectedMissingId) {
+          try {
+            const single = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(selectedMissingId)}`));
+            const singleJson = (await single.json().catch(() => null)) as any;
+            if (single.ok) {
+              const r = singleJson?.order || singleJson;
+              if (r && typeof r === 'object') {
+                const id = String(r?.id || '');
+                const status = String(r?.status || 'Pending') as any;
+                const payload = r?.payload && typeof r.payload === 'object' ? r.payload : {};
+
+                const createdAt = typeof r?.createdAt === 'string' && r.createdAt ? r.createdAt : typeof payload?.createdAt === 'string' ? payload.createdAt : new Date().toISOString();
+                const number = typeof payload?.number === 'string' && payload.number ? payload.number : id;
+                const tableId = typeof payload?.tableId === 'string' ? payload.tableId : '';
+                const tableName = typeof payload?.tableName === 'string' ? payload.tableName : '';
+                const items = Array.isArray(payload?.items) ? (payload.items as any[]) : [];
+
+                const tipFromBreakdown = (Number(payload?.tipAmount ?? 0) || 0) + (Number(payload?.tipPctAmount ?? 0) || 0);
+                const tip = Number(r?.tip ?? payload?.tip ?? tipFromBreakdown ?? 0) || 0;
+
+                const total = Number(r?.total ?? payload?.totalWithTip ?? payload?.paidTotal ?? payload?.total ?? 0) || 0;
+                const tax = Number(r?.tax ?? payload?.tax ?? 0) || 0;
+                const discount = Number(r?.discount ?? payload?.discount ?? 0) || 0;
+                const subtotal = Number(payload?.subtotal ?? Math.max(0, total - tax - tip)) || 0;
+                const serviceCharge = Number(payload?.serviceCharge ?? 0) || 0;
+
+                const paidAt = typeof r?.paidAt === 'string' && r.paidAt ? r.paidAt : typeof payload?.paidAt === 'string' ? payload.paidAt : null;
+                const voidedAt = typeof payload?.voidedAt === 'string' ? payload.voidedAt : null;
+                const voidReason = typeof payload?.voidReason === 'string' ? payload.voidReason : '';
+
+                const paymentMethod = typeof payload?.paymentMethod === 'string' ? payload.paymentMethod : '';
+                const paymentReference = typeof payload?.paymentReference === 'string' ? payload.paymentReference : '';
+
+                const paidByStaffId = typeof payload?.paidByStaffId === 'string' ? payload.paidByStaffId : '';
+                const paidByName = typeof payload?.paidByName === 'string' ? payload.paidByName : '';
+
+                const nextOrder: PosOrder = {
+                  id,
+                  number,
+                  tableId,
+                  tableName,
+                  createdByStaffId: typeof payload?.createdByStaffId === 'string' ? payload.createdByStaffId : undefined,
+                  createdByName: typeof payload?.createdByName === 'string' ? payload.createdByName : undefined,
+                  items: items.map((it) => ({
+                    productId: String((it as any)?.productId || ''),
+                    name: String((it as any)?.name || ''),
+                    unitPrice: Number((it as any)?.unitPrice ?? (it as any)?.price ?? 0) || 0,
+                    qty: Number((it as any)?.qty ?? 0) || 0,
+                    voidedQty: typeof (it as any)?.voidedQty === 'number' ? (it as any).voidedQty : 0,
+                    note: typeof (it as any)?.note === 'string' ? (it as any).note : '',
+                    voidReason: typeof (it as any)?.voidReason === 'string' ? (it as any).voidReason : undefined,
+                  })),
+                  subtotal,
+                  tax,
+                  serviceCharge,
+                  total,
+                  status,
+                  createdAt,
+                  timeLabel: String((r as any)?.timeLabel || (payload as any)?.timeLabel || ''),
+                  notes: typeof payload?.notes === 'string' ? payload.notes : undefined,
+                  paidAt: paidAt ? String(paidAt) : undefined,
+                  paymentMethod: paymentMethod || undefined,
+                  tenderedAmount: typeof payload?.tenderedAmount === 'number' ? payload.tenderedAmount : undefined,
+                  paymentReference: paymentReference || undefined,
+                  paidByStaffId: paidByStaffId || undefined,
+                  paidByName: paidByName || undefined,
+                  syncedToServer: true,
+                  syncedAt: new Date().toISOString(),
+                  voidedAt: voidedAt ? String(voidedAt) : undefined,
+                  voidReason: voidReason || undefined,
+                  customer: payload?.customer && typeof payload.customer === 'object' ? (payload.customer as any) : undefined,
+                  splits: Array.isArray(payload?.splits) ? (payload.splits as any) : undefined,
+                  inventoryDeducted: true,
+                  tip,
+                  discount,
+                } as any;
+
+                setState((prev) => {
+                  const exists = prev.orders.some((o) => o.id === nextOrder.id);
+                  if (exists) return prev;
+                  return { ...prev, orders: [nextOrder, ...prev.orders] };
+                });
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
 
         try {
           const scopeKey = getBranchScopeKey();
@@ -1430,6 +1530,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           number: order.number,
           tableId: order.tableId,
           tableName: order.tableName,
+          orderType: (order as any).orderType ?? null,
+          takeawayFee: Number((order as any).takeawayFee ?? 0) || 0,
           items: order.items,
           subtotal: order.subtotal,
           tax: order.tax,
@@ -1650,15 +1752,47 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [persistOrder, state.orders],
   );
 
-  const updateTableComputed = (tables: PosTable[], cartByTableId: Record<string, PosOrderItem[]>) => {
+  const updateTableComputed = (
+    tables: PosTable[],
+    cartByTableId: Record<string, PosOrderItem[]>,
+    draftMetaByTableId: PersistedState['draftMetaByTableId'],
+  ) => {
     return tables.map((t) => {
       const cartItems = cartByTableId[t.id] ?? [];
       const subtotal = calcSubtotal(cartItems);
+      const meta = draftMetaByTableId?.[t.id] || {};
+      const isTakeaway = meta?.orderType === 'takeaway';
+      const takeawayFee = isTakeaway ? Math.max(0, Number(meta?.takeawayFee ?? 0) || 0) : 0;
       return {
         ...t,
         cartItemCount: cartItems.reduce((sum, i) => sum + i.qty, 0),
-        currentTotal: calcTotal(subtotal),
+        currentTotal: calcTotal(subtotal) + takeawayFee,
       };
+    });
+  };
+
+  const getDraftOrderMeta: PosContextType['getDraftOrderMeta'] = (tableId) => {
+    const tid = String(tableId || '').trim();
+    if (!tid) return {};
+    const meta = state.draftMetaByTableId?.[tid] || {};
+    return {
+      orderType: meta?.orderType === 'takeaway' ? 'takeaway' : meta?.orderType === 'dine_in' ? 'dine_in' : undefined,
+      takeawayFee: meta?.takeawayFee == null ? undefined : Math.max(0, Number(meta.takeawayFee) || 0),
+    };
+  };
+
+  const setDraftOrderMeta: PosContextType['setDraftOrderMeta'] = (tableId, meta) => {
+    const tid = String(tableId || '').trim();
+    if (!tid) return;
+    const otRaw = meta?.orderType;
+    const orderType = otRaw === 'takeaway' || otRaw === 'dine_in' ? otRaw : undefined;
+    const takeawayFee = meta?.takeawayFee == null ? undefined : Math.max(0, Number(meta.takeawayFee) || 0);
+
+    setState((s) => {
+      const prev = s.draftMetaByTableId?.[tid] || {};
+      const nextMeta = { ...prev, ...(orderType ? { orderType } : {}), ...(takeawayFee != null ? { takeawayFee } : {}) };
+      const nextDraft = { ...(s.draftMetaByTableId || {}), [tid]: nextMeta };
+      return { ...s, draftMetaByTableId: nextDraft, tables: updateTableComputed(s.tables, s.cartByTableId, nextDraft) };
     });
   };
 
@@ -1682,6 +1816,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...s.tables,
         ],
         s.cartByTableId,
+        s.draftMetaByTableId,
       );
       const nextState = { ...s, tables: nextTables };
       return nextState;
@@ -1731,6 +1866,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const nextTables = updateTableComputed(
         s.tables.filter((t) => t.id !== id),
         nextCartByTableId,
+        s.draftMetaByTableId,
       );
 
       const nextState = {
@@ -1753,6 +1889,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const nextTables = updateTableComputed(
         s.tables.map((t) => (tableIds.includes(t.id) ? { ...t, assignedStaffId: staffId, assignedStaffName: staffId ? staffName : null } : t)),
         s.cartByTableId,
+        s.draftMetaByTableId,
       );
       const nextState = { ...s, tables: nextTables };
       return nextState;
@@ -1818,7 +1955,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const nextCartByTableId = { ...s.cartByTableId, [tableId]: nextItems };
-      const nextTables = updateTableComputed(s.tables, nextCartByTableId);
+      const nextTables = updateTableComputed(s.tables, nextCartByTableId, s.draftMetaByTableId);
 
       return { ...s, cartByTableId: nextCartByTableId, tables: nextTables };
     });
@@ -1829,7 +1966,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const existing = s.cartByTableId[tableId] ?? [];
       const nextItems = existing.map((i) => (i.productId === productId ? { ...i, note } : i));
       const nextCartByTableId = { ...s.cartByTableId, [tableId]: nextItems };
-      const nextTables = updateTableComputed(s.tables, nextCartByTableId);
+      const nextTables = updateTableComputed(s.tables, nextCartByTableId, s.draftMetaByTableId);
       return { ...s, cartByTableId: nextCartByTableId, tables: nextTables };
     });
   };
@@ -1839,7 +1976,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const existing = s.cartByTableId[tableId] ?? [];
       const nextItems = existing.filter((i) => i.productId !== productId);
       const nextCartByTableId = { ...s.cartByTableId, [tableId]: nextItems };
-      const nextTables = updateTableComputed(s.tables, nextCartByTableId);
+      const nextTables = updateTableComputed(s.tables, nextCartByTableId, s.draftMetaByTableId);
       return { ...s, cartByTableId: nextCartByTableId, tables: nextTables };
     });
   };
@@ -1850,7 +1987,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (qty <= 0) {
         const nextItems = existing.filter((i) => i.productId !== productId);
         const nextCartByTableId = { ...s.cartByTableId, [tableId]: nextItems };
-        const nextTables = updateTableComputed(s.tables, nextCartByTableId);
+        const nextTables = updateTableComputed(s.tables, nextCartByTableId, s.draftMetaByTableId);
         return { ...s, cartByTableId: nextCartByTableId, tables: nextTables };
       }
 
@@ -1859,7 +1996,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const nextItems = existing.map((i) => (i.productId === productId ? { ...i, qty } : i));
       const nextCartByTableId = { ...s.cartByTableId, [tableId]: nextItems };
-      const nextTables = updateTableComputed(s.tables, nextCartByTableId);
+      const nextTables = updateTableComputed(s.tables, nextCartByTableId, s.draftMetaByTableId);
 
       return { ...s, cartByTableId: nextCartByTableId, tables: nextTables };
     });
@@ -1869,7 +2006,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((s) => {
       const nextCartByTableId = { ...s.cartByTableId };
       delete nextCartByTableId[tableId];
-      const nextTables = updateTableComputed(s.tables, nextCartByTableId);
+      const nextTables = updateTableComputed(s.tables, nextCartByTableId, s.draftMetaByTableId);
       return { ...s, cartByTableId: nextCartByTableId, tables: nextTables };
     });
   };
@@ -1947,7 +2084,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const items = s.cartByTableId[tableId] ?? [];
         nextCartByTableId[tableId] = items.filter((i) => i.productId !== productId);
       }
-      const nextTables = updateTableComputed(s.tables, nextCartByTableId);
+      const nextTables = updateTableComputed(s.tables, nextCartByTableId, s.draftMetaByTableId);
       return { ...s, products: nextProducts, cartByTableId: nextCartByTableId, tables: nextTables };
     });
   };
@@ -1966,7 +2103,11 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const subtotal = calcSubtotal(cartItems);
     const tax = calcTax(subtotal);
     const serviceCharge = calcServiceCharge(subtotal);
-    const total = calcTotal(subtotal);
+
+    const draftMeta = snap.draftMetaByTableId?.[tableId] || {};
+    const orderType = draftMeta?.orderType === 'takeaway' ? 'takeaway' : 'dine_in';
+    const takeawayFee = orderType === 'takeaway' ? Math.max(0, Number(draftMeta?.takeawayFee ?? 0) || 0) : 0;
+    const total = calcTotal(subtotal) + takeawayFee;
     const now = new Date();
 
     const newOrder: PosOrder = {
@@ -1974,6 +2115,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       number: orderNumberFromId(orderId),
       tableId,
       tableName,
+      orderType,
+      takeawayFee,
       createdByStaffId,
       createdByName,
       items: cartItems,
@@ -2023,6 +2166,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const nextTables = updateTableComputed(
         s.tables.map((t) => (t.id === tableId ? { ...t, status: 'Occupied', openOrderId: orderId } : t)),
         nextCartByTableId,
+        s.draftMetaByTableId,
       );
 
       return {
@@ -2250,6 +2394,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const nextTables = updateTableComputed(
         s.tables.map((t) => (t.id === tableId ? { ...t, status: 'Occupied', openOrderId: orderId } : t)),
         s.cartByTableId,
+        s.draftMetaByTableId,
       );
 
       return {
@@ -2393,7 +2538,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const subtotal = calcSubtotalEffective(nextItems);
         const tax = calcTax(subtotal);
         const serviceCharge = calcServiceCharge(subtotal);
-        const total = calcTotal(subtotal);
+        const takeawayFee = Math.max(0, Number((o as any).takeawayFee ?? 0) || 0);
+        const total = calcTotal(subtotal) + takeawayFee;
         return { ...o, items: nextItems, subtotal, tax, serviceCharge, total, syncedToServer: false };
       });
 
@@ -2486,7 +2632,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...s,
         orders: nextOrders,
         notifications: nextNotifications,
-        tables: updateTableComputed(nextTables, s.cartByTableId),
+        tables: updateTableComputed(nextTables, s.cartByTableId, s.draftMetaByTableId),
       };
     });
 
@@ -2591,7 +2737,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return {
         ...s,
         orders: nextOrders,
-        tables: updateTableComputed(nextTables, s.cartByTableId),
+        tables: updateTableComputed(nextTables, s.cartByTableId, s.draftMetaByTableId),
         notifications: nextNotifications,
         selectedOrderId: s.selectedOrderId === orderId ? null : s.selectedOrderId,
       };
@@ -2642,7 +2788,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const subtotal = calcSubtotalEffective(nextItems);
         const tax = calcTax(subtotal);
         const serviceCharge = calcServiceCharge(subtotal);
-        const total = calcTotal(subtotal);
+        const takeawayFee = Math.max(0, Number((o as any).takeawayFee ?? 0) || 0);
+        const total = calcTotal(subtotal) + takeawayFee;
 
         const nextStatus = nextItems.every((it) => effectiveQty(it) === 0) ? 'Voided' : o.status;
         return {
@@ -2653,7 +2800,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           serviceCharge,
           total,
           status: nextStatus,
-          voidReason: nextStatus === 'Voided' ? reason.trim() : o.voidReason,
+          voidedAt: nextStatus === 'Voided' ? now.toISOString() : (o as any).voidedAt,
+          voidReason: nextStatus === 'Voided' ? String(reason || '').trim() || (o as any).voidReason : (o as any).voidReason,
           syncedToServer: false,
         };
       });
@@ -2691,7 +2839,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return {
         ...s,
         orders: nextOrders,
-        tables: updateTableComputed(nextTables, s.cartByTableId),
+        tables: updateTableComputed(nextTables, s.cartByTableId, s.draftMetaByTableId),
         notifications: nextNotifications,
       };
     });
@@ -2850,7 +2998,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...s,
         products: nextProducts,
         orders: nextOrders,
-        tables: updateTableComputed(nextTables, s.cartByTableId),
+        tables: updateTableComputed(nextTables, s.cartByTableId, s.draftMetaByTableId),
         notifications: nextNotifications,
         selectedOrderId: orderId,
       };
@@ -2978,6 +3126,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCartQty,
     setCartItemNote,
     clearCart,
+    getDraftOrderMeta,
+    setDraftOrderMeta,
     addProduct,
     updateProductDetails,
     deleteProduct,
