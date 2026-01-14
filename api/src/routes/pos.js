@@ -10,6 +10,7 @@ const { makeInitialPosState } = require('./posInitPreset');
 const paymentGatewayService = require('../services/paymentGatewayService');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 const { requireRole, requirePermission } = require('../middleware/permissions');
+const { publish } = require('../services/realtimeHub');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -2019,6 +2020,12 @@ const makePosRouter = () => {
           });
 
         const row = await loadRestaurantTable({ tenantId: req.tenant.id, branchId, tableId: id });
+
+        try {
+          publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'pos.table.upserted', data: { tableId: String(id) } });
+        } catch {
+          // ignore
+        }
         return res.json({ ok: true, tenantId: req.tenant.id, branchId, table: mapRestaurantTableRow(row) });
       } catch (e) {
         return next(e);
@@ -2049,6 +2056,12 @@ const makePosRouter = () => {
           .from('restaurant_tables')
           .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
           .del();
+
+        try {
+          publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'pos.table.deleted', data: { tableId: String(id) } });
+        } catch {
+          // ignore
+        }
 
         return res.json({ ok: true, tenantId: req.tenant.id, branchId, deleted: true });
       } catch (e) {
@@ -2103,6 +2116,12 @@ const makePosRouter = () => {
         if (!updated) return res.status(404).json({ error: 'table_not_found' });
 
         const row = await loadRestaurantTable({ tenantId: req.tenant.id, branchId, tableId: id });
+
+        try {
+          publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'pos.table.updated', data: { tableId: String(id) } });
+        } catch {
+          // ignore
+        }
         return res.json({ ok: true, tenantId: req.tenant.id, branchId, table: mapRestaurantTableRow(row) });
       } catch (e) {
         return next(e);
@@ -2686,6 +2705,12 @@ const makePosRouter = () => {
           }
         });
 
+        try {
+          publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'pos.order.created', data: { orderId: String(id) } });
+        } catch {
+          // ignore
+        }
+
         return res.json({ ok: true, id, createdAt: nowIso });
       } catch (e) {
         return next(e);
@@ -2920,6 +2945,12 @@ const makePosRouter = () => {
         const tableId = typeof afterPayload?.tableId === 'string' ? afterPayload.tableId.trim() : '';
         if (tableId && afterStatus !== beforeStatus) {
           await syncRestaurantTableForOrder({ tenantId: req.tenant.id, branchId, tableId, orderId: id, nextStatus: afterStatus, nowIso: new Date().toISOString() });
+        }
+
+        try {
+          publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'pos.order.updated', data: { orderId: String(id) } });
+        } catch {
+          // ignore
         }
 
         return res.json({ ok: true });

@@ -3,8 +3,8 @@ const express = require('express');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
-const { uid } = require('../utils/ids');
-const { makeId } = require('../utils/ids');
+const { makeId, uid } = require('../utils/ids');
+const { publish } = require('../services/realtimeHub');
 const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
@@ -188,6 +188,12 @@ const makeManagerMenuRouter = () => {
         // ignore audit failures
       }
 
+      try {
+        publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'menu.product.created', data: { productId: String(id) } });
+      } catch {
+        // ignore
+      }
+
       return res.status(201).json({ ok: true, id });
     } catch (e) {
       return next(e);
@@ -261,6 +267,12 @@ const makeManagerMenuRouter = () => {
       } catch {
         // ignore audit failures
       }
+
+      try {
+        publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'menu.product.updated', data: { productId: String(id) } });
+      } catch {
+        // ignore
+      }
       return res.json({ ok: true });
     } catch (e) {
       return next(e);
@@ -300,6 +312,12 @@ const makeManagerMenuRouter = () => {
         });
       } catch {
         // ignore audit failures
+      }
+
+      try {
+        publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'menu.product.deleted', data: { productId: String(id) } });
+      } catch {
+        // ignore
       }
       return res.json({ ok: true });
     } catch (e) {

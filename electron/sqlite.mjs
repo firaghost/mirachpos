@@ -514,6 +514,11 @@ export const openKvDb = (dbDir) => {
   const stmtOutboxList = db.prepare(
     'SELECT id, scope_key, kind, payload, created_at, attempts, next_attempt_at FROM sync_outbox WHERE scope_key = ? AND next_attempt_at <= ? ORDER BY next_attempt_at ASC LIMIT ?',
   );
+  const stmtOutboxCountAll = db.prepare('SELECT COUNT(1) AS n FROM sync_outbox WHERE scope_key = ?');
+  const stmtOutboxCountReady = db.prepare('SELECT COUNT(1) AS n FROM sync_outbox WHERE scope_key = ? AND next_attempt_at <= ?');
+  const stmtOutboxMaxAttempts = db.prepare('SELECT MAX(attempts) AS n FROM sync_outbox WHERE scope_key = ?');
+  const stmtOutboxNextAttemptAtMin = db.prepare('SELECT MIN(next_attempt_at) AS v FROM sync_outbox WHERE scope_key = ?');
+  const stmtOutboxStuckCount = db.prepare('SELECT COUNT(1) AS n FROM sync_outbox WHERE scope_key = ? AND attempts >= ?');
   const stmtOutboxDeleteMany = db.prepare('DELETE FROM sync_outbox WHERE id = ?');
   const stmtOutboxBump = db.prepare('UPDATE sync_outbox SET attempts = attempts + 1, next_attempt_at = ? WHERE id = ?');
 
@@ -869,6 +874,18 @@ export const openKvDb = (dbDir) => {
             return { ...r, payload: p };
           })
         : [];
+    },
+    outboxStats: (args) => {
+      const scopeKey = String(args?.scopeKey || '').trim();
+      if (!scopeKey) return { ok: false };
+      const now = new Date().toISOString();
+      const stuckAfter = Number.isFinite(Number(args?.stuckAfter)) ? Math.max(1, Math.trunc(Number(args.stuckAfter))) : 8;
+      const total = Number(stmtOutboxCountAll.get(scopeKey)?.n || 0) || 0;
+      const ready = Number(stmtOutboxCountReady.get(scopeKey, now)?.n || 0) || 0;
+      const maxAttempts = Number(stmtOutboxMaxAttempts.get(scopeKey)?.n || 0) || 0;
+      const nextAttemptAtMin = String(stmtOutboxNextAttemptAtMin.get(scopeKey)?.v || '') || '';
+      const stuck = Number(stmtOutboxStuckCount.get(scopeKey, stuckAfter)?.n || 0) || 0;
+      return { ok: true, total, ready, maxAttempts, nextAttemptAtMin, stuck, stuckAfter };
     },
     outboxAck: (args) => {
       const ids = Array.isArray(args?.ids) ? args.ids.map((x) => String(x || '')).filter(Boolean) : [];

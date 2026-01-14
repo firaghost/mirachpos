@@ -260,6 +260,8 @@ type PosContextType = {
   tables: PosTable[];
   orders: PosOrder[];
   notifications: PosNotification[];
+  realtime: { connected: boolean; lastErrorAt: string; lastError: string };
+  outbox: { total: number; ready: number; maxAttempts: number; nextAttemptAtMin: string; stuck: number; stuckAfter: number };
   selectedTableId: string | null;
   selectedOrderId: string | null;
   selectTable: (tableId: string | null) => void;
@@ -711,6 +713,15 @@ type ApiPosOrderRow = {
 export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<PersistedState>(() => readState());
   const lastSentRef = useRef<string>('');
+  const lastRefreshAtRef = useRef<number>(0);
+  const realtimeRef = useRef<{ es: EventSource | null; retryTimer: number | null }>({ es: null, retryTimer: null });
+  const stateRef = useRef<PersistedState>(state);
+  const syncInFlightRef = useRef<boolean>(false);
+  const [realtimeStatus, setRealtimeStatus] = useState<{ connected: boolean; lastErrorAt: string; lastError: string }>({
+    connected: false,
+    lastErrorAt: '',
+    lastError: '',
+  });
 
   const getBranchScopeKey = () => {
     try {
@@ -768,6 +779,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const withBranchQuery = (url: string) => {
     try {
+      if (/[?&]branchId=/i.test(url)) return url;
       const s = readSession<any>();
       const role = typeof s?.role === 'string' ? s.role : '';
       const tokenBranch = typeof s?.branchId === 'string' ? s.branchId : '';
@@ -795,10 +807,31 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       posListOrders: typeof pos?.listOrders === 'function' ? (pos.listOrders as (p: any) => Promise<any>) : null,
       outboxEnqueue: typeof outbox?.enqueue === 'function' ? (outbox.enqueue as (p: any) => Promise<any>) : null,
       outboxListReady: typeof outbox?.listReady === 'function' ? (outbox.listReady as (p: any) => Promise<any>) : null,
+      outboxStats: typeof outbox?.stats === 'function' ? (outbox.stats as (p: any) => Promise<any>) : null,
       outboxAck: typeof outbox?.ack === 'function' ? (outbox.ack as (p: any) => Promise<any>) : null,
       outboxBump: typeof outbox?.bump === 'function' ? (outbox.bump as (p: any) => Promise<any>) : null,
     };
   }, []);
+
+  const [outboxStatus, setOutboxStatus] = useState<{ total: number; ready: number; maxAttempts: number; nextAttemptAtMin: string; stuck: number; stuckAfter: number }>(
+    {
+      total: 0,
+      ready: 0,
+      maxAttempts: 0,
+      nextAttemptAtMin: '',
+      stuck: 0,
+      stuckAfter: 8,
+    },
+  );
+
+  const bumpDelayMsForAttempts = (attempts: number) => {
+    const a = Number.isFinite(Number(attempts)) ? Math.max(0, Math.trunc(Number(attempts))) : 0;
+    const base = 2500;
+    const max = 5 * 60_000;
+    const exp = Math.min(max, base * Math.pow(2, Math.min(10, a)));
+    const jitter = 0.75 + Math.random() * 0.5;
+    return Math.max(1000, Math.round(exp * jitter));
+  };
 
   const persistTablesToElectron = useCallback(
     async (scopeKey: string, tables: any[]) => {
@@ -892,10 +925,15 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(state.tables) && state.tables.length) writeBranchCache(scopeKey, { tables: state.tables });
       if (Array.isArray(state.products) && state.products.length) writeBranchCache(scopeKey, { products: state.products });
       if (Array.isArray(state.tables) && state.tables.length) void persistTablesToElectron(scopeKey, state.tables);
+      if (Array.isArray(state.products) && state.products.length && electronApis.posUpsertProducts) {
+        void electronApis.posUpsertProducts({ scopeKey, products: state.products }).catch(() => {
+          // ignore
+        });
+      }
     } catch {
       // ignore
     }
-  }, [isBranchUser, sessionRev, state.tables, state.products, persistTablesToElectron]);
+  }, [isBranchUser, sessionRev, state.tables, state.products, persistTablesToElectron, electronApis.posUpsertProducts]);
 
   useEffect(() => {
     let mounted = true;
@@ -1510,6 +1548,176 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [isBranchUser, electronApis, buildLocalOrderBundle, persistTablesToElectron]);
 
+  useEffect(() => {
+    if (!isBranchUser) return;
+
+    const close = () => {
+      try {
+        const cur = realtimeRef.current;
+        if (cur.retryTimer) window.clearTimeout(cur.retryTimer);
+        cur.retryTimer = null;
+        if (cur.es) cur.es.close();
+        cur.es = null;
+      } catch {
+        // ignore
+      }
+
+      try {
+        setRealtimeStatus((s) => ({ ...s, connected: false }));
+      } catch {
+        // ignore
+      }
+    };
+
+    const connect = () => {
+      try {
+        close();
+
+        if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+        const sess = readSession<any>();
+        const token = typeof sess?.token === 'string' ? sess.token : '';
+        const tenantSlug = typeof sess?.tenantSlug === 'string' ? sess.tenantSlug : typeof sess?.tenant?.slug === 'string' ? sess.tenant.slug : '';
+        const branchId = getEffectiveBranchIdForApi();
+
+        if (!token || !tenantSlug) return;
+
+        const base = (() => {
+          try {
+            const w = window as any;
+            const cfg = w?.mirachpos?.config;
+            const s = typeof cfg?.apiBase === 'string' ? cfg.apiBase.trim() : '';
+            if (s) return s.replace(/\/+$/, '');
+          } catch {
+            // ignore
+          }
+          try {
+            if (typeof window !== 'undefined' && window.location?.protocol === 'file:') return 'https://apa.mirachpos.com';
+          } catch {
+            // ignore
+          }
+          return '';
+        })();
+
+        const path = `/api/realtime/pos?token=${encodeURIComponent(token)}&tenant=${encodeURIComponent(String(tenantSlug).trim().toLowerCase())}${branchId ? `&branchId=${encodeURIComponent(branchId)}` : ''}`;
+        const url = base ? `${base}${path}` : path;
+        const es = new EventSource(url);
+        realtimeRef.current.es = es;
+
+        try {
+          setRealtimeStatus((s) => ({ ...s, connected: true }));
+        } catch {
+          // ignore
+        }
+
+        const onPos = () => {
+          try {
+            const now = Date.now();
+            if (now - lastRefreshAtRef.current < 1500) return;
+            lastRefreshAtRef.current = now;
+            void refreshFromServer();
+          } catch {
+            // ignore
+          }
+        };
+
+        es.addEventListener('pos', onPos as any);
+        es.addEventListener('ready', () => {
+          // initial sync
+          onPos();
+        });
+
+        es.onerror = () => {
+          try {
+            try {
+              setRealtimeStatus({ connected: false, lastErrorAt: new Date().toISOString(), lastError: 'sse_error' });
+            } catch {
+              // ignore
+            }
+
+            try {
+              // Helpful for debugging Electron/browser connectivity issues
+              // eslint-disable-next-line no-console
+              console.warn('[realtime] SSE error; reconnecting...');
+            } catch {
+              // ignore
+            }
+            close();
+            realtimeRef.current.retryTimer = window.setTimeout(() => {
+              connect();
+            }, 2500);
+          } catch {
+            // ignore
+          }
+        };
+      } catch {
+        // ignore
+      }
+    };
+
+    const onOnline = () => connect();
+    connect();
+
+    try {
+      window.addEventListener('online', onOnline);
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      try {
+        window.removeEventListener('online', onOnline);
+      } catch {
+        // ignore
+      }
+      close();
+    };
+  }, [isBranchUser, refreshFromServer]);
+
+  useEffect(() => {
+    if (!isBranchUser) return;
+
+    const tryRefresh = () => {
+      try {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+        const now = Date.now();
+        if (now - lastRefreshAtRef.current < 2500) return;
+        lastRefreshAtRef.current = now;
+        void refreshFromServer();
+      } catch {
+        // ignore
+      }
+    };
+
+    const onOnline = () => tryRefresh();
+    const onFocus = () => tryRefresh();
+    const onVisibility = () => {
+      try {
+        if (document.visibilityState === 'visible') tryRefresh();
+      } catch {
+        // ignore
+      }
+    };
+
+    try {
+      window.addEventListener('online', onOnline);
+      window.addEventListener('focus', onFocus);
+      document.addEventListener('visibilitychange', onVisibility);
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      try {
+        window.removeEventListener('online', onOnline);
+        window.removeEventListener('focus', onFocus);
+        document.removeEventListener('visibilitychange', onVisibility);
+      } catch {
+        // ignore
+      }
+    };
+  }, [isBranchUser, refreshFromServer]);
+
   const persistOrder = useCallback(
     async (order: PosOrder) => {
       if (!isBranchUser) return false;
@@ -1609,97 +1817,146 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [isBranchUser, refreshFromServer]);
 
   useEffect(() => {
-    const trySync = async () => {
-      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-      if (!isBranchUser) {
-        // Local demo sync: mark locally as synced
-        setState((s) => {
-          const hasUnsynced = s.orders.some((o) => o.syncedToServer === false);
-          if (!hasUnsynced) return s;
-          const now = new Date().toISOString();
-          return {
-            ...s,
-            orders: s.orders.map((o) => (o.syncedToServer === false ? { ...o, syncedToServer: true, syncedAt: now } : o)),
-          };
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    if (!isBranchUser) return;
+    const scopeKey = getBranchScopeKey();
+    if (!scopeKey) return;
+    if (!electronApis.outboxStats) return;
+
+    let mounted = true;
+    const run = async () => {
+      try {
+        const res = await electronApis.outboxStats!({ scopeKey, stuckAfter: 8 });
+        if (!mounted) return;
+        if (!res || res.ok !== true) return;
+        setOutboxStatus({
+          total: Number(res.total || 0) || 0,
+          ready: Number(res.ready || 0) || 0,
+          maxAttempts: Number(res.maxAttempts || 0) || 0,
+          nextAttemptAtMin: typeof res.nextAttemptAtMin === 'string' ? res.nextAttemptAtMin : '',
+          stuck: Number(res.stuck || 0) || 0,
+          stuckAfter: Number(res.stuckAfter || 8) || 8,
         });
-        return;
+      } catch {
+        // ignore
       }
+    };
 
-      if (!remoteReady) return;
+    void run();
+    const id = window.setInterval(() => {
+      void run();
+    }, 5000);
+    return () => {
+      mounted = false;
+      window.clearInterval(id);
+    };
+  }, [isBranchUser, sessionRev, electronApis.outboxStats]);
 
-      const scopeKey = getBranchScopeKey();
-      const canOutbox = !!(electronApis.outboxListReady && electronApis.outboxAck && electronApis.outboxBump);
+  useEffect(() => {
+    const trySync = async () => {
+      if (syncInFlightRef.current) return;
+      syncInFlightRef.current = true;
+      try {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+        if (!isBranchUser) {
+          // Local demo sync: mark locally as synced
+          setState((s) => {
+            const hasUnsynced = s.orders.some((o) => o.syncedToServer === false);
+            if (!hasUnsynced) return s;
+            const now = new Date().toISOString();
+            return {
+              ...s,
+              orders: s.orders.map((o) => (o.syncedToServer === false ? { ...o, syncedToServer: true, syncedAt: now } : o)),
+            };
+          });
+          return;
+        }
 
-      if (canOutbox && scopeKey) {
-        try {
-          const pending = await electronApis.outboxListReady!({ scopeKey, limit: 25 });
-          if (Array.isArray(pending) && pending.length > 0) {
-            const ackIds: string[] = [];
-            for (const item of pending) {
-              const id = typeof item?.id === 'string' ? item.id : '';
-              const payload = item?.payload;
-              const kind = typeof item?.kind === 'string' ? String(item.kind) : '';
-              if (!id) continue;
-              try {
-                let res: Response | null = null;
+        if (!remoteReady) return;
 
-                if (kind === 'http') {
-                  const url = typeof payload?.url === 'string' ? payload.url : '';
-                  const method = typeof payload?.method === 'string' ? payload.method : '';
-                  const body = payload?.body;
-                  const headers = payload?.headers && typeof payload.headers === 'object' ? payload.headers : {};
+        const scopeKey = getBranchScopeKey();
+        const canOutbox = !!(electronApis.outboxListReady && electronApis.outboxAck && electronApis.outboxBump);
 
-                  const hdrs: Record<string, string> = { ...(headers || {}) };
-                  const hasBody = body !== undefined;
-                  if (hasBody && !hdrs['Content-Type'] && !hdrs['content-type']) hdrs['Content-Type'] = 'application/json';
+        if (canOutbox && scopeKey) {
+          try {
+            const pending = await electronApis.outboxListReady!({ scopeKey, limit: 25 });
+            if (Array.isArray(pending) && pending.length > 0) {
+              const ackIds: string[] = [];
+              for (const item of pending) {
+                const id = typeof item?.id === 'string' ? item.id : '';
+                const payload = item?.payload;
+                const kind = typeof item?.kind === 'string' ? String(item.kind) : '';
+                if (!id) continue;
+                try {
+                  let res: Response | null = null;
 
-                  res = await apiFetch(withBranchQuery(url), {
-                    method,
-                    headers: hdrs,
-                    body: hasBody ? JSON.stringify(body ?? null) : undefined,
-                  });
-                } else if (kind === 'pos.state') {
-                  // Deprecated legacy behavior.
-                  // We no longer sync whole POS JSON state to the server.
-                  await electronApis.outboxBump!({ id, delayMs: 60_000 });
-                  continue;
-                } else {
-                  await electronApis.outboxBump!({ id, delayMs: 30_000 });
-                  continue;
+                  if (kind === 'http') {
+                    const url = typeof payload?.url === 'string' ? payload.url : '';
+                    const method = typeof payload?.method === 'string' ? payload.method : '';
+                    const body = payload?.body;
+                    const headers = payload?.headers && typeof payload.headers === 'object' ? payload.headers : {};
+
+                    const hdrs: Record<string, string> = { ...(headers || {}) };
+                    const hasBody = body !== undefined;
+                    if (hasBody && !hdrs['Content-Type'] && !hdrs['content-type']) hdrs['Content-Type'] = 'application/json';
+
+                    res = await apiFetch(withBranchQuery(url), {
+                      method,
+                      headers: hdrs,
+                      body: hasBody ? JSON.stringify(body ?? null) : undefined,
+                    });
+                  } else if (kind === 'pos.state') {
+                    // Deprecated legacy behavior.
+                    // We no longer sync whole POS JSON state to the server.
+                    const delayMs = bumpDelayMsForAttempts(Number(item?.attempts || 0) || 0);
+                    await electronApis.outboxBump!({ id, delayMs });
+                    continue;
+                  } else {
+                    const delayMs = bumpDelayMsForAttempts(Number(item?.attempts || 0) || 0);
+                    await electronApis.outboxBump!({ id, delayMs });
+                    continue;
+                  }
+                  if (!res.ok) {
+                    const delayMs = bumpDelayMsForAttempts(Number(item?.attempts || 0) || 0);
+                    await electronApis.outboxBump!({ id, delayMs });
+                    continue;
+                  }
+                  ackIds.push(id);
+                } catch {
+                  const delayMs = bumpDelayMsForAttempts(Number(item?.attempts || 0) || 0);
+                  await electronApis.outboxBump!({ id, delayMs });
                 }
-                if (!res.ok) {
-                  await electronApis.outboxBump!({ id, delayMs: 15000 });
-                  continue;
-                }
-                ackIds.push(id);
-              } catch {
-                await electronApis.outboxBump!({ id, delayMs: 20000 });
+              }
+              if (ackIds.length > 0) {
+                await electronApis.outboxAck!({ ids: ackIds });
               }
             }
-            if (ackIds.length > 0) {
-              await electronApis.outboxAck!({ ids: ackIds });
-            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
         }
+
+        const snapshot = stateRef.current;
+
+        // Persist unsynced orders to DB (so owner dashboard reflects them).
+        const unsyncedOrders = snapshot.orders.filter((o) => o.syncedToServer === false).slice(0, 10);
+        for (const o of unsyncedOrders) {
+          const ok = await persistOrder(o);
+          if (!ok) continue;
+          const now = new Date().toISOString();
+          setState((s) => ({
+            ...s,
+            orders: s.orders.map((x) => (x.id === o.id ? { ...x, syncedToServer: true, syncedAt: now } : x)),
+          }));
+        }
+
+        // Note: We no longer persist whole POS JSON state to the server.
+      } finally {
+        syncInFlightRef.current = false;
       }
-
-      const snapshot = state;
-
-      // Persist unsynced orders to DB (so owner dashboard reflects them).
-      const unsyncedOrders = snapshot.orders.filter((o) => o.syncedToServer === false).slice(0, 10);
-      for (const o of unsyncedOrders) {
-        const ok = await persistOrder(o);
-        if (!ok) continue;
-        const now = new Date().toISOString();
-        setState((s) => ({
-          ...s,
-          orders: s.orders.map((x) => (x.id === o.id ? { ...x, syncedToServer: true, syncedAt: now } : x)),
-        }));
-      }
-
-      // Note: We no longer persist whole POS JSON state to the server.
     };
 
     const id = window.setInterval(() => {
@@ -1713,7 +1970,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.clearInterval(id);
       window.removeEventListener('online', onOnline);
     };
-  }, [isBranchUser, remoteReady, state]);
+  }, [isBranchUser, remoteReady, persistOrder]);
 
   const productsById = useMemo(() => {
     const map = new Map<string, Product>();
@@ -3113,6 +3370,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     tables: state.tables,
     orders: state.orders,
     notifications: state.notifications,
+    realtime: realtimeStatus,
+    outbox: outboxStatus,
     selectedTableId: state.selectedTableId,
     selectedOrderId: state.selectedOrderId,
     selectTable,

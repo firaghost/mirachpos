@@ -9,7 +9,7 @@ interface Props {
 }
 
 export const WaiterSystemStatus: React.FC<Props> = ({ onNavigate }) => {
-  const { orders, notifications, refreshFromServer, markNotificationRead } = usePos();
+  const { orders, notifications, refreshFromServer, markNotificationRead, realtime, outbox } = usePos();
 
   const [actionErr, setActionErr] = useState('');
 
@@ -98,7 +98,14 @@ export const WaiterSystemStatus: React.FC<Props> = ({ onNavigate }) => {
           </div>
           <div className="flex flex-col">
             <h2 className="text-white text-lg font-bold leading-tight">Connectivity & Sync</h2>
-            <p className="text-[#c8ad93] text-xs">Network: {isOnline ? 'Online' : 'Offline'}    Local storage: Enabled</p>
+            <p className="text-[#c8ad93] text-xs">
+              Network: {isOnline ? 'Online' : 'Offline'}    Local storage: Enabled    Realtime: {realtime?.connected ? 'Connected' : 'Disconnected'}
+            </p>
+            <p className="text-[#c8ad93] text-xs">
+              Outbox: {outbox?.total || 0} total    Ready: {outbox?.ready || 0}    Max attempts: {outbox?.maxAttempts || 0}
+              {outbox?.stuck ? `    Stuck: ${outbox.stuck} (>=${outbox.stuckAfter || 8})` : ''}
+            </p>
+            {outbox?.nextAttemptAtMin ? <p className="text-[#c8ad93] text-xs">Next retry: {formatDeviceDateTime(outbox.nextAttemptAtMin)}</p> : null}
           </div>
         </div>
 

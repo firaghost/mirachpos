@@ -12,6 +12,7 @@ const { decryptConfigFields } = require('../utils/secretEncryption');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 const { requireRole, requirePermission } = require('../middleware/permissions');
 const { computeTenantEntitlements, normalizeModules, upsertTenantEntitlementsSnapshot } = require('../services/entitlements');
+const { publish } = require('../services/realtimeHub');
 
 const clampInt = (n, min, max, fallback) => {
   const v = Number(n);
@@ -2560,6 +2561,12 @@ const makeOwnerRouter = () => {
         payload: { productId: id, code },
       });
 
+      try {
+        publish({ tenantId: String(req.tenant.id), branchId: '', type: 'menu.product.created', data: { productId: String(id) } });
+      } catch {
+        // ignore
+      }
+
       return res.status(201).json({ ok: true, product: { id } });
     } catch (e) {
       return next(e);
@@ -2615,6 +2622,12 @@ const makeOwnerRouter = () => {
         summary: 'Updated menu product',
         payload: { productId: id },
       });
+
+      try {
+        publish({ tenantId: String(req.tenant.id), branchId: '', type: 'menu.product.updated', data: { productId: String(id) } });
+      } catch {
+        // ignore
+      }
       return res.json({ ok: true });
     } catch (e) {
       return next(e);
@@ -2648,6 +2661,12 @@ const makeOwnerRouter = () => {
         summary: 'Deleted menu product',
         payload: { productId: id },
       });
+
+      try {
+        publish({ tenantId: String(req.tenant.id), branchId: '', type: 'menu.product.deleted', data: { productId: String(id) } });
+      } catch {
+        // ignore
+      }
       return res.json({ ok: true });
     } catch (e) {
       return next(e);
@@ -2721,6 +2740,12 @@ const makeOwnerRouter = () => {
         summary: `Bulk menu update: ${action}`,
         payload: { action, ids, updated },
       });
+
+      try {
+        publish({ tenantId: String(req.tenant.id), branchId: '', type: 'menu.product.bulk', data: { action: String(action), ids: ids.map(String), updated: Number(updated || 0) || 0 } });
+      } catch {
+        // ignore
+      }
 
       return res.json({ ok: true, updated });
     } catch (e) {

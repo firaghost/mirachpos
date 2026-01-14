@@ -5,9 +5,17 @@ const getTenantSlugFromHeader = (req) => {
   return typeof raw === 'string' ? raw.trim().toLowerCase() : '';
 };
 
+const getTenantSlugFromQuery = (req) => {
+  const raw =
+    (typeof req.query?.tenant === 'string' ? req.query.tenant : '') ||
+    (typeof req.query?.tenantSlug === 'string' ? req.query.tenantSlug : '') ||
+    (typeof req.query?.x_tenant === 'string' ? req.query.x_tenant : '');
+  return typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+};
+
 const tenantMiddleware = async (req, res, next) => {
   try {
-    const slug = getTenantSlugFromHeader(req);
+    const slug = getTenantSlugFromHeader(req) || getTenantSlugFromQuery(req);
     if (!slug) {
       return res.status(400).json({ error: 'tenant_required' });
     }

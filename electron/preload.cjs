@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('mirachpos', {
   outbox: {
     enqueue: (payload) => ipcRenderer.invoke('mirachpos.outbox.enqueue', payload),
     listReady: (payload) => ipcRenderer.invoke('mirachpos.outbox.listReady', payload),
+    stats: (payload) => ipcRenderer.invoke('mirachpos.outbox.stats', payload),
     ack: (payload) => ipcRenderer.invoke('mirachpos.outbox.ack', payload),
     bump: (payload) => ipcRenderer.invoke('mirachpos.outbox.bump', payload),
   },

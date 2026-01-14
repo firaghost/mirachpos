@@ -5,7 +5,10 @@ const { config } = require('../config');
 const requireAuth = (req, res, next) => {
   const hdr = req.header('Authorization') || '';
   const m = /^Bearer\s+(.+)$/.exec(hdr);
-  const token = m ? m[1] : '';
+  const token =
+    (m ? m[1] : '') ||
+    (typeof req.query?.token === 'string' ? String(req.query.token).trim() : '') ||
+    (typeof req.query?.access_token === 'string' ? String(req.query.access_token).trim() : '');
   if (!token) return res.status(401).json({ error: 'unauthorized' });
 
   const strict = String(process.env.STRICT_JWT_SECRET || '') === '1';

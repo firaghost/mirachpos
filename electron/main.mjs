@@ -21,6 +21,12 @@ const isDev = !app.isPackaged;
 const DEV_SERVER_URL = process.env.MIRACHPOS_DEV_URL || 'http://localhost:5173';
 const API_ORIGIN = process.env.MIRACHPOS_API_ORIGIN || (isDev ? 'http://127.0.0.1:3001' : 'https://apa.mirachpos.com');
 
+// Ensure renderer/preload can resolve the same API base consistently.
+// In dev this points to local API; in packaged mode default is hosted API unless overridden.
+if (!process.env.MIRACHPOS_API_BASE) {
+  process.env.MIRACHPOS_API_BASE = API_ORIGIN;
+}
+
 let apiProc = null;
 
 const startApiServerIfNeeded = async () => {
@@ -152,6 +158,9 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('mirachpos.outbox.listReady', async (_evt, payload) => {
     return db.outboxListReady ? db.outboxListReady(payload) : [];
+  });
+  ipcMain.handle('mirachpos.outbox.stats', async (_evt, payload) => {
+    return db.outboxStats ? db.outboxStats(payload) : { ok: false };
   });
   ipcMain.handle('mirachpos.outbox.ack', async (_evt, payload) => {
     return db.outboxAck ? db.outboxAck(payload) : { ok: false };

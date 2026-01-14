@@ -43,6 +43,7 @@ const { makeManagerCustomersRouter } = require('./routes/managerCustomers');
 const { makeEnhancedReportsRouter } = require('./routes/enhancedReports');
 const { makeManagerPrintRouter } = require('./routes/managerPrint');
 const { makeTelebirrStandingOrderRouter } = require('./routes/telebirrStandingOrder');
+const { makeRealtimeRouter } = require('./routes/realtime');
 
 
 const createApp = () => {
@@ -839,6 +840,7 @@ const createApp = () => {
   app.use('/api', makeEnhancedReportsRouter());
   app.use('/api', makeManagerPrintRouter());
   app.use('/api', makeTelebirrStandingOrderRouter());
+  app.use('/api', makeRealtimeRouter());
 
   // ==========================================================================
   // ERROR HANDLING
