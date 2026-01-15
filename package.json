@@ -100,7 +100,8 @@
       {
         "provider": "github",
         "owner": "firaghost",
-        "repo": "mirachpos-releases"
+        "repo": "mirachpos-releases",
+        "releaseType": "release"
       }
     ]
   }

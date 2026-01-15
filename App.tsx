@@ -466,6 +466,8 @@ const AppContent: React.FC = () => {
   const [upgradeModalDismissed, setUpgradeModalDismissed] = useState(false);
   const [moduleBlocked, setModuleBlocked] = useState<{ error: string; module: string; path: string } | null>(null);
   const [accessDenied, setAccessDenied] = useState<{ error: string; path: string } | null>(null);
+  const [updaterState, setUpdaterState] = useState<any>(null);
+  const [updaterDismissed, setUpdaterDismissed] = useState(false);
   const upgradeModalKey = (() => {
     if (userRole !== UserRole.CAFE_OWNER) return '';
     if (currentScreen === Screen.LOGIN) return '';
@@ -494,6 +496,37 @@ const AppContent: React.FC = () => {
       setUpgradeModalDismissed(false);
     }
   }, [upgradeModalKey]);
+
+  useEffect(() => {
+    const u = (window as any)?.mirachpos?.updater;
+    if (!u) return;
+
+    let unsub: any = null;
+    try {
+      unsub = u.onState((st: any) => {
+        setUpdaterState(st || null);
+        if (st?.status === 'available' || st?.status === 'downloading' || st?.status === 'downloaded') {
+          setUpdaterDismissed(false);
+        }
+      });
+    } catch {
+      // ignore
+    }
+
+    try {
+      Promise.resolve(u.getState()).then((st: any) => setUpdaterState(st || null));
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      try {
+        if (typeof unsub === 'function') unsub();
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const onBlocked = (ev: any) => {
@@ -646,6 +679,116 @@ const AppContent: React.FC = () => {
       />
 
       <main className="flex-1 h-full overflow-hidden bg-gray-50 dark:bg-background relative transition-colors duration-200 pb-8">
+        {(() => {
+          if (updaterDismissed) return null;
+          const st = updaterState && typeof updaterState === 'object' ? updaterState : null;
+          const status = String(st?.status || '');
+          if (status !== 'available' && status !== 'downloading' && status !== 'downloaded' && status !== 'error') return null;
+
+          const infoVersion = (() => {
+            try {
+              return String(st?.info?.version || '');
+            } catch {
+              return '';
+            }
+          })();
+
+          const percent = (() => {
+            try {
+              const p = Number(st?.progress?.percent);
+              return Number.isFinite(p) ? Math.max(0, Math.min(100, p)) : null;
+            } catch {
+              return null;
+            }
+          })();
+
+          const onDownload = async () => {
+            try {
+              const u = (window as any)?.mirachpos?.updater;
+              if (!u) return;
+              await u.download();
+            } catch {
+              // ignore
+            }
+          };
+
+          const onInstall = async () => {
+            try {
+              const u = (window as any)?.mirachpos?.updater;
+              if (!u) return;
+              await u.quitAndInstall();
+            } catch {
+              // ignore
+            }
+          };
+
+          return (
+            <div className="absolute top-0 left-0 right-0 z-[111] p-3">
+              <div className="mx-auto max-w-5xl rounded-xl border border-[#483c23] bg-[#221c11] text-[#c9b792] px-4 py-3 flex items-start justify-between gap-4 shadow-xl">
+                <div className="flex flex-col">
+                  <div className="text-white font-extrabold text-sm">
+                    {status === 'error'
+                      ? 'Update error'
+                      : status === 'downloaded'
+                        ? 'Update ready to install'
+                        : status === 'downloading'
+                          ? 'Downloading update…'
+                          : 'Update available'}
+                    {infoVersion ? <span className="ml-2 text-[#c9b792] font-bold">v{infoVersion}</span> : null}
+                  </div>
+                  <div className="text-xs mt-1">
+                    {status === 'error'
+                      ? String(st?.error || 'Update failed. Please try again.')
+                      : status === 'downloaded'
+                        ? 'Restart MirachPOS to finish installing the update.'
+                        : status === 'downloading'
+                          ? percent === null
+                            ? 'Downloading…'
+                            : `Downloading… ${percent.toFixed(0)}%`
+                          : 'A new version is available. Download now to update.'}
+                  </div>
+                  {status === 'downloading' && percent !== null ? (
+                    <div className="mt-2 h-2 w-full max-w-md rounded-full bg-[#2d261a] overflow-hidden">
+                      <div className="h-full bg-[#eead2b]" style={{ width: `${percent}%` }} />
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {status === 'available' ? (
+                    <button
+                      type="button"
+                      onClick={onDownload}
+                      className="h-9 px-3 rounded-lg border border-[#483c23] bg-[#2d261a] text-[#c9b792] text-xs font-bold hover:text-white hover:bg-[#362e21]"
+                    >
+                      Download
+                    </button>
+                  ) : null}
+
+                  {status === 'downloaded' ? (
+                    <button
+                      type="button"
+                      onClick={onInstall}
+                      className="h-9 px-3 rounded-lg border border-[#eead2b]/40 bg-[#eead2b]/15 text-white text-xs font-extrabold hover:bg-[#eead2b]/25"
+                    >
+                      Restart to update
+                    </button>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={() => setUpdaterDismissed(true)}
+                    className="h-9 w-9 rounded-lg border border-[#483c23] bg-[#2d261a] text-[#c9b792] hover:text-white hover:bg-[#362e21] flex items-center justify-center"
+                    aria-label="Dismiss"
+                  >
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {moduleBlocked ? (
           <div className="absolute top-0 left-0 right-0 z-[110] p-3">
             <div className="mx-auto max-w-5xl rounded-xl border border-[#483c23] bg-[#221c11] text-[#c9b792] px-4 py-3 flex items-start justify-between gap-4 shadow-xl">

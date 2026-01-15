@@ -13,6 +13,29 @@ contextBridge.exposeInMainWorld('mirachpos', {
   config: {
     apiBase,
   },
+  updater: {
+    getState: () => ipcRenderer.invoke('mirachpos.updater.getState'),
+    check: () => ipcRenderer.invoke('mirachpos.updater.check'),
+    download: () => ipcRenderer.invoke('mirachpos.updater.download'),
+    quitAndInstall: () => ipcRenderer.invoke('mirachpos.updater.quitAndInstall'),
+    onState: (cb) => {
+      const handler = (_evt, payload) => {
+        try {
+          if (typeof cb === 'function') cb(payload);
+        } catch {
+          // ignore
+        }
+      };
+      ipcRenderer.on('mirachpos.updater.state', handler);
+      return () => {
+        try {
+          ipcRenderer.removeListener('mirachpos.updater.state', handler);
+        } catch {
+          // ignore
+        }
+      };
+    },
+  },
   db: {
     get: (key) => ipcRenderer.invoke('mirachpos.db.get', key),
     set: (key, value) => ipcRenderer.invoke('mirachpos.db.set', key, value),

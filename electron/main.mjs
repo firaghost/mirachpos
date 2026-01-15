@@ -21,6 +21,33 @@ const isDev = !app.isPackaged;
 const DEV_SERVER_URL = process.env.MIRACHPOS_DEV_URL || 'http://localhost:5173';
 const API_ORIGIN = process.env.MIRACHPOS_API_ORIGIN || (isDev ? 'http://127.0.0.1:3001' : 'https://apa.mirachpos.com');
 
+let mainWindow = null;
+
+const updaterState = {
+  status: 'idle',
+  info: null,
+  progress: null,
+  error: null,
+};
+
+const broadcastUpdaterState = () => {
+  try {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('mirachpos.updater.state', updaterState);
+  } catch {
+    // ignore
+  }
+};
+
+const setUpdaterState = (patch) => {
+  try {
+    Object.assign(updaterState, patch || {});
+    broadcastUpdaterState();
+  } catch {
+    // ignore
+  }
+};
+
 // Ensure renderer/preload can resolve the same API base consistently.
 // In dev this points to local API; in packaged mode default is hosted API unless overridden.
 if (!process.env.MIRACHPOS_API_BASE) {
@@ -95,8 +122,86 @@ const createMainWindow = async () => {
   return win;
 };
 
+const wireAutoUpdater = () => {
+  try {
+    if (!autoUpdater || isDev) return;
+
+    try {
+      autoUpdater.autoDownload = false;
+    } catch {
+      // ignore
+    }
+
+    autoUpdater.on('checking-for-update', () => {
+      setUpdaterState({ status: 'checking', error: null, progress: null });
+    });
+
+    autoUpdater.on('update-available', (info) => {
+      setUpdaterState({ status: 'available', info: info || null, error: null, progress: null });
+    });
+
+    autoUpdater.on('update-not-available', (info) => {
+      setUpdaterState({ status: 'not-available', info: info || null, error: null, progress: null });
+    });
+
+    autoUpdater.on('download-progress', (progress) => {
+      setUpdaterState({ status: 'downloading', progress: progress || null, error: null });
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+      setUpdaterState({ status: 'downloaded', info: info || null, error: null, progress: null });
+    });
+
+    autoUpdater.on('error', (err) => {
+      const msg = (() => {
+        try {
+          return String(err?.message || err || '');
+        } catch {
+          return '';
+        }
+      })();
+      setUpdaterState({ status: 'error', error: msg || 'Update failed', progress: null });
+    });
+
+    ipcMain.handle('mirachpos.updater.getState', async () => {
+      return updaterState;
+    });
+    ipcMain.handle('mirachpos.updater.check', async () => {
+      try {
+        if (!autoUpdater) return { ok: false };
+        await autoUpdater.checkForUpdates();
+        return { ok: true };
+      } catch {
+        return { ok: false };
+      }
+    });
+    ipcMain.handle('mirachpos.updater.download', async () => {
+      try {
+        if (!autoUpdater) return { ok: false };
+        await autoUpdater.downloadUpdate();
+        return { ok: true };
+      } catch {
+        return { ok: false };
+      }
+    });
+    ipcMain.handle('mirachpos.updater.quitAndInstall', async () => {
+      try {
+        if (!autoUpdater) return { ok: false };
+        autoUpdater.quitAndInstall();
+        return { ok: true };
+      } catch {
+        return { ok: false };
+      }
+    });
+  } catch {
+    // ignore
+  }
+};
+
 app.whenReady().then(async () => {
   await startApiServerIfNeeded();
+
+  wireAutoUpdater();
 
   ipcMain.handle('mirachpos.db.get', async (_evt, key) => {
     return db.get(String(key || ''));
@@ -169,11 +274,12 @@ app.whenReady().then(async () => {
     return db.outboxBumpAttempt ? db.outboxBumpAttempt(payload) : { ok: false };
   });
 
-  await createMainWindow();
+  mainWindow = await createMainWindow();
+  broadcastUpdaterState();
 
   if (!isDev && autoUpdater) {
     try {
-      autoUpdater.checkForUpdatesAndNotify();
+      await autoUpdater.checkForUpdates();
     } catch {
       // ignore
     }
