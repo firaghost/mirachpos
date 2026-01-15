@@ -680,10 +680,43 @@ const AppContent: React.FC = () => {
 
       <main className="flex-1 h-full overflow-hidden bg-gray-50 dark:bg-background relative transition-colors duration-200 pb-8">
         {(() => {
+          const st = updaterState && typeof updaterState === 'object' ? updaterState : null;
+          const status = String(st?.status || '');
+          const percent = (() => {
+            try {
+              const p = Number(st?.progress?.percent);
+              return Number.isFinite(p) ? Math.max(0, Math.min(100, p)) : null;
+            } catch {
+              return null;
+            }
+          })();
+
+          if (status !== 'checking' && status !== 'downloading' && status !== 'installing') return null;
+
+          const label =
+            status === 'installing'
+              ? 'Installing update…'
+              : status === 'downloading'
+                ? percent === null
+                  ? 'Downloading update…'
+                  : `Downloading update… ${percent.toFixed(0)}%`
+                : 'Checking for updates…';
+
+          return (
+            <div className="absolute top-3 right-3 z-[120]">
+              <div className="flex items-center gap-2 rounded-full border border-[#483c23] bg-[#221c11] px-3 py-2 shadow-xl">
+                <span className="h-4 w-4 rounded-full border-2 border-[#eead2b]/30 border-t-[#eead2b] animate-spin" />
+                <span className="text-[11px] font-bold text-[#c9b792] whitespace-nowrap">{label}</span>
+              </div>
+            </div>
+          );
+        })()}
+
+        {(() => {
           if (updaterDismissed) return null;
           const st = updaterState && typeof updaterState === 'object' ? updaterState : null;
           const status = String(st?.status || '');
-          if (status !== 'available' && status !== 'downloading' && status !== 'downloaded' && status !== 'error') return null;
+          if (status !== 'downloading' && status !== 'downloaded' && status !== 'error') return null;
 
           const infoVersion = (() => {
             try {
@@ -755,16 +788,6 @@ const AppContent: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {status === 'available' ? (
-                    <button
-                      type="button"
-                      onClick={onDownload}
-                      className="h-9 px-3 rounded-lg border border-[#483c23] bg-[#2d261a] text-[#c9b792] text-xs font-bold hover:text-white hover:bg-[#362e21]"
-                    >
-                      Download
-                    </button>
-                  ) : null}
-
                   {status === 'downloaded' ? (
                     <button
                       type="button"

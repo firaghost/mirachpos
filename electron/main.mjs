@@ -23,6 +23,9 @@ const API_ORIGIN = process.env.MIRACHPOS_API_ORIGIN || (isDev ? 'http://127.0.0.
 
 let mainWindow = null;
 
+const UPDATE_CHECK_INTERVAL_MS = 360 * 60 * 1000;
+let updateCheckInterval = null;
+
 const updaterState = {
   status: 'idle',
   info: null,
@@ -140,7 +143,13 @@ const wireAutoUpdater = () => {
     }
 
     try {
-      autoUpdater.autoDownload = false;
+      autoUpdater.autoDownload = true;
+    } catch {
+      // ignore
+    }
+
+    try {
+      autoUpdater.autoInstallOnAppQuit = true;
     } catch {
       // ignore
     }
@@ -163,6 +172,10 @@ const wireAutoUpdater = () => {
 
     autoUpdater.on('update-downloaded', (info) => {
       setUpdaterState({ status: 'downloaded', info: info || null, error: null, progress: null });
+    });
+
+    autoUpdater.on('before-quit-for-update', () => {
+      setUpdaterState({ status: 'installing', error: null });
     });
 
     autoUpdater.on('error', (err) => {
@@ -205,7 +218,8 @@ const wireAutoUpdater = () => {
     ipcMain.handle('mirachpos.updater.quitAndInstall', async () => {
       try {
         if (!autoUpdater) return { ok: false };
-        autoUpdater.quitAndInstall();
+        setUpdaterState({ status: 'installing', error: null });
+        autoUpdater.quitAndInstall(true, true);
         return { ok: true };
       } catch {
         return { ok: false };
@@ -298,6 +312,21 @@ app.whenReady().then(async () => {
   if (!isDev && autoUpdater) {
     try {
       await autoUpdater.checkForUpdates();
+    } catch {
+      // ignore
+    }
+
+    try {
+      if (!updateCheckInterval) {
+        updateCheckInterval = setInterval(async () => {
+          try {
+            if (!autoUpdater) return;
+            await autoUpdater.checkForUpdates();
+          } catch {
+            // ignore
+          }
+        }, UPDATE_CHECK_INTERVAL_MS);
+      }
     } catch {
       // ignore
     }
