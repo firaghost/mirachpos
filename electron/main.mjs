@@ -126,6 +126,19 @@ const wireAutoUpdater = () => {
   try {
     if (!autoUpdater || isDev) return;
 
+    // Production hardening:
+    // GitHubProvider can fall back to parsing GitHub HTML/Atom feeds which sometimes results
+    // in 406/404 responses in the wild. Using a generic feed URL to GitHub's "latest" download
+    // makes update checks deterministic as long as the release contains latest.yml.
+    try {
+      autoUpdater.setFeedURL({
+        provider: 'generic',
+        url: 'https://github.com/firaghost/mirachpos-releases/releases/latest/download',
+      });
+    } catch {
+      // ignore
+    }
+
     try {
       autoUpdater.autoDownload = false;
     } catch {
@@ -155,12 +168,17 @@ const wireAutoUpdater = () => {
     autoUpdater.on('error', (err) => {
       const msg = (() => {
         try {
-          return String(err?.message || err || '');
+          const raw = String(err?.message || err || '');
+          // Keep production UX clean: remove stack traces / huge request dumps.
+          const firstLine = raw.split('\n')[0] || raw;
+          if (firstLine.toLowerCase().includes('latest.yml')) return 'Update files are missing on the server. Please try again later.';
+          if (firstLine.toLowerCase().includes('unable to find latest version')) return 'Unable to check for updates right now. Please try again later.';
+          return firstLine || 'Update failed';
         } catch {
-          return '';
+          return 'Update failed';
         }
       })();
-      setUpdaterState({ status: 'error', error: msg || 'Update failed', progress: null });
+      setUpdaterState({ status: 'error', error: msg, progress: null });
     });
 
     ipcMain.handle('mirachpos.updater.getState', async () => {
