@@ -308,22 +308,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
           <>
             <Section title="Live Operations">
               <NavItem screen={Screen.WAITER_DASHBOARD} icon="grid_view" label="Floor Map" />
-              <NavItem screen={Screen.WAITER_MENU} icon="restaurant_menu" label="Digital Menu" />
+              <NavItem screen={Screen.WAITER_MENU} icon="restaurant_menu" label="Order Builder" />
               <NavItem screen={Screen.WAITER_ACTIVE_ORDERS} icon="receipt_long" label="Active Orders" />
             </Section>
 
             <Section title="Kitchen">
-              <NavItem screen={Screen.WAITER_STATUS} icon="soup_kitchen" label="Service Board" badge={readyBadge > 0 ? String(readyBadge) : undefined} />
-              <NavItem screen={Screen.WAITER_KDS} icon="skillet" label="Full KDS View" />
+              <NavItem screen={Screen.WAITER_STATUS} icon="soup_kitchen" label="Kitchen Board" badge={readyBadge > 0 ? String(readyBadge) : undefined} />
+              <NavItem screen={Screen.WAITER_KDS} icon="skillet" label="Kitchen Display" />
             </Section>
 
             <Section title="Me & My Shift">
-              <NavItem screen={Screen.WAITER_HISTORY} icon="history" label="My History" />
+              <NavItem screen={Screen.WAITER_HISTORY} icon="history" label="Order History" />
               <NavItem screen={Screen.WAITER_SHIFT_REPORT} icon="assessment" label="Shift Report" />
               <NavItem screen={Screen.WAITER_SCHEDULE} icon="schedule" label="Schedule" />
-              <NavItem screen={Screen.WAITER_NOTIFICATIONS} icon="notifications" label="Inbox" badge={unreadBadge > 0 ? String(unreadBadge) : undefined} />
-              <NavItem screen={Screen.WAITER_SYSTEM} icon="wifi" label="Connectivity" />
-              <NavItem screen={Screen.WAITER_SETTINGS} icon="lock" label="Auth Settings" />
+              <NavItem screen={Screen.WAITER_NOTIFICATIONS} icon="notifications" label="Notifications" badge={unreadBadge > 0 ? String(unreadBadge) : undefined} />
+              <NavItem screen={Screen.WAITER_SYSTEM} icon="wifi" label="Network" />
+              <NavItem screen={Screen.WAITER_SETTINGS} icon="lock" label="Security" />
             </Section>
           </>
         )}
@@ -331,34 +331,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
         {(role === UserRole.BRANCH_MANAGER || ownerActsAsManager) && (
           <>
             <Section title="Local Branch">
-              <NavItem screen={Screen.MANAGER_DASHBOARD} icon="dashboard" label="Console" />
-              <NavItem screen={Screen.DESKTOP_DRAFT_INBOX} icon="inbox" label="Drafts" />
-              <NavItem screen={Screen.MANAGER_ORDERS} icon="receipt_long" label="Orders List" />
-              <NavItem screen={Screen.TABLE_ASSIGNMENT} icon="table_restaurant" label="Tables Map" />
+              <NavItem screen={Screen.MANAGER_DASHBOARD} icon="dashboard" label="Dashboard" />
+              <NavItem screen={Screen.DESKTOP_DRAFT_INBOX} icon="inbox" label="Draft Orders" />
+              <NavItem screen={Screen.MANAGER_ORDERS} icon="receipt_long" label="Orders" />
+              <NavItem screen={Screen.TABLE_ASSIGNMENT} icon="table_restaurant" label="Floor Plan" />
             </Section>
 
             <Section title="Resources">
-              <NavItem screen={Screen.GUESTS} icon="contacts" label="Guest List" />
+              <NavItem screen={Screen.GUESTS} icon="contacts" label="Guests" />
               <NavItem screen={Screen.MANAGER_CUSTOMERS} icon="person" label="Customers" />
               <NavItem screen={Screen.MANAGER_INVENTORY} icon="inventory" label="Inventory" />
-              {showItem(Screen.MANAGER_MENU_BUILDER) && <NavItem screen={Screen.MANAGER_MENU_BUILDER} icon="restaurant_menu" label="Menu Editor" />}
-              <NavItem screen={Screen.MANAGER_STAFF} icon="badge" label="My Team" />
-              <NavItem screen={Screen.STAFF_SCHEDULE} icon="schedule" label="Roster" />
+              {showItem(Screen.MANAGER_MENU_BUILDER) && <NavItem screen={Screen.MANAGER_MENU_BUILDER} icon="restaurant_menu" label="Menu Management" />}
+              <NavItem screen={Screen.MANAGER_STAFF} icon="badge" label="Staff" />
+              <NavItem screen={Screen.STAFF_SCHEDULE} icon="schedule" label="Staff Schedule" />
             </Section>
 
             <Section title="Performance">
-              <NavItem screen={Screen.MANAGER_FINANCE} icon="payments" label="Cash Flow" />
-              <NavItem screen={Screen.MANAGER_REPORTS} icon="analytics" label="Analytics" />
-              <NavItem screen={Screen.MANAGER_SETTINGS} icon="settings" label="App Config" />
+              <NavItem screen={Screen.MANAGER_FINANCE} icon="payments" label="Finance" />
+              <NavItem screen={Screen.MANAGER_REPORTS} icon="analytics" label="Reports" />
+              <NavItem screen={Screen.MANAGER_SETTINGS} icon="settings" label="Settings" />
               <NavItem screen={Screen.SUPPORT_REQUEST} icon="support_agent" label="Support" />
-              <NavItem screen={Screen.WAITER_SETTINGS} icon="lock" label="Auth Settings" />
+              <NavItem screen={Screen.WAITER_SETTINGS} icon="lock" label="Security" />
             </Section>
 
             {ownerActsAsManager && (
               <Section title="Ownership">
                 <NavItem screen={Screen.OWNER_SETTINGS} icon="settings" label="Settings" />
-                <NavItem screen={Screen.OWNER_BILLING} icon="credit_card" label="Billing & Plan" />
-                <NavItem screen={Screen.OWNER_AUDIT} icon="fact_check" label="Security Audit" />
+                <NavItem screen={Screen.OWNER_BILLING} icon="credit_card" label="Billing" />
+                <NavItem screen={Screen.OWNER_AUDIT} icon="fact_check" label="Audit Log" />
               </Section>
             )}
           </>
@@ -367,24 +367,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
         {role === UserRole.CAFE_OWNER && !ownerActsAsManager && (
           <>
             <Section title="HQ Overview">
-              <NavItem screen={Screen.OWNER_DASHBOARD} icon="dashboard" label="Global Desk" />
-              <NavItem screen={Screen.OWNER_BRANCHES} icon="store" label="My Branches" />
-              <NavItem screen={Screen.OWNER_REPORTS} icon="bar_chart" label="Total Stats" />
+              <NavItem screen={Screen.OWNER_DASHBOARD} icon="dashboard" label="Dashboard" />
+              <NavItem screen={Screen.OWNER_BRANCHES} icon="store" label="Branches" />
+              <NavItem screen={Screen.OWNER_REPORTS} icon="bar_chart" label="Reports" />
             </Section>
 
             <Section title="Enterprise">
-              <NavItem screen={Screen.OWNER_INVENTORY} icon="inventory_2" label="Global Stock" />
-              <NavItem screen={Screen.OWNER_STAFF} icon="group" label="Global Staff" />
-              <NavItem screen={Screen.STAFF_SCHEDULE} icon="calendar_today" label="Schedules" />
-              <NavItem screen={Screen.OWNER_FINANCE} icon="payments" label="Audit Finance" />
+              <NavItem screen={Screen.OWNER_INVENTORY} icon="inventory_2" label="Inventory" />
+              <NavItem screen={Screen.OWNER_STAFF} icon="group" label="Staff" />
+              <NavItem screen={Screen.STAFF_SCHEDULE} icon="calendar_today" label="Staff Schedule" />
+              <NavItem screen={Screen.OWNER_FINANCE} icon="payments" label="Finance" />
             </Section>
 
             <Section title="Platform Management">
-              <NavItem screen={Screen.OWNER_MENU} icon="restaurant_menu" label="Master Menu" />
-              <NavItem screen={Screen.OWNER_BILLING} icon="credit_card" label="Billing & Subscription" />
-              <NavItem screen={Screen.OWNER_SETTINGS} icon="settings" label="Global Config" />
-              <NavItem screen={Screen.OWNER_AUDIT} icon="fact_check" label="Global Audit" />
-              <NavItem screen={Screen.SUPPORT_REQUEST} icon="support_agent" label="Expert Help" />
+              <NavItem screen={Screen.OWNER_MENU} icon="restaurant_menu" label="Menu Management" />
+              <NavItem screen={Screen.OWNER_BILLING} icon="credit_card" label="Billing" />
+              <NavItem screen={Screen.OWNER_SETTINGS} icon="settings" label="Settings" />
+              <NavItem screen={Screen.OWNER_AUDIT} icon="fact_check" label="Audit Log" />
+              <NavItem screen={Screen.SUPPORT_REQUEST} icon="support_agent" label="Support" />
             </Section>
           </>
         )}
@@ -395,8 +395,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
               <NavItem screen={Screen.SA_OVERVIEW} icon="space_dashboard" label="Overview" />
               <NavItem screen={Screen.SA_TENANTS} icon="storefront" label="Tenants" />
               <NavItem screen={Screen.SA_ONBOARDING} icon="auto_awesome" label="Onboarding" />
-              <NavItem screen={Screen.SA_BILLING} icon="monetization_on" label="Billing & Revenue" />
-              <NavItem screen={Screen.SA_PAYMENT_CONFIG} icon="account_balance" label="Payment Config" />
+              <NavItem screen={Screen.SA_BILLING} icon="monetization_on" label="Billing" />
+              <NavItem screen={Screen.SA_PAYMENT_CONFIG} icon="account_balance" label="Payment Settings" />
               <NavItem screen={Screen.SA_INTEGRATIONS} icon="extension" label="Integrations" />
               <NavItem screen={Screen.SA_ADDONS} icon="widgets" label="Add-ons" />
               <NavItem screen={Screen.SA_DEMO_REQUESTS} icon="campaign" label="Demo Requests" />
@@ -404,7 +404,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
 
             <Section title="System">
               <NavItem screen={Screen.SA_SYSTEM_HEALTH} icon="monitor_heart" label="System Health" />
-              <NavItem screen={Screen.SA_SUPPORT} icon="contact_support" label="Support Desk" />
+              <NavItem screen={Screen.SA_SUPPORT} icon="contact_support" label="Support" />
               <NavItem screen={Screen.SA_AUDIT} icon="history_edu" label="Audit Logs" />
               {showItem(Screen.SA_FEATURE_FLAGS) && <NavItem screen={Screen.SA_FEATURE_FLAGS} icon="flag" label="Feature Flags" />}
               <NavItem screen={Screen.SA_SETTINGS} icon="admin_panel_settings" label="Platform Settings" />

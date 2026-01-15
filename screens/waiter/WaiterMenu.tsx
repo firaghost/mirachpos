@@ -136,44 +136,40 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">
-      {/* Top Header */}
-      <header className="flex-none flex items-center justify-between whitespace-nowrap bg-[#2c241b] px-6 py-4 z-20 shadow-sm border-b border-[#483c23]/50">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-3 text-white group cursor-pointer" onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}>
-            <div className="w-10 h-10 flex items-center justify-center bg-[#eead2b] text-[#221c11] rounded-xl shadow-md group-hover:bg-[#d49619] transition-colors">
-              <span className="material-symbols-outlined text-2xl">arrow_back</span>
+    <div className="flex flex-col md:flex-row h-full overflow-hidden bg-[#221c10] text-white">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        {/* Top Header */}
+        <header className="flex-none flex items-center justify-between whitespace-nowrap bg-[#2c241b] px-6 py-4 z-20 shadow-sm border-b border-[#483c23]/50">
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-3 text-white group cursor-pointer" onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}>
+              <div className="w-10 h-10 flex items-center justify-center bg-[#eead2b] text-[#221c11] rounded-xl shadow-md group-hover:bg-[#d49619] transition-colors">
+                <span className="material-symbols-outlined text-2xl">arrow_back</span>
+              </div>
+              <h2 className="text-white text-2xl font-bold tracking-tight">Order<span className="font-light text-[#eead2b]">Builder</span></h2>
             </div>
-            <h2 className="text-white text-2xl font-bold tracking-tight">Order<span className="font-light text-[#eead2b]">Builder</span></h2>
+            <label className="flex flex-col min-w-80 h-11 hidden md:flex">
+              <div className="flex w-full flex-1 items-center rounded-2xl h-full bg-[#1a1612] border border-transparent focus-within:border-[#eead2b]/50 focus-within:shadow-sm transition-all duration-300">
+                <div className="text-[#c9b792] flex items-center justify-center pl-4">
+                  <span className="material-symbols-outlined text-[22px]">search</span>
+                </div>
+                <input
+                  value={menuQuery}
+                  onChange={(e) => setMenuQuery(e.target.value)}
+                  className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-2xl bg-transparent border-none focus:ring-0 placeholder:text-[#c9b792]/70 px-3 text-base font-medium text-white"
+                  placeholder="Search menu..."
+                />
+              </div>
+            </label>
           </div>
-          <label className="flex flex-col min-w-80 h-11 hidden md:flex">
-            <div className="flex w-full flex-1 items-center rounded-2xl h-full bg-[#1a1612] border border-transparent focus-within:border-[#eead2b]/50 focus-within:shadow-sm transition-all duration-300">
-              <div className="text-[#c9b792] flex items-center justify-center pl-4">
-                <span className="material-symbols-outlined text-[22px]">search</span>
-              </div>
-              <input
-                value={menuQuery}
-                onChange={(e) => setMenuQuery(e.target.value)}
-                className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-2xl bg-transparent border-none focus:ring-0 placeholder:text-[#c9b792]/70 px-3 text-base font-medium text-white"
-                placeholder="Search menu..."
-              />
-            </div>
-          </label>
-        </div>
-      </header>
+        </header>
 
-      <main className="flex flex-1 overflow-hidden relative">
-        <section className="flex-1 flex overflow-hidden relative bg-[#1a1612]">
-          <div className="flex-1 flex flex-col min-w-0 bg-[#1a1612] overflow-hidden">
-            <div className="px-6 py-5 flex items-end justify-between shrink-0">
+        <main className="flex flex-1 overflow-hidden relative">
+          <section className="flex-1 flex overflow-hidden relative bg-[#1a1612]">
+            <div className="flex-1 flex flex-col min-w-0 bg-[#1a1612] overflow-hidden">
+            <div className="px-6 pt-5 pb-4 shrink-0">
               <div className="min-w-0">
-                <p className="text-[#c9b792] text-sm truncate">{menuCategory !== 'All' ? ` / ${menuCategory}` : ''}</p>
-                <h1 className="text-2xl font-bold text-white mt-1 truncate">{menuCategory === 'All' ? 'Menu' : menuCategory}</h1>
               </div>
-            </div>
-
-            <div className="px-6 pb-4 shrink-0">
-              <div className="flex gap-2 overflow-x-auto no-scrollbar">
+              <div className="mt-4 flex gap-2 overflow-x-auto no-scrollbar">
                 {categories.map((cat) => {
                   const active = menuCategory === cat;
                   return (
@@ -181,14 +177,14 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                       key={cat}
                       onClick={() => setMenuCategory(cat)}
                       type="button"
-                      className={`flex-none inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-colors ${
+                      className={`flex-none inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors ${
                         active
                           ? 'bg-[#eead2b] border-[#eead2b] text-[#221c11]'
                           : 'bg-[#2c241b] border-[#483c23] text-[#c9b792] hover:text-white hover:border-[#eead2b]'
                       }`}
                     >
-                      <span className={`material-symbols-outlined text-[18px] ${active ? 'text-[#221c11]' : 'text-[#c9b792]'}`}>{categoryIcon(cat)}</span>
-                      <span className="truncate max-w-[10rem]">{cat}</span>
+                      <span className={`material-symbols-outlined text-[16px] ${active ? 'text-[#221c11]' : 'text-[#c9b792]'}`}>{categoryIcon(cat)}</span>
+                      <span className="truncate max-w-[9rem]">{cat}</span>
                     </button>
                   );
                 })}
@@ -257,11 +253,13 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
               </div>
             </div>
           </div>
-        </section>
+          </section>
+        </main>
+      </div>
 
-        {/* Right Sidebar (Cart) */}
-        <aside className="w-full md:w-[400px] bg-[#2c241b] border-l border-[#483c23] shadow-xl z-20 flex flex-col h-full flex-none">
-          <div className="px-6 py-5 border-b border-[#483c23] bg-[#221c11]/50 backdrop-blur-sm">
+      {/* Right Sidebar (Cart) */}
+      <aside className="w-full md:w-[320px] lg:w-[340px] bg-[#2c241b] border-t md:border-t-0 md:border-l border-[#483c23] shadow-xl z-20 flex flex-col h-full flex-none">
+        <div className="px-4 py-5 border-b border-[#483c23] bg-[#221c11]/50 backdrop-blur-sm">
             <div className="flex justify-between items-center mb-3">
               <div className="flex items-center gap-3">
                 <div className="bg-[#eead2b]/10 text-[#eead2b] p-2.5 rounded-xl">
@@ -283,7 +281,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 space-y-5">
             {actionErr ? <div className="text-sm text-red-300 font-semibold">{actionErr}</div> : null}
 
             {!selectedTable?.openOrderId ? (
@@ -393,7 +391,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
             )}
           </div>
 
-          <div className="p-6 bg-[#221c11] border-t border-[#483c23] z-30">
+        <div className="p-4 bg-[#221c11] border-t border-[#483c23] z-30">
             <div className="space-y-3 mb-6">
               <div className="flex justify-between text-sm text-[#c9b792] font-medium">
                 <span>Subtotal</span>
@@ -425,8 +423,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
               </button>
             </div>
           </div>
-        </aside>
-      </main>
+      </aside>
 
       <Modal
         open={editItemId != null}
