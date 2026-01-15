@@ -8,9 +8,11 @@ interface Props {
 }
 
 export const WaiterActiveOrders: React.FC<Props> = ({ onNavigate }) => {
-  const { orders, selectOrder, voidOrder, refreshFromServer } = usePos();
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<'All' | 'Pending' | 'Cooking' | 'Ready' | 'Served' | 'Voided'>('All');
+  const { orders, selectOrder, voidOrder, refreshFromServer, getUiPref, setUiPref } = usePos();
+  const [query, setQuery] = useState(() => getUiPref<string>('waiter.activeOrders.query', ''));
+  const [filter, setFilter] = useState<'All' | 'Pending' | 'Cooking' | 'Ready' | 'Served' | 'Voided'>(() =>
+    getUiPref<'All' | 'Pending' | 'Cooking' | 'Ready' | 'Served' | 'Voided'>('waiter.activeOrders.filter', 'All'),
+  );
 
   const [actionErr, setActionErr] = useState('');
 
@@ -52,6 +54,14 @@ export const WaiterActiveOrders: React.FC<Props> = ({ onNavigate }) => {
       setActionErr('Failed to refresh from server.');
     }
   };
+
+  React.useEffect(() => {
+    setUiPref('waiter.activeOrders.query', query);
+  }, [query, setUiPref]);
+
+  React.useEffect(() => {
+    setUiPref('waiter.activeOrders.filter', filter);
+  }, [filter, setUiPref]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">

@@ -11,7 +11,7 @@ interface Props {
 }
 
 export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
-  const { selectOrder } = usePos();
+  const { selectOrder, getUiPref, setUiPref } = usePos();
   const canRefundFromHere = useMemo(() => {
     try {
       const s = readSession<any>();
@@ -27,14 +27,21 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
     onNavigate(canRefundFromHere ? Screen.MANAGER_ORDER_DETAILS : Screen.WAITER_RECEIPT);
   };
   const todayLabel = useMemo(() => formatDeviceDate(new Date(), { month: 'short', day: '2-digit', year: 'numeric' }), []);
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Completed' | 'Open' | 'Voided'>('All');
-  const [dateFilter, setDateFilter] = useState<'Today' | 'AllTime'>('Today');
-  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Completed' | 'Open' | 'Voided'>(() =>
+    getUiPref<'All' | 'Completed' | 'Open' | 'Voided'>('waiter.history.statusFilter', 'All'),
+  );
+  const [dateFilter, setDateFilter] = useState<'Today' | 'AllTime'>(() =>
+    getUiPref<'Today' | 'AllTime'>('waiter.history.dateFilter', 'Today'),
+  );
+  const [query, setQuery] = useState(() => getUiPref<string>('waiter.history.query', ''));
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rowsRaw, setRowsRaw] = useState<any[]>([]);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => {
+    const n = Number(getUiPref<number>('waiter.history.page', 1));
+    return Number.isFinite(n) && n > 0 ? Math.trunc(n) : 1;
+  });
   const pageSize = 25;
   const [total, setTotal] = useState(0);
 
@@ -48,6 +55,22 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
   useEffect(() => {
     setPage(1);
   }, [query, statusFilter, dateFilter]);
+
+  useEffect(() => {
+    setUiPref('waiter.history.statusFilter', statusFilter);
+  }, [statusFilter, setUiPref]);
+
+  useEffect(() => {
+    setUiPref('waiter.history.dateFilter', dateFilter);
+  }, [dateFilter, setUiPref]);
+
+  useEffect(() => {
+    setUiPref('waiter.history.query', query);
+  }, [query, setUiPref]);
+
+  useEffect(() => {
+    setUiPref('waiter.history.page', page);
+  }, [page, setUiPref]);
 
   useEffect(() => {
     let mounted = true;

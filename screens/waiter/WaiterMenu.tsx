@@ -12,6 +12,30 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
   const { products, selectedTableId, getCartItems, addToCart, setCartQty, setCartItemNote, sendOrderToKitchen, selectOrder, getDraftOrderMeta, setDraftOrderMeta } = usePos();
   const selectedTable = useSelectedTable();
 
+  const FALLBACK_IMAGE =
+    'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&q=80&w=800';
+
+  const resolveImageSrc = (raw: unknown) => {
+    const s = typeof raw === 'string' ? raw.trim() : '';
+    if (!s) return FALLBACK_IMAGE;
+    if (/^https?:\/\//i.test(s)) return s;
+    if (/^data:image\//i.test(s)) return s;
+    return FALLBACK_IMAGE;
+  };
+
+  const categoryIcon = (cat: string) => {
+    const c = String(cat || '').toLowerCase();
+    if (c === 'all') return 'apps';
+    if (/(coffee|cafe|espresso|latte|cappuccino|tea|hot drink|hot drinks)/.test(c)) return 'local_cafe';
+    if (/(cold drink|cold drinks|juice|smoothie|soda|soft drink)/.test(c)) return 'local_bar';
+    if (/(food|main|mains|meal|lunch|dinner|burger|sandwich|pizza|pasta|rice|grill)/.test(c)) return 'lunch_dining';
+    if (/(dessert|desserts|cake|cookie|ice cream|icecream|sweet)/.test(c)) return 'icecream';
+    if (/(pastry|pastries|bakery|croissant|bread)/.test(c)) return 'bakery_dining';
+    if (/(alcohol|beer|wine|cocktail|bar)/.test(c)) return 'wine_bar';
+    if (/(seasonal|special|specials)/.test(c)) return 'auto_awesome';
+    return 'category';
+  };
+
   const [actionErr, setActionErr] = useState('');
 
   const [menuQuery, setMenuQuery] = useState('');
@@ -139,62 +163,99 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
       </header>
 
       <main className="flex flex-1 overflow-hidden relative">
-        <section className="flex-1 flex flex-col bg-[#1a1612] overflow-hidden relative">
-          <div className="px-8 pt-8 pb-4 flex-none z-10">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-white tracking-tight">Menu</h1>
-                <p className="text-[#c9b792] text-sm mt-1">Select category to filter items</p>
+        <section className="flex-1 flex overflow-hidden relative bg-[#1a1612]">
+          <div className="flex-1 flex flex-col min-w-0 bg-[#1a1612] overflow-hidden">
+            <div className="px-6 py-5 flex items-end justify-between shrink-0">
+              <div className="min-w-0">
+                <p className="text-[#c9b792] text-sm truncate">{menuCategory !== 'All' ? ` / ${menuCategory}` : ''}</p>
+                <h1 className="text-2xl font-bold text-white mt-1 truncate">{menuCategory === 'All' ? 'Menu' : menuCategory}</h1>
               </div>
             </div>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setMenuCategory(cat)}
-                  className={`flex-none px-6 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all active:scale-95 ${menuCategory === cat ? 'bg-[#eead2b] text-[#221c11] shadow-lg shadow-[#eead2b]/20' : 'bg-[#2c241b] border border-[#483c23] text-[#c9b792] hover:text-[#eead2b] hover:border-[#eead2b]/50'}`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
 
-          <div className="px-8 pb-24 overflow-y-auto grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 scroll-smooth">
-            {/* Menu Item 1 */}
-            {filteredProducts.map((p) => (
-              <div
-                key={p.id}
-                className={`group bg-[#2c241b] rounded-2xl shadow-md border border-transparent hover:border-[#eead2b]/30 transition-all duration-300 cursor-pointer flex flex-col h-full overflow-hidden relative ${
-                  p.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-                onClick={() => {
-                  if (p.stock <= 0) return;
-                  addToCart(tableId, p.id);
-                }}
-              >
-                <div
-                  className="h-40 w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                  style={{ backgroundImage: `url('${p.image}')` }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
-                  <div className="absolute bottom-3 left-3">
-                    <span className="inline-block bg-[#1a1612]/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-xs font-bold text-[#eead2b] shadow-sm">
-                      ETB {p.price.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="absolute top-3 right-3">
-                    <span className="inline-block bg-[#1a1612]/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-xs font-bold text-white shadow-sm">
-                      {p.stock} left
-                    </span>
-                  </div>
-                </div>
-                <div className="p-5 flex flex-col flex-1">
-                  <h3 className="font-bold text-white text-lg mb-1 group-hover:text-[#eead2b] transition-colors">{p.name}</h3>
-                  <p className="text-[#c9b792] text-sm line-clamp-2 leading-relaxed">{p.category}</p>
-                </div>
+            <div className="px-6 pb-4 shrink-0">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                {categories.map((cat) => {
+                  const active = menuCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setMenuCategory(cat)}
+                      type="button"
+                      className={`flex-none inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-colors ${
+                        active
+                          ? 'bg-[#eead2b] border-[#eead2b] text-[#221c11]'
+                          : 'bg-[#2c241b] border-[#483c23] text-[#c9b792] hover:text-white hover:border-[#eead2b]'
+                      }`}
+                    >
+                      <span className={`material-symbols-outlined text-[18px] ${active ? 'text-[#221c11]' : 'text-[#c9b792]'}`}>{categoryIcon(cat)}</span>
+                      <span className="truncate max-w-[10rem]">{cat}</span>
+                    </button>
+                  );
+                })}
               </div>
-            ))}
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 pb-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                {filteredProducts.map((p) => {
+                  const isSoldOut = p.stock <= 0;
+                  const isLowStock = !isSoldOut && p.stock <= 5;
+                  const statusLabel = isSoldOut ? 'Sold Out' : isLowStock ? 'Low Stock' : 'In Stock';
+                  const statusClass = isSoldOut
+                    ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                    : isLowStock
+                      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                      : 'bg-green-500/20 text-green-400 border-green-500/30';
+
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      disabled={isSoldOut}
+                      className={`group bg-[#2c241b] rounded-xl overflow-hidden border border-[#483c23] hover:border-[#eead2b] transition-all duration-200 text-left flex flex-col relative ${
+                        isSoldOut ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                      }`}
+                      onClick={() => {
+                        if (isSoldOut) return;
+                        addToCart(tableId, p.id);
+                      }}
+                    >
+                      <div className="absolute top-2 right-2 z-10">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusClass}`}>{statusLabel}</span>
+                      </div>
+
+                      <div className="h-32 w-full bg-cover bg-center group-hover:opacity-90 transition-opacity bg-[#1a1612] relative">
+                        <img
+                          src={resolveImageSrc(p.image)}
+                          alt={p.name}
+                          loading="lazy"
+                          onError={(e) => {
+                            const img = e.currentTarget;
+                            if (img.src !== FALLBACK_IMAGE) img.src = FALLBACK_IMAGE;
+                          }}
+                          className={`h-full w-full object-cover ${isSoldOut ? 'grayscale' : ''}`}
+                        />
+                      </div>
+
+                      <div className="p-3 flex flex-col">
+                        <h3 className="font-bold text-white text-base leading-snug mb-1 line-clamp-1">{p.name}</h3>
+                        <p className="text-[#c9b792] text-xs line-clamp-2 mb-3">{(p.description || p.category || '').trim() || ' '}</p>
+                        <div className="mt-auto flex items-center justify-between">
+                          <span className="text-lg font-bold text-[#eead2b]">ETB {p.price.toFixed(2)}</span>
+                          <div
+                            className={`size-8 rounded-lg flex items-center justify-center shadow-lg transition-transform ${
+                              isSoldOut ? 'bg-[#3a2e22] text-[#c9b792]' : 'bg-[#eead2b] text-[#221c11] shadow-[#eead2b]/20 group-hover:scale-105'
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-xl">add</span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </section>
 

@@ -8,16 +8,40 @@ interface Props {
 }
 
 export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
-  const { orders, selectOrder, refreshFromServer } = usePos();
-  const [query, setQuery] = useState('');
-  const [channel, setChannel] = useState<'All' | 'Dine-in' | 'Takeaway' | 'Delivery'>('All');
-  const [dateMode, setDateMode] = useState<'Today' | 'All' | 'Range'>('Today');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const { orders, selectOrder, refreshFromServer, getUiPref, setUiPref } = usePos();
+  const [query, setQuery] = useState(() => getUiPref<string>('manager.orders.query', ''));
+  const [channel, setChannel] = useState<'All' | 'Dine-in' | 'Takeaway' | 'Delivery'>(() =>
+    getUiPref<'All' | 'Dine-in' | 'Takeaway' | 'Delivery'>('manager.orders.channel', 'All'),
+  );
+  const [dateMode, setDateMode] = useState<'Today' | 'All' | 'Range'>(() =>
+    getUiPref<'Today' | 'All' | 'Range'>('manager.orders.dateMode', 'Today'),
+  );
+  const [fromDate, setFromDate] = useState(() => getUiPref<string>('manager.orders.fromDate', ''));
+  const [toDate, setToDate] = useState(() => getUiPref<string>('manager.orders.toDate', ''));
 
   useEffect(() => {
     void refreshFromServer();
   }, [refreshFromServer]);
+
+  useEffect(() => {
+    setUiPref('manager.orders.query', query);
+  }, [query, setUiPref]);
+
+  useEffect(() => {
+    setUiPref('manager.orders.channel', channel);
+  }, [channel, setUiPref]);
+
+  useEffect(() => {
+    setUiPref('manager.orders.dateMode', dateMode);
+  }, [dateMode, setUiPref]);
+
+  useEffect(() => {
+    setUiPref('manager.orders.fromDate', fromDate);
+  }, [fromDate, setUiPref]);
+
+  useEffect(() => {
+    setUiPref('manager.orders.toDate', toDate);
+  }, [toDate, setUiPref]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();

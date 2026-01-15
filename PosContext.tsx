@@ -262,6 +262,8 @@ type PosContextType = {
   notifications: PosNotification[];
   realtime: { connected: boolean; lastErrorAt: string; lastError: string };
   outbox: { total: number; ready: number; maxAttempts: number; nextAttemptAtMin: string; stuck: number; stuckAfter: number };
+  getUiPref: <T = any>(key: string, fallback: T) => T;
+  setUiPref: (key: string, value: any) => void;
   selectedTableId: string | null;
   selectedOrderId: string | null;
   selectTable: (tableId: string | null) => void;
@@ -332,10 +334,34 @@ type PersistedState = {
   draftMetaByTableId: Record<string, { orderType?: 'dine_in' | 'takeaway'; takeawayFee?: number }>;
   selectedTableId: string | null;
   selectedOrderId: string | null;
+  uiPrefs?: Record<string, any>;
 };
 
 const STORAGE_KEY = 'mirachpos.state.v1';
 const BRANCH_CACHE_PREFIX = 'mirachpos.pos.branchCache.v1.';
+const UI_STATE_PREFIX = 'mirachpos.pos.uiState.v1.';
+
+const readUiState = (scopeKey: string): Partial<PersistedState> | null => {
+  try {
+    const key = `${UI_STATE_PREFIX}${String(scopeKey || '')}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as any;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed as Partial<PersistedState>;
+  } catch {
+    return null;
+  }
+};
+
+const writeUiState = (scopeKey: string, patch: Partial<PersistedState>) => {
+  try {
+    const key = `${UI_STATE_PREFIX}${String(scopeKey || '')}`;
+    localStorage.setItem(key, JSON.stringify({ version: 1, ...(patch || {}) }));
+  } catch {
+    // ignore
+  }
+};
 
 const INVENTORY_ITEMS_KEY = 'mirachpos.inventory.items.v1';
 const RECIPES_KEY = 'mirachpos.inventory.recipes.v1';
@@ -717,6 +743,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const realtimeRef = useRef<{ es: EventSource | null; retryTimer: number | null }>({ es: null, retryTimer: null });
   const stateRef = useRef<PersistedState>(state);
   const syncInFlightRef = useRef<boolean>(false);
+  const uiPersistTimerRef = useRef<number | null>(null);
+  const [uiPrefs, setUiPrefs] = useState<Record<string, any>>({});
   const [realtimeStatus, setRealtimeStatus] = useState<{ connected: boolean; lastErrorAt: string; lastError: string }>({
     connected: false,
     lastErrorAt: '',
@@ -903,6 +931,109 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [sessionRev]);
 
   const [remoteReady, setRemoteReady] = useState(false);
+
+  const uiScopeKey = useMemo(() => {
+    try {
+      if (!isBranchUser) return 'local_demo';
+      const scopeKey = getBranchScopeKey();
+      return scopeKey || '';
+    } catch {
+      return '';
+    }
+  }, [isBranchUser, sessionRev]);
+
+  useEffect(() => {
+    try {
+      if (!uiScopeKey) return;
+      const cached = readUiState(uiScopeKey);
+      if (!cached) return;
+      setState((s) => {
+        const next: PersistedState = { ...s, version: 1 };
+        if (cached.selectedTableId !== undefined) next.selectedTableId = cached.selectedTableId as any;
+        if (cached.selectedOrderId !== undefined) next.selectedOrderId = cached.selectedOrderId as any;
+        if (cached.cartByTableId && typeof cached.cartByTableId === 'object') next.cartByTableId = cached.cartByTableId as any;
+        if (cached.draftMetaByTableId && typeof cached.draftMetaByTableId === 'object') next.draftMetaByTableId = cached.draftMetaByTableId as any;
+        return next;
+      });
+      try {
+        const p = (cached as any)?.uiPrefs;
+        if (p && typeof p === 'object') setUiPrefs(p as any);
+      } catch {
+        // ignore
+      }
+    } catch {
+      // ignore
+    }
+  }, [uiScopeKey]);
+
+  useEffect(() => {
+    try {
+      if (!state.selectedTableId) return;
+      if (!Array.isArray(state.tables) || state.tables.length === 0) return;
+      const exists = state.tables.some((t) => String((t as any)?.id || '') === String(state.selectedTableId));
+      if (!exists) setState((s) => ({ ...s, selectedTableId: null }));
+    } catch {
+      // ignore
+    }
+  }, [state.selectedTableId, state.tables]);
+
+  useEffect(() => {
+    try {
+      if (!uiScopeKey) return;
+      if (uiPersistTimerRef.current) window.clearTimeout(uiPersistTimerRef.current);
+      uiPersistTimerRef.current = window.setTimeout(() => {
+        try {
+          writeUiState(uiScopeKey, {
+            selectedTableId: state.selectedTableId,
+            selectedOrderId: state.selectedOrderId,
+            cartByTableId: state.cartByTableId,
+            draftMetaByTableId: state.draftMetaByTableId,
+            uiPrefs,
+          });
+        } catch {
+          // ignore
+        }
+      }, 150);
+    } catch {
+      // ignore
+    }
+    return () => {
+      try {
+        if (uiPersistTimerRef.current) window.clearTimeout(uiPersistTimerRef.current);
+      } catch {
+        // ignore
+      }
+    };
+  }, [uiScopeKey, state.selectedTableId, state.selectedOrderId, state.cartByTableId, state.draftMetaByTableId, uiPrefs]);
+
+  const getUiPref = useCallback(
+    <T = any,>(key: string, fallback: T): T => {
+      try {
+        if (!key) return fallback;
+        if (!uiPrefs || typeof uiPrefs !== 'object') return fallback;
+        if (!Object.prototype.hasOwnProperty.call(uiPrefs, key)) return fallback;
+        const v = (uiPrefs as any)[key];
+        return (v as T) ?? fallback;
+      } catch {
+        return fallback;
+      }
+    },
+    [uiPrefs],
+  );
+
+  const setUiPref = useCallback(
+    (key: string, value: any) => {
+      if (!key) return;
+      setUiPrefs((prev) => ({ ...(prev || {}), [key]: value }));
+      try {
+        if (!uiScopeKey) return;
+        writeUiState(uiScopeKey, { uiPrefs: { ...(uiPrefs || {}), [key]: value } as any });
+      } catch {
+        // ignore
+      }
+    },
+    [uiScopeKey, uiPrefs],
+  );
 
   useEffect(() => {
     try {
@@ -2189,10 +2320,22 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const selectTable = (tableId: string | null) => {
     setState((s) => ({ ...s, selectedTableId: tableId }));
+    try {
+      if (!uiScopeKey) return;
+      writeUiState(uiScopeKey, { selectedTableId: tableId });
+    } catch {
+      // ignore
+    }
   };
 
   const selectOrder = (orderId: string | null) => {
     setState((s) => ({ ...s, selectedOrderId: orderId }));
+    try {
+      if (!uiScopeKey) return;
+      writeUiState(uiScopeKey, { selectedOrderId: orderId });
+    } catch {
+      // ignore
+    }
   };
 
   const getCartItems = (tableId: string) => state.cartByTableId[tableId] ?? [];
@@ -3372,6 +3515,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notifications: state.notifications,
     realtime: realtimeStatus,
     outbox: outboxStatus,
+    getUiPref,
+    setUiPref,
     selectedTableId: state.selectedTableId,
     selectedOrderId: state.selectedOrderId,
     selectTable,

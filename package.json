@@ -1,9 +1,13 @@
 {
   "name": "mirachpos",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MirachPOS desktop point-of-sale application.",
   "author": "MirachPos",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/firaghost/mirachpos.git"
+  },
   "type": "module",
   "main": "electron/main.mjs",
   "engines": {
@@ -94,8 +98,9 @@
     },
     "publish": [
       {
-        "provider": "generic",
-        "url": "https://apps.mirachpos.com/mirachpos/updates/"
+        "provider": "github",
+        "owner": "firaghost",
+        "repo": "mirachpos-releases"
       }
     ]
   }

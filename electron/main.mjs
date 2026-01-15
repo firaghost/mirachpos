@@ -173,10 +173,6 @@ app.whenReady().then(async () => {
 
   if (!isDev && autoUpdater) {
     try {
-      const updateUrl = process.env.MIRACHPOS_UPDATE_URL;
-      if (typeof updateUrl === 'string' && updateUrl.trim()) {
-        autoUpdater.setFeedURL({ provider: 'generic', url: updateUrl.trim() });
-      }
       autoUpdater.checkForUpdatesAndNotify();
     } catch {
       // ignore
