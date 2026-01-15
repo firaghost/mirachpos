@@ -1,6 +1,7 @@
 const express = require('express');
 const net = require('net');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
@@ -8,6 +9,7 @@ const { db } = require('../db');
 const { uid } = require('../utils/ids');
 const { makeInitialPosState } = require('./posInitPreset');
 const paymentGatewayService = require('../services/paymentGatewayService');
+const { config } = require('../config');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 const { requireRole, requirePermission } = require('../middleware/permissions');
 const { publish } = require('../services/realtimeHub');
@@ -19,6 +21,30 @@ const safeJsonParse = (raw, fallback) => {
     return parsed ?? fallback;
   } catch {
     return fallback;
+  }
+};
+
+const normalizePublicBaseUrl = (raw) => {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  return s.replace(/\/+$/, '');
+};
+
+const publicBaseUrlFromReq = (req) => {
+  const configured = normalizePublicBaseUrl(config?.app?.publicLinksUrl);
+  if (configured) return configured;
+  const xfProto = String(req.header('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
+  const proto = xfProto || req.protocol;
+  return proto + '://' + req.get('host');
+};
+
+const shortToken = () => {
+  // Opaque short token (no descriptive prefix). Stored in DB as unique.
+  // 12 hex chars (~48 bits) is compact while keeping collision probability negligible.
+  try {
+    return crypto.randomBytes(6).toString('hex');
+  } catch {
+    return Math.random().toString(16).slice(2, 14);
   }
 };
 
@@ -2333,6 +2359,63 @@ const makePosRouter = () => {
     });
 
   r.get(
+    '/pos/orders/:id/receipt-link',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
+      try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: 'id_required' });
+
+        const orderRow = await db().from('orders').where({ tenant_id: req.tenant.id, branch_id: branchId, id }).select(['id']).first();
+        if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+
+        const nowIso = new Date().toISOString();
+        const existing = await db()
+          .from('pos_public_order_links')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id, purpose: 'receipt' })
+          .andWhere((b) => b.whereNull('expires_at').orWhere('expires_at', '>', nowIso))
+          .orderBy('created_at', 'desc')
+          .select(['token'])
+          .first();
+
+        const baseUrl = req.protocol + '://' + req.get('host');
+        if (existing?.token) {
+          return res.json({ ok: true, receiptUrl: `${baseUrl}/r/${encodeURIComponent(String(existing.token))}` });
+        }
+
+        const role = String(req.auth?.role || '').trim();
+        const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
+        const receiptToken = uid('rcp');
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        await db().from('pos_public_order_links').insert({
+          id: uid('pol'),
+          tenant_id: req.tenant.id,
+          branch_id: branchId,
+          order_id: id,
+          token: receiptToken,
+          purpose: 'receipt',
+          expires_at: expiresAt,
+          meta_json: JSON.stringify({ createdByRole: role, createdByStaffId: staffId || null }),
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
+
+        return res.json({ ok: true, receiptUrl: `${baseUrl}/r/${encodeURIComponent(receiptToken)}` });
+      } catch (e) {
+        return next(e);
+      }
+    },
+  );
+
+  r.get(
     '/pos/notifications',
     tenantMiddleware,
     requireAuth,
@@ -3290,10 +3373,10 @@ const makePosRouter = () => {
         const orderNumber = typeof orderPayload?.number === 'string' && orderPayload.number.trim() ? String(orderPayload.number).trim() : '';
         const cafeName = typeof settings?.business?.businessName === 'string' && settings.business.businessName.trim() ? String(settings.business.businessName).trim() : '';
 
-        const baseUrl = req.protocol + '://' + req.get('host');
+        const baseUrl = publicBaseUrlFromReq(req);
 
-        const payerToken = uid('pay');
-        const receiptToken = uid('rcp');
+        const payerToken = shortToken();
+        const receiptToken = shortToken();
         const nowIso = new Date().toISOString();
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 

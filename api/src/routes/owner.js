@@ -733,7 +733,13 @@ const makeOwnerRouter = () => {
 
         // POS / orders
         await del('orders', { tenant_id: tenantId });
-        await del('pos_state', { tenant_id: tenantId });
+        await del('restaurant_tables', { tenant_id: tenantId });
+        await del('restaurant_table_reservations', { tenant_id: tenantId });
+        await del('order_items', { tenant_id: tenantId });
+        await del('order_splits', { tenant_id: tenantId });
+        await del('order_split_items', { tenant_id: tenantId });
+        await del('order_payments', { tenant_id: tenantId });
+        await del('order_payments_splits', { tenant_id: tenantId });
 
         // Menu / inventory / suppliers / customers
         await del('menu_recipes', { tenant_id: tenantId });
@@ -1036,11 +1042,31 @@ const makeOwnerRouter = () => {
       }
       const nowIso = new Date().toISOString();
 
-      await db()
-        .from('owner_settings')
-        .insert({ tenant_id: req.tenant.id, settings_json: JSON.stringify(nextSettings), updated_at: nowIso })
-        .onConflict('tenant_id')
-        .merge({ settings_json: JSON.stringify(nextSettings), updated_at: nowIso });
+      try {
+        await db()
+          .from('owner_settings')
+          .insert({ tenant_id: req.tenant.id, settings_json: JSON.stringify(nextSettings), updated_at: nowIso })
+          .onConflict('tenant_id')
+          .merge({ settings_json: JSON.stringify(nextSettings), updated_at: nowIso });
+      } catch (e) {
+        try {
+          if (req.log && typeof req.log.error === 'function') {
+            req.log.error({ err: e, tenantId: req.tenant?.id }, 'Failed to save owner settings');
+          }
+        } catch {
+          // ignore
+        }
+
+        const code = String(e?.code || '');
+        const msg = String(e?.message || '');
+        if (code === 'ER_NO_SUCH_TABLE' || msg.toLowerCase().includes('owner_settings')) {
+          return res.status(500).json({
+            error: 'db_schema_outdated',
+            message: 'Missing required table owner_settings. Run database migrations.',
+          });
+        }
+        return next(e);
+      }
 
       await logAudit({
         tenantId: req.tenant.id,

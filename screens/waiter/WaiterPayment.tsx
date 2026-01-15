@@ -1010,8 +1010,8 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
             ) : null}
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
-            <div className={`grid grid-cols-1 ${isCash ? 'lg:grid-cols-[420px,1fr]' : 'lg:grid-cols-1'} gap-6 items-start`}>
-              <div className={`flex flex-col gap-6 ${isCash ? 'order-2 lg:order-2' : 'order-1 lg:order-1 mx-auto w-full max-w-[1100px]'}`}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start max-w-[1160px] mx-auto">
+              <div className="flex flex-col gap-6 order-1">
                 {Array.isArray(order.splits) && order.splits.length > 0 ? (
                   <div>
                     <h4 className="text-sm font-bold text-[#c9b792] mb-3 uppercase tracking-wider">Split Bills</h4>
@@ -1051,10 +1051,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 <div>
                   <h4 className="text-sm font-bold text-[#c9b792] mb-3 uppercase tracking-wider">Payment Method</h4>
                   <div
-                    className={`grid gap-3 ${isCash
-                      ? (order.customer ? 'grid-cols-1 sm:grid-cols-5' : 'grid-cols-1 sm:grid-cols-4')
-                      : (order.customer ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4')
-                      }`}
+                    className="grid gap-3 grid-cols-2 sm:grid-cols-4"
                   >
                     {methodButtons.map((b) => {
                       const selected = method === b.value;
@@ -1065,160 +1062,24 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                           disabled={disabled}
                           title={disabled && b.reason ? b.reason : undefined}
                           onClick={() => setMethod(b.value)}
-                          className={`flex flex-col items-center justify-center ${isCash ? 'p-6 min-h-[108px]' : 'p-7 min-h-[124px]'} rounded-2xl transition-all ${disabled
+                          className={`flex flex-col items-center justify-center p-4 min-h-[96px] rounded-2xl transition-all ${disabled
                             ? 'border border-[#483c23] bg-[#2c241b]/40 text-[#c9b792]/60 cursor-not-allowed'
                             : selected
                               ? 'border-2 border-[#eead2b] bg-[#eead2b]/10 text-[#eead2b] shadow-lg ring-2 ring-[#eead2b]/20'
                               : 'border border-[#483c23] bg-[#2c241b] hover:bg-[#3a2e22] text-[#c9b792] hover:text-white'
                             }`}
                         >
-                          <span className={`material-symbols-outlined ${isCash ? 'text-4xl' : 'text-5xl'} mb-1`}>{b.icon}</span>
-                          <span className={`font-bold ${isCash ? 'text-sm' : 'text-base'}`}>{b.label}</span>
+                          <span className="material-symbols-outlined text-4xl mb-1">{b.icon}</span>
+                          <span className="font-bold text-sm">{b.label}</span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
-                <div className="flex flex-col gap-4 mt-2">
-                  {qrImage ? (
-                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
-                      <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Scan to Pay</div>
-                      <div className="mt-3 flex items-center justify-center">
-                        <img src={qrImage} alt="QR" className="max-h-80 max-w-full rounded-lg border border-[#483c23] bg-white p-2" />
-                      </div>
-                    </div>
-                  ) : method === 'Mobile Pay' ? (
-                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Mobile Pay (Chapa)</div>
-                          <div className="mt-1 text-sm text-[#c9b792]">Generate a QR for this order and wait for confirmation.</div>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={chapaOnlineLoading || chapaOnlineActive}
-                          onClick={() => void initiateChapaOnline()}
-                          className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] disabled:bg-[#3a2e22] disabled:text-[#c9b792] text-[#221c11] font-extrabold transition-colors"
-                        >
-                          {chapaOnlineLoading ? 'Generating...' : chapaOnlineActive ? 'Waiting…' : 'Generate QR'}
-                        </button>
-                      </div>
-
-                      {chapaOnlineActive && chapaCheckoutUrl ? (
-                        <div className="mt-4 flex flex-col items-center gap-3">
-                          <div className="bg-white p-3 rounded-xl">
-                            <img
-                              src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(chapaCheckoutUrl)}`}
-                              alt="Mobile Pay QR"
-                              className="w-56 h-56"
-                            />
-                          </div>
-                          <div className="text-center text-xs text-[#c9b792]">
-                            Keep this screen open. Once the customer pays, the receipt will open automatically.
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              try {
-                                if (chapaCheckoutUrl) window.open(chapaCheckoutUrl, '_blank', 'noopener,noreferrer');
-                              } catch {
-                                try {
-                                  if (chapaCheckoutUrl) window.location.href = chapaCheckoutUrl;
-                                } catch {
-                                }
-                              }
-                            }}
-                            className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-extrabold transition-colors"
-                          >
-                            Open payment page
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setChapaOnlineActive(false);
-                              setChapaCheckoutUrl(null);
-                            }}
-                            className="h-10 px-4 rounded-lg border border-[#483c23] bg-[#221c11] hover:bg-[#2c241b] text-[#c9b792] font-bold transition-colors"
-                          >
-                            Cancel Mobile Pay
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : method === 'Telebirr' ? (
-                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
-                      <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Scan to Pay</div>
-                      <div className="mt-2 text-sm text-[#c9b792]">QR code not configured in Branch Settings.</div>
-                    </div>
-                  ) : null}
-
-                  {paymentDetails.rows.length > 0 ? (
-                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
-                      <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">{paymentDetails.title} Details</div>
-                      <div className="mt-3 space-y-2">
-                        {paymentDetails.rows.map((r) => (
-                          <div key={`${r.k}:${r.v}`} className="flex items-start justify-between gap-3">
-                            <div className="text-xs text-[#c9b792] font-semibold">{r.k}</div>
-                            <div className="text-xs text-white font-bold text-right break-words max-w-[65%]">{r.v}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {telebirrOnlineActive && telebirrCheckoutUrl && (
-                    <div className="bg-[#1a150d] p-5 rounded-xl border-2 border-[#eead2b] shadow-[0_0_15px_rgba(238,173,43,0.3)] animate-in fade-in slide-in-from-bottom-2 duration-300">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="text-xs text-[#eead2b] font-black uppercase tracking-widest flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-[#eead2b] animate-pulse"></span>
-                          Waiting for Payment
-                        </div>
-                        <button onClick={() => setTelebirrOnlineActive(false)} className="text-[#c9b792] hover:text-white transition-colors">
-                          <span className="material-symbols-outlined text-lg">close</span>
-                        </button>
-                      </div>
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="bg-white p-3 rounded-xl">
-                          <img
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(telebirrCheckoutUrl)}`}
-                            alt="Dynamic QR"
-                            className="w-48 h-48"
-                          />
-                        </div>
-                        <p className="text-center text-xs text-[#c9b792] px-4">
-                          Ask the customer to scan this QR with their Telebirr app. The system will automatically confirm once paid.
-                        </p>
-                        <div className="w-full h-1 bg-[#2c241b] rounded-full overflow-hidden">
-                          <div className="h-full bg-[#eead2b] animate-pulse" style={{ width: '100%' }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {requireReference ? (
-                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
-                      <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">PAYMENT REFERENCE</div>
-                      <div className="mt-2">
-                        <input
-                          value={paymentReference}
-                          onChange={(e) => setPaymentReference(String(e.target.value || '').toUpperCase())}
-                          placeholder="ENTER REFERENCE"
-                          className="w-full h-11 bg-[#221c11] border border-[#483c23] rounded-lg px-4 text-white font-mono focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b]"
-                        />
-                        <div className="text-[#c9b792] text-xs mt-2">Reference is required.</div>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {method === 'Loyalty' ? (
-                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23] flex justify-between items-center">
-                      <span className="text-[#c9b792] font-medium">Loyalty Balance</span>
-                      <div className={`text-xl font-bold ${loyaltyBalance + 1e-9 >= totalDue ? 'text-green-400' : 'text-red-400'}`}>{settingsUi.currency} {loyaltyBalance.toFixed(2)}</div>
-                    </div>
-                  ) : null}
-                  {method !== 'Mobile Pay' && method !== 'Loyalty' && !selectedSplitId ? (
-                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
-                      <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">TIP (ETB)</div>
+                <div className="mt-2">
+                  <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                    <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">TIP (ETB)</div>
+                    {method !== 'Mobile Pay' && method !== 'Loyalty' && !selectedSplitId ? (
                       <div className="mt-2">
                         <input
                           value={manualTip}
@@ -1228,18 +1089,36 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                         />
                         <div className="text-[#c9b792] text-xs mt-2">Added to total so it appears on the receipt.</div>
                       </div>
-                    </div>
-                  ) : null}
+                    ) : (
+                      <div className="mt-2 text-sm text-[#c9b792]">Tip is not available for this method.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-2">
+                  <button
+                    onClick={() => {
+                      setDiscountErr('');
+                      setDiscountPin('');
+                      setDiscountValue('');
+                      setDiscountOpen(true);
+                    }}
+                    className="w-full h-12 rounded-xl border border-[#483c23] bg-[#2c241b] hover:bg-[#3a2e22] text-[#c9b792] font-extrabold transition-colors"
+                    type="button"
+                  >
+                    Discount
+                    {discountPct > 0 ? ` (${discountPct.toFixed(0)}%)` : ''}
+                  </button>
                 </div>
               </div>
 
-              <div className={`w-full flex flex-col gap-3 order-1 lg:order-1 ${isCash ? '' : 'hidden'}`}>
+              <div className="w-full flex flex-col gap-3 order-2 lg:max-h-[720px] lg:overflow-y-auto lg:pr-1">
                 {isCash ? (
                   <>
                     <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
                       <div className="flex justify-between items-center">
                         <span className="text-[#c9b792] font-medium">Tendered Amount</span>
-                        <div className="text-2xl font-bold text-white border-b-2 border-[#eead2b] px-2 pb-1 min-w-[140px] text-right">{tendered.length ? tendered : ' ”'}</div>
+                        <div className="text-2xl font-bold text-white border-b-2 border-[#eead2b] px-2 pb-1 min-w-[140px] text-right">{tendered.length ? tendered : '0.00'}</div>
                       </div>
                       <div className="mt-3 flex justify-between items-center opacity-75">
                         <span className="text-[#c9b792] font-medium">Change Due</span>
@@ -1248,27 +1127,171 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                     </div>
                     <h4 className="text-sm font-bold text-[#c9b792] mb-0 uppercase tracking-wider">Quick Entry</h4>
                     <div className="grid grid-cols-4 gap-2">
-                      <button onClick={() => setQuickTendered(100)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">100</button>
-                      <button onClick={() => setQuickTendered(200)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">200</button>
-                      <button onClick={() => setQuickTendered(500)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">500</button>
-                      <button onClick={() => setQuickTendered(totalDueWithTip)} className="h-10 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-[#eead2b] transition-colors">Exact</button>
+                      <button onClick={() => setQuickTendered(100)} className="h-12 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">100</button>
+                      <button onClick={() => setQuickTendered(200)} className="h-12 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">200</button>
+                      <button onClick={() => setQuickTendered(500)} className="h-12 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">500</button>
+                      <button onClick={() => setQuickTendered(totalDueWithTip)} className="h-12 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-[#eead2b] transition-colors">Exact</button>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9, '.', 0].map((n) => (
                         <button
                           key={n}
                           onClick={() => appendTendered(String(n))}
-                          className="h-14 bg-[#3a2e22] hover:bg-[#4a3b2b] rounded-xl text-2xl font-semibold text-white transition-colors shadow-sm"
+                          className="h-16 bg-[#3a2e22] hover:bg-[#4a3b2b] rounded-xl text-2xl font-semibold text-white transition-colors shadow-sm"
                         >
                           {n}
                         </button>
                       ))}
-                      <button onClick={backspaceTendered} className="h-14 bg-[#3a2e22] hover:bg-[#4a3b2b] rounded-xl text-xl font-semibold text-white transition-colors shadow-sm flex items-center justify-center">
+                      <button onClick={backspaceTendered} className="h-16 bg-[#3a2e22] hover:bg-[#4a3b2b] rounded-xl text-xl font-semibold text-white transition-colors shadow-sm flex items-center justify-center">
                         <span className="material-symbols-outlined">backspace</span>
                       </button>
                     </div>
                   </>
-                ) : null}
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {qrImage ? (
+                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                        <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Scan to Pay</div>
+                        <div className="mt-3 flex items-center justify-center">
+                          <img src={qrImage} alt="QR" className="w-full max-w-[300px] max-h-[260px] object-contain rounded-lg border border-[#483c23] bg-white p-2" />
+                        </div>
+                      </div>
+                    ) : method === 'Mobile Pay' ? (
+                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Mobile Pay (Chapa)</div>
+                            <div className="mt-1 text-sm text-[#c9b792]">Generate a QR for this order and wait for confirmation.</div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={chapaOnlineLoading || chapaOnlineActive}
+                            onClick={() => void initiateChapaOnline()}
+                            className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] disabled:bg-[#3a2e22] disabled:text-[#c9b792] text-[#221c11] font-extrabold transition-colors"
+                          >
+                            {chapaOnlineLoading ? 'Generating...' : chapaOnlineActive ? 'Waiting…' : 'Generate QR'}
+                          </button>
+                        </div>
+
+                        {chapaOnlineActive && chapaCheckoutUrl ? (
+                          <div className="mt-4 flex flex-col items-center gap-3">
+                            <div className="bg-white p-3 rounded-xl">
+                              <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(chapaCheckoutUrl)}`}
+                                alt="Mobile Pay QR"
+                                className="w-52 h-52"
+                              />
+                            </div>
+                            <div className="text-center text-xs text-[#c9b792]">
+                              Keep this screen open. Once the customer pays, the receipt will open automatically.
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                try {
+                                  if (chapaCheckoutUrl) window.open(chapaCheckoutUrl, '_blank', 'noopener,noreferrer');
+                                } catch {
+                                  try {
+                                    if (chapaCheckoutUrl) window.location.href = chapaCheckoutUrl;
+                                  } catch {
+                                  }
+                                }
+                              }}
+                              className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-extrabold transition-colors"
+                            >
+                              Open payment page
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setChapaOnlineActive(false);
+                                setChapaCheckoutUrl(null);
+                              }}
+                              className="h-10 px-4 rounded-lg border border-[#483c23] bg-[#221c11] hover:bg-[#2c241b] text-[#c9b792] font-bold transition-colors"
+                            >
+                              Cancel Mobile Pay
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : method === 'Telebirr' ? (
+                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                        <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Scan to Pay</div>
+                        <div className="mt-2 text-sm text-[#c9b792]">QR code not configured in Branch Settings.</div>
+                      </div>
+                    ) : (
+                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                        <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Payment Details</div>
+                        <div className="mt-2 text-sm text-[#c9b792]">Select a payment method to continue.</div>
+                      </div>
+                    )}
+
+                    {paymentDetails.rows.length > 0 ? (
+                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                        <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">{paymentDetails.title} Details</div>
+                        <div className="mt-3 space-y-2">
+                          {paymentDetails.rows.map((r) => (
+                            <div key={`${r.k}:${r.v}`} className="flex items-start justify-between gap-3">
+                              <div className="text-xs text-[#c9b792] font-semibold">{r.k}</div>
+                              <div className="text-xs text-white font-bold text-right break-words max-w-[65%]">{r.v}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {telebirrOnlineActive && telebirrCheckoutUrl && (
+                      <div className="bg-[#1a150d] p-5 rounded-xl border-2 border-[#eead2b] shadow-[0_0_15px_rgba(238,173,43,0.3)] animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="text-xs text-[#eead2b] font-black uppercase tracking-widest flex items-center gap-2">
+                            <span className="size-2 rounded-full bg-[#eead2b] animate-pulse"></span>
+                            Waiting for Payment
+                          </div>
+                          <button onClick={() => setTelebirrOnlineActive(false)} className="text-[#c9b792] hover:text-white transition-colors">
+                            <span className="material-symbols-outlined text-lg">close</span>
+                          </button>
+                        </div>
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="bg-white p-3 rounded-xl">
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(telebirrCheckoutUrl)}`}
+                              alt="Dynamic QR"
+                              className="w-48 h-48"
+                            />
+                          </div>
+                          <p className="text-center text-xs text-[#c9b792] px-4">
+                            Ask the customer to scan this QR with their Telebirr app. The system will automatically confirm once paid.
+                          </p>
+                          <div className="w-full h-1 bg-[#2c241b] rounded-full overflow-hidden">
+                            <div className="h-full bg-[#eead2b] animate-pulse" style={{ width: '100%' }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {requireReference ? (
+                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                        <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">PAYMENT REFERENCE</div>
+                        <div className="mt-2">
+                          <input
+                            value={paymentReference}
+                            onChange={(e) => setPaymentReference(String(e.target.value || '').toUpperCase())}
+                            placeholder="ENTER REFERENCE"
+                            className="w-full h-11 bg-[#221c11] border border-[#483c23] rounded-lg px-4 text-white font-mono focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b]"
+                          />
+                          <div className="text-[#c9b792] text-xs mt-2">Reference is required.</div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {method === 'Loyalty' ? (
+                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23] flex justify-between items-center">
+                        <span className="text-[#c9b792] font-medium">Loyalty Balance</span>
+                        <div className={`text-xl font-bold ${loyaltyBalance + 1e-9 >= totalDue ? 'text-green-400' : 'text-red-400'}`}>{settingsUi.currency} {loyaltyBalance.toFixed(2)}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
             </div>
           </div>

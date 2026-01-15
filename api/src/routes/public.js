@@ -11,6 +11,28 @@ const { fetch } = require('undici');
 const makePublicRouter = () => {
   const r = express.Router();
 
+  const normalizePublicBaseUrl = (raw) => {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    return s.replace(/\/+$/, '');
+  };
+
+  const publicBaseUrlFromReq = (req) => {
+    const configured = normalizePublicBaseUrl(config?.app?.publicLinksUrl);
+    if (configured) return configured;
+    const xfProto = String(req.header('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
+    const proto = xfProto || req.protocol;
+    return proto + '://' + req.get('host');
+  };
+
+  const apiBaseUrlFromReq = (req) => {
+    const configured = normalizePublicBaseUrl(config?.app?.apiPublicUrl);
+    if (configured) return configured;
+    const xfProto = String(req.header('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
+    const proto = xfProto || req.protocol;
+    return proto + '://' + req.get('host');
+  };
+
   const safeIso = (v) => {
     try {
       if (!v) return '';
@@ -681,9 +703,7 @@ const makePublicRouter = () => {
 
       const receiptToken = receiptRow?.token ? String(receiptRow.token) : '';
 
-      const xfProto = String(req.header('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
-      const proto = xfProto || req.protocol;
-      const baseUrl = proto + '://' + req.get('host');
+      const baseUrl = publicBaseUrlFromReq(req);
 
       return res.json({
         ok: true,
@@ -747,11 +767,10 @@ const makePublicRouter = () => {
       const rand = Math.random().toString(16).slice(2, 10);
       const txRef = `pos_${shortOrder}_${rand}`;
 
-      const xfProto = String(req.header('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
-      const proto = xfProto || req.protocol;
-      const baseUrl = proto + '://' + req.get('host');
-      const callbackUrl = `${baseUrl}/api/webhooks/payment/chapa`;
-      const returnUrl = `${baseUrl}/p/${encodeURIComponent(token)}?chapa=success`;
+      const payBaseUrl = publicBaseUrlFromReq(req);
+      const apiBaseUrl = apiBaseUrlFromReq(req);
+      const callbackUrl = `${apiBaseUrl}/api/webhooks/payment/chapa`;
+      const returnUrl = `${payBaseUrl}/p/${encodeURIComponent(token)}?chapa=success`;
 
       const init = await paymentGatewayService.chapaInitializeForTenantPos({
         tenantId: link.tenantId,

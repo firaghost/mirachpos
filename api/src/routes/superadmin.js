@@ -535,7 +535,7 @@ const makeSuperadminRouter = () => {
         .slice(-10);
 
       // Last sync: latest pos_state update across all branches
-      const lastSyncRow = await db().from('pos_state').max({ mx: 'updated_at' }).first();
+      const lastSyncRow = await db().from('restaurant_tables').max({ mx: 'updated_at' }).first();
       const lastSyncAt = toIso(lastSyncRow?.mx);
 
       // DB status
@@ -549,7 +549,7 @@ const makeSuperadminRouter = () => {
 
       // Sync health: branches with a recent pos_state update (last 10 minutes)
       const syncSinceIso = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-      const syncRows = await db().select(['branch_id']).from('pos_state').where('updated_at', '>=', syncSinceIso);
+      const syncRows = await db().select(['branch_id']).from('restaurant_tables').where('updated_at', '>=', syncSinceIso);
       const syncingBranches = new Set(syncRows.map((x) => String(x.branch_id || '')).filter(Boolean)).size;
       const syncHealth = {
         syncingBranches,
@@ -915,11 +915,13 @@ const makeSuperadminRouter = () => {
 
       const branchesTableRows = await db()
         .from({ b: 'branches' })
-        .leftJoin({ ps: 'pos_state' }, function () {
-          this.on('ps.branch_id', '=', 'b.id').andOn('ps.tenant_id', '=', 'b.tenant_id');
+        .leftJoin({ rt: 'restaurant_tables' }, function () {
+          this.on('rt.branch_id', '=', 'b.id').andOn('rt.tenant_id', '=', 'b.tenant_id');
         })
-        .select(['b.id', 'b.name', 'b.city', 'ps.updated_at', 'ps.state_json'])
+        .select(['b.id', 'b.name', 'b.city'])
+        .max({ updated_at: 'rt.updated_at' })
         .where('b.tenant_id', tenantId)
+        .groupBy(['b.id', 'b.name', 'b.city'])
         .orderBy('b.created_at', 'desc')
         .limit(50);
 
@@ -928,14 +930,11 @@ const makeSuperadminRouter = () => {
         const lastSyncMs = lastSyncAt ? new Date(lastSyncAt).getTime() : NaN;
         const ageMin = Number.isFinite(lastSyncMs) ? (nowMs - lastSyncMs) / (60 * 1000) : Infinity;
         const status = ageMin <= 3 ? 'Online' : ageMin <= 15 ? 'Syncing' : 'Offline';
-        const state = safeJsonParse(r.state_json, {});
-        const posVersion = String(state?.appVersion || state?.version || state?.posVersion || '').trim();
         return {
           id: String(r.id),
           name: String(r.name || ''),
           locationId: String(r.id),
           status,
-          posVersion,
           lastSyncAt,
         };
       });
@@ -1992,11 +1991,32 @@ const makeSuperadminRouter = () => {
     try {
       const settings = req.body && typeof req.body === 'object' ? req.body : {};
       const nowIso = new Date().toISOString();
-      await db()
-        .from('platform_settings_admin')
-        .insert({ id: 1, settings_json: JSON.stringify(settings), updated_at: nowIso })
-        .onConflict('id')
-        .merge({ settings_json: JSON.stringify(settings), updated_at: nowIso });
+
+      try {
+        await db()
+          .from('platform_settings_admin')
+          .insert({ id: 1, settings_json: JSON.stringify(settings), updated_at: nowIso })
+          .onConflict('id')
+          .merge({ settings_json: JSON.stringify(settings), updated_at: nowIso });
+      } catch (e) {
+        try {
+          if (req.log && typeof req.log.error === 'function') {
+            req.log.error({ err: e }, 'Failed to save superadmin platform settings');
+          }
+        } catch {
+          // ignore
+        }
+
+        const code = String(e?.code || '');
+        const msg = String(e?.message || '');
+        if (code === 'ER_NO_SUCH_TABLE' || msg.toLowerCase().includes('platform_settings_admin')) {
+          return res.status(500).json({
+            error: 'db_schema_outdated',
+            message: 'Missing required table platform_settings_admin. Run database migrations.',
+          });
+        }
+        return next(e);
+      }
 
       await db().from('audit_log').insert({ id: makeId('aud'), tenant_id: null, branch_id: null, actor_staff_id: null, actor_role: 'superadmin', type: 'platform_settings.update', summary: 'Updated platform settings', payload_json: null, created_at: nowIso });
       return res.json({ ok: true, settings });
@@ -2663,7 +2683,27 @@ const makeSuperadminRouter = () => {
         updated_at: nowIso,
       };
 
-      await db().from('platform_payment_config').insert(data).onConflict('id').merge(data);
+      try {
+        await db().from('platform_payment_config').insert(data).onConflict('id').merge(data);
+      } catch (e) {
+        try {
+          if (req.log && typeof req.log.error === 'function') {
+            req.log.error({ err: e }, 'Failed to save superadmin payment config');
+          }
+        } catch {
+          // ignore
+        }
+
+        const code = String(e?.code || '');
+        const msg = String(e?.message || '');
+        if (code === 'ER_NO_SUCH_TABLE' || msg.toLowerCase().includes('platform_payment_config')) {
+          return res.status(500).json({
+            error: 'db_schema_outdated',
+            message: 'Missing required table platform_payment_config. Run database migrations.',
+          });
+        }
+        return next(e);
+      }
 
       await db().from('audit_log').insert({
         id: makeId('aud'),

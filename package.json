@@ -1,7 +1,7 @@
 {
   "name": "mirachpos",
   "private": true,
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "MirachPOS desktop point-of-sale application.",
   "author": "MirachPos",
   "repository": {
@@ -92,6 +92,7 @@
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false,
       "license": "electron/installer-license.txt",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true

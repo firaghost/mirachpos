@@ -98,6 +98,8 @@ const mergeBranchState = (current: PersistedState, incoming: any): PersistedStat
 
   const incomingTables = (incoming as any).tables;
   const incomingProducts = (incoming as any).products;
+  const incomingCart = (incoming as any).cartByTableId;
+  const incomingDraftMeta = (incoming as any).draftMetaByTableId;
 
   const next: PersistedState = {
     ...current,
@@ -109,6 +111,14 @@ const mergeBranchState = (current: PersistedState, incoming: any): PersistedStat
   if (Array.isArray(incomingProducts) && incomingProducts.length > 0) next.products = incomingProducts as any;
   if (Array.isArray(incomingTables) && incomingTables.length > 0) next.tables = mergeTablesPreservingAssignments(current.tables, incomingTables);
   else next.tables = current.tables;
+
+  // Avoid wiping draft/cart state when server/state contains empty objects (common when state is partially saved).
+  if (incomingCart && typeof incomingCart === 'object' && Object.keys(incomingCart).length > 0) next.cartByTableId = incomingCart as any;
+  else next.cartByTableId = current.cartByTableId;
+
+  if (incomingDraftMeta && typeof incomingDraftMeta === 'object' && Object.keys(incomingDraftMeta).length > 0) next.draftMetaByTableId = incomingDraftMeta as any;
+  else next.draftMetaByTableId = current.draftMetaByTableId;
+
   return next;
 };
 
@@ -771,7 +781,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       })();
       if (!tenantId || !branchId) return '';
-      return `tenant:${tenantId}:branch:${branchId}:pos_state_v1`;
+      return `tenant:${tenantId}:branch:${branchId}:pos_ui_v1`;
     } catch {
       return '';
     }
@@ -1417,6 +1427,10 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const status = String(r?.status || 'Pending') as any;
             const payload = r?.payload && typeof r.payload === 'object' ? r.payload : {};
 
+            const orderTypeRaw = String((payload as any)?.orderType ?? (payload as any)?.order_type ?? '').trim();
+            const orderType = orderTypeRaw === 'takeaway' ? 'takeaway' : orderTypeRaw === 'dine_in' ? 'dine_in' : undefined;
+            const takeawayFee = orderType === 'takeaway' ? Math.max(0, Number((payload as any)?.takeawayFee ?? (payload as any)?.takeaway_fee ?? 0) || 0) : 0;
+
             const createdAt = typeof r?.createdAt === 'string' && r.createdAt ? r.createdAt : typeof payload?.createdAt === 'string' ? payload.createdAt : new Date().toISOString();
             const number = typeof payload?.number === 'string' && payload.number ? payload.number : id;
             const tableId = typeof payload?.tableId === 'string' ? payload.tableId : '';
@@ -1448,6 +1462,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               number,
               tableId,
               tableName,
+              orderType,
+              takeawayFee,
               createdByStaffId: typeof payload?.createdByStaffId === 'string' ? payload.createdByStaffId : undefined,
               createdByName: typeof payload?.createdByName === 'string' ? payload.createdByName : undefined,
               items: items.map((it) => ({
@@ -1577,6 +1593,10 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const status = String(r?.status || 'Pending') as any;
                 const payload = r?.payload && typeof r.payload === 'object' ? r.payload : {};
 
+                const orderTypeRaw = String((payload as any)?.orderType ?? (payload as any)?.order_type ?? '').trim();
+                const orderType = orderTypeRaw === 'takeaway' ? 'takeaway' : orderTypeRaw === 'dine_in' ? 'dine_in' : undefined;
+                const takeawayFee = orderType === 'takeaway' ? Math.max(0, Number((payload as any)?.takeawayFee ?? (payload as any)?.takeaway_fee ?? 0) || 0) : 0;
+
                 const createdAt = typeof r?.createdAt === 'string' && r.createdAt ? r.createdAt : typeof payload?.createdAt === 'string' ? payload.createdAt : new Date().toISOString();
                 const number = typeof payload?.number === 'string' && payload.number ? payload.number : id;
                 const tableId = typeof payload?.tableId === 'string' ? payload.tableId : '';
@@ -1607,6 +1627,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   number,
                   tableId,
                   tableName,
+                  orderType,
+                  takeawayFee,
                   createdByStaffId: typeof payload?.createdByStaffId === 'string' ? payload.createdByStaffId : undefined,
                   createdByName: typeof payload?.createdByName === 'string' ? payload.createdByName : undefined,
                   items: items.map((it) => ({

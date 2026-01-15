@@ -83,6 +83,8 @@ const receiptHtml = (
     address: string;
     showTin: boolean;
   },
+  receiptVerifyUrl?: string,
+  renderMode?: 'preview' | 'print',
 ) => {
   const expandNewlines = (v: string) => {
     try {
@@ -239,119 +241,210 @@ const receiptHtml = (
   })();
 
   const showTendered = payMethod === 'CASH' && tendered > 0 && (Math.abs(tendered - Number(order.total || 0)) > 0.009 || change > 0.009);
-
-  const cols = 32;
-  const padR = (s: string, n: number) => (s.length >= n ? s.slice(0, n) : s + ' '.repeat(n - s.length));
-  const padL = (s: string, n: number) => (s.length >= n ? s.slice(s.length - n) : ' '.repeat(n - s.length) + s);
-  const center = (s: string, n: number) => {
-    const t = String(s || '').trim();
-    if (!t) return '';
-    if (t.length >= n) return t.slice(0, n);
-    const left = Math.floor((n - t.length) / 2);
-    const right = n - t.length - left;
-    return ' '.repeat(left) + t + ' '.repeat(right);
-  };
-  const dash = '-'.repeat(cols);
-  const twoCol = (a: string, b: string) => {
-    const left = String(a || '').trim();
-    const right = String(b || '').trim();
-    if (!right) return padR(left, cols);
-    const maxLeft = Math.max(0, cols - right.length - 1);
-    return padR(left.slice(0, maxLeft), maxLeft) + ' ' + padL(right, cols - maxLeft - 1);
-  };
   const fmtAmt = (n: number) => (Number.isFinite(Number(n)) ? Number(n).toFixed(2) : '0.00');
-  const wrap = (s: string, width: number) => {
-    const t = String(s || '').trim();
-    if (!t) return [''];
-    const out: string[] = [];
-    let i = 0;
-    while (i < t.length) {
-      out.push(t.slice(i, i + width));
-      i += width;
-    }
-    return out;
-  };
+  const safe = (v: any) => escapeHtml(String(v ?? '').trim());
 
-  const receiptLines: string[] = [];
   const headerBizLines = splitLines(settings.businessName);
   const headerAddrLines = splitLines(settings.address);
 
-  if (headerBizLines.length) {
-    for (const l of headerBizLines) receiptLines.push(center(escapeHtml(l), cols));
-  } else {
-    receiptLines.push(center(biz || '-', cols));
-  }
-  if (headerAddrLines.length) {
-    for (const l of headerAddrLines) receiptLines.push(center(escapeHtml(l), cols));
-  } else if (addressLine) {
-    receiptLines.push(center(addressLine, cols));
-  }
-  if (phoneLine) receiptLines.push(center(phoneLine, cols));
-  if (settings.showTin) receiptLines.push(center(tin ? `TIN: ${tin}` : 'TIN: -', cols));
-  receiptLines.push('');
-  receiptLines.push(twoCol(dateStr, timeStr));
-  receiptLines.push('');
-  if (String(order.number || '').trim()) receiptLines.push(padR(`Order: ${String(order.number).trim()}`, cols));
-  if (ref) receiptLines.push(padR(`Ref: ${ref}`, cols));
-  if (payMethod) receiptLines.push(padR(`Payment: ${payMethod}`, cols));
-  if (operator) receiptLines.push(padR(`Operator: ${operator}`, cols));
-  if (waiter) receiptLines.push(padR(`Waiter: ${waiter}`, cols));
-  if (tableNo) receiptLines.push(padR(`Table: ${tableNo}`, cols));
-  if (orderType === 'takeaway') receiptLines.push(padR('Order Type: TAKEAWAY', cols));
-  if (customerLabel) receiptLines.push(padR(`Customer: ${customerLabel}`, cols));
-  receiptLines.push(dash);
-  receiptLines.push(twoCol('Description', 'Amount'));
-  receiptLines.push(dash);
+  const title = payMethod === 'CASH' ? 'Cash Invoice' : 'Receipt';
+  const orderNo = String(order.number || '').trim();
 
-  for (const it of order.items.slice(0, 200)) {
-    const name = String(it?.name || '').trim();
-    const qty = Number(it?.qty ?? 0) || 0;
-    const unit = Number(it?.unitPrice ?? 0) || 0;
-    const lineTotal = qty * unit;
+  const itemRows = order.items.slice(0, 200).map((it) => {
+    const name = String(it?.name || '').trim() || '-';
+    const qty = Math.max(0, Number(it?.qty ?? 0) || 0);
+    const unit = Math.max(0, Number(it?.unitPrice ?? 0) || 0);
+    const amount = qty * unit;
+    return {
+      name,
+      qty,
+      amount,
+    };
+  });
 
-    for (const w of wrap(name || '-', cols)) receiptLines.push(padR(w, cols));
-    const left = `${qty} x ${fmtAmt(unit)}`;
-    receiptLines.push(twoCol(left, fmtAmt(lineTotal)));
-  }
-
-  receiptLines.push(dash);
-  receiptLines.push(twoCol('SUBTOTAL', fmtAmt(Number(order.subtotal || 0))));
-  if (discount > 0.0001 || discountPct > 0.0001) {
-    const label = discountPct > 0.0001 ? `DISCOUNT ${discountPct.toFixed(0)}%` : 'DISCOUNT';
-    receiptLines.push(twoCol(label, fmtAmt(discount)));
-  }
-  if (serviceCharge > 0.0001) receiptLines.push(twoCol(serviceLabel, fmtAmt(serviceCharge)));
-  if (settings.vatEnabled) receiptLines.push(twoCol(`TAX ${taxRateLabel}`, fmtAmt(Number(order.tax || 0))));
-  if (takeawayFee > 0.0001) receiptLines.push(twoCol('TAKEAWAY FEE', fmtAmt(takeawayFee)));
-  if (tip > 0.0001) receiptLines.push(twoCol('TIP', fmtAmt(tip)));
-  receiptLines.push(dash);
-  receiptLines.push(twoCol('TOTAL', `${fmtAmt(Number(order.total || 0))} ${cur}`));
-  receiptLines.push(padR(payMethod, cols));
-  if (showTendered) {
-    receiptLines.push(twoCol('Tendered', fmtAmt(tendered)));
-    receiptLines.push(twoCol('Change', fmtAmt(change)));
-  }
-  receiptLines.push('');
-  for (const l of splitLines(settings.footer1)) receiptLines.push(center(escapeHtml(l), cols));
-  for (const l of splitLines(settings.footer2)) receiptLines.push(center(escapeHtml(l), cols));
-  receiptLines.push(center('Powered by MirachPOS', cols));
+  const totals: Array<{ label: string; value: number }> = [];
+  totals.push({ label: 'SUBTOTAL', value: Number(order.subtotal || 0) || 0 });
+  if (discount > 0.0001 || discountPct > 0.0001) totals.push({ label: discountPct > 0.0001 ? `DISCOUNT (${discountPct.toFixed(0)}%)` : 'DISCOUNT', value: -Math.abs(discount) });
+  if (serviceCharge > 0.0001) totals.push({ label: serviceLabel.includes('%') ? serviceLabel.replace('+', '').trim() : serviceLabel, value: serviceCharge });
+  if (settings.vatEnabled) totals.push({ label: `TAX (${String(settings.vatRate || 0).trim()}%)`, value: Number(order.tax || 0) || 0 });
+  if (takeawayFee > 0.0001) totals.push({ label: 'TAKEAWAY FEE', value: takeawayFee });
+  if (tip > 0.0001) totals.push({ label: 'TIP', value: tip });
 
   const html = `
-  <html>
+  <!DOCTYPE html>
+  <html lang="en">
     <head>
       <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width,initial-scale=1" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>Receipt</title>
       <style>
+        :root{--paper:#ffffff;--ink:#111827;--muted:#6b7280;--border:#e5e7eb;--shadow:0 24px 60px rgba(0,0,0,.22);} 
         *{box-sizing:border-box;}
-        body{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; margin:0; padding:12px; color:#111; width:80mm;}
-        pre{margin:0; font-size:12px; line-height:1.25; white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere;}
+        html,body{margin:0;padding:0; overflow:hidden;}
+        body{background:transparent; color:var(--ink);
+          font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+        }
+        .wrap{padding:0; display:flex; justify-content:center; align-items:flex-start;}
+        .paper{width:100%; max-width:420px; background:var(--paper); box-shadow:var(--shadow); position:relative;}
+        .paper-top-gap{height:16px; width:100%; background:var(--paper); position:relative; top:-8px;}
+        .content{padding:24px 32px 22px; text-align:center;}
+        .serif{font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;}
+        .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+        .title{font-size:30px; font-weight:700; letter-spacing:.02em; margin:4px 0 4px; color:#111827;}
+        .subtitle{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.14em; margin:0;}
+        .bizmeta{margin-top:18px; font-size:12px; color:var(--muted); line-height:1.6;}
+        .divider{width:100%; border-top:2px dashed var(--border); margin:16px 0;}
+        .row{display:flex; justify-content:space-between; align-items:baseline; gap:16px;}
+        .invoice{font-size:14px; font-weight:700; margin:10px 0;}
+        .small{font-size:12px; color:var(--muted); line-height:1.7; text-align:left;}
+        .small p{margin:0;}
+        .tableHead{display:flex; justify-content:space-between; font-size:12px; font-weight:700; border-bottom:1px solid var(--border); padding-bottom:8px; margin-bottom:10px;}
+        .w50{width:50%; text-align:left;}
+        .w25c{width:25%; text-align:center;}
+        .w25r{width:25%; text-align:right;}
+        .item{display:flex; justify-content:space-between; align-items:flex-start; font-size:14px; margin:10px 0;}
+        .item .name{font-weight:700;}
+        .item .note{font-size:12px; color:var(--muted); margin-top:2px;}
+        .totals{margin-top:6px; font-size:14px;}
+        .totals .k{color:var(--muted);}
+        .grand{margin-top:14px; padding-top:14px; border-top:2px solid #111827; font-weight:700; font-size:20px;}
+        .payline{margin-top:4px; font-size:12px; color:var(--muted);}
+        .qrwrap{margin-top:18px; display:flex; justify-content:center;}
+        .qr{width:132px; height:132px; object-fit:contain; border:1px solid var(--border); padding:8px; background:#fff;}
+        .thanks{margin-top:14px; color:var(--muted); font-size:14px; font-style:italic;}
+        .powered{margin-top:4px; font-size:10px; text-transform:uppercase; letter-spacing:.14em; color:#9ca3af;}
+        .tear-bottom{position:relative; bottom:-8px; width:100%; height:16px; color:#ffffff;
+          background-image: linear-gradient(-45deg, transparent 50%, currentColor 50%), linear-gradient(225deg, currentColor 50%, transparent 50%);
+          background-position: bottom;
+          background-repeat: repeat-x;
+          background-size: 16px 16px;
+        }
+        ::-webkit-scrollbar{width:0;height:0;}
         @page{size:80mm auto; margin:4mm;}
-        @media print{body{padding:0; width:80mm;}}
+        @media print{
+          body{background:#fff;}
+          .paper{max-width:none; width:80mm; box-shadow:none;}
+        }
       </style>
     </head>
     <body>
-      <pre>${escapeHtml(receiptLines.join('\n'))}</pre>
+      <div class="wrap">
+        <div class="paper">
+          <div class="paper-top-gap"></div>
+          <div class="content">
+            <div class="serif title">${safe(headerBizLines[0] || settings.businessName || biz || '-')}</div>
+
+            <div class="mono bizmeta">
+              ${settings.showTin ? `<p>TIN: ${safe(tin || '-')}</p>` : ''}
+              ${addressLine ? `<p>${safe(addressLine)}</p>` : ''}
+              ${phoneLine ? `<p>${safe(phoneLine)}</p>` : ''}
+              <p>Date: ${safe(dateStr)} ${safe(timeStr)}</p>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="mono row invoice">
+              <span>${safe(payMethod === 'CASH' ? 'CASH INVOICE' : 'RECEIPT')}</span>
+              <span>#A</span>
+            </div>
+
+            <div class="mono small">
+              <p>CUSTOMER: ${safe(order.customer ? customerLabel : '_WALKING')}</p>
+              <p>CASHIER: ${safe(operator || '-')}</p>
+              <p>WAITER: ${safe(waiter || '-')}</p>
+              ${tableNo ? `<p>TABLE NO: ${safe(tableNo)}</p>` : ''}
+              ${orderType === 'takeaway' ? `<p>ORDER TYPE: TAKEAWAY</p>` : ''}
+              ${ref ? `<p>REF: ${safe(ref)}</p>` : ''}
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="mono tableHead">
+              <span class="w50">DESCRIPTION</span>
+              <span class="w25c">QTY</span>
+              <span class="w25r">AMT</span>
+            </div>
+
+            <div class="mono" style="text-align:left;">
+              ${order.items
+                .slice(0, 200)
+                .map((it) => {
+                  const nm = String(it?.name || '').trim() || '-';
+                  const qty = Math.max(0, Number(it?.qty ?? 0) || 0);
+                  const unit = Math.max(0, Number(it?.unitPrice ?? 0) || 0);
+                  const amount = qty * unit;
+                  const note = typeof (it as any)?.note === 'string' ? String((it as any).note).trim() : '';
+                  return `
+                    <div class="item">
+                      <div class="w50">
+                        <div class="name">${safe(nm)}</div>
+                        ${note ? `<div class="note">${safe(note)}</div>` : ''}
+                      </div>
+                      <div class="w25c">${safe(qty)}</div>
+                      <div class="w25r">${safe(fmtAmt(amount))}</div>
+                    </div>
+                  `;
+                })
+                .join('')}
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="mono totals">
+              ${totals
+                .map(
+                  (t) => `
+                    <div class="row">
+                      <span class="k">${safe(t.label)}</span>
+                      <span>${safe(fmtAmt(t.value))}</span>
+                    </div>
+                  `,
+                )
+                .join('')}
+
+              <div class="row grand">
+                <span>TOTAL</span>
+                <span>${safe(fmtAmt(Number(order.total || 0)))}</span>
+              </div>
+              <div class="row payline">
+                <span>${safe(payMethod || 'CASH')}</span>
+                <span>${safe(fmtAmt(Number(order.total || 0)))}</span>
+              </div>
+            </div>
+
+            ${receiptVerifyUrl ? `
+              <div class="qrwrap">
+                <img class="qr" alt="Verify" src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(String(receiptVerifyUrl))}" />
+              </div>
+            ` : ''}
+            <div class="serif thanks">Thank you for visiting!</div>
+            <div class="mono powered">Powered by Mirach POS</div>
+          </div>
+          <div class="tear-bottom"></div>
+        </div>
+      </div>
+      <script>
+        (function () {
+          function send() {
+            try {
+              var h = Math.max(
+                document.documentElement ? document.documentElement.scrollHeight : 0,
+                document.body ? document.body.scrollHeight : 0
+              );
+              parent && parent.postMessage && parent.postMessage({ type: 'mirachpos_receipt_height', height: h }, '*');
+            } catch (e) {
+            }
+          }
+          try {
+            window.addEventListener('load', send);
+            window.addEventListener('resize', send);
+            setTimeout(send, 50);
+            setTimeout(send, 250);
+            setTimeout(send, 750);
+          } catch (e) {
+          }
+        })();
+      </script>
     </body>
   </html>
   `;
@@ -371,6 +464,8 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [receiptSplitId, setReceiptSplitId] = useState<string>('');
   const [posSettings, setPosSettings] = useState<PosSettingsResponse | null>(null);
+  const [receiptFrameHeight, setReceiptFrameHeight] = useState<number>(860);
+  const [receiptVerifyUrl, setReceiptVerifyUrl] = useState<string>('');
 
   const effectiveOrder = order ?? fallbackOrder ?? remoteOrder;
 
@@ -608,10 +703,74 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
     };
   }, [posSettings]);
 
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const oid = displayOrder?.id ? String((displayOrder as any).id) : '';
+        if (!oid) return;
+        // Don't attach verification QR to split receipts for now.
+        if (receiptSplitId) {
+          if (mounted) setReceiptVerifyUrl('');
+          return;
+        }
+
+        const res = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(oid)}/receipt-link`));
+        const json = (await res.json().catch(() => null)) as any;
+        if (!mounted) return;
+        if (!res.ok) {
+          setReceiptVerifyUrl('');
+          return;
+        }
+        const url = typeof json?.receiptUrl === 'string' ? json.receiptUrl.trim() : '';
+        setReceiptVerifyUrl(url);
+      } catch {
+        if (!mounted) return;
+        setReceiptVerifyUrl('');
+      }
+    };
+    void run();
+    return () => {
+      mounted = false;
+    };
+  }, [displayOrder?.id, receiptSplitId]);
+
   const itemCount = useMemo(
     () => (displayOrder ? (displayOrder as any).items.reduce((sum: number, i: any) => sum + (Number(i.qty) || 0), 0) : 0),
     [displayOrder],
   );
+
+  const receiptDoc = useMemo(() => {
+    try {
+      if (!effectiveOrderTyped) return '';
+      return receiptHtml(effectiveOrderTyped, settingsUi, receiptVerifyUrl || undefined, 'preview');
+    } catch {
+      return '';
+    }
+  }, [effectiveOrderTyped, settingsUi, receiptVerifyUrl]);
+
+  useEffect(() => {
+    const onMsg = (ev: MessageEvent) => {
+      try {
+        const data: any = (ev as any)?.data;
+        if (!data || data.type !== 'mirachpos_receipt_height') return;
+        const h = Number(data.height || 0) || 0;
+        if (h <= 0) return;
+        setReceiptFrameHeight((prev) => {
+          const next = Math.max(420, Math.min(2400, Math.ceil(h)));
+          return prev === next ? prev : next;
+        });
+      } catch {
+        // ignore
+      }
+    };
+    try {
+      window.addEventListener('message', onMsg);
+      return () => window.removeEventListener('message', onMsg);
+    } catch {
+      return;
+    }
+  }, []);
 
   useEffect(() => {
     if (!displayOrder) return;
@@ -635,7 +794,7 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deviceId }),
           }).catch(() => {
-            const ok = openPrintWindow(receiptHtml(effectiveOrderTyped, settingsUi));
+            const ok = openPrintWindow(receiptHtml(effectiveOrderTyped, settingsUi, receiptVerifyUrl || undefined, 'print'));
             if (!ok) window.print();
           });
         }, 250);
@@ -643,14 +802,14 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
       }
 
       const t = window.setTimeout(() => {
-        const ok = openPrintWindow(receiptHtml(effectiveOrderTyped, settingsUi));
+        const ok = openPrintWindow(receiptHtml(effectiveOrderTyped, settingsUi, receiptVerifyUrl || undefined, 'print'));
         if (!ok) window.print();
       }, 350);
       return () => window.clearTimeout(t);
     } catch {
       return;
     }
-  }, [displayOrder, receiptSplitId]);
+  }, [displayOrder, receiptSplitId, receiptVerifyUrl]);
 
   useEffect(() => {
     if (!receiptSplitId) return;
@@ -713,7 +872,7 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ deviceId }),
                   }).catch(() => {
-                    const ok = openPrintWindow(receiptHtml(effectiveOrderTyped, settingsUi));
+                    const ok = openPrintWindow(receiptDoc || receiptHtml(effectiveOrderTyped, settingsUi, receiptVerifyUrl || undefined, 'print'));
                     if (!ok) window.print();
                   });
                   return;
@@ -722,7 +881,7 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
                 // ignore
               }
 
-              const ok = openPrintWindow(receiptHtml(effectiveOrderTyped, settingsUi));
+              const ok = openPrintWindow(receiptDoc || receiptHtml(effectiveOrderTyped, settingsUi, receiptVerifyUrl || undefined, 'print'));
               if (!ok) window.print();
             }}
             className="h-11 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] font-bold flex items-center"
@@ -733,98 +892,17 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
       </header>
 
       <main className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-[520px] bg-[#2c241b] border border-[#483c23] rounded-xl overflow-hidden">
-          <div className="p-6 border-b border-[#483c23]">
-            <div className="flex justify-between">
-              <div>
-                <div className="text-white font-bold text-lg">{settingsUi.businessName || '-'}</div>
-                <div className="text-[#c9b792] text-sm mt-1">{settingsUi.address || '-'}</div>
-                <div className="text-[#c9b792] text-sm">{settingsUi.phone || '-'}</div>
-                {settingsUi.showTin ? <div className="text-[#c9b792] text-xs mt-1">TIN: {settingsUi.tin || '-'}</div> : null}
-              </div>
-              <div className="text-right">
-                <div className="text-white font-mono font-bold">{effectiveOrderTyped.number}</div>
-                <div className="text-[#c9b792] text-sm">{effectiveOrderTyped.timeLabel}</div>
-              </div>
+        <div className="mx-auto max-w-[760px]">
+          <div className="flex justify-center">
+            <div className="w-full max-w-md">
+              <iframe
+                title="receipt-preview"
+                sandbox="allow-same-origin allow-scripts"
+                srcDoc={receiptDoc || '<html><body></body></html>'}
+                className="w-full border-0"
+                style={{ height: receiptFrameHeight, background: 'transparent' }}
+              />
             </div>
-          </div>
-
-          <div className="p-6">
-            <div className="flex justify-between text-sm text-[#c9b792]">
-              <span>Table</span>
-              <span className="text-white font-medium">{effectiveOrderTyped.tableName}</span>
-            </div>
-            <div className="flex justify-between text-sm text-[#c9b792] mt-2">
-              <span>Items</span>
-              <span className="text-white font-medium">{itemCount}</span>
-            </div>
-            <div className="flex justify-between text-sm text-[#c9b792] mt-2">
-              <span>Payment</span>
-              <span className="text-white font-medium">{effectiveOrderTyped.paymentMethod ?? '-'}</span>
-            </div>
-
-            {effectiveOrderTyped.paymentReference ? (
-              <div className="flex justify-between text-sm text-[#c9b792] mt-2">
-                <span>Reference</span>
-                <span className="text-white font-mono font-bold">{String(effectiveOrderTyped.paymentReference)}</span>
-              </div>
-            ) : null}
-
-            {effectiveOrderTyped.customer ? (
-              <div className="flex justify-between text-sm text-[#c9b792] mt-2">
-                <span>Customer</span>
-                <span className="text-white font-medium">{effectiveOrderTyped.customer.name} ({effectiveOrderTyped.customer.phone})</span>
-              </div>
-            ) : null}
-
-            <div className="mt-6 border-t border-[#483c23] pt-4">
-              <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider mb-3">Line Items</div>
-              <div className="flex flex-col gap-3">
-                {effectiveOrderTyped.items.map((i) => (
-                  <div key={i.productId} className="flex justify-between items-start">
-                    <div className="flex flex-col">
-                      <span className="text-white font-semibold">{i.name}</span>
-                      <span className="text-[#c9b792] text-xs">{i.qty} x {settingsUi.currency} {i.unitPrice.toFixed(2)}</span>
-                    </div>
-                    <span className="text-white font-mono font-bold">{settingsUi.currency} {(i.unitPrice * i.qty).toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-6 border-t border-[#483c23] pt-4">
-              <div className="flex justify-between text-sm text-[#c9b792]">
-                <span>Subtotal</span>
-                <span className="text-white font-medium">{settingsUi.currency} {effectiveOrderTyped.subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-[#c9b792] mt-2">
-                <span>{settingsUi.vatEnabled ? `Tax (${settingsUi.vatRate}%)` : 'Tax (disabled)'}</span>
-                <span className="text-white font-medium">{settingsUi.currency} {effectiveOrderTyped.tax.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-[#c9b792] mt-2">
-                <span>{settingsUi.serviceEnabled ? `Service (${settingsUi.serviceRate}%)` : 'Service (disabled)'}</span>
-                <span className="text-white font-medium">{settingsUi.currency} {effectiveOrderTyped.serviceCharge.toFixed(2)}</span>
-              </div>
-              {Number((effectiveOrderTyped as any).tip ?? 0) > 0 ? (
-                <div className="flex justify-between text-sm text-[#c9b792] mt-2">
-                  <span>Tip</span>
-                  <span className="text-white font-medium">{settingsUi.currency} {Number((effectiveOrderTyped as any).tip ?? 0).toFixed(2)}</span>
-                </div>
-              ) : null}
-              <div className="flex justify-between items-center mt-4 pt-4 border-t border-dashed border-[#483c23]">
-                <span className="text-white font-bold text-lg">Total</span>
-                <span className="text-[#eead2b] font-black text-2xl">{settingsUi.currency} {effectiveOrderTyped.total.toFixed(2)}</span>
-              </div>
-            </div>
-
-            {(settingsUi.footer1 || settingsUi.footer2) && (
-              <div className="mt-8 pt-4 border-t border-[#483c23]">
-                {settingsUi.footer1 && <div className="text-center text-[#c9b792] text-sm">{settingsUi.footer1}</div>}
-                {settingsUi.footer2 && <div className="text-center text-[#c9b792] text-sm mt-1">{settingsUi.footer2}</div>}
-              </div>
-            )}
-
-            <div className="mt-4 text-center text-[#c9b792] text-xs">Powered by Mirach POS</div>
           </div>
         </div>
       </main>

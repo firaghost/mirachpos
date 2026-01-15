@@ -43,6 +43,24 @@ const config = {
     name: String(process.env.APP_NAME || 'MirachPOS'),
     url: String(process.env.APP_URL || 'https://mirachpos.com'),
     appsUrl: String(process.env.APPS_URL || 'https://apps.mirachpos.com'),
+    publicLinksUrl: String(
+      process.env.PUBLIC_LINKS_URL ||
+        process.env.PUBLIC_LINKS_BASE_URL ||
+        process.env.PAY_LINKS_URL ||
+        process.env.PAY_LINKS_BASE_URL ||
+        process.env.PAY_PUBLIC_BASE_URL ||
+        process.env.PAYMENTS_PUBLIC_BASE_URL ||
+        process.env.PAYMENTS_PUBLIC_URL ||
+        '',
+    ),
+    apiPublicUrl: String(
+      process.env.API_PUBLIC_URL ||
+        process.env.API_BASE_URL ||
+        process.env.PUBLIC_API_URL ||
+        process.env.APA_PUBLIC_URL ||
+        process.env.APA_BASE_URL ||
+        '',
+    ),
   },
 };
 
