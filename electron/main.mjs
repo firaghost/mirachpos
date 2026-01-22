@@ -96,8 +96,8 @@ const startApiServerIfNeeded = async () => {
 const db = openKvDb(app.getPath('userData'));
 
 const createMainWindow = async () => {
-  const devIcon = path.join(__dirname, '..', 'public', 'mirach.png');
-  const prodIcon = path.join(app.getAppPath(), 'dist', 'mirach.png');
+  const devIcon = path.join(__dirname, '..', 'public', 'app.icon.png');
+  const prodIcon = path.join(app.getAppPath(), 'dist', 'app.icon.png');
   const iconPath = isDev ? devIcon : prodIcon;
 
   const win = new BrowserWindow({

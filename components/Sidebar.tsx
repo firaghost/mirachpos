@@ -270,21 +270,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
       <div className={cn('pb-4 relative', collapsed ? 'p-3' : 'p-6')}>
         <div className={cn('flex items-center gap-3', collapsed ? 'justify-center' : 'justify-start')}>
           <div className={cn('flex items-center gap-3 min-w-0', collapsed ? 'justify-center' : '')}>
-          <div className="relative">
-            {branding.logoUrl ? (
-              <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#221c10] border border-[#483c23] p-1">
-                <img src={branding.logoUrl} alt="" className="w-full h-full object-contain" />
-              </div>
-            ) : (
-              <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#221c10] border border-[#483c23] p-1">
-                <img src="./mirach.png" alt="" className="w-full h-full object-contain" />
-              </div>
-            )}
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-[#1e1910]" />
-          </div>
           {!collapsed ? (
             <div className="flex flex-col min-w-0">
-              <h1 className="text-white text-sm font-black leading-tight tracking-tight truncate uppercase">{headerName}</h1>
+              <div className="flex items-center gap-2 min-w-0">
+                <h1 className="text-white text-sm font-black leading-tight tracking-tight truncate uppercase">{headerName}</h1>
+              </div>
               <p className="text-[10px] font-bold text-[#c9b792] uppercase tracking-widest mt-1 opacity-70">{getRoleLabel()}</p>
             </div>
           ) : null}

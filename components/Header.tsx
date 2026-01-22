@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { readSession } from '../session';
 
-export const Header: React.FC<{ title: string; subtitle?: string; action?: React.ReactNode }> = ({ title, subtitle, action }) => {
+export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; action?: React.ReactNode }> = ({ title, subtitle, action }) => {
   const session = useMemo(() => readSession<any>(), []);
   const [updaterState, setUpdaterState] = useState<any>(null);
   const [updaterDismissed, setUpdaterDismissed] = useState(false);
+  const [installingLocal, setInstallingLocal] = useState(false);
   const displayName = (() => {
     const n = typeof session?.staffName === 'string' ? session.staffName.trim() : '';
     if (n) return n;
@@ -60,7 +61,7 @@ export const Header: React.FC<{ title: string; subtitle?: string; action?: React
   const updaterUi = useMemo(() => {
     if (updaterDismissed) return null;
     const st = updaterState && typeof updaterState === 'object' ? updaterState : null;
-    const status = String(st?.status || '');
+    const status = installingLocal ? 'installing' : String(st?.status || '');
     const percent = (() => {
       try {
         const p = Number(st?.progress?.percent);
@@ -83,12 +84,15 @@ export const Header: React.FC<{ title: string; subtitle?: string; action?: React
             ? 'Update ready'
             : 'Checking updates';
 
-    const tone = status === 'downloaded' ? 'border-[#2f5f44] bg-[#163324] text-[#bde7c9]' : 'border-[#483c23] bg-[#221c11] text-[#c9b792]';
+    const tone = status === 'downloaded'
+      ? 'border-[#483c23] bg-[#221c11] text-[#c9b792]'
+      : 'border-[#483c23] bg-[#221c11] text-[#c9b792]';
 
     const onInstall = async () => {
       try {
         const u = (window as any)?.mirachpos?.updater;
         if (!u) return;
+        setInstallingLocal(true);
         await u.quitAndInstall();
       } catch {
         // ignore
@@ -107,7 +111,17 @@ export const Header: React.FC<{ title: string; subtitle?: string; action?: React
           <button
             type="button"
             onClick={onInstall}
-            className="h-7 px-2.5 rounded-full border border-[#2f5f44] bg-[#1b402c] text-[#e7fff0] text-[11px] font-extrabold hover:bg-[#225238]"
+            className="h-7 px-3 rounded-full border text-[11px] font-extrabold"
+            style={{ backgroundColor: 'var(--mirach-primary)', borderColor: 'var(--mirach-primary)', color: '#221c11' }}
+          >
+            Restart
+          </button>
+        ) : null}
+        {status === 'installing' ? (
+          <button
+            type="button"
+            disabled
+            className="h-7 px-3 rounded-full border border-[#483c23] bg-[#221c11] text-[#c9b792] text-[11px] font-extrabold opacity-80"
           >
             Restart
           </button>
@@ -122,36 +136,39 @@ export const Header: React.FC<{ title: string; subtitle?: string; action?: React
         </button>
       </div>
     );
-  }, [updaterDismissed, updaterState]);
+  }, [installingLocal, updaterDismissed, updaterState]);
 
   return (
-    <header className="shrink-0 border-b border-border bg-surface/95 backdrop-blur flex flex-col sm:flex-row sm:items-center items-start sm:justify-between px-4 sm:px-8 py-3 sm:py-0 min-h-16 z-10 gap-3">
-      <div className="min-w-0">
-        <h2 className="text-white text-xl font-bold tracking-tight truncate">{title}</h2>
-        {subtitle && <p className="text-text-muted text-xs mt-0.5 truncate">{subtitle}</p>}
-      </div>
-      <div className="w-full sm:w-auto flex flex-wrap items-center justify-end gap-3">
-        {action ? <div className="w-full sm:w-auto flex flex-wrap items-center justify-end gap-2">{action}</div> : null}
-        {updaterUi}
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-light rounded-full border border-border">
-          <span className="w-2 h-2 rounded-full bg-success animate-pulse"></span>
-          <span className="text-xs font-medium text-success">System Operational</span>
+    <header className="shrink-0 border-b border-border bg-surface/95 backdrop-blur px-4 sm:px-8 py-3 sm:py-0 min-h-16 z-10 relative">
+      <div className="flex items-center justify-between gap-3 min-h-16">
+        <div className="min-w-0">
+          <h2 className="text-white text-xl font-bold tracking-tight truncate">{title}</h2>
+          {subtitle ? (
+            typeof subtitle === 'string'
+              ? <p className="text-text-muted text-xs mt-0.5 truncate">{subtitle}</p>
+              : <div className="text-text-muted text-xs mt-0.5 truncate">{subtitle}</div>
+          ) : null}
         </div>
-        <button className="relative w-9 h-9 rounded-full bg-surface-light text-text-muted hover:text-white hover:bg-border flex items-center justify-center transition-all">
-          <span className="material-symbols-outlined text-[20px]">notifications</span>
-          <span className="absolute top-2 right-2.5 w-2 h-2 bg-danger rounded-full border border-surface"></span>
-        </button>
-        <div className="w-px h-8 bg-border mx-1"></div>
+
         <div className="flex items-center gap-3">
+          {action ? <div className="flex flex-wrap items-center justify-end gap-2">{action}</div> : null}
+          <div className="flex items-center gap-3">
             <div className="text-right hidden md:block">
-                <p className="text-sm font-bold text-white leading-none">{displayName}</p>
-                <p className="text-xs text-text-muted mt-1">{branchLabel}</p>
+              <p className="text-sm font-bold text-white leading-none">{displayName}</p>
+              <p className="text-xs text-text-muted mt-1">{branchLabel}</p>
             </div>
             <div className="w-9 h-9 rounded-full border-2 border-border bg-surface-light flex items-center justify-center text-white text-xs font-black">
               {initials}
             </div>
+          </div>
         </div>
       </div>
+
+      {updaterUi ? (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="pointer-events-auto">{updaterUi}</div>
+        </div>
+      ) : null}
     </header>
   );
 };

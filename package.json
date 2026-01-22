@@ -1,7 +1,7 @@
 {
   "name": "mirachpos",
   "private": true,
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "MirachPOS desktop point-of-sale application.",
   "author": "MirachPos",
   "repository": {
@@ -61,7 +61,7 @@
   "build": {
     "appId": "com.mirachpos.desktop",
     "productName": "MirachPOS",
-    "icon": "public/mirach.png",
+    "icon": "public/app.icon.png",
     "asar": true,
     "files": [
       "dist/**/*",
@@ -78,7 +78,7 @@
       "output": "release"
     },
     "win": {
-      "icon": "public/mirach.png",
+      "icon": "public/app.icon.png",
       "target": [
         {
           "target": "nsis",
