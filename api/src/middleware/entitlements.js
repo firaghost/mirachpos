@@ -44,19 +44,12 @@ const ensureDueDateDowngrade = async (tenantId) => {
   if (Date.now() < nextBillMs) return { changed: false };
 
   const curTier = String(sub.tier || 'Trial');
-  if (curTier === 'Basic') return { changed: false };
-
-  const basicPlan = await db().select(['modules_json', 'price_monthly_etb', 'price_yearly_etb']).from('plans').where({ tier: 'Basic' }).first();
-  const basicModules = safeJsonParse(basicPlan?.modules_json, []);
-
   const nowIso = new Date().toISOString();
-  const graceEndsAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  // Exact enforcement: no extra grace. Once next_bill_at is reached, paywall immediately.
+  const graceEndsAt = nextBillIso;
 
   await db().from('tenant_subscription').where({ tenant_id: tenantId }).update({
-    tier: 'Basic',
-    cycle: 'Monthly',
-    modules_json: JSON.stringify(Array.isArray(basicModules) ? basicModules : []),
-    amount_etb: Number(basicPlan?.price_monthly_etb || 0) || 0,
+    tier: curTier,
     status: 'past_due',
     grace_ends_at: graceEndsAt,
     updated_at: nowIso,
@@ -70,8 +63,8 @@ const ensureDueDateDowngrade = async (tenantId) => {
       actor_staff_id: null,
       actor_role: 'system',
       type: 'billing.auto_downgrade',
-      summary: `Auto-downgraded from ${curTier} to Basic due to billing date`,
-      payload_json: JSON.stringify({ fromTier: curTier, toTier: 'Basic', nextBillAt: nextBillIso, graceEndsAt }),
+      summary: `Subscription marked past_due due to billing date`,
+      payload_json: JSON.stringify({ tier: curTier, nextBillAt: nextBillIso, graceEndsAt }),
       created_at: nowIso,
     });
   } catch {

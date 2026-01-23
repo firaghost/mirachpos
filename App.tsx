@@ -536,6 +536,16 @@ const AppContent: React.FC = () => {
       const path = typeof d?.path === 'string' ? d.path : '';
       if (!error) return;
       setModuleBlocked({ error, module: moduleKey, path });
+
+      // For subscription-wide lockouts (trial ended / canceled / pending verification),
+      // route the user to Billing immediately so the app never feels "empty".
+      try {
+        if (error === 'subscription_inactive' || error === 'subscription_pending_verify') {
+          navigate(Screen.OWNER_BILLING);
+        }
+      } catch {
+        // ignore
+      }
     };
     window.addEventListener('mirachpos-module-blocked', onBlocked as any);
     return () => window.removeEventListener('mirachpos-module-blocked', onBlocked as any);

@@ -96,17 +96,9 @@ const maybeDowngradeDueSubscription = async (tenantId) => {
   if (!Number.isFinite(nextBillMs)) return;
   if (Date.now() < nextBillMs) return;
 
-  const curTier = String(sub.tier || 'Trial');
-  if (curTier === 'Basic') return;
-
-  const plan = await db().select(['modules_json', 'price_monthly_etb']).from('plans').where({ tier: 'Basic' }).first();
   const nowIso = new Date().toISOString();
-  const graceEndsAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  const graceEndsAt = nextBillIso;
   await db().from('tenant_subscription').where({ tenant_id: tenantId }).update({
-    tier: 'Basic',
-    cycle: 'Monthly',
-    modules_json: String(plan?.modules_json || '[]'),
-    amount_etb: Number(plan?.price_monthly_etb || 0) || 0,
     status: 'past_due',
     grace_ends_at: graceEndsAt,
     updated_at: nowIso,

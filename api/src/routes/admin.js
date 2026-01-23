@@ -9,9 +9,28 @@ const makeAdminRouter = ({ provisionKey }) => {
   const r = express.Router();
 
   const requireProvisionKey = (req, res) => {
-    const key = req.header('X-Provision-Key') || '';
-    if (!provisionKey || key !== provisionKey) {
-      res.status(401).json({ error: 'unauthorized' });
+    const headerKey = String(req.header('X-Provision-Key') || '').trim();
+    const authHeader = String(req.header('Authorization') || '').trim();
+    const bearerKey = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : '';
+    const queryKey = typeof req.query?.provisionKey === 'string' ? String(req.query.provisionKey).trim() : '';
+    const bodyKey = typeof req.body?.provisionKey === 'string' ? String(req.body.provisionKey).trim() : '';
+    const key = headerKey || bearerKey || queryKey || bodyKey;
+
+    if (!provisionKey || !key || key !== provisionKey) {
+      res.status(401).json({
+        error: 'unauthorized',
+        debug: {
+          hasExpected: Boolean(String(provisionKey || '').trim()),
+          expectedLen: String(provisionKey || '').trim().length,
+          providedLen: String(key || '').trim().length,
+          sources: {
+            header: Boolean(headerKey),
+            bearer: Boolean(bearerKey),
+            query: Boolean(queryKey),
+            body: Boolean(bodyKey),
+          },
+        },
+      });
       return false;
     }
     return true;
