@@ -148,6 +148,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const setTheme = (newTheme: Theme) => {
+    try {
+      if (typeof window !== 'undefined') {
+        applyThemeClass(newTheme);
+        localStorage.setItem(THEME_PREFERENCE_KEY, newTheme);
+        localStorage.setItem(LEGACY_THEME_KEY, newTheme);
+      }
+    } catch {
+      // ignore
+    }
     setPreference(newTheme);
     setThemeState(newTheme);
   };

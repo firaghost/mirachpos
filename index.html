@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' 'unsafe-inline'; connect-src 'self' https: http: ws: wss:;" />
     <meta charset="utf-8" />
@@ -11,6 +11,36 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Noto+Sans:wght@300..800&display=swap" rel="stylesheet" crossorigin="anonymous">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" crossorigin="anonymous" />
     <script>
+      (function () {
+        try {
+          var THEME_PREFERENCE_KEY = 'mirachpos.theme.preference.v1';
+          var LEGACY_THEME_KEY = 'theme';
+          var pref = localStorage.getItem(THEME_PREFERENCE_KEY);
+          if (pref !== 'light' && pref !== 'dark' && pref !== 'system') {
+            var legacy = localStorage.getItem(LEGACY_THEME_KEY);
+            if (legacy === 'light' || legacy === 'dark') pref = legacy;
+            else pref = 'system';
+          }
+          var theme = pref;
+          if (pref === 'system') {
+            theme = 'dark';
+            try {
+              if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) theme = 'light';
+            } catch {
+            }
+          }
+          var root = document.documentElement;
+          if (theme === 'light') {
+            root.classList.remove('dark');
+            root.classList.add('light');
+          } else {
+            root.classList.add('dark');
+            root.classList.remove('light');
+          }
+        } catch {
+        }
+      })();
+
       window.__mirachposBranding = {
         platformName: 'MirachPos',
         logoUrl: './mirach.png',
