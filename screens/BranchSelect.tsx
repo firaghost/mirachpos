@@ -245,7 +245,7 @@ export const BranchSelect: React.FC = () => {
                       onClick={() => setChip(c)}
                       className={`gap-2 ${chip === c ? '' : 'text-muted-foreground'}`}
                     >
-                      {c === 'Open' && <div className="w-2 h-2 rounded-full bg-green-500" />}
+                      {c === 'Open' && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
                       {c === 'Closed' && <div className="w-2 h-2 rounded-full bg-destructive" />}
                       {c === 'Maintenance' && <span className="material-symbols-outlined text-[16px]">build</span>}
                       {c}
@@ -285,17 +285,17 @@ export const BranchSelect: React.FC = () => {
                     className={`group cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/50 ${isMaint ? 'opacity-70' : ''}`}
                   >
                     <div className="relative w-full aspect-video bg-muted overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/30 to-transparent"></div>
                       {/* Status Badge */}
                       <div className="absolute top-3 right-3">
-                        <div className={`backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1.5 border font-bold text-xs uppercase tracking-wide text-white ${isOpen ? 'bg-black/30 border-white/20' : 'bg-black/60 border-white/10'}`}>
-                          <div className={`w-2 h-2 rounded-full ${isOpen ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]' : isClosed ? 'bg-red-500' : 'bg-orange-400'}`}></div>
+                        <div className={`backdrop-blur-md px-2.5 py-1 rounded-full flex items-center gap-1.5 border font-bold text-xs uppercase tracking-wide text-foreground ${isOpen ? 'bg-background/60 border-border' : 'bg-background/80 border-border'}`}>
+                          <div className={`w-2 h-2 rounded-full ${isOpen ? 'bg-emerald-500 shadow-sm' : isClosed ? 'bg-destructive' : 'bg-orange-500'}`}></div>
                           {status}
                         </div>
                       </div>
                       {/* Avatar/Initial */}
-                      <div className="absolute bottom-4 left-4 text-white">
-                        <div className="h-12 w-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center text-2xl font-black border border-white/20 shadow-lg">
+                      <div className="absolute bottom-4 left-4 text-foreground">
+                        <div className="h-12 w-12 rounded-xl bg-background/40 backdrop-blur-md flex items-center justify-center text-2xl font-black border border-border shadow-lg">
                           {b.name.slice(0, 1).toUpperCase()}
                         </div>
                       </div>

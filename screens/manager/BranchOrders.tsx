@@ -85,13 +85,13 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">
-      <header className="h-16 shrink-0 border-b border-[#483c23] flex items-center justify-between px-8 bg-[#221c10]">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+      <header className="h-16 shrink-0 border-b border-border flex items-center justify-between px-8 bg-background">
          <div className="flex items-center gap-4">
              <span className="material-symbols-outlined text-primary text-2xl">receipt_long</span>
              <h2 className="text-xl font-bold">Orders Management</h2>
          </div>
-         <button onClick={() => onNavigate(Screen.TABLE_ASSIGNMENT)} className="bg-primary text-[#221c10] px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2">
+         <button onClick={() => onNavigate(Screen.TABLE_ASSIGNMENT)} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2">
             <span className="material-symbols-outlined text-lg">add</span> New Order
          </button>
       </header>
@@ -99,36 +99,36 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
       <div className="flex-1 overflow-y-auto p-8">
         <div className="flex items-center justify-between gap-4 mb-4">
           <div className="flex gap-2">
-            <button onClick={() => setDateMode('Today')} className={`px-4 py-2 rounded-lg text-sm border ${dateMode === 'Today' ? 'bg-primary text-[#221c10] border-primary font-bold' : 'bg-[#2c2417] border-[#483c23] text-[#c9b792] hover:text-white'}`}>Today</button>
-            <button onClick={() => setDateMode('All')} className={`px-4 py-2 rounded-lg text-sm border ${dateMode === 'All' ? 'bg-primary text-[#221c10] border-primary font-bold' : 'bg-[#2c2417] border-[#483c23] text-[#c9b792] hover:text-white'}`}>All</button>
-            <button onClick={() => setDateMode('Range')} className={`px-4 py-2 rounded-lg text-sm border ${dateMode === 'Range' ? 'bg-primary text-[#221c10] border-primary font-bold' : 'bg-[#2c2417] border-[#483c23] text-[#c9b792] hover:text-white'}`}>Range</button>
+            <button onClick={() => setDateMode('Today')} className={`px-4 py-2 rounded-lg text-sm border ${dateMode === 'Today' ? 'bg-primary text-primary-foreground border-primary font-bold' : 'bg-card border-border text-foreground hover:bg-accent hover:text-accent-foreground'}`}>Today</button>
+            <button onClick={() => setDateMode('All')} className={`px-4 py-2 rounded-lg text-sm border ${dateMode === 'All' ? 'bg-primary text-primary-foreground border-primary font-bold' : 'bg-card border-border text-foreground hover:bg-accent hover:text-accent-foreground'}`}>All</button>
+            <button onClick={() => setDateMode('Range')} className={`px-4 py-2 rounded-lg text-sm border ${dateMode === 'Range' ? 'bg-primary text-primary-foreground border-primary font-bold' : 'bg-card border-border text-foreground hover:bg-accent hover:text-accent-foreground'}`}>Range</button>
           </div>
 
           {dateMode === 'Range' ? (
             <div className="flex items-center gap-2">
-              <input value={fromDate} onChange={(e) => setFromDate(e.target.value)} type="date" className="h-10 bg-[#2c2417] border border-[#483c23] rounded-lg px-3 text-sm text-white" />
-              <span className="text-[#c9b792] text-sm">to</span>
-              <input value={toDate} onChange={(e) => setToDate(e.target.value)} type="date" className="h-10 bg-[#2c2417] border border-[#483c23] rounded-lg px-3 text-sm text-white" />
+              <input value={fromDate} onChange={(e) => setFromDate(e.target.value)} type="date" className="h-10 bg-card border border-border rounded-lg px-3 text-sm text-foreground" />
+              <span className="text-muted-foreground text-sm">to</span>
+              <input value={toDate} onChange={(e) => setToDate(e.target.value)} type="date" className="h-10 bg-card border border-border rounded-lg px-3 text-sm text-foreground" />
             </div>
           ) : null}
         </div>
 
         <div className="flex gap-4 mb-6">
             <div className="flex-1 relative">
-                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#c9b792]">search</span>
-                <input value={query} onChange={(e) => setQuery(e.target.value)} className="w-full bg-[#2c2417] border border-[#483c23] rounded-lg py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-primary" placeholder="Search Order ID, Table..."/>
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground">search</span>
+                <input value={query} onChange={(e) => setQuery(e.target.value)} className="w-full bg-card border border-border rounded-lg py-2 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:border-primary" placeholder="Search Order ID, Table..."/>
             </div>
              <div className="flex gap-2">
-                <button onClick={() => setChannel('Dine-in')} className={`px-4 py-2 rounded-lg text-sm border ${channel === 'Dine-in' ? 'bg-primary text-[#221c10] border-primary font-bold' : 'bg-[#2c2417] border-[#483c23] text-[#c9b792] hover:text-white'}`}>Dine-in</button>
-                <button onClick={() => setChannel('Takeaway')} className={`px-4 py-2 rounded-lg text-sm border ${channel === 'Takeaway' ? 'bg-primary text-[#221c10] border-primary font-bold' : 'bg-[#2c2417] border-[#483c23] text-[#c9b792] hover:text-white'}`}>Takeaway</button>
-                <button onClick={() => setChannel('Delivery')} className={`px-4 py-2 rounded-lg text-sm border ${channel === 'Delivery' ? 'bg-primary text-[#221c10] border-primary font-bold' : 'bg-[#2c2417] border-[#483c23] text-[#c9b792] hover:text-white'}`}>Delivery</button>
-                <button onClick={() => setChannel('All')} className={`px-4 py-2 rounded-lg text-sm border ${channel === 'All' ? 'bg-primary text-[#221c10] border-primary font-bold' : 'bg-[#2c2417] border-[#483c23] text-[#c9b792] hover:text-white'}`}>All</button>
+                <button onClick={() => setChannel('Dine-in')} className={`px-4 py-2 rounded-lg text-sm border ${channel === 'Dine-in' ? 'bg-primary text-primary-foreground border-primary font-bold' : 'bg-card border-border text-foreground hover:bg-accent hover:text-accent-foreground'}`}>Dine-in</button>
+                <button onClick={() => setChannel('Takeaway')} className={`px-4 py-2 rounded-lg text-sm border ${channel === 'Takeaway' ? 'bg-primary text-primary-foreground border-primary font-bold' : 'bg-card border-border text-foreground hover:bg-accent hover:text-accent-foreground'}`}>Takeaway</button>
+                <button onClick={() => setChannel('Delivery')} className={`px-4 py-2 rounded-lg text-sm border ${channel === 'Delivery' ? 'bg-primary text-primary-foreground border-primary font-bold' : 'bg-card border-border text-foreground hover:bg-accent hover:text-accent-foreground'}`}>Delivery</button>
+                <button onClick={() => setChannel('All')} className={`px-4 py-2 rounded-lg text-sm border ${channel === 'All' ? 'bg-primary text-primary-foreground border-primary font-bold' : 'bg-card border-border text-foreground hover:bg-accent hover:text-accent-foreground'}`}>All</button>
             </div>
         </div>
 
-        <div className="bg-[#2c2417] rounded-xl border border-[#483c23] overflow-hidden">
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
             <table className="w-full text-left text-sm">
-                <thead className="bg-[#221c10] text-[#c9b792] text-xs uppercase font-bold border-b border-[#483c23]">
+                <thead className="bg-background text-muted-foreground text-xs uppercase font-bold border-b border-border">
                     <tr>
                         <th className="px-6 py-4">Order #</th>
                         <th className="px-6 py-4">Day</th>
@@ -141,20 +141,20 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
                         <th className="px-6 py-4">Status</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-[#483c23]">
+                <tbody className="divide-y divide-border">
                      {rows.map((order, i) => (
-                        <tr key={i} onClick={() => openOrder(order.id)} className={`hover:bg-[#393328] transition-colors cursor-pointer ${order.status === 'Voided' ? 'bg-red-950/10' : ''}`}>
+                        <tr key={i} onClick={() => openOrder(order.id)} className={`hover:bg-secondary transition-colors cursor-pointer ${order.status === 'Voided' ? 'bg-red-950/10' : ''}`}>
                             <td className="px-6 py-4 font-mono font-bold">{order.number}</td>
-                            <td className="px-6 py-4 text-[#c9b792]">{formatDeviceDate(order.createdAt, { year: 'numeric', month: 'short', day: '2-digit' })}</td>
-                            <td className="px-6 py-4 text-[#c9b792]">{formatDeviceTime((order as any).paidAt || order.createdAt, { hour: '2-digit', minute: '2-digit' })}</td>
+                            <td className="px-6 py-4 text-muted-foreground">{formatDeviceDate(order.createdAt, { year: 'numeric', month: 'short', day: '2-digit' })}</td>
+                            <td className="px-6 py-4 text-muted-foreground">{formatDeviceTime((order as any).paidAt || order.createdAt, { hour: '2-digit', minute: '2-digit' })}</td>
                             <td className="px-6 py-4">
                               <div className="flex flex-col">
                                 <span>{order.tableName}</span>
-                                {(order as any)?.orderType === 'takeaway' ? <span className="text-xs text-[#c9b792]">Takeaway</span> : null}
+                                {(order as any)?.orderType === 'takeaway' ? <span className="text-xs text-muted-foreground">Takeaway</span> : null}
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-[#c9b792]">{order.createdByName ?? (order.createdByStaffId ?? ' ”')}</td>
-                            <td className="px-6 py-4 text-[#c9b792] truncate max-w-[200px]">{order.items.map((x) => `${x.qty} — ${x.name}`).join(', ')}</td>
+                            <td className="px-6 py-4 text-muted-foreground">{order.createdByName ?? (order.createdByStaffId ?? ' ”')}</td>
+                            <td className="px-6 py-4 text-muted-foreground truncate max-w-[200px]">{order.items.map((x) => `${x.qty} — ${x.name}`).join(', ')}</td>
                             <td className="px-6 py-4 text-right font-bold">ETB {Number((order as any).tip ?? 0).toFixed(2)}</td>
                             <td className="px-6 py-4 text-right font-bold">ETB {order.total.toFixed(2)}</td>
                             <td className="px-6 py-4 relative overflow-hidden">
@@ -165,11 +165,11 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
                                  ) : null}
                                   <span className={`px-2 py-1 rounded text-xs font-bold ${
                                      order.status === 'Cooking' ? 'bg-yellow-500/20 text-yellow-500' :
-                                     order.status === 'Ready' ? 'bg-white-500/20 text-white-500' :
+                                     order.status === 'Ready' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-300 border border-blue-500/20' :
                                      order.status === 'Served' ? 'bg-green-500/20 text-green-500' :
                                      order.status === 'Paid' ? 'bg-green-500/20 text-green-500' :
                                      order.status === 'Voided' ? 'bg-red-500/25 text-red-300 border border-red-500/30' :
-                                     'bg-white/10 text-[#c9b792]'
+                                     'bg-muted text-muted-foreground border border-border'
                                  }`}>
                                      {order.status}
                                  </span>

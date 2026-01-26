@@ -61,7 +61,7 @@ export const InitializePosModal: React.FC<Props> = ({ open, onClose, onInitializ
             type="button"
             disabled={saving}
             onClick={onClose}
-            className="h-10 px-4 rounded-lg border border-[#483c23] bg-[#2c241b] text-white font-bold hover:bg-[#3a2e22] disabled:opacity-60"
+            className="h-10 px-4 rounded-lg border border-border bg-secondary text-foreground font-bold hover:bg-secondary/80 disabled:opacity-60"
           >
             Cancel
           </button>
@@ -69,7 +69,7 @@ export const InitializePosModal: React.FC<Props> = ({ open, onClose, onInitializ
             type="button"
             disabled={saving}
             onClick={submit}
-            className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221c10] font-black hover:bg-[#d99a20] disabled:opacity-60"
+            className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 disabled:opacity-60"
           >
             {saving ? 'Initializing ¦' : 'Initialize'}
           </button>
@@ -77,39 +77,39 @@ export const InitializePosModal: React.FC<Props> = ({ open, onClose, onInitializ
       }
     >
       <div className="flex flex-col gap-4">
-        {err ? <div className="text-sm text-red-200 border border-red-500/30 bg-red-500/10 rounded-lg p-3">{err}</div> : null}
+        {err ? <div className="text-sm text-destructive border border-destructive/30 bg-destructive/10 rounded-lg p-3">{err}</div> : null}
 
-        <div className="text-sm text-[#c9b792]">
+        <div className="text-sm text-muted-foreground">
           This will create default tables for the current branch. Products and menu items will remain empty until you add them.
         </div>
 
         <div className="grid grid-cols-12 gap-4">
           <label className="col-span-6 flex flex-col gap-1">
-            <span className="text-xs text-[#c9b792] font-bold">Tables count</span>
+            <span className="text-xs text-muted-foreground font-bold">Tables count</span>
             <input
               value={tablesCount}
               onChange={(e) => setTablesCount(e.target.value)}
-              className={cx('h-10 rounded-lg px-3 bg-[#221c11] border border-[#483c23] text-white outline-none')}
+              className={cx('h-10 rounded-lg px-3 bg-background border border-border text-foreground outline-none')}
               inputMode="numeric"
             />
           </label>
 
           <label className="col-span-6 flex flex-col gap-1">
-            <span className="text-xs text-[#c9b792] font-bold">Default seats</span>
+            <span className="text-xs text-muted-foreground font-bold">Default seats</span>
             <input
               value={defaultSeats}
               onChange={(e) => setDefaultSeats(e.target.value)}
-              className={cx('h-10 rounded-lg px-3 bg-[#221c11] border border-[#483c23] text-white outline-none')}
+              className={cx('h-10 rounded-lg px-3 bg-background border border-border text-foreground outline-none')}
               inputMode="numeric"
             />
           </label>
 
           <label className="col-span-12 flex flex-col gap-1">
-            <span className="text-xs text-[#c9b792] font-bold">Default area</span>
+            <span className="text-xs text-muted-foreground font-bold">Default area</span>
             <select
               value={defaultArea}
               onChange={(e) => setDefaultArea(e.target.value as any)}
-              className="h-10 rounded-lg px-3 bg-[#221c11] border border-[#483c23] text-white outline-none"
+              className="h-10 rounded-lg px-3 bg-background border border-border text-foreground outline-none"
             >
               <option value="Main Hall">Main Hall</option>
               <option value="Patio">Patio</option>

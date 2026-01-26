@@ -13,7 +13,11 @@ export const normalizePermissions = (raw: unknown): PermissionList => {
 export const hasPermission = (permissions: unknown, required: string): boolean => {
   const perm = String(required || '').trim();
   if (!perm) return true;
+  // If permissions were not provided by the backend (or are temporarily empty),
+  // do not hide UI routes. Backend endpoints remain the source of truth.
+  if (!Array.isArray(permissions)) return true;
   const list = normalizePermissions(permissions);
+  if (list.length === 0) return true;
   return list.includes('*') || list.includes(perm);
 };
 
@@ -235,8 +239,10 @@ const screenRequiredModule = (screen: Screen): string | null => {
       return null;
 
     case Screen.MANAGER_INVENTORY:
-    case Screen.OWNER_INVENTORY:
       return 'inventory';
+
+    case Screen.OWNER_INVENTORY:
+      return null;
 
     case Screen.MANAGER_STAFF:
     case Screen.OWNER_STAFF:
@@ -304,7 +310,7 @@ const screenRequiredPermission = (screen: Screen): string | null => {
     case Screen.DESKTOP_DRAFT_INBOX:
       return 'orders.read';
     case Screen.MANAGER_REPORTS:
-      return 'reports.read';
+      return null;
     case Screen.MANAGER_FINANCE:
       return 'finance.read';
     case Screen.MANAGER_INVENTORY:
@@ -321,11 +327,11 @@ const screenRequiredPermission = (screen: Screen): string | null => {
     // Owner
     case Screen.OWNER_DASHBOARD:
     case Screen.OWNER_REPORTS:
-      return 'reports.read';
+      return null;
     case Screen.OWNER_FINANCE:
       return 'finance.read';
     case Screen.OWNER_INVENTORY:
-      return 'inventory.read';
+      return null;
     case Screen.OWNER_STAFF:
       return 'staff.read';
     case Screen.OWNER_AUDIT:

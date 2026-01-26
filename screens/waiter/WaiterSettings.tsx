@@ -104,9 +104,9 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
   const Field: React.FC<{ label: string; hint?: string; error?: string; children: React.ReactNode }> = ({ label, hint, error, children }) => {
     return (
       <div>
-        <label className="text-xs font-bold text-[#b9b09d]">{label}</label>
+        <label className="text-xs font-bold text-muted-foreground">{label}</label>
         <div className="mt-1">{children}</div>
-        {error ? <div className="mt-1 text-[11px] text-red-300">{error}</div> : hint ? <div className="mt-1 text-[11px] text-[#b9b09d]">{hint}</div> : null}
+        {error ? <div className="mt-1 text-[11px] text-destructive">{error}</div> : hint ? <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div> : null}
       </div>
     );
   };
@@ -119,12 +119,12 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white"
+          className="flex-1 h-11 bg-background border border-border rounded-lg px-4 text-foreground"
         />
         <button
           type="button"
           onClick={onToggle}
-          className="h-11 px-3 rounded-lg border border-[#393328] bg-[#221c10] text-[#c9b792] hover:text-white"
+          className="h-11 px-3 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground"
           title={show ? 'Hide' : 'Show'}
         >
           <span className="material-symbols-outlined text-[18px]">{show ? 'visibility_off' : 'visibility'}</span>
@@ -134,11 +134,11 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#181611] text-white">
-      <header className="flex items-center justify-between px-6 py-5 border-b border-[#393328] bg-[#221c10]">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+      <header className="flex items-center justify-between px-6 py-5 border-b border-border bg-card">
         <div>
           <div className="text-2xl font-extrabold tracking-tight">Settings</div>
-          <div className="text-xs text-[#b9b09d] mt-1">Security    Password & PIN</div>
+          <div className="text-xs text-muted-foreground mt-1">Security    Password & PIN</div>
         </div>
         <button
           onClick={() => {
@@ -147,7 +147,7 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
             else if (r === 'Cafe Owner') onNavigate(Screen.OWNER_DASHBOARD);
             else onNavigate(Screen.WAITER_DASHBOARD);
           }}
-          className="h-10 px-4 rounded-lg border border-[#393328] bg-[#181611] hover:bg-[#2c241b] text-[#c9b792] font-bold"
+          className="h-10 px-4 rounded-lg border border-border bg-background hover:bg-secondary text-muted-foreground font-bold"
         >
           Back
         </button>
@@ -155,29 +155,29 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-3xl mx-auto space-y-6">
-          {err ? <div className="p-3 rounded-lg bg-red-900/20 border border-red-800 text-red-200 text-sm">{err}</div> : null}
-          {ok ? <div className="p-3 rounded-lg bg-emerald-900/20 border border-emerald-800 text-emerald-200 text-sm">{ok}</div> : null}
+          {err ? <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">{err}</div> : null}
+          {ok ? <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-sm">{ok}</div> : null}
 
-          <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5">
+          <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-sm font-extrabold">Account Overview</div>
-                <div className="text-[11px] text-[#b9b09d] mt-1">This page is security-only (password + PIN).</div>
+                <div className="text-[11px] text-muted-foreground mt-1">This page is security-only (password + PIN).</div>
               </div>
-              <div className="text-right text-[11px] text-[#8e826f]">
-                <div>Role: <span className="text-[#c9b792] font-semibold">{role || '  '}</span></div>
-                <div>Branch: <span className="text-[#c9b792] font-semibold">{branchId || '  '}</span></div>
-                <div>Staff: <span className="text-[#c9b792] font-semibold">{staffId || '  '}</span></div>
-                <div>Tenant: <span className="text-[#c9b792] font-semibold">{tenantId || '  '}</span></div>
+              <div className="text-right text-[11px] text-muted-foreground">
+                <div>Role: <span className="text-muted-foreground font-semibold">{role || '  '}</span></div>
+                <div>Branch: <span className="text-muted-foreground font-semibold">{branchId || '  '}</span></div>
+                <div>Staff: <span className="text-muted-foreground font-semibold">{staffId || '  '}</span></div>
+                <div>Tenant: <span className="text-muted-foreground font-semibold">{tenantId || '  '}</span></div>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-extrabold">Password</div>
-                <div className="text-[11px] text-[#b9b09d]">Optional</div>
+                <div className="text-[11px] text-muted-foreground">Optional</div>
               </div>
               <div className="mt-4 space-y-4">
                 <Field label="Current Password" hint="Required only if changing password.">
@@ -189,14 +189,14 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
                 <Field label="Confirm New Password" error={wantsPassword && confirmPassword.trim().length > 0 && confirmPassword !== newPassword ? 'Does not match.' : ''}>
                   <SecretInput value={confirmPassword} onChange={setConfirmPassword} show={showConfirmPassword} onToggle={() => setShowConfirmPassword((v) => !v)} placeholder="        " />
                 </Field>
-                {passwordError ? <div className="text-[11px] text-red-300">{passwordError}</div> : null}
+                {passwordError ? <div className="text-[11px] text-destructive">{passwordError}</div> : null}
               </div>
             </div>
 
-            <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5">
+            <div className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-extrabold">PIN</div>
-                <div className="text-[11px] text-[#b9b09d]">Optional</div>
+                <div className="text-[11px] text-muted-foreground">Optional</div>
               </div>
               <div className="mt-4 space-y-4">
                 <Field label="Current PIN" hint="Required only if changing PIN.">
@@ -208,7 +208,7 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
                 <Field label="Confirm New PIN" error={wantsPin && confirmPin.trim().length > 0 && confirmPin !== newPin ? 'Does not match.' : ''}>
                   <SecretInput value={confirmPin} onChange={setConfirmPin} show={showConfirmPin} onToggle={() => setShowConfirmPin((v) => !v)} placeholder="1234" />
                 </Field>
-                {pinError ? <div className="text-[11px] text-red-300">{pinError}</div> : null}
+                {pinError ? <div className="text-[11px] text-destructive">{pinError}</div> : null}
               </div>
             </div>
           </div>
@@ -217,7 +217,7 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
             <button
               disabled={!canSubmit}
               onClick={submit}
-              className="h-11 px-5 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] font-extrabold disabled:opacity-50"
+              className="h-11 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold disabled:opacity-50"
             >
               {saving ? 'Saving ¦' : 'Save Changes'}
             </button>

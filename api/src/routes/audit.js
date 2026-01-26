@@ -19,7 +19,7 @@ const safeJsonParse = (raw, fallback) => {
 const makeAuditRouter = () => {
   const r = express.Router();
 
-  r.post('/audit/log', tenantMiddleware, requireAuth, requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'), async (req, res, next) => {
+  r.post('/audit/log', tenantMiddleware, requireAuth, requireRole('Super Admin', 'Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'), async (req, res, next) => {
     try {
       const body = req.body && typeof req.body === 'object' ? req.body : null;
       const type = typeof body?.type === 'string' ? body.type.trim() : '';
@@ -50,7 +50,7 @@ const makeAuditRouter = () => {
     }
   });
 
-  r.get('/audit/list', tenantMiddleware, requireAuth, requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'), async (req, res, next) => {
+  r.get('/audit/list', tenantMiddleware, requireAuth, requireRole('Super Admin', 'Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'), async (req, res, next) => {
     try {
       const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 50) || 50));
       const branchId = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';

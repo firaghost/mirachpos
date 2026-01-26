@@ -1468,8 +1468,8 @@ export const Finance: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#221c10] font-display text-white overflow-hidden h-full flex flex-col">
-      <div className="flex-none border-b border-[#483c23]">
+    <div className="bg-background font-display text-foreground overflow-hidden h-full flex flex-col">
+      <div className="flex-none border-b border-border">
         <Header title="Finance Overview" subtitle="Cash sessions, expenses, and daily cash flow" />
       </div>
 
@@ -1480,7 +1480,7 @@ export const Finance: React.FC = () => {
               <div>Failed to load finance: {remoteError}</div>
               <button
                 onClick={() => loadRemote(range)}
-                className="px-4 h-10 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] font-bold"
+                className="px-4 h-10 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
               >
                 Retry
               </button>
@@ -1488,60 +1488,60 @@ export const Finance: React.FC = () => {
           ) : null}
           {expenseCreateOpen ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-              <div className="w-full max-w-lg rounded-xl border border-[#483c23] bg-[#2c241b] shadow-2xl">
-                <div className="flex items-center justify-between border-b border-[#483c23] px-5 py-4">
-                  <div className="text-white font-bold">New Expense</div>
+              <div className="w-full max-w-lg rounded-xl border border-border bg-card shadow-2xl">
+                <div className="flex items-center justify-between border-b border-border px-5 py-4">
+                  <div className="text-foreground font-bold">New Expense</div>
                   <button
                     onClick={() => setExpenseCreateOpen(false)}
-                    className="size-8 flex items-center justify-center rounded-lg hover:bg-[#483c23] text-[#c9b792] hover:text-white"
+                    className="size-8 flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground"
                   >
                     <span className="material-symbols-outlined text-[20px]">close</span>
                   </button>
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="space-y-1">
-                    <div className="text-xs text-[#c9b792] font-bold">Category</div>
+                    <div className="text-xs text-muted-foreground font-bold">Category</div>
                     <input
                       value={expenseCreateDraft.category}
                       onChange={(e) => setExpenseCreateDraft((d) => ({ ...d, category: e.target.value }))}
-                      className="w-full bg-[#483c23] border border-white/5 rounded px-3 py-2 text-sm text-white"
+                      className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-foreground"
                       placeholder="Rent / Salary / Utilities / Supplies"
                     />
                   </div>
                   <div className="space-y-1">
-                    <div className="text-xs text-[#c9b792] font-bold">Title</div>
+                    <div className="text-xs text-muted-foreground font-bold">Title</div>
                     <input
                       value={expenseCreateDraft.title}
                       onChange={(e) => setExpenseCreateDraft((d) => ({ ...d, title: e.target.value }))}
-                      className="w-full bg-[#483c23] border border-white/5 rounded px-3 py-2 text-sm text-white"
+                      className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-foreground"
                       placeholder="Supplies / Utilities / etc"
                     />
                   </div>
                   <div className="space-y-1">
-                    <div className="text-xs text-[#c9b792] font-bold">Vendor</div>
+                    <div className="text-xs text-muted-foreground font-bold">Vendor</div>
                     <input
                       value={expenseCreateDraft.vendor}
                       onChange={(e) => setExpenseCreateDraft((d) => ({ ...d, vendor: e.target.value }))}
-                      className="w-full bg-[#483c23] border border-white/5 rounded px-3 py-2 text-sm text-white"
+                      className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-foreground"
                       placeholder="Supplier name"
                     />
                   </div>
                   <div className="space-y-1">
-                    <div className="text-xs text-[#c9b792] font-bold">Amount (ETB)</div>
+                    <div className="text-xs text-muted-foreground font-bold">Amount (ETB)</div>
                     <input
                       type="number"
                       value={expenseCreateDraft.amount}
                       onChange={(e) => setExpenseCreateDraft((d) => ({ ...d, amount: e.target.value }))}
-                      className="w-full bg-[#483c23] border border-white/5 rounded px-3 py-2 text-sm text-white"
+                      className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-foreground"
                       placeholder="0"
                     />
                   </div>
                   <div className="space-y-1">
-                    <div className="text-xs text-[#c9b792] font-bold">Icon</div>
+                    <div className="text-xs text-muted-foreground font-bold">Icon</div>
                     <select
                       value={expenseCreateDraft.icon}
                       onChange={(e) => setExpenseCreateDraft((d) => ({ ...d, icon: e.target.value as any }))}
-                      className="w-full h-10 px-2 rounded-lg border border-white/5 bg-[#483c23] text-sm text-white focus:outline-none"
+                      className="w-full h-10 px-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none"
                     >
                       <option value="receipt_long">Receipt</option>
                       <option value="local_shipping">Shipping</option>
@@ -1550,16 +1550,16 @@ export const Finance: React.FC = () => {
                     </select>
                   </div>
                 </div>
-                <div className="flex items-center justify-end gap-2 border-t border-[#483c23] px-5 py-4">
+                <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
                   <button
                     onClick={() => setExpenseCreateOpen(false)}
-                    className="px-4 py-2 rounded-lg border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/40"
+                    className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={submitNewExpense}
-                    className="px-4 py-2 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] font-bold"
+                    className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                   >
                     Create
                   </button>
@@ -1570,47 +1570,47 @@ export const Finance: React.FC = () => {
 
           {sessionCreateOpen ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-              <div className="w-full max-w-lg rounded-xl border border-[#483c23] bg-[#2c241b] shadow-2xl">
-                <div className="flex items-center justify-between border-b border-[#483c23] px-5 py-4">
-                  <div className="text-white font-bold">Open Cash Session</div>
+              <div className="w-full max-w-lg rounded-xl border border-border bg-card shadow-2xl">
+                <div className="flex items-center justify-between border-b border-border px-5 py-4">
+                  <div className="text-foreground font-bold">Open Cash Session</div>
                   <button
                     onClick={() => setSessionCreateOpen(false)}
-                    className="size-8 flex items-center justify-center rounded-lg hover:bg-[#483c23] text-[#c9b792] hover:text-white"
+                    className="size-8 flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground"
                   >
                     <span className="material-symbols-outlined text-[20px]">close</span>
                   </button>
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="space-y-1">
-                    <div className="text-xs text-[#c9b792] font-bold">Register</div>
+                    <div className="text-xs text-muted-foreground font-bold">Register</div>
                     <input
                       value={sessionCreateDraft.register}
                       onChange={(e) => setSessionCreateDraft((d) => ({ ...d, register: e.target.value }))}
-                      className="w-full bg-[#483c23] border border-white/5 rounded px-3 py-2 text-sm text-white"
+                      className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-foreground"
                       placeholder="POS"
                     />
                   </div>
                   <div className="space-y-1">
-                    <div className="text-xs text-[#c9b792] font-bold">Opening Cash (ETB)</div>
+                    <div className="text-xs text-muted-foreground font-bold">Opening Cash (ETB)</div>
                     <input
                       type="number"
                       value={sessionCreateDraft.openingCash}
                       onChange={(e) => setSessionCreateDraft((d) => ({ ...d, openingCash: e.target.value }))}
-                      className="w-full bg-[#483c23] border border-white/5 rounded px-3 py-2 text-sm text-white"
+                      className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-foreground"
                       placeholder="0"
                     />
                   </div>
                 </div>
-                <div className="flex items-center justify-end gap-2 border-t border-[#483c23] px-5 py-4">
+                <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
                   <button
                     onClick={() => setSessionCreateOpen(false)}
-                    className="px-4 py-2 rounded-lg border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/40"
+                    className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={submitNewSession}
-                    className="px-4 py-2 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] font-bold"
+                    className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                   >
                     Open
                   </button>
@@ -1619,14 +1619,16 @@ export const Finance: React.FC = () => {
             </div>
           ) : null}
           {loadingRemote ? (
-            <div className="rounded-xl border border-[#483c23] bg-[#2c241b] px-4 py-3 text-xs text-[#c9b792] font-bold">
+            <div className="rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground font-bold">
               Loading finance data ¦
             </div>
           ) : null}
           {flash && (
             <div
               className={`rounded-xl border px-4 py-3 text-sm font-medium ${
-                flash.kind === 'success' ? 'bg-[#34c759]/10 border-[#34c759]/20 text-[#34c759]' : 'bg-[#ff9900]/10 border-[#ff9900]/20 text-[#ff9900]'
+                flash.kind === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300'
               }`}
             >
               {flash.message}
@@ -1634,21 +1636,21 @@ export const Finance: React.FC = () => {
           )}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="flex flex-col gap-1">
-              <p className="text-[#c9b792] text-base">
-                Financial summary: <span className="text-white font-medium">{range}</span>
+              <p className="text-muted-foreground text-base">
+                Financial summary: <span className="text-foreground font-medium">{range}</span>
               </p>
-              <p className="text-[#c9b792] text-xs">
+              <p className="text-muted-foreground text-xs">
                 {formatDateLabel(new Date(rangeWindow.start))} â†’ {formatDateLabel(new Date(rangeWindow.end.getTime() - 1))}
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex bg-[#2c241b] p-1 rounded-lg border border-[#483c23]">
+              <div className="flex bg-card p-1 rounded-lg border border-border">
                 {(['Today', 'Yesterday', '7 Days', 'This Month'] as const).map((k) => (
                   <button
                     key={k}
                     onClick={() => setRange(k)}
                     className={`px-3 py-1.5 rounded text-xs font-bold transition-colors ${
-                      range === k ? 'bg-[#eead2b] text-[#221c10] shadow-md' : 'text-[#c9b792] hover:text-white hover:bg-[#483c23]/30'
+                      range === k ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                     }`}
                   >
                     {k}
@@ -1657,7 +1659,7 @@ export const Finance: React.FC = () => {
               </div>
               <button
                 onClick={exportCsv}
-                className="flex items-center gap-2 bg-[#2c241b] hover:bg-[#483c23]/50 text-white px-4 py-2.5 rounded-lg text-sm font-bold border border-[#483c23] transition-colors"
+                className="flex items-center gap-2 bg-card hover:bg-accent text-foreground px-4 py-2.5 rounded-lg text-sm font-bold border border-border transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">download</span>
                 Export Report
@@ -1665,7 +1667,7 @@ export const Finance: React.FC = () => {
 
               <button
                 onClick={exportOrdersSoldPdf}
-                className="flex items-center gap-2 bg-[#2c241b] hover:bg-[#483c23]/50 text-white px-4 py-2.5 rounded-lg text-sm font-bold border border-[#483c23] transition-colors"
+                className="flex items-center gap-2 bg-card hover:bg-accent text-foreground px-4 py-2.5 rounded-lg text-sm font-bold border border-border transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">inventory_2</span>
                 Orders Sold PDF
@@ -1673,7 +1675,7 @@ export const Finance: React.FC = () => {
 
               <button
                 onClick={exportProfitPdf}
-                className="flex items-center gap-2 bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] px-4 py-2.5 rounded-lg text-sm font-black transition-colors"
+                className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-black transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
                 Profit PDF
@@ -1682,69 +1684,69 @@ export const Finance: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-[#2c241b] rounded-xl p-5 border border-[#483c23] shadow-lg relative overflow-hidden group">
+            <div className="bg-card rounded-xl p-5 border border-border shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-4xl text-[#eead2b]">payments</span>
+                <span className="material-symbols-outlined text-4xl text-primary">payments</span>
               </div>
-              <p className="text-[#c9b792] text-sm font-medium mb-1">Total Revenue</p>
-              <h3 className="text-white text-2xl font-bold font-mono">{formatMoney(totalRevenue)}</h3>
-              <div className="flex items-center gap-1 mt-2 text-green-300 text-xs font-bold">
+              <p className="text-muted-foreground text-sm font-medium mb-1">Total Revenue</p>
+              <h3 className="text-foreground text-2xl font-bold font-mono">{formatMoney(totalRevenue)}</h3>
+              <div className="flex items-center gap-1 mt-2 text-emerald-500 text-xs font-bold">
                 <span className="material-symbols-outlined text-[14px]">trending_up</span>
                 <span>{payments.length} paid orders</span>
               </div>
             </div>
 
-            <div className="bg-[#2c241b] rounded-xl p-5 border border-[#483c23] shadow-lg relative overflow-hidden group">
+            <div className="bg-card rounded-xl p-5 border border-border shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-4xl text-green-300">account_balance_wallet</span>
+                <span className="material-symbols-outlined text-4xl text-emerald-500">account_balance_wallet</span>
               </div>
-              <p className="text-[#c9b792] text-sm font-medium mb-1">Net Cash in Hand</p>
-              <h3 className="text-white text-2xl font-bold font-mono">{formatMoney(netCashInHand)}</h3>
-              <div className="flex items-center gap-1 mt-2 text-[#c9b792] text-xs">
+              <p className="text-muted-foreground text-sm font-medium mb-1">Net Cash in Hand</p>
+              <h3 className="text-foreground text-2xl font-bold font-mono">{formatMoney(netCashInHand)}</h3>
+              <div className="flex items-center gap-1 mt-2 text-muted-foreground text-xs">
                 <span>{openSessions.length} Active Sessions</span>
               </div>
             </div>
 
-            <div className="bg-[#2c241b] rounded-xl p-5 border border-[#483c23] shadow-lg relative overflow-hidden group">
+            <div className="bg-card rounded-xl p-5 border border-border shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-4xl text-red-300">receipt_long</span>
+                <span className="material-symbols-outlined text-4xl text-destructive">receipt_long</span>
               </div>
-              <p className="text-[#c9b792] text-sm font-medium mb-1">Total Expenses</p>
-              <h3 className="text-white text-2xl font-bold font-mono">{formatMoney(totalExpenses)}</h3>
-              <div className="flex items-center gap-1 mt-2 text-red-300 text-xs font-bold">
+              <p className="text-muted-foreground text-sm font-medium mb-1">Total Expenses</p>
+              <h3 className="text-foreground text-2xl font-bold font-mono">{formatMoney(totalExpenses)}</h3>
+              <div className="flex items-center gap-1 mt-2 text-destructive text-xs font-bold">
                 <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
                 <span>{expenses.length} entries</span>
               </div>
             </div>
 
-            <div className="bg-[#2c241b] rounded-xl p-5 border border-[#483c23] shadow-lg relative overflow-hidden group">
+            <div className="bg-card rounded-xl p-5 border border-border shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-4xl text-orange-300">warning</span>
+                <span className="material-symbols-outlined text-4xl text-amber-500">warning</span>
               </div>
-              <p className="text-[#c9b792] text-sm font-medium mb-1">Discrepancies</p>
-              <h3 className="text-orange-300 text-2xl font-bold font-mono">{(discrepancyTotal >= 0 ? '' : '-') + formatMoney(Math.abs(discrepancyTotal))}</h3>
-              <div className="flex items-center gap-1 mt-2 text-orange-300 text-xs font-bold">
+              <p className="text-muted-foreground text-sm font-medium mb-1">Discrepancies</p>
+              <h3 className="text-amber-600 dark:text-amber-300 text-2xl font-bold font-mono">{(discrepancyTotal >= 0 ? '' : '-') + formatMoney(Math.abs(discrepancyTotal))}</h3>
+              <div className="flex items-center gap-1 mt-2 text-amber-600 dark:text-amber-300 text-xs font-bold">
                 <span>{Math.abs(discrepancyTotal) > 0.001 ? 'Needs Review' : 'OK'}</span>
               </div>
             </div>
           </div>
 
-          <div className="w-full bg-[#2c241b] rounded-xl p-6 border border-[#483c23] shadow-lg">
+          <div className="w-full bg-card rounded-xl p-6 border border-border shadow-lg">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-white text-lg font-bold">Daily Flow</h3>
+              <h3 className="text-foreground text-lg font-bold">Daily Flow</h3>
               <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1 text-xs text-[#c9b792]"><span className="w-2 h-2 rounded-full bg-[#eead2b]"></span> Revenue</span>
-                <span className="flex items-center gap-1 text-xs text-[#c9b792]"><span className="w-2 h-2 rounded-full bg-red-400"></span> Expenses</span>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground"><span className="w-2 h-2 rounded-full bg-primary"></span> Revenue</span>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground"><span className="w-2 h-2 rounded-full bg-destructive"></span> Expenses</span>
               </div>
             </div>
 
             <div className="w-full h-48 flex items-end gap-2 px-2 relative">
               <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10">
-                <div className="w-full h-px bg-[#483c23]"></div>
-                <div className="w-full h-px bg-[#483c23]"></div>
-                <div className="w-full h-px bg-[#483c23]"></div>
-                <div className="w-full h-px bg-[#483c23]"></div>
-                <div className="w-full h-px bg-[#483c23]"></div>
+                <div className="w-full h-px bg-border"></div>
+                <div className="w-full h-px bg-border"></div>
+                <div className="w-full h-px bg-border"></div>
+                <div className="w-full h-px bg-border"></div>
+                <div className="w-full h-px bg-border"></div>
               </div>
 
               {dayFlow.rows.map((r) => {
@@ -1756,22 +1758,22 @@ export const Finance: React.FC = () => {
                       className="absolute left-0 right-0 bottom-0 transition-all rounded-t-sm"
                       style={{
                         height: `${h}%`,
-                        background: 'linear-gradient(180deg, rgba(238,173,43,0.40), rgba(238,173,43,0.18))',
+                        background: 'linear-gradient(180deg, hsl(var(--primary) / 0.35), hsl(var(--primary) / 0.16))',
                       }}
                     >
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity mb-1 font-mono">
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 text-foreground text-[10px] opacity-0 group-hover:opacity-100 transition-opacity mb-1 font-mono">
                         {formatMoney(r.revenue)}
                       </div>
                     </div>
                     <div
                       className="absolute left-0 right-0 bottom-0 pointer-events-none"
-                      style={{ height: `${expH}%`, background: 'linear-gradient(180deg, rgba(244,63,94,0.40), rgba(244,63,94,0.12))' }}
+                      style={{ height: `${expH}%`, background: 'linear-gradient(180deg, hsl(var(--destructive) / 0.35), hsl(var(--destructive) / 0.14))' }}
                     />
                   </div>
                 );
               })}
             </div>
-            <div className="flex justify-between mt-2 text-xs text-[#c9b792] font-mono">
+            <div className="flex justify-between mt-2 text-xs text-muted-foreground font-mono">
               {dayFlow.rows.map((r) => (
                 <span key={r.time}>{r.time}</span>
               ))}
@@ -1779,15 +1781,15 @@ export const Finance: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-[#2c241b] rounded-xl border border-[#483c23] shadow-lg flex flex-col">
-              <div className="p-5 border-b border-[#483c23] flex justify-between items-center">
-                <h3 className="text-white text-lg font-bold">Cash Sessions</h3>
-                <button onClick={() => setTab('Cash Sessions')} className="text-[#eead2b] text-sm font-bold hover:underline">View All</button>
+            <div className="lg:col-span-2 bg-card rounded-xl border border-border shadow-lg flex flex-col">
+              <div className="p-5 border-b border-border flex justify-between items-center">
+                <h3 className="text-foreground text-lg font-bold">Cash Sessions</h3>
+                <button onClick={() => setTab('Cash Sessions')} className="text-primary text-sm font-bold hover:underline">View All</button>
               </div>
               <div className="p-0 overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="text-xs text-[#c9b792] uppercase tracking-wider border-b border-[#483c23]">
+                    <tr className="text-xs text-muted-foreground uppercase tracking-wider border-b border-border">
                       <th className="px-5 py-3 font-medium">Register</th>
                       <th className="px-5 py-3 font-medium">Staff</th>
                       <th className="px-5 py-3 font-medium text-right">Opening</th>
@@ -1796,24 +1798,29 @@ export const Finance: React.FC = () => {
                       <th className="px-5 py-3 font-medium text-center">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="text-sm divide-y divide-[#483c23]">
+                  <tbody className="text-sm divide-y divide-border">
                     {cashSessions.slice(0, 6).map((s) => {
                       const actual = typeof s.actualCash === 'number' ? s.actualCash : undefined;
                       const variance = (actual ?? s.expectedCash) - s.expectedCash;
-                      const varianceCls = variance > 0.001 ? 'text-green-300' : variance < -0.001 ? 'text-orange-300 font-bold' : 'text-green-300';
+                      const varianceCls =
+                        variance > 0.001
+                          ? 'text-emerald-600 dark:text-emerald-300'
+                          : variance < -0.001
+                            ? 'text-amber-600 dark:text-amber-300 font-bold'
+                            : 'text-emerald-600 dark:text-emerald-300';
                       const statusPill =
                         s.status === 'Active'
-                          ? 'bg-green-500/10 text-green-300'
+                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
                           : s.status === 'Audit'
-                            ? 'bg-orange-500/10 text-orange-300'
-                            : 'bg-[#483c23]/35 text-[#c9b792]';
+                            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                            : 'bg-muted text-muted-foreground';
                       return (
-                        <tr key={s.id} className="hover:bg-[#483c23]/20 transition-colors group">
-                          <td className="px-5 py-4 font-medium text-white">{s.register}</td>
-                          <td className="px-5 py-4 text-[#c9b792]">{s.staffName}</td>
-                          <td className="px-5 py-4 text-right font-mono text-[#c9b792]">{formatMoney(s.openingCash)}</td>
-                          <td className="px-5 py-4 text-right font-mono text-white">{actual != null ? formatMoney(actual) : '--'}</td>
-                          <td className={`px-5 py-4 text-right font-mono ${actual != null ? varianceCls : 'text-[#c9b792]'}`}>{actual != null ? `${variance >= 0 ? '+' : ''}${formatMoney(variance)}` : '--'}</td>
+                        <tr key={s.id} className="hover:bg-accent transition-colors group">
+                          <td className="px-5 py-4 font-medium text-foreground">{s.register}</td>
+                          <td className="px-5 py-4 text-muted-foreground">{s.staffName}</td>
+                          <td className="px-5 py-4 text-right font-mono text-muted-foreground">{formatMoney(s.openingCash)}</td>
+                          <td className="px-5 py-4 text-right font-mono text-foreground">{actual != null ? formatMoney(actual) : '--'}</td>
+                          <td className={`px-5 py-4 text-right font-mono ${actual != null ? varianceCls : 'text-muted-foreground'}`}>{actual != null ? `${variance >= 0 ? '+' : ''}${formatMoney(variance)}` : '--'}</td>
                           <td className="px-5 py-4 text-center">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusPill}`}>{s.status}</span>
                           </td>
@@ -1823,22 +1830,22 @@ export const Finance: React.FC = () => {
                   </tbody>
                 </table>
               </div>
-              <div className="p-4 border-t border-[#483c23] mt-auto">
+              <div className="p-4 border-t border-border mt-auto">
                 <button
                   onClick={reconcileAllSessions}
-                  className="w-full py-2 rounded-lg border border-[#eead2b]/40 text-[#eead2b] text-sm font-bold hover:bg-[#eead2b]/10 transition-colors"
+                  className="w-full py-2 rounded-lg border border-primary/40 text-primary text-sm font-bold hover:bg-primary/10 transition-colors"
                 >
                   Reconcile All Sessions
                 </button>
               </div>
             </div>
 
-            <div className="bg-[#2c241b] rounded-xl border border-[#483c23] shadow-lg flex flex-col">
-              <div className="p-5 border-b border-[#483c23] flex justify-between items-center">
-                <h3 className="text-white text-lg font-bold">Expenses</h3>
+            <div className="bg-card rounded-xl border border-border shadow-lg flex flex-col">
+              <div className="p-5 border-b border-border flex justify-between items-center">
+                <h3 className="text-foreground text-lg font-bold">Expenses</h3>
                 <button
                   onClick={addExpense}
-                  className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] transition-colors"
+                  className="size-8 flex items-center justify-center rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-colors"
                 >
                   <span className="material-symbols-outlined text-[20px]">add</span>
                 </button>
@@ -1846,19 +1853,19 @@ export const Finance: React.FC = () => {
               <div className="flex-1 p-0 overflow-y-auto max-h-[300px]">
                 <div className="flex flex-col">
                   {expenses.slice(0, 8).map((e) => (
-                    <div key={e.id} className="flex items-center justify-between p-4 border-b border-[#483c23] hover:bg-[#483c23]/20 transition-colors">
+                    <div key={e.id} className="flex items-center justify-between p-4 border-b border-border hover:bg-accent transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="size-10 rounded-lg bg-[#483c23]/35 flex items-center justify-center text-[#eead2b]">
+                        <div className="size-10 rounded-lg bg-muted flex items-center justify-center text-primary">
                           <span className="material-symbols-outlined text-[20px]">{e.icon}</span>
                         </div>
                         <div>
-                          <p className="text-white text-sm font-medium">{e.title}</p>
-                          <p className="text-[#c9b792] text-xs">Vendor: {e.vendor}</p>
+                          <p className="text-foreground text-sm font-medium">{e.title}</p>
+                          <p className="text-muted-foreground text-xs">Vendor: {e.vendor}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-red-300 text-sm font-mono font-bold">-{formatMoney(e.amount)}</p>
-                        <p className="text-[#c9b792] text-xs">{formatTime12(e.createdAt)}</p>
+                        <p className="text-destructive text-sm font-mono font-bold">-{formatMoney(e.amount)}</p>
+                        <p className="text-muted-foreground text-xs">{formatTime12(e.createdAt)}</p>
                       </div>
                     </div>
                   ))}
@@ -1867,53 +1874,59 @@ export const Finance: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-[#2c241b] border border-[#483c23] rounded-xl p-6 flex flex-wrap items-center justify-between gap-6 shadow-xl">
+          <div className="bg-card border border-border rounded-xl p-6 flex flex-wrap items-center justify-between gap-6 shadow-xl">
             <div className="flex flex-col">
-              <h4 className="text-white text-base font-bold">Daily Reconciliation</h4>
-              <p className="text-[#c9b792] text-sm">Verify physical cash against recorded transactions.</p>
+              <h4 className="text-foreground text-base font-bold">Daily Reconciliation</h4>
+              <p className="text-muted-foreground text-sm">Verify physical cash against recorded transactions.</p>
             </div>
             <div className="flex items-center gap-8">
               <div className="flex flex-col items-end">
-                <span className="text-xs text-[#c9b792] uppercase">Expected Cash</span>
-                <span className="text-xl text-white font-mono font-bold">{formatMoney(expectedCash)}</span>
+                <span className="text-xs text-muted-foreground uppercase">Expected Cash</span>
+                <span className="text-xl text-foreground font-mono font-bold">{formatMoney(expectedCash)}</span>
               </div>
-              <div className="h-8 w-px bg-white/10"></div>
+              <div className="h-8 w-px bg-border"></div>
               <div className="flex flex-col items-end">
-                <span className="text-xs text-[#c9b792] uppercase">Actual Counted</span>
-                <span className={`text-xl font-mono font-bold ${Math.abs(actualCounted - expectedCash) < 0.01 ? 'text-green-300' : 'text-orange-300'}`}>{formatMoney(actualCounted)}</span>
+                <span className="text-xs text-muted-foreground uppercase">Actual Counted</span>
+                <span
+                  className={`text-xl font-mono font-bold ${
+                    Math.abs(actualCounted - expectedCash) < 0.01 ? 'text-emerald-600 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-300'
+                  }`}
+                >
+                  {formatMoney(actualCounted)}
+                </span>
               </div>
             </div>
             <button
               onClick={closeShiftAndGenerate}
-              className="bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] px-6 py-3 rounded-lg font-bold shadow-lg shadow-[#eead2b]/20 transition-all active:scale-95"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-lg font-bold shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
               Close Shift & Generate Report
             </button>
           </div>
 
-          <div className="flex flex-col rounded-xl bg-[#2c241b] border border-[#483c23] shadow-sm overflow-hidden">
-            <div className="flex border-b border-[#483c23]">
+          <div className="flex flex-col rounded-xl bg-card border border-border shadow-sm overflow-hidden">
+            <div className="flex border-b border-border">
               <button
                 onClick={() => setTab('Cash Sessions')}
-                className={`px-6 py-4 text-sm font-bold border-b-2 ${tab === 'Cash Sessions' ? 'border-[#eead2b] text-[#eead2b] bg-[#eead2b]/10' : 'border-transparent text-[#c9b792] hover:text-white hover:bg-[#483c23]/20'}`}
+                className={`px-6 py-4 text-sm font-bold border-b-2 ${tab === 'Cash Sessions' ? 'border-primary text-primary bg-primary/10' : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'}`}
               >
                 Cash Sessions
               </button>
               <button
                 onClick={() => setTab('Expenses')}
-                className={`px-6 py-4 text-sm font-bold border-b-2 ${tab === 'Expenses' ? 'border-[#eead2b] text-[#eead2b] bg-[#eead2b]/10' : 'border-transparent text-[#c9b792] hover:text-white hover:bg-[#483c23]/20'}`}
+                className={`px-6 py-4 text-sm font-bold border-b-2 ${tab === 'Expenses' ? 'border-primary text-primary bg-primary/10' : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'}`}
               >
                 Expenses
               </button>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-[#221c10]">
+            <div className="flex items-center justify-between p-4 bg-background">
               <div className="relative max-w-xl w-full">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#c9b792] text-lg">search</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-muted-foreground text-lg">search</span>
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-[#483c23] bg-[#2c241b] focus:ring-1 focus:ring-[#eead2b] focus:outline-none placeholder:text-white/30 text-white"
+                  className="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-border bg-background focus:ring-1 focus:ring-primary focus:outline-none placeholder:text-muted-foreground/60 text-foreground"
                   placeholder="Search by staff, ID, vendor..."
                   type="text"
                 />
@@ -1923,7 +1936,7 @@ export const Finance: React.FC = () => {
                       key={s}
                       onClick={() => setStatusFilter(s)}
                       className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
-                        statusFilter === s ? 'bg-[#eead2b] text-[#221c10] border-[#eead2b]' : 'bg-[#2c241b] text-[#c9b792] border-[#483c23] hover:bg-[#483c23]/20'
+                        statusFilter === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:bg-accent'
                       }`}
                     >
                       {s}
@@ -1932,7 +1945,7 @@ export const Finance: React.FC = () => {
                   <select
                     value={registerFilter}
                     onChange={(e) => setRegisterFilter(e.target.value)}
-                    className="h-8 px-2 rounded-lg border border-[#483c23] bg-[#2c241b] text-sm text-white focus:outline-none"
+                    className="h-8 px-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none"
                   >
                     <option value="All">All Registers</option>
                     {registers.map((r) => (
@@ -1942,7 +1955,7 @@ export const Finance: React.FC = () => {
                   <select
                     value={staffFilter}
                     onChange={(e) => setStaffFilter(e.target.value)}
-                    className="h-8 px-2 rounded-lg border border-[#483c23] bg-[#2c241b] text-sm text-white focus:outline-none"
+                    className="h-8 px-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none"
                   >
                     <option value="All">All Staff</option>
                     {staffNames.map((r) => (
@@ -1958,14 +1971,14 @@ export const Finance: React.FC = () => {
                     setRegisterFilter('All');
                     setStaffFilter('All');
                   }}
-                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[#c9b792] hover:text-white transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <span className="material-symbols-outlined text-lg">filter_list</span>
                   Reset
                 </button>
                 <button
                   onClick={openNewSession}
-                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-[#2c241b] border border-[#483c23] rounded-lg shadow-sm hover:bg-[#483c23]/20 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-card border border-border rounded-lg shadow-sm hover:bg-accent transition-colors"
                 >
                   <span className="material-symbols-outlined text-lg">add</span>
                   Open Session
@@ -1977,47 +1990,52 @@ export const Finance: React.FC = () => {
               {tab === 'Cash Sessions' ? (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-[#483c23]">
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] w-20">ID</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">Staff Member</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">Terminal</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">Time</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-right">Expected</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-right">Actual</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-right">Difference</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-center">Status</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-right">Actions</th>
+                    <tr className="border-b border-border">
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground w-20">ID</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Staff Member</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Terminal</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Time</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Expected</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Actual</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Difference</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">Status</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#483c23]">
+                  <tbody className="divide-y divide-border">
                     {filteredSessions.map((s) => {
                       const actual = typeof s.actualCash === 'number' ? s.actualCash : undefined;
                       const diff = actual != null ? actual - s.expectedCash : 0;
-                      const diffCls = diff < -0.01 ? 'text-red-300' : diff > 0.01 ? 'text-green-300' : 'text-green-300';
+                      const diffCls =
+                        diff < -0.01
+                          ? 'text-destructive'
+                          : diff > 0.01
+                            ? 'text-emerald-600 dark:text-emerald-300'
+                            : 'text-emerald-600 dark:text-emerald-300';
                       const pill =
                         s.status === 'Active'
-                          ? 'bg-green-500/10 text-green-300 animate-pulse'
-                          : 'bg-[#483c23]/35 text-[#c9b792]';
+                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 animate-pulse'
+                          : 'bg-muted text-muted-foreground';
                       return (
-                        <tr key={s.id} className="hover:bg-[#483c23]/20 transition-colors">
-                          <td className="py-3 px-4 text-sm font-medium text-[#c9b792]">#{s.id}</td>
+                        <tr key={s.id} className="hover:bg-accent transition-colors">
+                          <td className="py-3 px-4 text-sm font-medium text-muted-foreground">#{s.id}</td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-[#483c23]/35 bg-cover bg-center" />
+                              <div className="h-8 w-8 rounded-full bg-muted bg-cover bg-center" />
                               <div className="flex flex-col">
-                                <span className="text-sm font-medium text-white">{s.staffName}</span>
-                                <span className="text-xs text-[#c9b792]">{s.staffRole}</span>
+                                <span className="text-sm font-medium text-foreground">{s.staffName}</span>
+                                <span className="text-xs text-muted-foreground">{s.staffRole}</span>
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-sm text-white">{s.register}</td>
-                          <td className="py-3 px-4 text-sm text-[#c9b792]">{formatTime12(s.openedAt)} - {s.status === 'Active' ? 'Active' : s.closedAt ? formatTime12(s.closedAt) : 'Closed'}</td>
-                          <td className="py-3 px-4 text-sm text-right font-medium text-white">{formatMoney(s.expectedCash)}</td>
-                          <td className="py-3 px-4 text-sm text-right font-medium text-white">
+                          <td className="py-3 px-4 text-sm text-foreground">{s.register}</td>
+                          <td className="py-3 px-4 text-sm text-muted-foreground">{formatTime12(s.openedAt)} - {s.status === 'Active' ? 'Active' : s.closedAt ? formatTime12(s.closedAt) : 'Closed'}</td>
+                          <td className="py-3 px-4 text-sm text-right font-medium text-foreground">{formatMoney(s.expectedCash)}</td>
+                          <td className="py-3 px-4 text-sm text-right font-medium text-foreground">
                             {s.status === 'Active' && sessionEditingId === s.id ? (
                               <input
                                 type="number"
-                                className="w-28 text-right bg-[#483c23] border border-[#483c23] rounded px-2 py-1 text-sm text-white"
+                                className="w-28 text-right bg-background border border-border rounded px-2 py-1 text-sm text-foreground"
                                 value={actual ?? ''}
                                 onChange={(e) => setSessionActualCash(s.id, parseFloat(e.target.value || ''))}
                                 onBlur={() => setSessionEditingId(null)}
@@ -2028,7 +2046,7 @@ export const Finance: React.FC = () => {
                               '--'
                             )}
                           </td>
-                          <td className={`py-3 px-4 text-sm text-right font-bold ${actual != null ? diffCls : 'text-[#c9b792]'}`}>{actual != null ? `${diff < 0 ? '-' : '+'}${formatMoney(Math.abs(diff))}` : '--'}</td>
+                          <td className={`py-3 px-4 text-sm text-right font-bold ${actual != null ? diffCls : 'text-muted-foreground'}`}>{actual != null ? `${diff < 0 ? '-' : '+'}${formatMoney(Math.abs(diff))}` : '--'}</td>
                           <td className="py-3 px-4 text-center">
                             <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${pill}`}>{s.status}</span>
                           </td>
@@ -2036,7 +2054,7 @@ export const Finance: React.FC = () => {
                             {s.status === 'Active' && (
                               <button
                                 onClick={() => setSessionEditingId(s.id)}
-                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/25"
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                               >
                                 <span className="material-symbols-outlined text-sm">calculate</span>
                                 Count
@@ -2045,7 +2063,7 @@ export const Finance: React.FC = () => {
                             {s.status === 'Active' && (
                               <button
                                 onClick={() => closeSession(s.id)}
-                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/25"
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                               >
                                 <span className="material-symbols-outlined text-sm">lock</span>
                                 Close
@@ -2060,49 +2078,49 @@ export const Finance: React.FC = () => {
               ) : (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-[#483c23]">
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">ID</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">Description</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">Vendor</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792]">Time</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-right">Amount</th>
-                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-[#c9b792] text-right">Actions</th>
+                    <tr className="border-b border-border">
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">ID</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vendor</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Time</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Amount</th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#483c23]">
+                  <tbody className="divide-y divide-border">
                     {filteredExpenses.map((e) => (
-                      <tr key={e.id} className="hover:bg-[#483c23]/20 transition-colors">
-                        <td className="py-3 px-4 text-sm font-medium text-[#c9b792]">{e.id}</td>
-                        <td className="py-3 px-4 text-sm text-white">
+                      <tr key={e.id} className="hover:bg-accent transition-colors">
+                        <td className="py-3 px-4 text-sm font-medium text-muted-foreground">{e.id}</td>
+                        <td className="py-3 px-4 text-sm text-foreground">
                           {expenseEditingId === e.id ? (
                             <input
                               value={expenseDraft.title}
                               onChange={(ev) => setExpenseDraft((d) => ({ ...d, title: ev.target.value }))}
-                              className="w-full bg-[#483c23] border border-[#483c23] rounded px-2 py-1 text-sm text-white"
+                              className="w-full bg-background border border-border rounded px-2 py-1 text-sm text-foreground"
                             />
                           ) : (
                             e.title
                           )}
                         </td>
-                        <td className="py-3 px-4 text-sm text-[#c9b792]">
+                        <td className="py-3 px-4 text-sm text-muted-foreground">
                           {expenseEditingId === e.id ? (
                             <input
                               value={expenseDraft.vendor}
                               onChange={(ev) => setExpenseDraft((d) => ({ ...d, vendor: ev.target.value }))}
-                              className="w-full bg-[#483c23] border border-[#483c23] rounded px-2 py-1 text-sm text-white"
+                              className="w-full bg-background border border-border rounded px-2 py-1 text-sm text-foreground"
                             />
                           ) : (
                             e.vendor
                           )}
                         </td>
-                        <td className="py-3 px-4 text-sm text-[#c9b792]">{formatTime12(e.createdAt)}</td>
-                        <td className="py-3 px-4 text-sm text-right font-mono font-bold text-red-300">
+                        <td className="py-3 px-4 text-sm text-muted-foreground">{formatTime12(e.createdAt)}</td>
+                        <td className="py-3 px-4 text-sm text-right font-mono font-bold text-destructive">
                           {expenseEditingId === e.id ? (
                             <input
                               type="number"
                               value={expenseDraft.amount}
                               onChange={(ev) => setExpenseDraft((d) => ({ ...d, amount: ev.target.value }))}
-                              className="w-28 text-right bg-[#483c23] border border-[#483c23] rounded px-2 py-1 text-sm text-white"
+                              className="w-28 text-right bg-background border border-border rounded px-2 py-1 text-sm text-foreground"
                             />
                           ) : (
                             `-${formatMoney(e.amount)}`
@@ -2113,14 +2131,14 @@ export const Finance: React.FC = () => {
                             <div className="space-x-2">
                               <button
                                 onClick={() => saveExpenseEdit(e.id)}
-                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/25"
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                               >
                                 <span className="material-symbols-outlined text-sm">save</span>
                                 Save
                               </button>
                               <button
                                 onClick={() => setExpenseEditingId(null)}
-                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/25"
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                               >
                                 <span className="material-symbols-outlined text-sm">close</span>
                                 Cancel
@@ -2130,14 +2148,14 @@ export const Finance: React.FC = () => {
                             <div className="space-x-2">
                               <button
                                 onClick={() => startEditExpense(e)}
-                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/25"
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                               >
                                 <span className="material-symbols-outlined text-sm">edit</span>
                                 Edit
                               </button>
                               <button
                                 onClick={() => deleteExpense(e.id)}
-                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#483c23] text-red-300 hover:bg-[#483c23]/25"
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-destructive hover:bg-accent"
                               >
                                 <span className="material-symbols-outlined text-sm">delete</span>
                                 Remove
@@ -2152,16 +2170,16 @@ export const Finance: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center justify-between p-4 border-t border-[#483c23]">
-              <p className="text-sm text-[#c9b792]">
-                Showing <span className="font-medium text-white">1-{tab === 'Cash Sessions' ? filteredSessions.length : filteredExpenses.length}</span> of{' '}
-                <span className="font-medium text-white">{tab === 'Cash Sessions' ? filteredSessions.length : filteredExpenses.length}</span> {tab === 'Cash Sessions' ? 'sessions' : 'expenses'}
+            <div className="flex items-center justify-between p-4 border-t border-border">
+              <p className="text-sm text-muted-foreground">
+                Showing <span className="font-medium text-foreground">1-{tab === 'Cash Sessions' ? filteredSessions.length : filteredExpenses.length}</span> of{' '}
+                <span className="font-medium text-foreground">{tab === 'Cash Sessions' ? filteredSessions.length : filteredExpenses.length}</span> {tab === 'Cash Sessions' ? 'sessions' : 'expenses'}
               </p>
               <div className="flex gap-2">
-                <button className="px-3 py-1 text-sm border border-[#483c23] rounded bg-[#2c241b] disabled:opacity-50 text-[#c9b792] hover:bg-[#483c23]/25" disabled>
+                <button className="px-3 py-1 text-sm border border-border rounded bg-card disabled:opacity-50 text-muted-foreground hover:bg-accent" disabled>
                   Previous
                 </button>
-                <button className="px-3 py-1 text-sm border border-[#483c23] rounded bg-[#2c241b] text-[#c9b792] hover:bg-[#483c23]/25" disabled>
+                <button className="px-3 py-1 text-sm border border-border rounded bg-card text-muted-foreground hover:bg-accent" disabled>
                   Next
                 </button>
               </div>

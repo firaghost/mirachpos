@@ -646,30 +646,30 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
   }, [refresh]);
 
   return (
-    <div className="bg-[#221c10] text-white antialiased h-full overflow-hidden flex flex-col">
-      <header className="h-16 shrink-0 border-b border-[#362b18] bg-[#221c10]/95 backdrop-blur flex items-center justify-between px-8 z-10">
+    <div className="bg-background text-foreground antialiased h-full overflow-hidden flex flex-col">
+      <header className="h-16 shrink-0 border-b border-border bg-background/95 backdrop-blur flex items-center justify-between px-8 z-10">
         <div>
-          <h2 className="text-white text-xl font-bold">Overview</h2>
-          <p className="text-[#c9b792] text-xs">{branchName ? `${branchName} • ` : ''}{lastUpdatedAt ? `Updated ${lastUpdatedAt}` : ''}</p>
+          <h2 className="text-foreground text-xl font-bold">Overview</h2>
+          <p className="text-muted-foreground text-xs">{branchName ? `${branchName} • ` : ''}{lastUpdatedAt ? `Updated ${lastUpdatedAt}` : ''}</p>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex bg-[#221c10] p-1 rounded-lg border border-[#483c23]">
+          <div className="flex bg-background p-1 rounded-lg border border-border">
             <button
               onClick={() => setRange('Daily')}
-              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${range === 'Daily' ? 'bg-[#483c23] text-white shadow-sm' : 'text-[#c9b792] hover:text-white'}`}
+              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${range === 'Daily' ? 'bg-secondary text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               Today
             </button>
             <button
               onClick={() => setRange('Weekly')}
-              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${range === 'Weekly' ? 'bg-[#483c23] text-white shadow-sm' : 'text-[#c9b792] hover:text-white'}`}
+              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${range === 'Weekly' ? 'bg-secondary text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               Week
             </button>
             <button
               onClick={() => setRange('Monthly')}
-              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${range === 'Monthly' ? 'bg-[#483c23] text-white shadow-sm' : 'text-[#c9b792] hover:text-white'}`}
+              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${range === 'Monthly' ? 'bg-secondary text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               Month
             </button>
@@ -677,7 +677,7 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
 
           <button
             onClick={refresh}
-            className="size-9 rounded-full bg-[#362b18] text-[#c9b792] hover:text-white hover:bg-[#483c23] flex items-center justify-center transition-all"
+            className="size-9 rounded-full bg-card text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center transition-all"
             aria-label="Refresh"
           >
             <span className="material-symbols-outlined text-[20px]">refresh</span>
@@ -685,7 +685,7 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
 
           <button
             onClick={() => onNavigate(Screen.MANAGER_ORDERS)}
-            className="h-10 px-4 bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg shadow-[#eead2b]/10"
+            className="h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg shadow-primary/10"
           >
             <span className="material-symbols-outlined text-[20px]">receipt_long</span>
             <span>Orders</span>
@@ -696,77 +696,77 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
       <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
         <div className="max-w-[1200px] mx-auto flex flex-col gap-6">
           {error ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{error}</div> : null}
-          {loading ? <div className="text-xs text-[#c9b792]">Loading...</div> : null}
+          {loading ? <div className="text-xs text-muted-foreground">Loading...</div> : null}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-[#362b18] p-4 rounded-xl border border-[#483c23] flex flex-col gap-1 relative overflow-hidden group hover:border-[#eead2b]/30 transition-colors">
+            <div className="bg-card p-4 rounded-xl border border-border flex flex-col gap-1 relative overflow-hidden group hover:border-primary/30 transition-colors">
               <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-[64px] text-[#eead2b]">payments</span>
+                <span className="material-symbols-outlined text-[64px] text-primary">payments</span>
               </div>
-              <p className="text-[#c9b792] text-sm font-medium">Total Sales (Today)</p>
-              <h3 className="text-white text-2xl font-bold tracking-tight">{fmtMoney(salesToday)}</h3>
+              <p className="text-muted-foreground text-sm font-medium">Total Sales (Today)</p>
+              <h3 className="text-foreground text-2xl font-bold tracking-tight">{fmtMoney(salesToday)}</h3>
               <div className="flex items-center gap-1 mt-2">
                 <span className={`material-symbols-outlined text-sm ${Number(salesDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Number(salesDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'}</span>
                 <span className={`text-sm font-bold ${Number(salesDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtPct(salesDeltaPct) ?? '—'}</span>
-                <span className="text-[#c9b792] text-xs ml-1">vs yesterday</span>
+                <span className="text-muted-foreground text-xs ml-1">vs yesterday</span>
               </div>
             </div>
 
-            <div className="bg-[#362b18] p-4 rounded-xl border border-[#483c23] flex flex-col gap-1 relative overflow-hidden group hover:border-[#eead2b]/30 transition-colors">
+            <div className="bg-card p-4 rounded-xl border border-border flex flex-col gap-1 relative overflow-hidden group hover:border-primary/30 transition-colors">
               <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-[64px] text-[#eead2b]">savings</span>
+                <span className="material-symbols-outlined text-[64px] text-primary">savings</span>
               </div>
-              <p className="text-[#c9b792] text-sm font-medium">Net Profit</p>
-              <h3 className="text-white text-2xl font-bold tracking-tight">{fmtMoney(netProfitToday)}</h3>
+              <p className="text-muted-foreground text-sm font-medium">Net Profit</p>
+              <h3 className="text-foreground text-2xl font-bold tracking-tight">{fmtMoney(netProfitToday)}</h3>
               <div className="flex items-center gap-1 mt-2">
                 <span className={`material-symbols-outlined text-sm ${Number(profitDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Number(profitDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'}</span>
                 <span className={`text-sm font-bold ${Number(profitDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtPct(profitDeltaPct) ?? '—'}</span>
-                <span className="text-[#c9b792] text-xs ml-1">vs yesterday</span>
+                <span className="text-muted-foreground text-xs ml-1">vs yesterday</span>
               </div>
             </div>
 
-            <div className="bg-[#362b18] p-4 rounded-xl border border-[#483c23] flex flex-col gap-1 relative overflow-hidden group hover:border-[#eead2b]/30 transition-colors">
+            <div className="bg-card p-4 rounded-xl border border-border flex flex-col gap-1 relative overflow-hidden group hover:border-primary/30 transition-colors">
               <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-[64px] text-[#eead2b]">receipt_long</span>
+                <span className="material-symbols-outlined text-[64px] text-primary">receipt_long</span>
               </div>
-              <p className="text-[#c9b792] text-sm font-medium">Total Orders</p>
-              <h3 className="text-white text-2xl font-bold tracking-tight">{ordersToday.toLocaleString()}</h3>
+              <p className="text-muted-foreground text-sm font-medium">Total Orders</p>
+              <h3 className="text-foreground text-2xl font-bold tracking-tight">{ordersToday.toLocaleString()}</h3>
               <div className="flex items-center gap-1 mt-2">
                 <span className={`material-symbols-outlined text-sm ${Number(ordersDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Number(ordersDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'}</span>
                 <span className={`text-sm font-bold ${Number(ordersDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtPct(ordersDeltaPct) ?? '—'}</span>
-                <span className="text-[#c9b792] text-xs ml-1">vs yesterday</span>
+                <span className="text-muted-foreground text-xs ml-1">vs yesterday</span>
               </div>
             </div>
 
-            <div className="bg-[#362b18] p-4 rounded-xl border border-[#483c23] flex flex-col gap-1 relative overflow-hidden group hover:border-[#eead2b]/30 transition-colors">
+            <div className="bg-card p-4 rounded-xl border border-border flex flex-col gap-1 relative overflow-hidden group hover:border-primary/30 transition-colors">
               <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-[64px] text-[#eead2b]">point_of_sale</span>
+                <span className="material-symbols-outlined text-[64px] text-primary">point_of_sale</span>
               </div>
-              <p className="text-[#c9b792] text-sm font-medium">Avg. Ticket Size</p>
-              <h3 className="text-white text-2xl font-bold tracking-tight">{fmtMoney(avgTicket)}</h3>
+              <p className="text-muted-foreground text-sm font-medium">Avg. Ticket Size</p>
+              <h3 className="text-foreground text-2xl font-bold tracking-tight">{fmtMoney(avgTicket)}</h3>
               <div className="flex items-center gap-1 mt-2">
                 <span className={`material-symbols-outlined text-sm ${Number(avgTicketDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Number(avgTicketDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'}</span>
                 <span className={`text-sm font-bold ${Number(avgTicketDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtPct(avgTicketDeltaPct) ?? '—'}</span>
-                <span className="text-[#c9b792] text-xs ml-1">vs yesterday</span>
+                <span className="text-muted-foreground text-xs ml-1">vs yesterday</span>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div className="lg:col-span-2 bg-[#362b18] rounded-xl border border-[#483c23] p-5 flex flex-col">
+            <div className="lg:col-span-2 bg-card rounded-xl border border-border p-5 flex flex-col">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-white text-lg font-bold">Sales Trends ({range === 'Daily' ? 'Hourly' : 'Daily'})</h3>
-                  <p className="text-[#c9b792] text-sm">Revenue & orders</p>
+                  <h3 className="text-foreground text-lg font-bold">Sales Trends ({range === 'Daily' ? 'Hourly' : 'Daily'})</h3>
+                  <p className="text-muted-foreground text-sm">Revenue & orders</p>
                 </div>
               </div>
 
-              <div className="flex-1 min-h-[220px] w-full relative rounded-lg border border-[#483c23] bg-[#221c10]">
+              <div className="flex-1 min-h-[220px] w-full relative rounded-lg border border-border bg-background">
                 {trend.length === 0 ? (
                   <div className="h-full flex items-center justify-center px-6 text-center">
                     <div className="flex flex-col gap-2">
-                      <div className="text-sm font-bold text-white">No sales trend yet</div>
-                      <div className="text-xs text-[#c9b792]">This chart will populate after paid orders are recorded.</div>
+                      <div className="text-sm font-bold text-foreground">No sales trend yet</div>
+                      <div className="text-xs text-muted-foreground">This chart will populate after paid orders are recorded.</div>
                     </div>
                   </div>
                 ) : (
@@ -774,48 +774,48 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                     <AreaChart data={trend} margin={{ top: 16, right: 16, left: 0, bottom: 12 }}>
                       <defs>
                         <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#eead2b" stopOpacity={0.22} />
-                          <stop offset="100%" stopColor="#eead2b" stopOpacity={0} />
+                          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.22} />
+                          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid stroke="#483c23" strokeDasharray="3 3" />
-                      <XAxis dataKey="key" stroke="#c9b792" tick={{ fontSize: 10 }} tickFormatter={formatTrendLabel} />
-                      <YAxis stroke="#c9b792" tick={{ fontSize: 10 }} />
+                      <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                      <XAxis dataKey="key" stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} tickFormatter={formatTrendLabel} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
                       <Tooltip
                         content={({ active, payload, label }: any) => {
                           if (!active || !Array.isArray(payload) || payload.length === 0) return null;
                           const revenue = payload.find((p: any) => p?.dataKey === 'revenue')?.value;
                           const orders = payload.find((p: any) => p?.dataKey === 'orders')?.value;
                           return (
-                            <div className="bg-[#221c10] border border-[#483c23] rounded-lg shadow-xl px-3 py-2">
-                              <p className="text-[10px] text-[#c9b792] uppercase tracking-wider">{formatTrendLabel(String(label || ''))}</p>
+                            <div className="bg-background border border-border rounded-lg shadow-xl px-3 py-2">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{formatTrendLabel(String(label || ''))}</p>
                               <div className="mt-1 space-y-0.5">
-                                <p className="text-sm font-bold text-[#eead2b]">{fmtMoney(Number(revenue || 0) || 0)}</p>
+                                <p className="text-sm font-bold text-primary">{fmtMoney(Number(revenue || 0) || 0)}</p>
                                 <p className="text-xs text-emerald-400">Orders: {Number(orders || 0) || 0}</p>
                               </div>
                             </div>
                           );
                         }}
                       />
-                      <Area type="monotone" dataKey="revenue" stroke="#eead2b" strokeWidth={2} fill="url(#trendFill)" dot={false} />
-                      <Line type="monotone" dataKey="orders" stroke="#4ade80" strokeWidth={1.6} dot={false} />
+                      <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#trendFill)" dot={false} />
+                      <Line type="monotone" dataKey="orders" stroke="hsl(var(--foreground))" strokeWidth={1.6} dot={false} />
                     </AreaChart>
                   </ResponsiveContainer>
                 )}
               </div>
             </div>
 
-            <div className="bg-[#362b18] rounded-xl border border-[#483c23] p-5 flex flex-col">
+            <div className="bg-card rounded-xl border border-border p-5 flex flex-col">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-white text-lg font-bold">Top Selling</h3>
-                <button onClick={() => onNavigate(Screen.MANAGER_REPORTS)} className="text-[#eead2b] text-xs font-medium hover:underline">View All</button>
+                <h3 className="text-foreground text-lg font-bold">Top Selling</h3>
+                <button onClick={() => onNavigate(Screen.MANAGER_REPORTS)} className="text-primary text-xs font-medium hover:underline">View All</button>
               </div>
 
               {topSelling.length === 0 ? (
-                <div className="h-56 w-full rounded-lg border border-dashed border-[#483c23] bg-[#221c10] flex items-center justify-center px-6 text-center">
+                <div className="h-56 w-full rounded-lg border border-dashed border-border bg-background flex items-center justify-center px-6 text-center">
                   <div className="flex flex-col gap-2">
-                    <div className="text-sm font-bold text-white">No items yet</div>
-                    <div className="text-xs text-[#c9b792]">Top selling will appear after sales are recorded.</div>
+                    <div className="text-sm font-bold text-foreground">No items yet</div>
+                    <div className="text-xs text-muted-foreground">Top selling will appear after sales are recorded.</div>
                   </div>
                 </div>
               ) : (
@@ -826,16 +826,16 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                     return (
                       <div key={p.productId || `${p.name}-${idx}`} className="flex items-center gap-3">
                         <div
-                          className="size-10 rounded-lg bg-cover bg-center shrink-0 border border-[#483c23]"
+                          className="size-10 rounded-lg bg-cover bg-center shrink-0 border border-border"
                           style={{ backgroundImage: `url('${p.imageUrl}')` }}
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-center mb-1">
-                            <p className="text-white text-sm font-medium truncate">{p.name || p.productId}</p>
-                            <p className="text-white text-sm font-bold">{p.qty}</p>
+                            <p className="text-foreground text-sm font-medium truncate">{p.name || p.productId}</p>
+                            <p className="text-foreground text-sm font-bold">{p.qty}</p>
                           </div>
-                          <div className="w-full bg-[#221c10] h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-[#eead2b] h-full rounded-full" style={{ width: `${pct}%` }} />
+                          <div className="w-full bg-background h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-primary h-full rounded-full" style={{ width: `${pct}%` }} />
                           </div>
                         </div>
                       </div>
@@ -847,47 +847,47 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-[#362b18] rounded-xl border border-[#483c23] flex flex-col h-full">
-              <div className="p-4 border-b border-[#483c23] flex items-center justify-between">
-                <h3 className="text-white text-lg font-bold">Live Operations</h3>
+            <div className="bg-card rounded-xl border border-border flex flex-col h-full">
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <h3 className="text-foreground text-lg font-bold">Live Operations</h3>
                 <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#eead2b] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#eead2b]" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
                 </span>
               </div>
 
               <div className="flex flex-col">
                 {liveOps.length === 0 ? (
-                  <div className="p-6 text-sm text-[#c9b792]">No recent activity.</div>
+                  <div className="p-6 text-sm text-muted-foreground">No recent activity.</div>
                 ) : (
                   liveOps.slice(0, 3).map((e) => {
                     const icon = e.tone === 'success' ? 'check_circle' : e.tone === 'warn' ? 'warning' : 'info';
-                    const iconTone = e.tone === 'success' ? 'text-emerald-500 bg-emerald-500/10' : e.tone === 'warn' ? 'text-rose-500 bg-rose-500/10' : 'text-[#eead2b] bg-[#eead2b]/10';
+                    const iconTone = e.tone === 'success' ? 'text-emerald-500 bg-emerald-500/10' : e.tone === 'warn' ? 'text-rose-500 bg-rose-500/10' : 'text-primary bg-primary/10';
                     const when = relTimeLabel(e.at);
                     return (
-                      <div key={e.id} className="flex items-center gap-4 p-4 border-b border-[#483c23]/50 hover:bg-[#42351f] transition-colors">
+                      <div key={e.id} className="flex items-center gap-4 p-4 border-b border-border/50 hover:bg-accent transition-colors">
                         <div className={`size-10 rounded-full flex items-center justify-center shrink-0 ${iconTone}`}>
                           <span className="material-symbols-outlined">{icon}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-white text-sm font-medium truncate">{e.title}</p>
-                          <p className="text-[#c9b792] text-xs truncate">{e.subtitle}</p>
+                          <p className="text-foreground text-sm font-medium truncate">{e.title}</p>
+                          <p className="text-muted-foreground text-xs truncate">{e.subtitle}</p>
                         </div>
-                        <span className="text-[#c9b792] text-xs font-medium whitespace-nowrap">{when}</span>
+                        <span className="text-muted-foreground text-xs font-medium whitespace-nowrap">{when}</span>
                       </div>
                     );
                   })
                 )}
               </div>
 
-              <div className="p-3 mt-auto border-t border-[#483c23] text-center">
-                <button onClick={() => onNavigate(Screen.MANAGER_REPORTS)} className="text-xs text-[#c9b792] hover:text-white font-medium transition-colors">View All Activity</button>
+              <div className="p-3 mt-auto border-t border-border text-center">
+                <button onClick={() => onNavigate(Screen.MANAGER_REPORTS)} className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors">View All Activity</button>
               </div>
             </div>
 
-            <div className="bg-[#362b18] rounded-xl border border-[#483c23] flex flex-col h-full">
-              <div className="p-4 border-b border-[#483c23] flex items-center justify-between">
-                <h3 className="text-white text-lg font-bold">Inventory Health</h3>
+            <div className="bg-card rounded-xl border border-border flex flex-col h-full">
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <h3 className="text-foreground text-lg font-bold">Inventory Health</h3>
                 <span
                   className={`text-xs font-bold px-2 py-1 rounded border ${inventoryAlerts.criticalCount > 0
                     ? 'bg-rose-500/10 text-rose-300 border-rose-500/20'
@@ -905,14 +905,14 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
               </div>
 
               <div className="p-4 flex flex-col gap-4">
-                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
+                <div className="rounded-xl border border-border bg-background p-4">
                   <div className="flex items-center gap-3">
-                    <div className="size-9 rounded-lg border border-[#483c23] bg-[#362b18] flex items-center justify-center text-[#eead2b]">
+                    <div className="size-9 rounded-lg border border-border bg-card flex items-center justify-center text-primary">
                       <span className="material-symbols-outlined">dns</span>
                     </div>
                     <div>
-                      <p className="text-white font-bold">System Health</p>
-                      <p className="text-xs text-[#c9b792]">Inventory status for this branch</p>
+                      <p className="text-foreground font-bold">System Health</p>
+                      <p className="text-xs text-muted-foreground">Inventory status for this branch</p>
                     </div>
                   </div>
 
@@ -927,7 +927,7 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                               : 'bg-emerald-400'
                             }`}
                         />
-                        <span className="text-sm text-white">Inventory</span>
+                        <span className="text-sm text-foreground">Inventory</span>
                       </div>
                       <span
                         className={`text-sm font-mono ${inventoryAlerts.criticalCount > 0
@@ -948,18 +948,18 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                 </div>
 
                 {inventoryAlerts.rows.length === 0 ? (
-                  <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-5">
+                  <div className="rounded-xl border border-border bg-background p-5">
                     <div className="flex items-center gap-3">
                       <span className="size-2 rounded-full bg-emerald-400" />
                       <div>
-                        <p className="text-white font-bold">All inventory levels look good</p>
-                        <p className="text-xs text-[#c9b792]">No low stock or critical items right now.</p>
+                        <p className="text-foreground font-bold">All inventory levels look good</p>
+                        <p className="text-xs text-muted-foreground">No low stock or critical items right now.</p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-[#483c23] bg-[#221c10] overflow-hidden">
-                    <div className="divide-y divide-[#483c23]">
+                  <div className="rounded-xl border border-border bg-background overflow-hidden">
+                    <div className="divide-y divide-border">
                       {inventoryAlerts.rows.map((it) => {
                         const isCritical = it.status === 'Critical';
                         const dot = isCritical ? 'bg-rose-500' : 'bg-amber-400';
@@ -967,13 +967,13 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                         const subtitle = `${branchName || 'This branch'} has ${Number(it.stock || 0)} ${it.unit || ''}`.trim();
                         const when = it.updatedAt ? relTimeLabel(it.updatedAt) : 'now';
                         return (
-                          <div key={it.id} className="p-4 hover:bg-[#42351f] transition-colors">
+                          <div key={it.id} className="p-4 hover:bg-accent transition-colors">
                             <div className="flex items-start gap-3">
                               <span className={`mt-1 size-2 rounded-full ${dot}`} />
                               <div className="flex-1 min-w-0">
-                                <p className="text-white font-bold truncate">{title}</p>
-                                <p className="text-[#c9b792] text-sm truncate">{subtitle}</p>
-                                <p className="text-[#c9b792]/70 text-xs mt-1">{when === 'now' ? 'Just now' : when}</p>
+                                <p className="text-foreground font-bold truncate">{title}</p>
+                                <p className="text-muted-foreground text-sm truncate">{subtitle}</p>
+                                <p className="text-muted-foreground/70 text-xs mt-1">{when === 'now' ? 'Just now' : when}</p>
                               </div>
                             </div>
                           </div>
@@ -986,7 +986,7 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                 <div className="text-center">
                   <button
                     onClick={() => onNavigate(Screen.MANAGER_INVENTORY)}
-                    className="text-xs text-[#c9b792] hover:text-white font-medium transition-colors"
+                    className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
                   >
                     Open Inventory
                   </button>

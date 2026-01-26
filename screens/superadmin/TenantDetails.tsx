@@ -411,8 +411,8 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
     const st = String(tenant?.status || '').toLowerCase();
     if (st === 'active') return { cls: 'bg-green-500/20 text-green-400 border border-green-500/30', label: 'Active' };
     if (st === 'suspended') return { cls: 'bg-red-900/20 text-red-400 border border-red-900/50', label: 'Suspended' };
-    if (st === 'trial') return { cls: 'bg-white-500/20 text-white-400 border border-white-500/30', label: 'New' };
-    return { cls: 'bg-[#2c241b] text-[#c9b792] border border-[#483c23]', label: tenant?.status || 'Unknown' };
+    if (st === 'trial') return { cls: 'bg-muted/40 text-muted-foreground border border-border', label: 'New' };
+    return { cls: 'bg-muted/40 text-muted-foreground border border-border', label: tenant?.status || 'Unknown' };
   })();
 
   const branchStatusUi = (raw: string) => {
@@ -526,36 +526,36 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
-      <header className="flex items-center justify-between whitespace-nowrap border-b border-[#483c23] px-6 py-3 bg-[#221c11] z-10">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+      <header className="flex items-center justify-between whitespace-nowrap border-b border-border px-6 py-3 bg-background z-10">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="text-white mr-1">
+          <button onClick={onBack} className="text-foreground mr-1">
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
           <div className="hidden md:flex flex-col">
-            <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">Tenant Details</h2>
+            <h2 className="text-foreground text-lg font-bold leading-tight tracking-[-0.015em]">Tenant Details</h2>
           </div>
         </div>
         <div className="flex flex-1 justify-end gap-6">
           <div className="hidden md:flex items-center w-full max-w-md">
-            <div className="flex w-full items-stretch rounded-lg h-10 bg-[#2e281a] border border-[#483c23] focus-within:border-[#c9b792] transition-colors">
-              <div className="text-[#c9b792] flex items-center justify-center pl-3">
+            <div className="flex w-full items-stretch rounded-lg h-10 bg-card border border-border focus-within:ring-2 focus-within:ring-primary/30 transition-colors">
+              <div className="text-muted-foreground flex items-center justify-center pl-3">
                 <span className="material-symbols-outlined" style={{ fontSize: 20 }}>search</span>
               </div>
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="flex w-full bg-transparent border-none text-white focus:ring-0 placeholder:text-[#c9b792] px-3 text-sm"
+                className="flex w-full bg-transparent border-none text-foreground focus:ring-0 placeholder:text-muted-foreground px-3 text-sm"
                 placeholder="Search tenants, branches, or logs..."
               />
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="text-[#c9b792] hover:text-white relative">
+            <button className="text-muted-foreground hover:text-foreground relative">
               <span className="material-symbols-outlined">notifications</span>
               <span className="absolute top-0 right-0 size-2 bg-red-500 rounded-full"></span>
             </button>
-            <button className="text-[#c9b792] hover:text-white">
+            <button className="text-muted-foreground hover:text-foreground">
               <span className="material-symbols-outlined">help</span>
             </button>
           </div>
@@ -569,30 +569,30 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
         ) : null}
 
         {toast ? (
-          <div className="mb-6 rounded-lg border border-[#483c23] bg-[#2d261a] p-4 text-sm text-[#c9b792]">{toast}</div>
+          <div className="mb-6 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{toast}</div>
         ) : null}
 
         {loading && !tenant ? (
-          <div className="mb-6 text-sm text-[#c9b792]">Loading tenant...</div>
+          <div className="mb-6 text-sm text-muted-foreground">Loading tenant...</div>
         ) : null}
 
         <nav className="flex items-center text-sm">
-          <button onClick={onBack} className="text-[#c9b792] hover:text-[#eead2b] transition-colors font-medium">Tenants</button>
-          <span className="text-[#c9b792] mx-2">/</span>
-          <span className="text-white font-medium">{tenant?.name || 'Tenant'}</span>
+          <button onClick={onBack} className="text-muted-foreground hover:text-primary transition-colors font-medium">Tenants</button>
+          <span className="text-muted-foreground mx-2">/</span>
+          <span className="text-foreground font-medium">{tenant?.name || 'Tenant'}</span>
         </nav>
 
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-[#483c23] pb-6">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-border pb-6">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">{tenant?.name || 'Tenant'}</h1>
+              <h1 className="text-3xl md:text-4xl font-black text-foreground tracking-tight">{tenant?.name || 'Tenant'}</h1>
               <span className={`px-2 py-0.5 rounded text-xs font-bold ${statusPill.cls}`}>{statusPill.label}</span>
             </div>
-            <div className="flex items-center gap-2 text-[#c9b792]">
+            <div className="flex items-center gap-2 text-muted-foreground">
               <span className="material-symbols-outlined text-[18px]">fingerprint</span>
               <span className="font-mono text-sm">ID: {tenant?.id || selectedTenantId || '-'}</span>
               <button
-                className="text-[#c9b792] hover:text-white ml-1"
+                className="text-muted-foreground hover:text-foreground ml-1"
                 title="Copy ID"
                 type="button"
                 onClick={() => {
@@ -613,14 +613,14 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
             <button
               onClick={() => impersonate('Cafe Owner', Screen.OWNER_DASHBOARD)}
               disabled={!tenant || loading}
-              className="flex items-center gap-2 h-10 px-4 bg-[#2e281a] hover:bg-[#3a3222] border border-[#483c23] rounded-lg text-white text-sm font-bold transition-colors"
+              className="flex items-center gap-2 h-10 px-4 bg-card hover:bg-accent border border-border rounded-lg text-foreground text-sm font-bold transition-colors"
             >
               <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
               <span>Impersonate</span>
             </button>
             <button
               type="button"
-              className="flex items-center gap-2 h-10 px-4 bg-[#2e281a] hover:bg-[#3a3222] border border-[#483c23] rounded-lg text-white text-sm font-bold transition-colors"
+              className="flex items-center gap-2 h-10 px-4 bg-card hover:bg-accent border border-border rounded-lg text-foreground text-sm font-bold transition-colors"
               onClick={() => setEditOpen(true)}
             >
               <span className="material-symbols-outlined text-[20px]">edit</span>
@@ -638,46 +638,46 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-[#2e281a] border border-[#483c23] rounded-lg p-5 flex flex-col gap-1">
+          <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
             <div className="flex justify-between items-start">
-              <p className="text-[#c9b792] text-sm font-medium">Total Branches</p>
-              <span className="material-symbols-outlined text-[#eead2b]">store</span>
+              <p className="text-muted-foreground text-sm font-medium">Total Branches</p>
+              <span className="material-symbols-outlined text-primary">store</span>
             </div>
-            <p className="text-2xl font-bold text-white">{Number(metrics.branches ?? tenant?.branches ?? 0) || 0}</p>
+            <p className="text-2xl font-bold text-foreground">{Number(metrics.branches ?? tenant?.branches ?? 0) || 0}</p>
             <div className="flex items-center gap-1 text-xs text-green-400 mt-1">
               <span className="material-symbols-outlined text-[16px]">trending_up</span>
               <span>+{Number(metrics.branchesNewMonth || 0) || 0} this month</span>
             </div>
           </div>
-          <div className="bg-[#2e281a] border border-[#483c23] rounded-lg p-5 flex flex-col gap-1">
+          <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
             <div className="flex justify-between items-start">
-              <p className="text-[#c9b792] text-sm font-medium">Active Users</p>
-              <span className="material-symbols-outlined text-[#eead2b]">group</span>
+              <p className="text-muted-foreground text-sm font-medium">Active Users</p>
+              <span className="material-symbols-outlined text-primary">group</span>
             </div>
-            <p className="text-2xl font-bold text-white">{Number(metrics.users ?? tenant?.users ?? 0) || 0}</p>
-            <div className="flex items-center gap-1 text-xs text-[#c9b792] mt-1">
+            <p className="text-2xl font-bold text-foreground">{Number(metrics.users ?? tenant?.users ?? 0) || 0}</p>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
               <span>Stable</span>
             </div>
           </div>
-          <div className="bg-[#2e281a] border border-[#483c23] rounded-lg p-5 flex flex-col gap-1">
+          <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
             <div className="flex justify-between items-start">
-              <p className="text-[#c9b792] text-sm font-medium">Monthly Orders</p>
-              <span className="material-symbols-outlined text-[#eead2b]">shopping_cart</span>
+              <p className="text-muted-foreground text-sm font-medium">Monthly Orders</p>
+              <span className="material-symbols-outlined text-primary">shopping_cart</span>
             </div>
-            <p className="text-2xl font-bold text-white">{fmtCompact(Number(metrics.ordersMonth || 0) || 0)}</p>
+            <p className="text-2xl font-bold text-foreground">{fmtCompact(Number(metrics.ordersMonth || 0) || 0)}</p>
             <div className="flex items-center gap-1 text-xs text-green-400 mt-1">
               <span className="material-symbols-outlined text-[16px]">trending_up</span>
               <span>+{Number(metrics.ordersPct || 0) || 0}% vs last mo</span>
             </div>
           </div>
-          <div className="bg-[#2e281a] border border-[#483c23] rounded-lg p-5 flex flex-col gap-1">
+          <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
             <div className="flex justify-between items-start">
-              <p className="text-[#c9b792] text-sm font-medium">Current MRR</p>
-              <span className="material-symbols-outlined text-[#eead2b]">payments</span>
+              <p className="text-muted-foreground text-sm font-medium">Current MRR</p>
+              <span className="material-symbols-outlined text-primary">payments</span>
             </div>
-            <p className="text-2xl font-bold text-white">{fmtEtb(Number(metrics.mrrEtb || 0) || 0)}</p>
-            <div className="flex items-center gap-1 text-xs text-[#c9b792] mt-1">
-              <span className="bg-[#eead2b]/20 text-[#eead2b] px-1 rounded">{tenant?.plan || 'Plan'}</span>
+            <p className="text-2xl font-bold text-foreground">{fmtEtb(Number(metrics.mrrEtb || 0) || 0)}</p>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+              <span className="bg-primary/10 text-primary px-1 rounded">{tenant?.plan || 'Plan'}</span>
             </div>
           </div>
         </div>
@@ -686,56 +686,56 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Column: Profile & Usage */}
             <div className="lg:col-span-4 flex flex-col gap-6">
-              <div className="bg-[#2e281a] border border-[#483c23] rounded-lg overflow-hidden">
-                <div className="h-24 bg-gradient-to-r from-[#483c23] to-[#221c11] relative">
-                  <div className="absolute -bottom-8 left-6 border-4 border-[#2e281a] rounded-full">
-                    <div className="size-16 rounded-full bg-white flex items-center justify-center text-[#221c11] font-black">{initials}</div>
+              <div className="bg-card border border-border rounded-lg overflow-hidden">
+                <div className="h-24 bg-gradient-to-r from-muted to-muted/40 relative">
+                  <div className="absolute -bottom-8 left-6 border-4 border-card rounded-full">
+                    <div className="size-16 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-black">{initials}</div>
                   </div>
                 </div>
                 <div className="pt-10 px-6 pb-6">
-                  <h3 className="text-lg font-bold text-white mb-4">Tenant Profile</h3>
+                  <h3 className="text-lg font-bold text-foreground mb-4">Tenant Profile</h3>
                   <div className="space-y-4">
                     <div className="flex flex-col gap-1">
-                      <p className="text-xs text-[#c9b792] uppercase font-bold tracking-wider">Owner</p>
-                      <div className="flex items-center gap-2 text-sm text-white">
-                        <span className="material-symbols-outlined text-[18px] text-[#eead2b]">person</span>
+                      <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Owner</p>
+                      <div className="flex items-center gap-2 text-sm text-foreground">
+                        <span className="material-symbols-outlined text-[18px] text-primary">person</span>
                         {String(profile?.ownerName || profile?.contactName || profile?.owner || '-')}
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
-                      <p className="text-xs text-[#c9b792] uppercase font-bold tracking-wider">Contact</p>
-                      <div className="flex items-center gap-2 text-sm text-white">
-                        <span className="material-symbols-outlined text-[18px] text-[#eead2b]">mail</span>
+                      <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Contact</p>
+                      <div className="flex items-center gap-2 text-sm text-foreground">
+                        <span className="material-symbols-outlined text-[18px] text-primary">mail</span>
                         {String(profile?.contactEmail || '-')}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-white mt-1">
-                        <span className="material-symbols-outlined text-[18px] text-[#eead2b]">call</span>
+                      <div className="flex items-center gap-2 text-sm text-foreground mt-1">
+                        <span className="material-symbols-outlined text-[18px] text-primary">call</span>
                         {String(profile?.contactPhone || '-')}
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
-                      <p className="text-xs text-[#c9b792] uppercase font-bold tracking-wider">Location</p>
-                      <div className="flex items-center gap-2 text-sm text-white">
-                        <span className="material-symbols-outlined text-[18px] text-[#eead2b]">location_on</span>
+                      <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Location</p>
+                      <div className="flex items-center gap-2 text-sm text-foreground">
+                        <span className="material-symbols-outlined text-[18px] text-primary">location_on</span>
                         {String(profile?.city || '-')}{profile?.country ? `, ${String(profile.country)}` : ''}
                       </div>
                     </div>
                   </div>
-                  <div className="mt-6 pt-4 border-t border-[#483c23]">
+                  <div className="mt-6 pt-4 border-t border-border">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-[#c9b792]">Next Billing</span>
-                      <span className="text-white font-medium">{nextInvoiceLabel}</span>
+                      <span className="text-muted-foreground">Next Billing</span>
+                      <span className="text-foreground font-medium">{nextInvoiceLabel}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm mt-2">
-                      <span className="text-[#c9b792]">Payment Method</span>
-                      <span className="text-white font-medium">{String(subInfo?.method || subInfo?.cycle || 'manual')}</span>
+                      <span className="text-muted-foreground">Payment Method</span>
+                      <span className="text-foreground font-medium">{String(subInfo?.method || subInfo?.cycle || 'manual')}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-[#2e281a] border border-[#483c23] rounded-lg p-6">
-                <h3 className="text-lg font-bold text-white mb-4">Usage vs Limits</h3>
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h3 className="text-lg font-bold text-foreground mb-4">Usage vs Limits</h3>
                 <div className="space-y-5">
                   {(() => {
                     const used = Number(metrics.branches ?? tenant?.branches ?? 0) || 0;
@@ -744,11 +744,11 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                     return (
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="text-[#c9b792]">Branches Used</span>
-                          <span className="text-white font-bold">{used} / {limit || '-'}</span>
+                          <span className="text-muted-foreground">Branches Used</span>
+                          <span className="text-foreground font-bold">{used} / {limit || '-'}</span>
                         </div>
-                        <div className="h-2 w-full bg-[#221c11] rounded-full overflow-hidden">
-                          <div className="h-full bg-[#eead2b] rounded-full" style={{ width: `${pct}%` }}></div>
+                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }}></div>
                         </div>
                       </div>
                     );
@@ -760,10 +760,10 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                     return (
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="text-[#c9b792]">Storage (Cloud)</span>
-                          <span className="text-white font-bold">{used ? `${used} GB` : '-'}{limit ? ` / ${limit} GB` : ''}</span>
+                          <span className="text-muted-foreground">Storage (Cloud)</span>
+                          <span className="text-foreground font-bold">{used ? `${used} GB` : '-'}{limit ? ` / ${limit} GB` : ''}</span>
                         </div>
-                        <div className="h-2 w-full bg-[#221c11] rounded-full overflow-hidden">
+                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                           <div className="h-full bg-yellow-600 rounded-full" style={{ width: `${pct}%` }}></div>
                         </div>
                       </div>
@@ -774,10 +774,10 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                     return (
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="text-[#c9b792]">API Calls (Monthly)</span>
-                          <span className="text-white font-bold">{pct ? `${pct}%` : '-'}</span>
+                          <span className="text-muted-foreground">API Calls (Monthly)</span>
+                          <span className="text-foreground font-bold">{pct ? `${pct}%` : '-'}</span>
                         </div>
-                        <div className="h-2 w-full bg-[#221c11] rounded-full overflow-hidden">
+                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                           <div className="h-full bg-green-600 rounded-full" style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}></div>
                         </div>
                       </div>
@@ -797,8 +797,8 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                   onClick={() => setTab(t.key as any)}
                   className={`px-6 py-3 text-sm transition-colors ${
                     tab === t.key
-                      ? 'font-bold text-[#eead2b] border-b-2 border-[#eead2b]'
-                      : 'font-medium text-[#c9b792] hover:text-white'
+                      ? 'font-bold text-primary border-b-2 border-primary'
+                      : 'font-medium text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {t.label}
@@ -807,13 +807,13 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
             </div>
 
               {tab === 'branches' ? (
-              <div className="bg-[#2e281a] border border-[#483c23] rounded-lg overflow-hidden flex flex-col">
-                <div className="p-4 flex justify-between items-center border-b border-[#483c23]">
-                  <h3 className="font-bold text-white">Branch Status</h3>
+              <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
+                <div className="p-4 flex justify-between items-center border-b border-border">
+                  <h3 className="font-bold text-foreground">Branch Status</h3>
                   <button
                     type="button"
                     onClick={reload}
-                    className="text-xs font-bold text-[#eead2b] flex items-center gap-1 hover:text-white transition-colors"
+                    className="text-xs font-bold text-primary flex items-center gap-1 hover:text-foreground transition-colors"
                   >
                     <span className="material-symbols-outlined text-[16px]">refresh</span>
                     Refresh Data
@@ -822,7 +822,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-[#221c11] border-b border-[#483c23] text-xs uppercase text-[#c9b792] font-bold tracking-wider">
+                      <tr className="bg-muted/40 border-b border-border text-xs uppercase text-muted-foreground font-bold tracking-wider">
                         <th className="px-6 py-3">Branch Name</th>
                         <th className="px-6 py-3">Location ID</th>
                         <th className="px-6 py-3">Status</th>
@@ -830,7 +830,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                         <th className="px-6 py-3 text-right">Last Sync</th>
                       </tr>
                     </thead>
-                    <tbody className="text-sm divide-y divide-[#483c23]">
+                    <tbody className="text-sm divide-y divide-border">
                       {(() => {
                         const needle = search.trim().toLowerCase();
                         const rows = needle
@@ -844,7 +844,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                         return rows;
                       })().length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-6 py-6 text-center text-sm text-[#c9b792]">No branches found.</td>
+                          <td colSpan={5} className="px-6 py-6 text-center text-sm text-muted-foreground">No branches found.</td>
                         </tr>
                       ) : (
                         (() => {
@@ -862,17 +862,17 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                           const lastSync = String(b?.lastSyncAt || '');
                           const lastSyncLabel = lastSync ? relTime(lastSync) : '-';
                           return (
-                            <tr key={String(b?.id || i)} className="hover:bg-[#332b1e] transition-colors">
-                              <td className="px-6 py-4 font-medium text-white">{String(b?.name || '-')}</td>
-                              <td className="px-6 py-4 font-mono text-[#c9b792]">{String(b?.locationId || b?.location || b?.id || '-')}</td>
+                            <tr key={String(b?.id || i)} className="hover:bg-muted/40 transition-colors">
+                              <td className="px-6 py-4 font-medium text-foreground">{String(b?.name || '-')}</td>
+                              <td className="px-6 py-4 font-mono text-muted-foreground">{String(b?.locationId || b?.location || b?.id || '-')}</td>
                               <td className="px-6 py-4">
                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-medium ${st.cls}`}>
                                   <span className={`size-1.5 rounded-full ${st.dot}`}></span>
                                   {st.label}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 text-[#c9b792]">{String(b?.posVersion || '-')}</td>
-                              <td className="px-6 py-4 text-right text-[#c9b792]">{lastSyncLabel || '-'}</td>
+                              <td className="px-6 py-4 text-muted-foreground">{String(b?.posVersion || '-')}</td>
+                              <td className="px-6 py-4 text-right text-muted-foreground">{lastSyncLabel || '-'}</td>
                             </tr>
                           );
                         })
@@ -880,9 +880,9 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                     </tbody>
                   </table>
                 </div>
-                <div className="bg-[#221c11] p-3 border-t border-[#483c23] flex justify-center">
+                <div className="bg-muted/40 p-3 border-t border-border flex justify-center">
                   <button
-                    className="text-xs text-[#c9b792] hover:text-white font-medium flex items-center gap-1"
+                    className="text-xs text-muted-foreground hover:text-foreground font-medium flex items-center gap-1"
                     type="button"
                     onClick={() => {
                       setTab('branches');
@@ -896,14 +896,14 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
               ) : null}
 
               {tab === 'users' ? (
-                <div className="bg-[#2e281a] border border-[#483c23] rounded-lg overflow-hidden flex flex-col">
-                  <div className="p-4 flex justify-between items-center border-b border-[#483c23]">
-                    <h3 className="font-bold text-white">Users</h3>
+                <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
+                  <div className="p-4 flex justify-between items-center border-b border-border">
+                    <h3 className="font-bold text-foreground">Users</h3>
                     <button
                       type="button"
                       onClick={fetchUsers}
                       disabled={usersLoading}
-                      className="text-xs font-bold text-[#eead2b] flex items-center gap-1 hover:text-white transition-colors disabled:opacity-60"
+                      className="text-xs font-bold text-primary flex items-center gap-1 hover:text-foreground transition-colors disabled:opacity-60"
                     >
                       <span className={`material-symbols-outlined text-[16px] ${usersLoading ? 'animate-spin' : ''}`}>refresh</span>
                       Refresh
@@ -915,7 +915,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="bg-[#221c11] border-b border-[#483c23] text-xs uppercase text-[#c9b792] font-bold tracking-wider">
+                        <tr className="bg-muted/40 border-b border-border text-xs uppercase text-muted-foreground font-bold tracking-wider">
                           <th className="px-6 py-3">Name</th>
                           <th className="px-6 py-3">Role</th>
                           <th className="px-6 py-3">Email</th>
@@ -923,7 +923,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                           <th className="px-6 py-3 text-right">Status</th>
                         </tr>
                       </thead>
-                      <tbody className="text-sm divide-y divide-[#483c23]">
+                      <tbody className="text-sm divide-y divide-border">
                         {(() => {
                           const needle = search.trim().toLowerCase();
                           const rows = needle
@@ -937,25 +937,25 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                           if (usersLoading) {
                             return (
                               <tr>
-                                <td colSpan={5} className="px-6 py-8 text-center text-sm text-[#c9b792]">Loading users...</td>
+                                <td colSpan={5} className="px-6 py-8 text-center text-sm text-muted-foreground">Loading users...</td>
                               </tr>
                             );
                           }
                           if (rows.length === 0) {
                             return (
                               <tr>
-                                <td colSpan={5} className="px-6 py-8 text-center text-sm text-[#c9b792]">No users found.</td>
+                                <td colSpan={5} className="px-6 py-8 text-center text-sm text-muted-foreground">No users found.</td>
                               </tr>
                             );
                           }
                           return rows.map((u: any) => (
-                            <tr key={String(u.id)} className="hover:bg-[#332b1e] transition-colors">
-                              <td className="px-6 py-4 font-medium text-white">{String(u.name || '-')}</td>
-                              <td className="px-6 py-4 text-[#c9b792]">{String(u.role || '-')}</td>
-                              <td className="px-6 py-4 text-[#c9b792]">{String(u.email || '-')}</td>
-                              <td className="px-6 py-4 text-[#c9b792]">{String(u.phone || '-')}</td>
+                            <tr key={String(u.id)} className="hover:bg-muted/40 transition-colors">
+                              <td className="px-6 py-4 font-medium text-foreground">{String(u.name || '-')}</td>
+                              <td className="px-6 py-4 text-muted-foreground">{String(u.role || '-')}</td>
+                              <td className="px-6 py-4 text-muted-foreground">{String(u.email || '-')}</td>
+                              <td className="px-6 py-4 text-muted-foreground">{String(u.phone || '-')}</td>
                               <td className="px-6 py-4 text-right">
-                                <span className="inline-flex items-center rounded-md bg-[#221c11] px-2 py-1 text-xs font-medium text-[#c9b792] border border-[#483c23]">
+                                <span className="inline-flex items-center rounded-md bg-muted/40 px-2 py-1 text-xs font-medium text-muted-foreground border border-border">
                                   {String(u.status || '-')}
                                 </span>
                               </td>
@@ -969,25 +969,25 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
               ) : null}
 
               {tab === 'feature_access' ? (
-                <div className="bg-[#2e281a] border border-[#483c23] rounded-lg p-6">
+                <div className="bg-card border border-border rounded-lg p-6">
                   <div className="flex items-end justify-between gap-4 mb-4">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Feature Access</h3>
-                      <div className="text-xs text-[#c9b792]">Manage tenant modules and feature flags</div>
+                      <h3 className="text-lg font-bold text-foreground">Feature Access</h3>
+                      <div className="text-xs text-muted-foreground">Manage tenant modules and feature flags</div>
                     </div>
                     <button
                       type="button"
                       onClick={saveModules}
                       disabled={savingModules || loading || !hasUnsavedAccessChanges}
-                      className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221c11] font-bold hover:bg-[#d69a25] disabled:opacity-60"
+                      className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-60"
                     >
                       {savingModules ? 'Saving...' : 'Save Changes'}
                     </button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-[#221c11]/50 border border-[#483c23] rounded-lg p-4">
-                      <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Subscription Modules</div>
+                    <div className="bg-muted/40 border border-border rounded-lg p-4">
+                      <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Subscription Modules</div>
                       {[{ key: 'inventory', icon: 'inventory_2', label: 'Inventory' }, { key: 'reports', icon: 'bar_chart', label: 'Reports' }, { key: 'menu', icon: 'restaurant_menu', label: 'Menu' }, { key: 'staff', icon: 'group', label: 'Staff' }, { key: 'finance', icon: 'payments', label: 'Finance' }, { key: 'settings', icon: 'settings', label: 'Settings' }].map((m) => {
                         const allowedByTier = tierModules.includes(m.key);
                         const active = enabledModules.includes(m.key);
@@ -997,23 +997,23 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                             type="button"
                             disabled={!allowedByTier}
                             onClick={() => toggleModule(m.key)}
-                            className="w-full flex items-center justify-between p-3 hover:bg-[#221c11]/50 rounded-md transition-colors disabled:opacity-60"
+                            className="w-full flex items-center justify-between p-3 hover:bg-accent rounded-md transition-colors disabled:opacity-60"
                           >
                             <div className="flex items-center gap-3">
-                              <span className="material-symbols-outlined text-[#c9b792]">{m.icon}</span>
+                              <span className="material-symbols-outlined text-muted-foreground">{m.icon}</span>
                               <div className="flex flex-col items-start">
-                                <span className="text-white text-sm">{m.label}</span>
-                                {!allowedByTier ? <span className="text-[11px] text-[#c9b792]">Not in plan</span> : null}
+                                <span className="text-foreground text-sm">{m.label}</span>
+                                {!allowedByTier ? <span className="text-[11px] text-muted-foreground">Not in plan</span> : null}
                               </div>
                             </div>
-                            <span className={`material-symbols-outlined text-[20px] ${active ? 'text-[#eead2b]' : 'text-[#c9b792] opacity-50'}`}>{active ? 'toggle_on' : 'toggle_off'}</span>
+                            <span className={`material-symbols-outlined text-[20px] ${active ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>{active ? 'toggle_on' : 'toggle_off'}</span>
                           </button>
                         );
                       })}
                     </div>
 
-                    <div className="bg-[#221c11]/50 border border-[#483c23] rounded-lg p-4">
-                      <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Feature Flags</div>
+                    <div className="bg-muted/40 border border-border rounded-lg p-4">
+                      <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Feature Flags</div>
                       {[{ key: 'loyalty', icon: 'loyalty', label: 'Loyalty Program' }, { key: 'kds', icon: 'restaurant', label: 'Kitchen Display (KDS)' }, { key: 'public_api', icon: 'api', label: 'Public API' }].map((f) => {
                         const active = features.includes(f.key);
                         return (
@@ -1021,22 +1021,22 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                             key={f.key}
                             type="button"
                             onClick={() => toggleFeature(f.key)}
-                            className="w-full flex items-center justify-between p-3 hover:bg-[#221c11]/50 rounded-md transition-colors"
+                            className="w-full flex items-center justify-between p-3 hover:bg-accent rounded-md transition-colors"
                           >
                             <div className="flex items-center gap-3">
-                              <span className="material-symbols-outlined text-[#c9b792]">{f.icon}</span>
-                              <span className="text-white text-sm">{f.label}</span>
+                              <span className="material-symbols-outlined text-muted-foreground">{f.icon}</span>
+                              <span className="text-foreground text-sm">{f.label}</span>
                             </div>
-                            <span className={`material-symbols-outlined text-[20px] ${active ? 'text-[#eead2b]' : 'text-[#c9b792] opacity-50'}`}>{active ? 'toggle_on' : 'toggle_off'}</span>
+                            <span className={`material-symbols-outlined text-[20px] ${active ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>{active ? 'toggle_on' : 'toggle_off'}</span>
                           </button>
                         );
                       })}
 
                       <div className="mt-3 text-xs">
                         {hasUnsavedAccessChanges ? (
-                          <div className="text-[#eead2b] font-semibold">Unsaved changes</div>
+                          <div className="text-primary font-semibold">Unsaved changes</div>
                         ) : (
-                          <div className="text-[#c9b792]">No pending changes</div>
+                          <div className="text-muted-foreground">No pending changes</div>
                         )}
                       </div>
                     </div>
@@ -1045,24 +1045,24 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
               ) : null}
 
               {tab === 'integrations' ? (
-                <div className="bg-[#2e281a] border border-[#483c23] rounded-lg p-6">
-                  <h3 className="text-lg font-bold text-white">Integrations</h3>
-                  <div className="text-sm text-[#c9b792] mt-2">No integrations configured yet.</div>
+                <div className="bg-card border border-border rounded-lg p-6">
+                  <h3 className="text-lg font-bold text-foreground">Integrations</h3>
+                  <div className="text-sm text-muted-foreground mt-2">No integrations configured yet.</div>
                 </div>
               ) : null}
 
               {tab === 'payments' ? (
-                <div className="bg-[#2e281a] border border-[#483c23] rounded-lg p-6">
+                <div className="bg-card border border-border rounded-lg p-6">
                   <div className="flex items-end justify-between gap-4">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Payment Integrations</h3>
-                      <div className="text-xs text-[#c9b792]">Super Admin manages gateway credentials. Tenant can only enable/disable usage.</div>
+                      <h3 className="text-lg font-bold text-foreground">Payment Integrations</h3>
+                      <div className="text-xs text-muted-foreground">Super Admin manages gateway credentials. Tenant can only enable/disable usage.</div>
                     </div>
                     <button
                       type="button"
                       onClick={savePayments}
                       disabled={paySaving || payLoading}
-                      className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221c11] font-bold hover:bg-[#d69a25] disabled:opacity-60"
+                      className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-60"
                     >
                       {paySaving ? 'Saving...' : 'Save'}
                     </button>
@@ -1072,11 +1072,11 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                     <div className="mt-4 rounded-lg border border-red-600/40 bg-red-500/10 text-red-200 px-4 py-3 text-sm">{payError}</div>
                   ) : null}
 
-                  <div className="mt-5 bg-[#221c11]/50 border border-[#483c23] rounded-lg p-4">
+                  <div className="mt-5 bg-muted/40 border border-border rounded-lg p-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <div className="text-white font-bold">Chapa (POS)</div>
-                        <div className="text-xs text-[#c9b792] mt-1">Funds settle to tenant merchant account (strict mode).</div>
+                        <div className="text-foreground font-bold">Chapa (POS)</div>
+                        <div className="text-xs text-muted-foreground mt-1">Funds settle to tenant merchant account (strict mode).</div>
                       </div>
                       <button
                         type="button"
@@ -1084,33 +1084,33 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                         className="flex items-center gap-2 text-sm font-bold"
                         disabled={payLoading || paySaving}
                       >
-                        <span className={`material-symbols-outlined text-[22px] ${posChapaEnabled ? 'text-[#eead2b]' : 'text-[#c9b792] opacity-60'}`}>{posChapaEnabled ? 'toggle_on' : 'toggle_off'}</span>
-                        <span className={posChapaEnabled ? 'text-[#eead2b]' : 'text-[#c9b792]'}>{posChapaEnabled ? 'Enabled' : 'Disabled'}</span>
+                        <span className={`material-symbols-outlined text-[22px] ${posChapaEnabled ? 'text-primary' : 'text-muted-foreground opacity-60'}`}>{posChapaEnabled ? 'toggle_on' : 'toggle_off'}</span>
+                        <span className={posChapaEnabled ? 'text-primary' : 'text-muted-foreground'}>{posChapaEnabled ? 'Enabled' : 'Disabled'}</span>
                       </button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                       <div>
-                        <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Secret Key</div>
-                        <div className="text-xs text-[#c9b792] mb-2">Stored: <span className="font-mono text-white">{posChapaSecretMasked || '—'}</span></div>
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Secret Key</div>
+                        <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posChapaSecretMasked || '—'}</span></div>
                         <input
                           value={posChapaSecretKey}
                           onChange={(e) => setPosChapaSecretKey(e.target.value)}
                           placeholder="Enter new secret key (optional)"
-                          className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white"
+                          className="h-11 w-full rounded-lg border border-border bg-card px-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                           type="password"
                           name="pos_chapa_secret_key"
                           autoComplete="new-password"
                         />
                       </div>
                       <div>
-                        <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Webhook Secret</div>
-                        <div className="text-xs text-[#c9b792] mb-2">Stored: <span className="font-mono text-white">{posChapaWebhookMasked || '—'}</span></div>
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Webhook Secret</div>
+                        <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posChapaWebhookMasked || '—'}</span></div>
                         <input
                           value={posChapaWebhookSecret}
                           onChange={(e) => setPosChapaWebhookSecret(e.target.value)}
                           placeholder="Enter new webhook secret (optional)"
-                          className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white"
+                          className="h-11 w-full rounded-lg border border-border bg-card px-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                           type="password"
                           name="pos_chapa_webhook_secret"
                           autoComplete="new-password"
@@ -1120,13 +1120,13 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                       <div>
-                        <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Public Key (optional)</div>
-                        <div className="text-xs text-[#c9b792] mb-2">Stored: <span className="font-mono text-white">{posChapaPublicMasked || '—'}</span></div>
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Public Key (optional)</div>
+                        <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posChapaPublicMasked || '—'}</span></div>
                         <input
                           value={posChapaPublicKey}
                           onChange={(e) => setPosChapaPublicKey(e.target.value)}
                           placeholder="Enter public key (optional)"
-                          className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white"
+                          className="h-11 w-full rounded-lg border border-border bg-card px-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                           type="text"
                           name="pos_chapa_public_key"
                           autoComplete="off"
@@ -1135,15 +1135,15 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                       <div />
                     </div>
 
-                    <div className="mt-3 text-xs text-[#c9b792]">
-                      Tip: If you enable Chapa while no keys are stored, the API will return <span className="font-mono text-white">chapa_keys_required</span>.
+                    <div className="mt-3 text-xs text-muted-foreground">
+                      Tip: If you enable Chapa while no keys are stored, the API will return <span className="font-mono text-foreground">chapa_keys_required</span>.
                     </div>
                   </div>
-                <div className="mt-5 bg-[#221c11]/50 border border-[#483c23] rounded-lg p-4">
+                <div className="mt-5 bg-muted/40 border border-border rounded-lg p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <div className="text-white font-bold">SantimPay (POS)</div>
-                      <div className="text-xs text-[#c9b792] mt-1">Tenant wallet settlement via SantimPay channels.</div>
+                      <div className="text-foreground font-bold">SantimPay (POS)</div>
+                      <div className="text-xs text-muted-foreground mt-1">Tenant wallet settlement via SantimPay channels.</div>
                     </div>
                     <button
                       type="button"
@@ -1151,20 +1151,20 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                       className="flex items-center gap-2 text-sm font-bold"
                       disabled={payLoading || paySaving}
                     >
-                      <span className={`material-symbols-outlined text-[22px] ${posSantimEnabled ? 'text-[#eead2b]' : 'text-[#c9b792] opacity-60'}`}>{posSantimEnabled ? 'toggle_on' : 'toggle_off'}</span>
-                      <span className={posSantimEnabled ? 'text-[#eead2b]' : 'text-[#c9b792]'}>{posSantimEnabled ? 'Enabled' : 'Disabled'}</span>
+                      <span className={`material-symbols-outlined text-[22px] ${posSantimEnabled ? 'text-primary' : 'text-muted-foreground opacity-60'}`}>{posSantimEnabled ? 'toggle_on' : 'toggle_off'}</span>
+                      <span className={posSantimEnabled ? 'text-primary' : 'text-muted-foreground'}>{posSantimEnabled ? 'Enabled' : 'Disabled'}</span>
                     </button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     <div>
-                      <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Merchant ID</div>
-                      <div className="text-xs text-[#c9b792] mb-2">Stored: <span className="font-mono text-white">{posSantimMerchantIdMasked || '—'}</span></div>
+                      <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Merchant ID</div>
+                      <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posSantimMerchantIdMasked || '—'}</span></div>
                       <input
                         value={posSantimMerchantId}
                         onChange={(e) => setPosSantimMerchantId(e.target.value)}
                         placeholder="Enter merchant id (optional)"
-                        className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white"
+                        className="h-11 w-full rounded-lg border border-border bg-card px-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                         type="text"
                         name="pos_santimpay_merchant_id"
                         autoComplete="off"
@@ -1175,44 +1175,44 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     <div>
-                      <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Private Key (ES256 PEM)</div>
-                      <div className="text-xs text-[#c9b792] mb-2">Stored: <span className="font-mono text-white">{posSantimPrivateKeyMasked || '—'}</span></div>
+                      <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Private Key (ES256 PEM)</div>
+                      <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posSantimPrivateKeyMasked || '—'}</span></div>
                       <textarea
                         value={posSantimPrivateKey}
                         onChange={(e) => setPosSantimPrivateKey(e.target.value)}
                         placeholder="Paste private key PEM (optional)"
-                        className="min-h-[110px] w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 py-2 text-white"
+                        className="min-h-[110px] w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                         name="pos_santimpay_private_key"
                         autoComplete="new-password"
                       />
                     </div>
                     <div>
-                      <div className="text-[11px] text-[#c9b792] uppercase tracking-wider font-bold mb-2">Public Key (PEM)</div>
-                      <div className="text-xs text-[#c9b792] mb-2">Stored: <span className="font-mono text-white">{posSantimPublicKeyMasked || '—'}</span></div>
+                      <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Public Key (PEM)</div>
+                      <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posSantimPublicKeyMasked || '—'}</span></div>
                       <textarea
                         value={posSantimPublicKey}
                         onChange={(e) => setPosSantimPublicKey(e.target.value)}
                         placeholder="Paste public key PEM (optional)"
-                        className="min-h-[110px] w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 py-2 text-white"
+                        className="min-h-[110px] w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                         name="pos_santimpay_public_key"
                         autoComplete="off"
                       />
                     </div>
                   </div>
 
-                  <div className="mt-3 text-xs text-[#c9b792]">
-                    Tip: If you enable SantimPay while missing keys, the API will return <span className="font-mono text-white">santimpay_keys_required</span>.
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    Tip: If you enable SantimPay while missing keys, the API will return <span className="font-mono text-foreground">santimpay_keys_required</span>.
                   </div>
                 </div>
               </div>
               ) : null}
 
-              <div className="bg-[#2e281a] border border-[#483c23] rounded-lg p-6">
+              <div className="bg-card border border-border rounded-lg p-6">
                 <div className="flex justify-between items-end mb-4">
-                  <h3 className="text-lg font-bold text-white">Incident History & Logs</h3>
-                  <button type="button" onClick={() => setAuditOpen(true)} className="text-sm text-[#eead2b] hover:text-white">View Full Audit Log</button>
+                  <h3 className="text-lg font-bold text-foreground">Incident History & Logs</h3>
+                  <button type="button" onClick={() => setAuditOpen(true)} className="text-sm text-primary hover:text-foreground">View Full Audit Log</button>
                 </div>
-                <div className="relative pl-4 border-l border-[#483c23] space-y-6">
+                <div className="relative pl-4 border-l border-border space-y-6">
                   {(() => {
                     const items = activity.length ? activity : incidents;
                     const needle = search.trim().toLowerCase();
@@ -1221,7 +1221,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                       : items;
                     return filtered;
                   })().length === 0 ? (
-                    <div className="text-sm text-[#c9b792]">No incidents yet.</div>
+                    <div className="text-sm text-muted-foreground">No incidents yet.</div>
                   ) : (
                     (() => {
                       const items = activity.length ? activity : incidents;
@@ -1237,16 +1237,16 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                       const type = String(ev?.type || 'event');
                       const desc = String(ev?.message || ev?.summary || ev?.details || '');
                       const sev = String(ev?.severity || type).toLowerCase();
-                      const dot = sev.includes('error') ? 'bg-red-500' : sev.includes('warn') ? 'bg-[#eead2b]' : 'bg-green-500';
+                      const dot = sev.includes('error') ? 'bg-red-500' : sev.includes('warn') ? 'bg-primary' : 'bg-green-500';
                       return (
                         <div key={String(ev?.id || i)} className="relative pl-6">
-                          <div className={`absolute -left-[21px] top-1 size-3 ${dot} rounded-full border-2 border-[#2e281a]`}></div>
+                          <div className={`absolute -left-[21px] top-1 size-3 ${dot} rounded-full border-2 border-card`}></div>
                           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
                             <div>
-                              <p className="text-sm font-bold text-white">{type}</p>
-                              <p className="text-xs text-[#c9b792] mt-0.5">{desc || `Branch: ${String(ev?.branchId || 'global')}`}</p>
+                              <p className="text-sm font-bold text-foreground">{type}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{desc || `Branch: ${String(ev?.branchId || 'global')}`}</p>
                             </div>
-                            <span className="text-xs text-[#c9b792] font-mono whitespace-nowrap">{ts}</span>
+                            <span className="text-xs text-muted-foreground font-mono whitespace-nowrap">{ts}</span>
                           </div>
                         </div>
                       );
@@ -1258,42 +1258,66 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
         </div>
         {editOpen ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-            <div className="w-full max-w-xl rounded-xl border border-[#483c23] bg-[#221c11] shadow-xl">
-              <div className="p-4 border-b border-[#483c23] flex items-center justify-between">
-                <div className="font-bold text-white">Edit Tenant Config</div>
-                <button type="button" className="text-[#c9b792] hover:text-white" onClick={() => setEditOpen(false)}>
+            <div className="w-full max-w-xl rounded-xl border border-border bg-card shadow-xl">
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <div className="font-bold text-foreground">Edit Tenant Config</div>
+                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setEditOpen(false)}>
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
               <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Tenant Name</div>
-                  <input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Tenant Name</div>
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Owner</div>
-                  <input value={editOwner} onChange={(e) => setEditOwner(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Owner</div>
+                  <input
+                    value={editOwner}
+                    onChange={(e) => setEditOwner(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Email</div>
-                  <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Email</div>
+                  <input
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Phone</div>
-                  <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Phone</div>
+                  <input
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">City</div>
-                  <input value={editCity} onChange={(e) => setEditCity(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">City</div>
+                  <input
+                    value={editCity}
+                    onChange={(e) => setEditCity(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
                 </div>
                 <div className="md:col-span-2">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Country</div>
-                  <input value={editCountry} onChange={(e) => setEditCountry(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Country</div>
+                  <input
+                    value={editCountry}
+                    onChange={(e) => setEditCountry(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
                 </div>
               </div>
-              <div className="p-4 border-t border-[#483c23] flex items-center justify-end gap-2">
-                <button type="button" className="h-10 px-4 rounded-lg border border-[#483c23] bg-[#2e281a] text-[#c9b792] hover:text-white" onClick={() => setEditOpen(false)}>Cancel</button>
-                <button type="button" className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221c11] font-bold hover:bg-[#d69a25]" onClick={saveEditConfig} disabled={loading}>Save</button>
+              <div className="p-4 border-t border-border flex items-center justify-end gap-2">
+                <button type="button" className="h-10 px-4 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent" onClick={() => setEditOpen(false)}>Cancel</button>
+                <button type="button" className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-60" onClick={saveEditConfig} disabled={loading}>Save</button>
               </div>
             </div>
           </div>
@@ -1301,10 +1325,10 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
 
         {auditOpen ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-            <div className="w-full max-w-3xl rounded-xl border border-[#483c23] bg-[#221c11] shadow-xl">
-              <div className="p-4 border-b border-[#483c23] flex items-center justify-between">
-                <div className="font-bold text-white">Audit Log (Recent)</div>
-                <button type="button" className="text-[#c9b792] hover:text-white" onClick={() => setAuditOpen(false)}>
+            <div className="w-full max-w-3xl rounded-xl border border-border bg-card shadow-xl">
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <div className="font-bold text-foreground">Audit Log (Recent)</div>
+                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setAuditOpen(false)}>
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
@@ -1315,16 +1339,16 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                   const filtered = needle
                     ? items.filter((x: any) => String(x?.type || '').toLowerCase().includes(needle) || String(x?.message || '').toLowerCase().includes(needle))
                     : items;
-                  if (filtered.length === 0) return <div className="text-sm text-[#c9b792]">No audit events.</div>;
+                  if (filtered.length === 0) return <div className="text-sm text-muted-foreground">No audit events.</div>;
                   return (
                     <div className="space-y-3">
                       {filtered.slice(0, 50).map((ev: any) => (
-                        <div key={String(ev?.id)} className="rounded-lg border border-[#483c23] bg-[#2e281a] p-3">
+                        <div key={String(ev?.id)} className="rounded-lg border border-border bg-muted/40 p-3">
                           <div className="flex items-center justify-between gap-3">
-                            <div className="text-sm font-bold text-white">{String(ev?.type || 'event')}</div>
-                            <div className="text-xs font-mono text-[#c9b792]">{String(ev?.at ? (formatDeviceDateTime(ev.at) || '') : '')}</div>
+                            <div className="text-sm font-bold text-foreground">{String(ev?.type || 'event')}</div>
+                            <div className="text-xs font-mono text-muted-foreground">{String(ev?.at ? (formatDeviceDateTime(ev.at) || '') : '')}</div>
                           </div>
-                          <div className="text-xs text-[#c9b792] mt-1">{String(ev?.message || '')}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{String(ev?.message || '')}</div>
                         </div>
                       ))}
                     </div>

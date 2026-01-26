@@ -221,37 +221,37 @@ export const ShiftSchedule: React.FC<{ readOnly?: boolean }> = ({ readOnly }) =>
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#181611] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <OwnerPageHeader
         title="Shift Schedule"
-        leftSlot={<div className="text-xs text-[#b9b09d]">{effectiveReadOnly ? 'View-only' : 'Create and manage weekly shifts'}</div>}
+        leftSlot={<div className="text-xs text-muted-foreground">{effectiveReadOnly ? 'View-only' : 'Create and manage weekly shifts'}</div>}
         rightSlot={
           <div className="flex items-center gap-2">
             <button
               onClick={() => setRefreshNonce((n) => n + 1)}
               disabled={loading || saving}
-              className="h-10 px-3 rounded-lg border border-[#393328] bg-[#181611] hover:bg-[#2c241b] text-[#c9b792] disabled:opacity-50"
+              className="h-10 px-3 rounded-lg border border-border bg-background hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-50"
               type="button"
             >
               Refresh
             </button>
             <button
               onClick={() => setWeekStart(addDays(weekStart, -7))}
-              className="h-10 px-3 rounded-lg border border-[#393328] bg-[#181611] hover:bg-[#2c241b] text-[#c9b792]"
+              className="h-10 px-3 rounded-lg border border-border bg-background hover:bg-accent text-muted-foreground hover:text-foreground"
               type="button"
             >
               Prev
             </button>
             <button
               onClick={() => setWeekStart(toIsoDate(weekStartOf(new Date())))}
-              className="h-10 px-3 rounded-lg border border-[#393328] bg-[#181611] hover:bg-[#2c241b] text-[#c9b792]"
+              className="h-10 px-3 rounded-lg border border-border bg-background hover:bg-accent text-muted-foreground hover:text-foreground"
               type="button"
             >
               Current
             </button>
             <button
               onClick={() => setWeekStart(addDays(weekStart, 7))}
-              className="h-10 px-3 rounded-lg border border-[#393328] bg-[#181611] hover:bg-[#2c241b] text-[#c9b792]"
+              className="h-10 px-3 rounded-lg border border-border bg-background hover:bg-accent text-muted-foreground hover:text-foreground"
               type="button"
             >
               Next
@@ -259,7 +259,7 @@ export const ShiftSchedule: React.FC<{ readOnly?: boolean }> = ({ readOnly }) =>
             <input
               value={weekStart}
               onChange={(e) => setWeekStart(e.target.value)}
-              className="h-10 px-3 rounded-lg border border-[#393328] bg-[#181611] text-white"
+              className="h-10 px-3 rounded-lg border border-border bg-background text-foreground"
               type="text"
             />
             {!effectiveReadOnly ? (
@@ -267,7 +267,7 @@ export const ShiftSchedule: React.FC<{ readOnly?: boolean }> = ({ readOnly }) =>
                 <button
                   onClick={() => setEditMode((v) => !v)}
                   disabled={loading}
-                  className="h-10 px-3 rounded-lg border border-[#393328] bg-[#181611] hover:bg-[#2c241b] text-white font-bold disabled:opacity-50"
+                  className="h-10 px-3 rounded-lg border border-border bg-background hover:bg-accent text-foreground font-bold disabled:opacity-50"
                   type="button"
                 >
                   {editMode ? 'Done' : 'Edit'}
@@ -275,7 +275,7 @@ export const ShiftSchedule: React.FC<{ readOnly?: boolean }> = ({ readOnly }) =>
                 <button
                   onClick={save}
                   disabled={loading || saving}
-                  className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] font-extrabold disabled:opacity-50"
+                  className="h-10 px-4 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground font-extrabold disabled:opacity-50"
                   type="button"
                 >
                   {saving ? 'Saving ¦' : 'Save'}
@@ -289,34 +289,34 @@ export const ShiftSchedule: React.FC<{ readOnly?: boolean }> = ({ readOnly }) =>
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-6xl mx-auto space-y-4">
           {err === 'select_branch' ? (
-            <div className="p-4 rounded-xl bg-[#221c10] border border-[#393328]">
+            <div className="p-4 rounded-xl bg-card border border-border">
               <div className="text-sm font-extrabold">Select a branch to view schedules</div>
-              <div className="text-xs text-[#b9b09d] mt-1">
+              <div className="text-xs text-muted-foreground mt-1">
                 As an Owner, schedules are branch-specific. Choose a branch first.
               </div>
               <div className="mt-3 flex gap-2">
                 <button
                   onClick={openOwnerBranchSelect}
-                  className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] font-extrabold"
+                  className="h-10 px-4 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground font-extrabold"
                 >
                   Choose Branch
                 </button>
               </div>
             </div>
           ) : null}
-          {err ? <div className="p-3 rounded-lg bg-red-900/20 border border-red-800 text-red-200 text-sm">{err}</div> : null}
-          {ok ? <div className="p-3 rounded-lg bg-emerald-900/20 border border-emerald-800 text-emerald-200 text-sm">{ok}</div> : null}
+          {err ? <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">{err}</div> : null}
+          {ok ? <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-sm">{ok}</div> : null}
 
-          <div className="rounded-xl border border-[#393328] bg-[#221c10] overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#393328] flex items-center justify-between">
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div className="text-sm font-extrabold">Week of {weekStart}</div>
-              <div className="text-[11px] text-[#b9b09d]">Branch: {remote?.branchId || ' ”'}    Staff: {(remote?.staff?.length ?? 0) || 0}</div>
+              <div className="text-[11px] text-muted-foreground">Branch: {remote?.branchId || ' ”'}    Staff: {(remote?.staff?.length ?? 0) || 0}</div>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-xs text-[#b9b09d] uppercase tracking-wider">
-                  <tr className="border-b border-[#393328]">
+                <thead className="text-xs text-muted-foreground uppercase tracking-wider">
+                  <tr className="border-b border-border">
                     <th className="text-left px-4 py-3">Employee</th>
                     <th className="text-left px-4 py-3">Role</th>
                     {dayKeys.map((d) => (
@@ -324,28 +324,28 @@ export const ShiftSchedule: React.FC<{ readOnly?: boolean }> = ({ readOnly }) =>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#2c241b]">
+                <tbody className="divide-y divide-border">
                   {loading ? (
-                    <tr><td colSpan={2 + dayKeys.length} className="px-4 py-6 text-[#b9b09d]">Loading ¦</td></tr>
+                    <tr><td colSpan={2 + dayKeys.length} className="px-4 py-6 text-muted-foreground">Loading ¦</td></tr>
                   ) : mergedRows.length === 0 ? (
-                    <tr><td colSpan={2 + dayKeys.length} className="px-4 py-6 text-[#b9b09d]">No staff found for this branch.</td></tr>
+                    <tr><td colSpan={2 + dayKeys.length} className="px-4 py-6 text-muted-foreground">No staff found for this branch.</td></tr>
                   ) : (
                     mergedRows.map((r) => {
                       const s = staffById.get(r.staffId);
                       return (
-                        <tr key={r.staffId} className="hover:bg-white/5">
+                        <tr key={r.staffId} className="hover:bg-accent/50">
                           <td className="px-4 py-3 font-semibold">{s?.name || r.staffId}</td>
-                          <td className="px-4 py-3 text-[#c9b792]">{s?.roleName || ' ”'}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{s?.roleName || ' ”'}</td>
                           {dayKeys.map((d) => (
                             <td key={d} className="px-4 py-3">
                               {editMode && !effectiveReadOnly ? (
                                 <input
                                   value={String((r as any)[d] || '')}
                                   onChange={(e) => updateCell(r.staffId, d, e.target.value)}
-                                  className="h-9 w-28 rounded-lg border border-[#393328] bg-[#181611] px-2 text-xs text-white"
+                                  className="h-9 w-28 rounded-lg border border-border bg-background px-2 text-xs text-foreground"
                                 />
                               ) : (
-                                <span className={cx('inline-flex items-center px-2 py-1 rounded-lg text-xs border', String((r as any)[d] || '') === 'Off' ? 'border-[#393328] text-[#b9b09d]' : 'border-[#eead2b]/30 text-[#eead2b]')}>
+                                <span className={cx('inline-flex items-center px-2 py-1 rounded-lg text-xs border', String((r as any)[d] || '') === 'Off' ? 'border-border text-muted-foreground' : 'border-primary/30 text-primary')}>
                                   {String((r as any)[d] || '') || 'Off'}
                                 </span>
                               )}
@@ -360,7 +360,7 @@ export const ShiftSchedule: React.FC<{ readOnly?: boolean }> = ({ readOnly }) =>
             </div>
           </div>
 
-          <div className="text-[11px] text-[#8e826f]">
+          <div className="text-[11px] text-muted-foreground">
             Tip: Enter shift text like  œ08:00-16:00  or  œOff .
           </div>
         </div>

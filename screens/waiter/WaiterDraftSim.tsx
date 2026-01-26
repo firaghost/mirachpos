@@ -204,23 +204,23 @@ export const WaiterDraftSim: React.FC<Props> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#211911] text-white">
-      <header className="flex items-center justify-between border-b border-[#3d3226] px-6 py-4 bg-[#2c241b]">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+      <header className="flex items-center justify-between border-b border-border px-6 py-4 bg-card">
         <div className="flex flex-col">
-          <div className="text-white text-lg font-bold leading-tight">Simulate Mobile Draft</div>
-          <div className="text-[#c8ad93] text-xs">Network: {isOnline ? 'Online' : 'Offline'}    Branch: {branchId}</div>
+          <div className="text-foreground text-lg font-bold leading-tight">Simulate Mobile Draft</div>
+          <div className="text-muted-foreground text-xs">Network: {isOnline ? 'Online' : 'Offline'}    Branch: {branchId}</div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}
-            className="h-9 px-4 rounded-lg bg-[#211911] border border-[#3d3226] text-[#c8ad93] hover:text-white hover:border-[#cf7317]/30 text-sm font-semibold"
+            className="h-9 px-4 rounded-lg bg-background border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 text-sm font-semibold"
           >
             Back
           </button>
           <button
             disabled={busy}
             onClick={syncAll}
-            className="h-9 px-4 rounded-lg bg-[#cf7317] hover:bg-[#e08428] text-white text-sm font-extrabold disabled:opacity-60"
+            className="h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-extrabold disabled:opacity-60"
           >
             {busy ? 'Syncing ¦' : 'Sync Now'}
           </button>
@@ -236,20 +236,20 @@ export const WaiterDraftSim: React.FC<Props> = ({ onNavigate }) => {
               }`}
             >
               <div className="text-sm font-medium">{banner.message}</div>
-              <button onClick={() => setBanner(null)} className="h-9 px-3 rounded-lg bg-white/10 border border-white/10 text-white">
+              <button onClick={() => setBanner(null)} className="h-9 px-3 rounded-lg bg-background border border-border text-foreground">
                 Dismiss
               </button>
             </div>
           ) : null}
 
-          <div className="rounded-xl border border-[#3d3226] bg-[#2c241b] p-5">
+          <div className="rounded-xl border border-border bg-card p-5">
             <div className="text-sm font-bold">Create draft (offline-safe)</div>
-            <div className="text-xs text-[#c8ad93] mt-1">This simulates mobile draft creation. It does not create a normal POS order.</div>
+            <div className="text-xs text-muted-foreground mt-1">This simulates mobile draft creation. It does not create a normal POS order.</div>
             <div className="mt-4 grid grid-cols-1 gap-3">
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="h-10 rounded-lg bg-[#211911] border border-[#3d3226] px-4 text-sm text-white"
+                className="h-10 rounded-lg bg-background border border-border px-4 text-sm text-foreground"
                 placeholder="Search products to add..."
               />
 
@@ -264,10 +264,10 @@ export const WaiterDraftSim: React.FC<Props> = ({ onNavigate }) => {
                   .map((p) => {
                     const qty = Number(items[p.id]?.qty ?? 0);
                     return (
-                      <div key={p.id} className="rounded-lg border border-[#3d3226] bg-[#211911] p-3 flex items-center justify-between gap-3">
+                      <div key={p.id} className="rounded-lg border border-border bg-background p-3 flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-sm font-bold truncate">{p.name}</div>
-                          <div className="text-xs text-[#c8ad93]">ETB {Number(p.price ?? 0).toFixed(2)}</div>
+                          <div className="text-xs text-muted-foreground">ETB {Number(p.price ?? 0).toFixed(2)}</div>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
@@ -281,7 +281,7 @@ export const WaiterDraftSim: React.FC<Props> = ({ onNavigate }) => {
                                 return next;
                               })
                             }
-                            className="w-9 h-9 rounded-lg bg-transparent border border-[#3d3226] text-[#c8ad93] hover:text-white"
+                            className="w-9 h-9 rounded-lg bg-transparent border border-border text-muted-foreground hover:text-foreground"
                           >
                             -
                           </button>
@@ -294,7 +294,7 @@ export const WaiterDraftSim: React.FC<Props> = ({ onNavigate }) => {
                                 return { ...prev, [p.id]: { qty: nextQty } };
                               })
                             }
-                            className="w-9 h-9 rounded-lg bg-[#eead2b] text-[#221c11] font-extrabold hover:bg-[#d49619]"
+                            className="w-9 h-9 rounded-lg bg-primary text-primary-foreground font-extrabold hover:bg-primary/90"
                           >
                             +
                           </button>
@@ -307,14 +307,14 @@ export const WaiterDraftSim: React.FC<Props> = ({ onNavigate }) => {
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="min-h-[90px] rounded-lg bg-[#211911] border border-[#3d3226] px-4 py-3 text-sm text-white"
+                className="min-h-[90px] rounded-lg bg-background border border-border px-4 py-3 text-sm text-foreground"
                 placeholder="Optional note (e.g. table, customer, extra instructions)"
               />
               <div className="flex items-center justify-between gap-3">
-                <div className="text-xs text-[#c8ad93]">Tenant: {tenantId || '  '}    Staff: {staffId || '  '}</div>
+                <div className="text-xs text-muted-foreground">Tenant: {tenantId || '  '}    Staff: {staffId || '  '}</div>
                 <button
                   onClick={createLocalDraft}
-                  className="h-10 px-5 rounded-lg bg-[#eead2b] text-[#221c11] hover:bg-[#d49619] font-extrabold"
+                  className="h-10 px-5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-extrabold"
                 >
                   Save Draft Locally
                 </button>
@@ -322,30 +322,30 @@ export const WaiterDraftSim: React.FC<Props> = ({ onNavigate }) => {
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#3d3226] bg-[#2c241b] overflow-hidden">
-            <div className="p-5 border-b border-[#3d3226] flex items-center justify-between">
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="p-5 border-b border-border flex items-center justify-between">
               <div>
                 <div className="text-sm font-bold">Local drafts</div>
-                <div className="text-xs text-[#c8ad93]">Unsynced drafts will appear here until you sync them.</div>
+                <div className="text-xs text-muted-foreground">Unsynced drafts will appear here until you sync them.</div>
               </div>
               <button
                 onClick={clearSynced}
-                className="h-9 px-3 rounded-lg bg-[#211911] border border-[#3d3226] text-[#c8ad93] hover:text-white hover:border-[#cf7317]/30 text-xs font-bold"
+                className="h-9 px-3 rounded-lg bg-background border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 text-xs font-bold"
               >
                 Clear Synced
               </button>
             </div>
 
             {drafts.length === 0 ? (
-              <div className="p-6 text-sm text-[#c8ad93]">No local drafts yet.</div>
+              <div className="p-6 text-sm text-muted-foreground">No local drafts yet.</div>
             ) : (
-              <div className="divide-y divide-[#3d3226]">
+              <div className="divide-y divide-border">
                 {drafts.map((d) => (
                   <div key={d.id} className="p-5 flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <div className="text-white font-bold truncate">{d.id}</div>
-                      <div className="text-xs text-[#c8ad93] mt-1">Created: {d.createdAtLocal}</div>
-                      {d.note ? <div className="text-xs text-[#c8ad93] mt-2 whitespace-pre-wrap">Note: {d.note}</div> : null}
+                      <div className="text-foreground font-bold truncate">{d.id}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Created: {d.createdAtLocal}</div>
+                      {d.note ? <div className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap">Note: {d.note}</div> : null}
                       {d.status === 'FAILED' && d.lastError ? (
                         <div className="text-xs text-red-200 mt-2">Last error: {d.lastError}</div>
                       ) : null}
@@ -357,7 +357,7 @@ export const WaiterDraftSim: React.FC<Props> = ({ onNavigate }) => {
                             ? 'bg-emerald-500/10 text-emerald-200 border-emerald-500/20'
                             : d.status === 'FAILED'
                               ? 'bg-red-500/10 text-red-200 border-red-500/20'
-                              : 'bg-white/10 text-[#c8ad93] border-white/10'
+                              : 'bg-background text-muted-foreground border-border'
                         }`}
                       >
                         {d.status}

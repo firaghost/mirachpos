@@ -263,24 +263,24 @@ export const OwnerBranches: React.FC = () => {
   }, [branches, perfById]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#f8f7f6] dark:bg-[#221c10] text-[#111418] dark:text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <OwnerPageHeader
         title="Branch Management"
         rightSlot={
           <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center bg-[#393328] rounded-lg h-10 w-72 px-3 gap-2">
-              <span className="material-symbols-outlined text-[#b9b09d]" style={{ fontSize: 20 }}>search</span>
+            <div className="hidden md:flex items-center bg-muted rounded-lg h-10 w-72 px-3 gap-2">
+              <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: 20 }}>search</span>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="bg-transparent border-none text-sm text-white placeholder-[#b9b09d] focus:ring-0 w-full p-0"
+                className="bg-transparent border-none text-sm text-foreground placeholder:text-muted-foreground focus:ring-0 w-full p-0"
                 placeholder="Search branches ¦"
                 type="text"
               />
             </div>
             <button
               onClick={fetchBranches}
-              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-[#393328] text-white rounded-lg text-sm font-bold hover:bg-[#393328]/80 transition-colors"
+              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-muted text-foreground rounded-lg text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>refresh</span>
@@ -288,7 +288,7 @@ export const OwnerBranches: React.FC = () => {
             </button>
             <button
               onClick={openAdd}
-              className="flex items-center justify-center gap-2 h-10 px-4 bg-[#eead2b] text-[#181611] rounded-lg text-sm font-bold hover:bg-[#d99a20] transition-colors shadow-[0_0_15px_rgba(238,173,43,0.3)]"
+              className="flex items-center justify-center gap-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-md"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>add_business</span>
@@ -308,20 +308,20 @@ export const OwnerBranches: React.FC = () => {
               <select
                 value={status}
                 onChange={(e) => setStatus((e.target.value || 'All') as 'All' | 'Open' | 'Closed' | 'Maintenance')}
-                className="w-full h-12 bg-white dark:bg-[#2c261e] text-[#111418] dark:text-white border border-gray-200 dark:border-[#393328] rounded-lg text-sm px-4 focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b] appearance-none cursor-pointer"
+                className="w-full h-12 bg-background text-foreground border border-border rounded-lg text-sm px-4 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer"
               >
                 <option value="All">All Statuses</option>
                 <option value="Open">Active / Open</option>
                 <option value="Closed">Inactive / Closed</option>
                 <option value="Maintenance">Maintenance</option>
               </select>
-              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#b9b09d] pointer-events-none text-lg">expand_more</span>
+              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-lg">expand_more</span>
             </div>
             <div className="relative min-w-[180px]">
               <select
                 value={region}
                 onChange={(e) => setRegion(e.target.value || 'All')}
-                className="w-full h-12 bg-white dark:bg-[#2c261e] text-[#111418] dark:text-white border border-gray-200 dark:border-[#393328] rounded-lg text-sm px-4 focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b] appearance-none cursor-pointer"
+                className="w-full h-12 bg-background text-foreground border border-border rounded-lg text-sm px-4 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer"
               >
                 {regions.map((r) => (
                   <option key={r} value={r}>
@@ -329,61 +329,61 @@ export const OwnerBranches: React.FC = () => {
                   </option>
                 ))}
               </select>
-              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#b9b09d] pointer-events-none text-lg">expand_more</span>
+              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-lg">expand_more</span>
             </div>
           </div>
         </div>
 
         {error ? (
-          <div className="mb-6 rounded-xl border border-red-500/20 bg-red-900/10 text-red-400 p-4 flex items-center justify-between gap-4">
+          <div className="mb-6 rounded-xl border border-destructive/20 bg-destructive/10 text-destructive p-4 flex items-center justify-between gap-4">
             <div className="text-sm">{error}</div>
-            <button onClick={fetchBranches} className="h-10 px-4 rounded-lg bg-[#393328] text-white hover:bg-[#322c24]">
+            <button onClick={fetchBranches} className="h-10 px-4 rounded-lg bg-muted text-foreground hover:bg-accent">
               Retry
             </button>
           </div>
         ) : null}
 
         {/* Branch Table */}
-        <div className="w-full overflow-hidden rounded-xl border border-gray-200 dark:border-[#393328] bg-white dark:bg-[#2c261e] shadow-sm">
+        <div className="w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 dark:bg-[#322c24] border-b border-gray-200 dark:border-[#393328]">
-                  <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-[#b9b09d] whitespace-nowrap">Branch ID</th>
-                  <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-[#b9b09d] whitespace-nowrap">Branch Info</th>
-                  <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-[#b9b09d] whitespace-nowrap">Manager</th>
-                  <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-[#b9b09d] whitespace-nowrap">Contact</th>
-                  <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-[#b9b09d] whitespace-nowrap">Status</th>
-                  <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-[#b9b09d] text-right whitespace-nowrap">Actions</th>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Branch ID</th>
+                  <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Branch Info</th>
+                  <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Manager</th>
+                  <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Contact</th>
+                  <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Status</th>
+                  <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-[#393328]">
+              <tbody className="divide-y divide-border">
                 {loading ? (
                   <tr>
-                    <td className="py-8 px-6 text-sm text-[#b9b09d]" colSpan={6}>
+                    <td className="py-8 px-6 text-sm text-muted-foreground" colSpan={6}>
                       Loading branches...
                     </td>
                   </tr>
                 ) : visible.length === 0 ? (
                   <tr>
-                    <td className="py-8 px-6 text-sm text-[#b9b09d]" colSpan={6}>
+                    <td className="py-8 px-6 text-sm text-muted-foreground" colSpan={6}>
                       No branches found.
                     </td>
                   </tr>
                 ) : (
                   pageRows.map((b) => (
-                    <tr key={b.id} className="group hover:bg-gray-50 dark:hover:bg-[#322c24]/50 transition-colors">
+                    <tr key={b.id} className="group hover:bg-accent/50 transition-colors">
                       <td className="py-4 px-6 align-middle">
-                        <span className="font-mono text-xs text-[#b9b09d] bg-[#393328]/30 px-2 py-1 rounded">{b.id}</span>
+                        <span className="font-mono text-xs text-muted-foreground bg-muted px-2 py-1 rounded">{b.id}</span>
                       </td>
                       <td className="py-4 px-6 align-middle">
                         <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-lg bg-[#eead2b]/10 text-[#eead2b] flex items-center justify-center font-black">
+                          <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-black">
                             {b.name.slice(0, 1).toUpperCase()}
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-sm font-bold text-[#111418] dark:text-white">{b.name}</span>
-                            <span className="text-xs text-[#b9b09d]">
+                            <span className="text-sm font-bold text-foreground">{b.name}</span>
+                            <span className="text-xs text-muted-foreground">
                               {[b.address, b.city].map((x) => x.trim()).filter(Boolean).join(', ') || ' ”'}
                             </span>
                           </div>
@@ -391,23 +391,23 @@ export const OwnerBranches: React.FC = () => {
                       </td>
                       <td className="py-4 px-6 align-middle">
                         <div className="flex items-center gap-2">
-                          <div className="h-6 w-6 rounded-full bg-[#eead2b]/20 text-[#eead2b] flex items-center justify-center text-[10px] font-bold">
+                          <div className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold">
                             {(b.managerName || ' ”').slice(0, 2).toUpperCase()}
                           </div>
-                          <span className="text-sm font-medium text-[#111418] dark:text-white">{b.managerName || ' ”'}</span>
+                          <span className="text-sm font-medium text-foreground">{b.managerName || ' ”'}</span>
                         </div>
                       </td>
                       <td className="py-4 px-6 align-middle">
                         <div className="flex flex-col">
-                          <span className="text-sm text-[#111418] dark:text-white">{b.phone || ' ”'}</span>
-                          <span className="text-xs text-[#b9b09d]">Rating: {b.rating.toFixed(1)}</span>
+                          <span className="text-sm text-foreground">{b.phone || ' ”'}</span>
+                          <span className="text-xs text-muted-foreground">Rating: {b.rating.toFixed(1)}</span>
                         </div>
                       </td>
                       <td className="py-4 px-6 align-middle">
                         <div className="flex items-center gap-3">
                           <span
                             className={`text-xs font-medium ${
-                              b.status === 'Open' ? 'text-emerald-400' : b.status === 'Maintenance' ? 'text-amber-500' : 'text-[#b9b09d]'
+                              b.status === 'Open' ? 'text-emerald-600 dark:text-emerald-500' : b.status === 'Maintenance' ? 'text-amber-600 dark:text-amber-500' : 'text-muted-foreground'
                             }`}
                           >
                             {b.status}
@@ -418,7 +418,7 @@ export const OwnerBranches: React.FC = () => {
                         <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             type="button"
-                            className="p-2 rounded-lg text-[#b9b09d] hover:text-white hover:bg-[#393328] transition-colors"
+                            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                             onClick={(ev) => {
                               ev.preventDefault();
                               ev.stopPropagation();
@@ -449,7 +449,7 @@ export const OwnerBranches: React.FC = () => {
                           >
                             <button
                               type="button"
-                              className="w-full px-4 py-3 text-left text-sm text-white hover:bg-[#2c241b]"
+                              className="w-full px-4 py-3 text-left text-sm text-foreground hover:bg-accent"
                               onClick={() => {
                                 try {
                                   localStorage.setItem('mirachpos.owner.selectedBranchId.v1', String(b.id));
@@ -469,7 +469,7 @@ export const OwnerBranches: React.FC = () => {
                             </button>
                             <button
                               type="button"
-                              className="w-full px-4 py-3 text-left text-sm text-white hover:bg-[#2c241b]"
+                              className="w-full px-4 py-3 text-left text-sm text-foreground hover:bg-accent"
                               onClick={() => {
                                 openEdit(b);
                                 setRowMenuId(null);
@@ -480,7 +480,7 @@ export const OwnerBranches: React.FC = () => {
                             </button>
                             <button
                               type="button"
-                              className="w-full px-4 py-3 text-left text-sm text-red-300 hover:bg-[#2c241b]"
+                              className="w-full px-4 py-3 text-left text-sm text-destructive hover:bg-accent"
                               onClick={() => {
                                 deleteBranch(b.id);
                                 setRowMenuId(null);
@@ -499,28 +499,28 @@ export const OwnerBranches: React.FC = () => {
             </table>
           </div>
           {/* Pagination */}
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-[#393328] flex items-center justify-between">
-            <p className="text-sm text-[#b9b09d]">
-              Showing <span className="font-bold text-[#111418] dark:text-white">{pageRows.length}</span> of{' '}
-              <span className="font-bold text-[#111418] dark:text-white">{visible.length}</span> branches
+          <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Showing <span className="font-bold text-foreground">{pageRows.length}</span> of{' '}
+              <span className="font-bold text-foreground">{visible.length}</span> branches
             </p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="px-3 py-1 text-sm rounded-md border border-gray-200 dark:border-[#393328] text-[#b9b09d] hover:bg-gray-100 dark:hover:bg-[#393328] disabled:opacity-50"
+                className="px-3 py-1 text-sm rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
                 disabled={safePage <= 1}
               >
                 Previous
               </button>
-              <button className="px-3 py-1 text-sm rounded-md bg-[#eead2b] text-[#1a160e] font-bold">{safePage}</button>
+              <button className="px-3 py-1 text-sm rounded-md bg-primary text-primary-foreground font-bold">{safePage}</button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="px-3 py-1 text-sm rounded-md border border-gray-200 dark:border-[#393328] text-[#b9b09d] hover:bg-gray-100 dark:hover:bg-[#393328] disabled:opacity-50"
+                className="px-3 py-1 text-sm rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
                 disabled={safePage >= totalPages}
               >
                 Next
               </button>
-              <button className="px-3 py-1 text-sm rounded-md border border-gray-200 dark:border-[#393328] text-[#b9b09d] hover:bg-gray-100 dark:hover:bg-[#393328]" onClick={fetchBranches}>
+              <button className="px-3 py-1 text-sm rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground" onClick={fetchBranches}>
                 Refresh
               </button>
             </div>
@@ -529,29 +529,29 @@ export const OwnerBranches: React.FC = () => {
 
         {/* Quick Stats Cards below table */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-            <div className="bg-white dark:bg-[#2c261e] p-6 rounded-xl border border-gray-200 dark:border-[#393328] flex items-start justify-between">
+            <div className="bg-card p-6 rounded-xl border border-border flex items-start justify-between">
                 <div>
-                    <p className="text-[#b9b09d] text-sm font-medium mb-1">Total Branches</p>
-                    <p className="text-3xl font-bold text-[#111418] dark:text-white">{branches.length}</p>
+                    <p className="text-muted-foreground text-sm font-medium mb-1">Total Branches</p>
+                    <p className="text-3xl font-bold text-foreground">{branches.length}</p>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-[#eead2b]/10 flex items-center justify-center text-[#eead2b]">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                     <span className="material-symbols-outlined">store</span>
                 </div>
             </div>
-            <div className="bg-white dark:bg-[#2c261e] p-6 rounded-xl border border-gray-200 dark:border-[#393328] flex items-start justify-between">
+            <div className="bg-card p-6 rounded-xl border border-border flex items-start justify-between">
                 <div>
-                    <p className="text-[#b9b09d] text-sm font-medium mb-1">Active Staff</p>
-                    <p className="text-3xl font-bold text-[#111418] dark:text-white">{totalStaff}</p>
+                    <p className="text-muted-foreground text-sm font-medium mb-1">Active Staff</p>
+                    <p className="text-3xl font-bold text-foreground">{totalStaff}</p>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-white-500/10 flex items-center justify-center text-white-500">
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
                     <span className="material-symbols-outlined">badge</span>
                 </div>
             </div>
-             <div className="bg-white dark:bg-[#2c261e] p-6 rounded-xl border border-gray-200 dark:border-[#393328] flex items-start justify-between">
+             <div className="bg-card p-6 rounded-xl border border-border flex items-start justify-between">
                 <div>
-                    <p className="text-[#b9b09d] text-sm font-medium mb-1">Top Performing</p>
-                    <p className="text-lg font-bold text-[#111418] dark:text-white truncate">{topPerforming?.name || 'No data'}</p>
-                    <p className="text-xs text-[#b9b09d] mt-1">Today: {topPerforming ? `ETB ${topPerforming.revenueToday.toLocaleString()}` : 'No data'}</p>
+                    <p className="text-muted-foreground text-sm font-medium mb-1">Top Performing</p>
+                    <p className="text-lg font-bold text-foreground truncate">{topPerforming?.name || 'No data'}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Today: {topPerforming ? `ETB ${topPerforming.revenueToday.toLocaleString()}` : 'No data'}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                     <span className="material-symbols-outlined">trending_up</span>
@@ -562,71 +562,71 @@ export const OwnerBranches: React.FC = () => {
         {modalOpen ? (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div onClick={closeModal} className="absolute inset-0 bg-black/60"></div>
-            <div className="relative w-full max-w-2xl rounded-2xl border border-[#393328] bg-white dark:bg-[#2c261e] text-[#111418] dark:text-white shadow-2xl">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-[#393328]">
+            <div className="relative w-full max-w-2xl rounded-2xl border border-border bg-card text-foreground shadow-2xl">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                 <div className="text-lg font-black">{editingId ? 'Edit Branch' : 'Add Branch'}</div>
-                <button onClick={closeModal} disabled={saving} className="h-9 w-9 rounded-lg bg-gray-100 dark:bg-[#322c24] hover:bg-gray-200 dark:hover:bg-[#393328] disabled:opacity-60">
+                <button onClick={closeModal} disabled={saving} className="h-9 w-9 rounded-lg bg-muted hover:bg-accent disabled:opacity-60">
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
 
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label className="flex flex-col gap-2">
-                  <span className="text-sm font-bold text-[#b9b09d]">Branch Name *</span>
+                  <span className="text-sm font-bold text-muted-foreground">Branch Name *</span>
                   <input
                     value={form.name}
                     onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                    className="h-11 rounded-lg border border-gray-200 dark:border-[#393328] bg-white dark:bg-[#221c10] px-3 focus:ring-2 focus:ring-[#eead2b]"
+                    className="h-11 rounded-lg border border-border bg-background px-3 focus:ring-2 focus:ring-primary"
                     type="text"
                   />
                 </label>
 
                 <label className="flex flex-col gap-2">
-                  <span className="text-sm font-bold text-[#b9b09d]">Manager Name</span>
+                  <span className="text-sm font-bold text-muted-foreground">Manager Name</span>
                   <input
                     value={form.managerName}
                     onChange={(e) => setForm((p) => ({ ...p, managerName: e.target.value }))}
-                    className="h-11 rounded-lg border border-gray-200 dark:border-[#393328] bg-white dark:bg-[#221c10] px-3 focus:ring-2 focus:ring-[#eead2b]"
+                    className="h-11 rounded-lg border border-border bg-background px-3 focus:ring-2 focus:ring-primary"
                     type="text"
                   />
                 </label>
 
                 <label className="flex flex-col gap-2">
-                  <span className="text-sm font-bold text-[#b9b09d]">City</span>
+                  <span className="text-sm font-bold text-muted-foreground">City</span>
                   <input
                     value={form.city}
                     onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
-                    className="h-11 rounded-lg border border-gray-200 dark:border-[#393328] bg-white dark:bg-[#221c10] px-3 focus:ring-2 focus:ring-[#eead2b]"
+                    className="h-11 rounded-lg border border-border bg-background px-3 focus:ring-2 focus:ring-primary"
                     type="text"
                   />
                 </label>
 
                 <label className="flex flex-col gap-2">
-                  <span className="text-sm font-bold text-[#b9b09d]">Phone</span>
+                  <span className="text-sm font-bold text-muted-foreground">Phone</span>
                   <input
                     value={form.phone}
                     onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                    className="h-11 rounded-lg border border-gray-200 dark:border-[#393328] bg-white dark:bg-[#221c10] px-3 focus:ring-2 focus:ring-[#eead2b]"
+                    className="h-11 rounded-lg border border-border bg-background px-3 focus:ring-2 focus:ring-primary"
                     type="tel"
                   />
                 </label>
 
                 <label className="flex flex-col gap-2 md:col-span-2">
-                  <span className="text-sm font-bold text-[#b9b09d]">Address</span>
+                  <span className="text-sm font-bold text-muted-foreground">Address</span>
                   <input
                     value={form.address}
                     onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
-                    className="h-11 rounded-lg border border-gray-200 dark:border-[#393328] bg-white dark:bg-[#221c10] px-3 focus:ring-2 focus:ring-[#eead2b]"
+                    className="h-11 rounded-lg border border-border bg-background px-3 focus:ring-2 focus:ring-primary"
                     type="text"
                   />
                 </label>
 
                 <label className="flex flex-col gap-2">
-                  <span className="text-sm font-bold text-[#b9b09d]">Status</span>
+                  <span className="text-sm font-bold text-muted-foreground">Status</span>
                   <select
                     value={form.status}
                     onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as 'Open' | 'Closed' | 'Maintenance' }))}
-                    className="h-11 rounded-lg border border-gray-200 dark:border-[#393328] bg-white dark:bg-[#221c10] px-3 focus:ring-2 focus:ring-[#eead2b]"
+                    className="h-11 rounded-lg border border-border bg-background px-3 focus:ring-2 focus:ring-primary"
                   >
                     <option value="Open">Open</option>
                     <option value="Closed">Closed</option>
@@ -635,11 +635,11 @@ export const OwnerBranches: React.FC = () => {
                 </label>
 
                 <label className="flex flex-col gap-2">
-                  <span className="text-sm font-bold text-[#b9b09d]">Rating (0-5)</span>
+                  <span className="text-sm font-bold text-muted-foreground">Rating (0-5)</span>
                   <input
                     value={form.rating}
                     onChange={(e) => setForm((p) => ({ ...p, rating: e.target.value }))}
-                    className="h-11 rounded-lg border border-gray-200 dark:border-[#393328] bg-white dark:bg-[#221c10] px-3 focus:ring-2 focus:ring-[#eead2b]"
+                    className="h-11 rounded-lg border border-border bg-background px-3 focus:ring-2 focus:ring-primary"
                     type="number"
                     min={0}
                     max={5}
@@ -648,11 +648,11 @@ export const OwnerBranches: React.FC = () => {
                 </label>
               </div>
 
-              <div className="px-6 py-4 border-t border-gray-200 dark:border-[#393328] flex flex-col sm:flex-row gap-3 justify-end">
-                <button onClick={closeModal} disabled={saving} className="h-11 px-4 rounded-lg bg-gray-100 dark:bg-[#322c24] hover:bg-gray-200 dark:hover:bg-[#393328] disabled:opacity-60">
+              <div className="px-6 py-4 border-t border-border flex flex-col sm:flex-row gap-3 justify-end">
+                <button onClick={closeModal} disabled={saving} className="h-11 px-4 rounded-lg bg-muted hover:bg-accent disabled:opacity-60">
                   Cancel
                 </button>
-                <button onClick={saveBranch} disabled={saving} className="h-11 px-5 rounded-lg bg-[#eead2b] hover:bg-amber-400 text-[#1a160e] font-bold disabled:opacity-60">
+                <button onClick={saveBranch} disabled={saving} className="h-11 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold disabled:opacity-60">
                   {saving ? 'Saving...' : 'Save'}
                 </button>
               </div>
@@ -663,21 +663,21 @@ export const OwnerBranches: React.FC = () => {
         {deleteConfirmOpen ? (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <div onClick={closeDelete} className="absolute inset-0 bg-black/60"></div>
-            <div className="relative w-full max-w-md rounded-2xl border border-[#393328] bg-white dark:bg-[#2c261e] text-[#111418] dark:text-white shadow-2xl">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-[#393328]">
+            <div className="relative w-full max-w-md rounded-2xl border border-border bg-card text-foreground shadow-2xl">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                 <div className="text-lg font-black">Delete Branch</div>
-                <button onClick={closeDelete} className="text-[#b9b09d] hover:text-[#111418] dark:hover:text-white" type="button" disabled={saving}>
+                <button onClick={closeDelete} className="text-muted-foreground hover:text-foreground" type="button" disabled={saving}>
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
-              <div className="px-6 py-5 text-sm text-[#5c554a] dark:text-[#c9b792]">
+              <div className="px-6 py-5 text-sm text-muted-foreground">
                 This will permanently delete the branch and remove demo events associated with it. This action cannot be undone.
               </div>
-              <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-200 dark:border-[#393328]">
-                <button onClick={closeDelete} className="h-10 px-4 rounded-lg bg-white dark:bg-[#2c241b] border border-[#e6e2db] dark:border-[#3d3429] text-[#221c10] dark:text-white hover:bg-[#f8f7f6] dark:hover:bg-[#3d3429] disabled:opacity-60" disabled={saving} type="button">
+              <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
+                <button onClick={closeDelete} className="h-10 px-4 rounded-lg bg-background border border-border text-foreground hover:bg-accent disabled:opacity-60" disabled={saving} type="button">
                   Cancel
                 </button>
-                <button onClick={confirmDelete} className="h-10 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold disabled:opacity-60" disabled={saving} type="button">
+                <button onClick={confirmDelete} className="h-10 px-4 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold disabled:opacity-60" disabled={saving} type="button">
                   {saving ? 'Deleting ¦' : 'Delete'}
                 </button>
               </div>

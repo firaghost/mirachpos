@@ -1644,26 +1644,25 @@ export const BranchReports: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-[1200px] mx-auto flex flex-col gap-6">
-          <div className="rounded-xl border border-[#483c23] bg-[#2c241b] p-5 flex flex-col gap-3">
+          <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3">
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
                 <div className="text-2xl font-black tracking-tight">Analytics</div>
-                <div className="text-sm text-[#c9b792] mt-1">
+                <div className="text-sm text-muted-foreground mt-1">
                   {branchName ? `${branchName} • ` : ''}
                   {formatDateLabel(effectiveRange.start)} → {formatDateLabel(addDays(effectiveRange.end, -1))}
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <div className="hidden sm:flex items-center gap-2 h-10 px-3 rounded-lg border border-[#483c23] bg-[#221c10]">
-                  <span className="text-xs font-extrabold text-[#c9b792]">Staff</span>
+                <div className="hidden sm:flex items-center gap-2 h-10 px-3 rounded-lg border border-border bg-background">
+                  <span className="text-xs font-extrabold text-muted-foreground">Staff</span>
                   <select
                     value={selectedStaffId}
                     onChange={(e) => setSelectedStaffId(e.target.value)}
-                    className="h-8 rounded-md bg-[#221c10] text-white text-sm font-bold outline-none"
-                    style={{ colorScheme: 'dark' }}
+                    className="h-8 rounded-md bg-background text-foreground text-sm font-bold outline-none"
                   >
                     <option value="">All</option>
                     {staffPerformance.allRows
@@ -1680,7 +1679,7 @@ export const BranchReports: React.FC = () => {
                 <div className="relative">
                   <button
                     onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                    className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c10] font-extrabold flex items-center gap-2"
+                    className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold flex items-center gap-2"
                   >
                     <span className="material-symbols-outlined text-lg">download</span>
                     Export Report
@@ -1694,51 +1693,51 @@ export const BranchReports: React.FC = () => {
                         onClick={() => setExportMenuOpen(false)}
                       />
                       {/* Dropdown menu */}
-                      <div className="absolute right-0 top-12 z-50 w-56 rounded-xl border border-[#483c23] bg-[#2c241b] shadow-xl py-2">
-                        <div className="px-3 py-2 text-xs font-bold text-[#c9b792] uppercase tracking-wider">
+                      <div className="absolute right-0 top-12 z-50 w-56 rounded-xl border border-border bg-card shadow-xl py-2">
+                        <div className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                           Export Format
                         </div>
                         <button
                           onClick={() => { exportCsv(); setExportMenuOpen(false); }}
-                          className="w-full px-4 py-3 text-left hover:bg-[#483c23]/30 flex items-center gap-3 text-white"
+                          className="w-full px-4 py-3 text-left hover:bg-accent flex items-center gap-3 text-foreground"
                         >
-                          <span className="material-symbols-outlined text-[#eead2b]">table_view</span>
+                          <span className="material-symbols-outlined text-primary">table_view</span>
                           <div>
                             <div className="font-bold text-sm">CSV Summary</div>
-                            <div className="text-xs text-[#c9b792]">Key metrics for accounting</div>
+                            <div className="text-xs text-muted-foreground">Key metrics for accounting</div>
                           </div>
                         </button>
                         <button
                           onClick={() => { void exportExcel(); setExportMenuOpen(false); }}
-                          className="w-full px-4 py-3 text-left hover:bg-[#483c23]/30 flex items-center gap-3 text-white"
+                          className="w-full px-4 py-3 text-left hover:bg-accent flex items-center gap-3 text-foreground"
                         >
-                          <span className="material-symbols-outlined text-[#4ade80]">grid_on</span>
+                          <span className="material-symbols-outlined text-green-500">grid_on</span>
                           <div>
                             <div className="font-bold text-sm">Excel Workbook</div>
-                            <div className="text-xs text-[#c9b792]">Full data with sheets</div>
+                            <div className="text-xs text-muted-foreground">Full data with sheets</div>
                           </div>
                         </button>
                         <button
                           onClick={() => { exportPdf(); setExportMenuOpen(false); }}
-                          className="w-full px-4 py-3 text-left hover:bg-[#483c23]/30 flex items-center gap-3 text-white"
+                          className="w-full px-4 py-3 text-left hover:bg-accent flex items-center gap-3 text-foreground"
                         >
-                          <span className="material-symbols-outlined text-[#ef4444]">picture_as_pdf</span>
+                          <span className="material-symbols-outlined text-red-500">picture_as_pdf</span>
                           <div>
                             <div className="font-bold text-sm">PDF Report</div>
-                            <div className="text-xs text-[#c9b792]">Print-ready document</div>
+                            <div className="text-xs text-muted-foreground">Print-ready document</div>
                           </div>
                         </button>
-                        <div className="border-t border-[#483c23] my-2" />
+                        <div className="border-t border-border my-2" />
                         <button
                           onClick={() => { exportFullCsv(); setExportMenuOpen(false); }}
-                          className="w-full px-4 py-2 text-left hover:bg-[#483c23]/30 flex items-center gap-3 text-[#c9b792]"
+                          className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-3 text-muted-foreground"
                         >
                           <span className="material-symbols-outlined text-lg">database</span>
                           <div className="text-xs">Raw Data (CSV)</div>
                         </button>
                         <button
                           onClick={() => { exportStaffCsv(); setExportMenuOpen(false); }}
-                          className="w-full px-4 py-2 text-left hover:bg-[#483c23]/30 flex items-center gap-3 text-[#c9b792]"
+                          className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-3 text-muted-foreground"
                         >
                           <span className="material-symbols-outlined text-lg">groups</span>
                           <div className="text-xs">Staff Report (CSV)</div>
@@ -1749,16 +1748,16 @@ export const BranchReports: React.FC = () => {
                 </div>
               </div>
             </div>
-            {remoteLoading ? <div className="text-xs text-[#c9b792] font-bold">Loading analytics…</div> : null}
+            {remoteLoading ? <div className="text-xs text-muted-foreground font-bold">Loading analytics…</div> : null}
           </div>
           {remoteError === 'select_branch' ? (
-            <div className="p-4 rounded-xl bg-[#221c10] border border-[#393328]">
+            <div className="p-4 rounded-xl bg-card border border-border">
               <div className="text-sm font-extrabold">Select a branch to view reports</div>
-              <div className="text-xs text-[#b9b09d] mt-1">Owner reports are branch-specific. Choose a branch first.</div>
+              <div className="text-xs text-muted-foreground mt-1">Owner reports are branch-specific. Choose a branch first.</div>
               <div className="mt-3">
                 <button
                   onClick={openBranchSelect}
-                  className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] font-extrabold"
+                  className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold"
                 >
                   Choose Branch
                 </button>
@@ -1767,21 +1766,21 @@ export const BranchReports: React.FC = () => {
           ) : null}
 
           {remoteError && remoteError !== 'select_branch' ? (
-            <div className="rounded-xl bg-red-900/20 border border-red-800 px-4 py-3 text-sm text-red-200">{remoteError}</div>
+            <div className="rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">{remoteError}</div>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#483c23] bg-[#2c241b] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Date Range</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Date Range</span>
               <button
                 onClick={() => setDateMode('Period')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${dateMode === 'Period' ? 'bg-[#eead2b] text-[#221c10] border-[#eead2b]' : 'bg-[#221c10] text-[#c9b792] border-[#483c23] hover:text-white hover:bg-[#483c23]/20'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${dateMode === 'Period' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:text-foreground hover:bg-accent'}`}
               >
                 Period
               </button>
               <button
                 onClick={() => setDateMode('Custom')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${dateMode === 'Custom' ? 'bg-[#eead2b] text-[#221c10] border-[#eead2b]' : 'bg-[#221c10] text-[#c9b792] border-[#483c23] hover:text-white hover:bg-[#483c23]/20'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${dateMode === 'Custom' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:text-foreground hover:bg-accent'}`}
               >
                 Custom
               </button>
@@ -1789,7 +1788,7 @@ export const BranchReports: React.FC = () => {
 
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#c9b792]">From</span>
+                <span className="text-xs text-muted-foreground">From</span>
                 <input
                   type="date"
                   value={fromDate}
@@ -1797,11 +1796,11 @@ export const BranchReports: React.FC = () => {
                     setFromDate(e.target.value);
                     setDateMode('Custom');
                   }}
-                  className="h-9 rounded-lg border border-[#483c23] bg-[#221c10] px-3 text-sm text-white"
+                  className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#c9b792]">To</span>
+                <span className="text-xs text-muted-foreground">To</span>
                 <input
                   type="date"
                   value={toDate}
@@ -1809,7 +1808,7 @@ export const BranchReports: React.FC = () => {
                     setToDate(e.target.value);
                     setDateMode('Custom');
                   }}
-                  className="h-9 rounded-lg border border-[#483c23] bg-[#221c10] px-3 text-sm text-white"
+                  className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
                 />
               </div>
               <button
@@ -1819,7 +1818,7 @@ export const BranchReports: React.FC = () => {
                   setFromDate(toIsoDate(addDays(now, -7)));
                   setToDate(toIsoDate(now));
                 }}
-                className="h-9 px-3 rounded-lg border border-[#483c23] bg-[#221c10] text-[#c9b792] text-sm font-bold hover:text-white hover:bg-[#483c23]/20"
+                className="h-9 px-3 rounded-lg border border-border bg-background text-muted-foreground text-sm font-bold hover:text-foreground hover:bg-accent"
               >
                 Clear
               </button>
@@ -1827,64 +1826,64 @@ export const BranchReports: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="flex flex-col gap-2 rounded-xl p-5 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="flex flex-col gap-2 rounded-xl p-5 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-start">
-                <p className="text-[#c9b792] text-sm font-medium">Total Revenue</p>
-                <span className="material-symbols-outlined text-[#eead2b] bg-[#eead2b]/10 p-1 rounded">payments</span>
+                <p className="text-muted-foreground text-sm font-medium">Total Revenue</p>
+                <span className="material-symbols-outlined text-primary bg-primary/10 p-1 rounded">payments</span>
               </div>
-              <p className="text-white text-2xl font-bold tracking-tight font-mono">{formatMoney(totalRevenue)}</p>
+              <p className="text-foreground text-2xl font-bold tracking-tight font-mono">{formatMoney(totalRevenue)}</p>
               <div className="flex items-center gap-1">
                 <span className={`material-symbols-outlined text-sm ${revenueDelta >= 0 ? 'text-green-300' : 'text-red-300'}`}>{revenueDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
-                <p className={`${revenueDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{revenueDelta >= 0 ? '+' : ''}{revenueDelta.toFixed(1)}% <span className="text-[#c9b792] font-normal">vs prev</span></p>
+                <p className={`${revenueDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{revenueDelta >= 0 ? '+' : ''}{revenueDelta.toFixed(1)}% <span className="text-muted-foreground font-normal">vs prev</span></p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 rounded-xl p-5 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="flex flex-col gap-2 rounded-xl p-5 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-start">
-                <p className="text-[#c9b792] text-sm font-medium">Net Profit</p>
-                <span className="material-symbols-outlined text-[#eead2b] bg-[#eead2b]/10 p-1 rounded">account_balance_wallet</span>
+                <p className="text-muted-foreground text-sm font-medium">Net Profit</p>
+                <span className="material-symbols-outlined text-primary bg-primary/10 p-1 rounded">account_balance_wallet</span>
               </div>
-              <p className="text-white text-2xl font-bold tracking-tight font-mono">{formatMoney(netProfit)}</p>
+              <p className="text-foreground text-2xl font-bold tracking-tight font-mono">{formatMoney(netProfit)}</p>
               <div className="flex items-center gap-1">
                 <span className={`material-symbols-outlined text-sm ${profitDelta >= 0 ? 'text-green-300' : 'text-red-300'}`}>{profitDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
-                <p className={`${profitDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{profitDelta >= 0 ? '+' : ''}{profitDelta.toFixed(1)}% <span className="text-[#c9b792] font-normal">vs prev</span></p>
+                <p className={`${profitDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{profitDelta >= 0 ? '+' : ''}{profitDelta.toFixed(1)}% <span className="text-muted-foreground font-normal">vs prev</span></p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 rounded-xl p-5 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="flex flex-col gap-2 rounded-xl p-5 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-start">
-                <p className="text-[#c9b792] text-sm font-medium">Orders Processed</p>
-                <span className="material-symbols-outlined text-[#eead2b] bg-[#eead2b]/10 p-1 rounded">receipt_long</span>
+                <p className="text-muted-foreground text-sm font-medium">Orders Processed</p>
+                <span className="material-symbols-outlined text-primary bg-primary/10 p-1 rounded">receipt_long</span>
               </div>
-              <p className="text-white text-2xl font-bold tracking-tight">{ordersProcessed}</p>
+              <p className="text-foreground text-2xl font-bold tracking-tight">{ordersProcessed}</p>
               <div className="flex items-center gap-1">
                 <span className={`material-symbols-outlined text-sm ${ordersDelta >= 0 ? 'text-green-300' : 'text-red-300'}`}>{ordersDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
-                <p className={`${ordersDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{ordersDelta >= 0 ? '+' : ''}{ordersDelta.toFixed(1)}% <span className="text-[#c9b792] font-normal">vs prev</span></p>
+                <p className={`${ordersDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{ordersDelta >= 0 ? '+' : ''}{ordersDelta.toFixed(1)}% <span className="text-muted-foreground font-normal">vs prev</span></p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 rounded-xl p-5 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="flex flex-col gap-2 rounded-xl p-5 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-start">
-                <p className="text-[#c9b792] text-sm font-medium">Avg Order Value</p>
-                <span className="material-symbols-outlined text-[#eead2b] bg-[#eead2b]/10 p-1 rounded">shopping_basket</span>
+                <p className="text-muted-foreground text-sm font-medium">Avg Order Value</p>
+                <span className="material-symbols-outlined text-primary bg-primary/10 p-1 rounded">shopping_basket</span>
               </div>
-              <p className="text-white text-2xl font-bold tracking-tight font-mono">{formatMoney(avgOrderValue)}</p>
+              <p className="text-foreground text-2xl font-bold tracking-tight font-mono">{formatMoney(avgOrderValue)}</p>
               <div className="flex items-center gap-1">
                 <span className={`material-symbols-outlined text-sm ${aovDelta >= 0 ? 'text-green-300' : 'text-red-300'}`}>{aovDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
-                <p className={`${aovDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{aovDelta >= 0 ? '+' : ''}{aovDelta.toFixed(1)}% <span className="text-[#c9b792] font-normal">vs prev</span></p>
+                <p className={`${aovDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{aovDelta >= 0 ? '+' : ''}{aovDelta.toFixed(1)}% <span className="text-muted-foreground font-normal">vs prev</span></p>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="flex flex-col rounded-xl p-6 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-end mb-6">
                 <div>
-                  <h3 className="text-white text-lg font-bold">Revenue Trend</h3>
-                  <p className="text-[#c9b792] text-sm">Paid orders only</p>
+                  <h3 className="text-foreground text-lg font-bold">Revenue Trend</h3>
+                  <p className="text-muted-foreground text-sm">Paid orders only</p>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-white font-mono">{formatMoney(totalRevenue)}</span>
+                  <span className="text-2xl font-bold text-foreground font-mono">{formatMoney(totalRevenue)}</span>
                   <span className="text-sm font-medium text-green-300">Live</span>
                 </div>
               </div>
@@ -1893,111 +1892,111 @@ export const BranchReports: React.FC = () => {
                   <AreaChart data={trendData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f4af25" stopOpacity={0.25} />
-                        <stop offset="100%" stopColor="#f4af25" stopOpacity={0} />
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
+                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <XAxis dataKey="label" stroke="rgba(255,255,255,0.25)" tick={{ fill: 'rgba(255,255,255,0.55)', fontSize: 12 }} />
-                    <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', borderRadius: 10 }} formatter={(v: any) => formatMoney(Number(v))} />
-                    <Area type="monotone" dataKey="revenue" stroke="#f4af25" strokeWidth={3} fillOpacity={1} fill="url(#revGrad)" />
+                    <XAxis dataKey="label" stroke="hsl(var(--border))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))', borderRadius: 10 }} formatter={(v: any) => formatMoney(Number(v))} />
+                    <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#revGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="flex flex-col rounded-xl p-6 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-end mb-6">
                 <div>
-                  <h3 className="text-white text-lg font-bold">Top Selling Products</h3>
-                  <p className="text-[#c9b792] text-sm">By quantity sold</p>
+                  <h3 className="text-foreground text-lg font-bold">Top Selling Products</h3>
+                  <p className="text-muted-foreground text-sm">By quantity sold</p>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-white">{topProducts.reduce((s, x) => s + x.qty, 0)}</span>
-                  <span className="text-sm font-medium text-[#c9b792]">Items</span>
+                  <span className="text-2xl font-bold text-foreground">{topProducts.reduce((s, x) => s + x.qty, 0)}</span>
+                  <span className="text-sm font-medium text-muted-foreground">Items</span>
                 </div>
               </div>
               <div className="flex flex-col gap-4 justify-center h-full">
                 {topProducts.length ? (
                   topProducts.map((p) => (
                     <div key={p.name} className="grid grid-cols-[140px_1fr_56px] items-center gap-3">
-                      <span className="text-sm font-medium text-white truncate">{p.name}</span>
-                      <div className="h-2 w-full bg-[#221c10] rounded-full overflow-hidden border border-[#483c23]">
-                        <div className="h-full bg-[#eead2b] rounded-full" style={{ width: `${p.pct}%` }}></div>
+                      <span className="text-sm font-medium text-foreground truncate">{p.name}</span>
+                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden border border-border">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${p.pct}%` }}></div>
                       </div>
-                      <span className="text-xs font-bold text-[#c9b792] text-right">{p.qty}</span>
+                      <span className="text-xs font-bold text-muted-foreground text-right">{p.qty}</span>
                     </div>
                   ))
                 ) : (
-                  <div className="text-sm text-[#c9b792]">No sales in this period.</div>
+                  <div className="text-sm text-muted-foreground">No sales in this period.</div>
                 )}
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="flex flex-col rounded-xl p-6 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-end mb-6">
                 <div>
-                  <h3 className="text-white text-lg font-bold">Top Categories</h3>
-                  <p className="text-[#c9b792] text-sm">By revenue (total collected)</p>
+                  <h3 className="text-foreground text-lg font-bold">Top Categories</h3>
+                  <p className="text-muted-foreground text-sm">By revenue (total collected)</p>
                 </div>
               </div>
               <div className="flex flex-col gap-4 justify-center h-full">
                 {topCategories.length ? (
                   topCategories.map((c: any) => (
                     <div key={c.category} className="grid grid-cols-[140px_1fr_96px] items-center gap-3">
-                      <span className="text-sm font-medium text-white truncate">{c.category}</span>
-                      <div className="h-2 w-full bg-[#221c10] rounded-full overflow-hidden border border-[#483c23]">
+                      <span className="text-sm font-medium text-foreground truncate">{c.category}</span>
+                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden border border-border">
                         <div
-                          className="h-full bg-[#eead2b] rounded-full"
+                          className="h-full bg-primary rounded-full"
                           style={{ width: `${Number.isFinite(Number(c.pct)) ? Math.max(0, Math.min(100, Number(c.pct))) : 0}%` }}
                         ></div>
                       </div>
-                      <span className="text-xs font-bold text-[#c9b792] text-right font-mono">{formatMoney(c.revenue ?? 0)}</span>
+                      <span className="text-xs font-bold text-muted-foreground text-right font-mono">{formatMoney(c.revenue ?? 0)}</span>
                     </div>
                   ))
                 ) : (
-                  <div className="text-sm text-[#c9b792]">No category summary in this period.</div>
+                  <div className="text-sm text-muted-foreground">No category summary in this period.</div>
                 )}
               </div>
             </div>
 
-            <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="flex flex-col rounded-xl p-6 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-end mb-6">
                 <div>
-                  <h3 className="text-white text-lg font-bold">Shift Reports</h3>
-                  <p className="text-[#c9b792] text-sm">Cash reconciliation (server-driven)</p>
+                  <h3 className="text-foreground text-lg font-bold">Shift Reports</h3>
+                  <p className="text-muted-foreground text-sm">Cash reconciliation (server-driven)</p>
                 </div>
               </div>
-              <div className="overflow-x-auto rounded-xl border border-[#483c23] bg-[#221c10]">
+              <div className="overflow-x-auto rounded-xl border border-border bg-background">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-[#483c23] bg-[#2c241b]">
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Opened</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Staff</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Status</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Expected</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Actual</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Diff</th>
+                    <tr className="border-b border-border bg-card">
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Opened</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Staff</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Status</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Expected</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Actual</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Diff</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#483c23]">
+                  <tbody className="divide-y divide-border">
                     {shiftAgg.length ? (
                       shiftAgg.slice(0, 8).map((s) => (
-                        <tr key={s.id} className="hover:bg-[#483c23]/20 transition-colors">
-                          <td className="px-5 py-3 text-sm text-white">{s.openedAt ? (formatDeviceDateTime(s.openedAt) || '') : ' ”'}</td>
-                          <td className="px-5 py-3 text-sm text-white">{s.staffName || ' ”'}</td>
-                          <td className="px-5 py-3 text-sm text-[#c9b792]">{s.status || ' ”'}</td>
-                          <td className="px-5 py-3 text-sm text-right font-mono text-white">{s.expectedCash == null ? ' ”' : formatMoney(s.expectedCash)}</td>
-                          <td className="px-5 py-3 text-sm text-right font-mono text-white">{s.closingCash == null ? ' ”' : formatMoney(s.closingCash)}</td>
-                          <td className={`px-5 py-3 text-sm text-right font-mono ${s.cashDifference == null ? 'text-[#c9b792]' : Math.abs(s.cashDifference) < 0.01 ? 'text-green-300' : 'text-orange-300'}`}>
+                        <tr key={s.id} className="hover:bg-accent transition-colors">
+                          <td className="px-5 py-3 text-sm text-foreground">{s.openedAt ? (formatDeviceDateTime(s.openedAt) || '') : ' ”'}</td>
+                          <td className="px-5 py-3 text-sm text-foreground">{s.staffName || ' ”'}</td>
+                          <td className="px-5 py-3 text-sm text-muted-foreground">{s.status || ' ”'}</td>
+                          <td className="px-5 py-3 text-sm text-right font-mono text-foreground">{s.expectedCash == null ? ' ”' : formatMoney(s.expectedCash)}</td>
+                          <td className="px-5 py-3 text-sm text-right font-mono text-foreground">{s.closingCash == null ? ' ”' : formatMoney(s.closingCash)}</td>
+                          <td className={`px-5 py-3 text-sm text-right font-mono ${s.cashDifference == null ? 'text-muted-foreground' : Math.abs(s.cashDifference) < 0.01 ? 'text-green-300' : 'text-orange-300'}`}>
                             {s.cashDifference == null ? ' ”' : formatMoney(s.cashDifference)}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td className="px-5 py-6 text-sm text-[#c9b792]" colSpan={6}>No shift reports in this period.</td>
+                        <td className="px-5 py-6 text-sm text-muted-foreground" colSpan={6}>No shift reports in this period.</td>
                       </tr>
                     )}
                   </tbody>
@@ -2006,40 +2005,40 @@ export const BranchReports: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+          <div className="flex flex-col rounded-xl p-6 bg-card border border-border shadow-sm">
             <div className="flex justify-between items-end mb-4">
               <div>
-                <h3 className="text-white text-lg font-bold">Voids & Refunds</h3>
-                <p className="text-[#c9b792] text-sm">Audit trail (server-driven)</p>
+                <h3 className="text-foreground text-lg font-bold">Voids & Refunds</h3>
+                <p className="text-muted-foreground text-sm">Audit trail (server-driven)</p>
               </div>
             </div>
-            <div className="overflow-x-auto rounded-xl border border-[#483c23] bg-[#221c10]">
+            <div className="overflow-x-auto rounded-xl border border-border bg-background">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-[#483c23] bg-[#2c241b]">
-                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Time</th>
-                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Type</th>
-                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Item</th>
-                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Qty</th>
-                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Amount</th>
-                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Reason</th>
+                  <tr className="border-b border-border bg-card">
+                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Time</th>
+                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Type</th>
+                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Item</th>
+                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Qty</th>
+                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Amount</th>
+                    <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Reason</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#483c23]">
+                <tbody className="divide-y divide-border">
                   {voidAgg.length ? (
                     voidAgg.slice(0, 12).map((e) => (
-                      <tr key={e.id} className="hover:bg-[#483c23]/20 transition-colors">
-                        <td className="px-5 py-3 text-sm text-white">{e.occurredAt ? (formatDeviceDateTime(e.occurredAt) || '') : ' ”'}</td>
-                        <td className="px-5 py-3 text-sm text-[#c9b792]">{e.type || ' ”'}</td>
-                        <td className="px-5 py-3 text-sm text-white">{e.productName || ' ”'}</td>
-                        <td className="px-5 py-3 text-sm text-right font-mono text-white">{e.qty}</td>
-                        <td className="px-5 py-3 text-sm text-right font-mono font-bold text-white">{formatMoney(e.amount)}</td>
-                        <td className="px-5 py-3 text-sm text-[#c9b792]">{e.reason || ' ”'}</td>
+                      <tr key={e.id} className="hover:bg-accent transition-colors">
+                        <td className="px-5 py-3 text-sm text-foreground">{e.occurredAt ? (formatDeviceDateTime(e.occurredAt) || '') : ' ”'}</td>
+                        <td className="px-5 py-3 text-sm text-muted-foreground">{e.type || ' ”'}</td>
+                        <td className="px-5 py-3 text-sm text-foreground">{e.productName || ' ”'}</td>
+                        <td className="px-5 py-3 text-sm text-right font-mono text-foreground">{e.qty}</td>
+                        <td className="px-5 py-3 text-sm text-right font-mono font-bold text-foreground">{formatMoney(e.amount)}</td>
+                        <td className="px-5 py-3 text-sm text-muted-foreground">{e.reason || ' ”'}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td className="px-5 py-6 text-sm text-[#c9b792]" colSpan={6}>No void/refund events in this period.</td>
+                      <td className="px-5 py-6 text-sm text-muted-foreground" colSpan={6}>No void/refund events in this period.</td>
                     </tr>
                   )}
                 </tbody>
@@ -2048,52 +2047,52 @@ export const BranchReports: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="lg:col-span-2 flex flex-col rounded-xl p-6 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-end mb-4">
                 <div>
-                  <h3 className="text-white text-lg font-bold">Cash & Reconciliation</h3>
-                  <p className="text-[#c9b792] text-sm">Expected vs counted cash sessions</p>
+                  <h3 className="text-foreground text-lg font-bold">Cash & Reconciliation</h3>
+                  <p className="text-muted-foreground text-sm">Expected vs counted cash sessions</p>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <div className="text-xs text-[#c9b792]">Expected</div>
-                    <div className="text-white font-mono font-bold">{formatMoney(cashSummary.expected)}</div>
+                    <div className="text-xs text-muted-foreground">Expected</div>
+                    <div className="text-foreground font-mono font-bold">{formatMoney(cashSummary.expected)}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-[#c9b792]">Actual</div>
-                    <div className="text-white font-mono font-bold">{formatMoney(cashSummary.actual)}</div>
+                    <div className="text-xs text-muted-foreground">Actual</div>
+                    <div className="text-foreground font-mono font-bold">{formatMoney(cashSummary.actual)}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-[#c9b792]">Discrepancy</div>
+                    <div className="text-xs text-muted-foreground">Discrepancy</div>
                     <div className={`font-mono font-bold ${Math.abs(cashSummary.discrepancy) < 0.01 ? 'text-green-300' : 'text-orange-300'}`}>{formatMoney(cashSummary.discrepancy)}</div>
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
-                  <div className="text-xs text-[#c9b792] uppercase tracking-wider">Sessions</div>
-                  <div className="text-white font-bold mt-1">{cashSummary.inRange.length}</div>
-                  <div className="text-[#c9b792] text-sm">Open {cashSummary.openCount}    Closed {cashSummary.closedCount}</div>
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Sessions</div>
+                  <div className="text-foreground font-bold mt-1">{cashSummary.inRange.length}</div>
+                  <div className="text-muted-foreground text-sm">Open {cashSummary.openCount}    Closed {cashSummary.closedCount}</div>
                 </div>
-                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
-                  <div className="text-xs text-[#c9b792] uppercase tracking-wider">Expenses</div>
-                  <div className="text-white font-mono font-bold mt-1">{formatMoney(totalExpenses)}</div>
-                  <div className="text-[#c9b792] text-sm">{expensesInRange.length} entries</div>
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Expenses</div>
+                  <div className="text-foreground font-mono font-bold mt-1">{formatMoney(totalExpenses)}</div>
+                  <div className="text-muted-foreground text-sm">{expensesInRange.length} entries</div>
                 </div>
-                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
-                  <div className="text-xs text-[#c9b792] uppercase tracking-wider">Net Margin</div>
-                  <div className="text-white font-bold mt-1">{totalRevenue > 0 ? `${Math.max(-999, Math.min(999, (netProfit / totalRevenue) * 100)).toFixed(1)}%` : '0.0%'}</div>
-                  <div className="text-[#c9b792] text-sm">Profit vs revenue</div>
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Net Margin</div>
+                  <div className="text-foreground font-bold mt-1">{totalRevenue > 0 ? `${Math.max(-999, Math.min(999, (netProfit / totalRevenue) * 100)).toFixed(1)}%` : '0.0%'}</div>
+                  <div className="text-muted-foreground text-sm">Profit vs revenue</div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="flex flex-col rounded-xl p-6 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-end mb-4">
                 <div>
-                  <h3 className="text-white text-lg font-bold">Payment Mix</h3>
-                  <p className="text-[#c9b792] text-sm">By method</p>
+                  <h3 className="text-foreground text-lg font-bold">Payment Mix</h3>
+                  <p className="text-muted-foreground text-sm">By method</p>
                 </div>
               </div>
               <div className="flex flex-col gap-3">
@@ -2103,110 +2102,110 @@ export const BranchReports: React.FC = () => {
                     return (
                       <div key={method} className="flex flex-col gap-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-white font-medium truncate">{method}</span>
-                          <span className="text-[#c9b792] font-mono">{formatMoney(v.sum)}</span>
+                          <span className="text-foreground font-medium truncate">{method}</span>
+                          <span className="text-muted-foreground font-mono">{formatMoney(v.sum)}</span>
                         </div>
-                        <div className="h-2 w-full bg-[#221c10] rounded-full overflow-hidden border border-[#483c23]">
-                          <div className="h-full bg-[#eead2b] rounded-full" style={{ width: `${pct}%` }} />
+                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden border border-border">
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
                         </div>
                       </div>
                     );
                   })
                 ) : (
-                  <div className="text-sm text-[#c9b792]">No payments in this period.</div>
+                  <div className="text-sm text-muted-foreground">No payments in this period.</div>
                 )}
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="lg:col-span-2 flex flex-col rounded-xl p-6 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-end mb-4">
                 <div>
-                  <h3 className="text-white text-lg font-bold">Staff Performance</h3>
-                  <p className="text-[#c9b792] text-sm">Waiter & team metrics for this period</p>
+                  <h3 className="text-foreground text-lg font-bold">Staff Performance</h3>
+                  <p className="text-muted-foreground text-sm">Waiter & team metrics for this period</p>
                 </div>
                 <div className="flex items-end gap-6">
                   <div className="text-right">
-                    <div className="text-xs text-[#c9b792]">Total Hours</div>
-                    <div className="text-white font-mono font-bold">{staffPerformance.totalHours.toFixed(1)}h</div>
+                    <div className="text-xs text-muted-foreground">Total Hours</div>
+                    <div className="text-foreground font-mono font-bold">{staffPerformance.totalHours.toFixed(1)}h</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-[#c9b792]">Top Performer</div>
-                    <div className="text-white font-bold">{staffPerformance.top?.name ?? ' ”'}</div>
+                    <div className="text-xs text-muted-foreground">Top Performer</div>
+                    <div className="text-foreground font-bold">{staffPerformance.top?.name ?? ' ”'}</div>
                   </div>
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-[#483c23] bg-[#221c10]">
+              <div className="overflow-x-auto rounded-xl border border-border bg-background">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-[#483c23] bg-[#2c241b]">
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Staff</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Role</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Hours</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Orders</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Revenue</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Rev/Hour</th>
-                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Avg Ticket</th>
+                    <tr className="border-b border-border bg-card">
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Staff</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Role</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Hours</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Orders</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Revenue</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Rev/Hour</th>
+                      <th className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Avg Ticket</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#483c23]">
+                  <tbody className="divide-y divide-border">
                     {staffPerformance.rows.length ? (
                       staffPerformance.rows.slice(0, 12).map((r, idx) => (
-                        <tr key={r.id} className="hover:bg-[#483c23]/20 transition-colors">
-                          <td className="px-5 py-3 text-sm text-white font-medium">
+                        <tr key={r.id} className="hover:bg-accent transition-colors">
+                          <td className="px-5 py-3 text-sm text-foreground font-medium">
                             <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-[#483c23]/35 overflow-hidden flex items-center justify-center">
-                                <span className="material-symbols-outlined text-[#c9b792]">person</span>
+                              <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center">
+                                <span className="material-symbols-outlined text-muted-foreground">person</span>
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-white">{idx === 0 ? `#1 ${r.name}` : r.name}</span>
-                                <span className="text-xs text-[#c9b792]">{r.shifts} shifts</span>
+                                <span className="text-foreground">{idx === 0 ? `#1 ${r.name}` : r.name}</span>
+                                <span className="text-xs text-muted-foreground">{r.shifts} shifts</span>
                               </div>
                             </div>
                           </td>
-                          <td className="px-5 py-3 text-sm text-[#c9b792]">{r.role}</td>
-                          <td className="px-5 py-3 text-sm text-right font-mono text-white">{r.hours.toFixed(1)}</td>
-                          <td className="px-5 py-3 text-sm text-right font-mono text-white">{r.orderCount}</td>
-                          <td className="px-5 py-3 text-sm text-right font-mono font-bold text-white">{formatMoney(r.revenue)}</td>
-                          <td className="px-5 py-3 text-sm text-right font-mono text-white">{formatMoney(r.revPerHour)}</td>
-                          <td className="px-5 py-3 text-sm text-right font-mono text-white">{formatMoney(r.aov)}</td>
+                          <td className="px-5 py-3 text-sm text-muted-foreground">{r.role}</td>
+                          <td className="px-5 py-3 text-sm text-right font-mono text-foreground">{r.hours.toFixed(1)}</td>
+                          <td className="px-5 py-3 text-sm text-right font-mono text-foreground">{r.orderCount}</td>
+                          <td className="px-5 py-3 text-sm text-right font-mono font-bold text-foreground">{formatMoney(r.revenue)}</td>
+                          <td className="px-5 py-3 text-sm text-right font-mono text-foreground">{formatMoney(r.revPerHour)}</td>
+                          <td className="px-5 py-3 text-sm text-right font-mono text-foreground">{formatMoney(r.aov)}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td className="px-5 py-6 text-sm text-[#c9b792]" colSpan={7}>No staff metrics yet. Clock-in/out and order assignment will populate this.</td>
+                        <td className="px-5 py-6 text-sm text-muted-foreground" colSpan={7}>No staff metrics yet. Clock-in/out and order assignment will populate this.</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
-              <div className="mt-4 text-xs text-[#c9b792]">
+              <div className="mt-4 text-xs text-muted-foreground">
                 Staff revenue uses paid orders with `createdByStaffId`. Hours use shift logs overlapping the selected period.
               </div>
             </div>
 
-            <div className="flex flex-col rounded-xl p-6 bg-[#2c241b] border border-[#483c23] shadow-sm">
+            <div className="flex flex-col rounded-xl p-6 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-end mb-4">
                 <div>
-                  <h3 className="text-white text-lg font-bold">Service KPIs</h3>
-                  <p className="text-[#c9b792] text-sm">Operational snapshot</p>
+                  <h3 className="text-foreground text-lg font-bold">Service KPIs</h3>
+                  <p className="text-muted-foreground text-sm">Operational snapshot</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3">
-                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
-                  <div className="text-xs text-[#c9b792] uppercase tracking-wider">Active Staff</div>
-                  <div className="text-white font-bold mt-1">{staff.filter((s) => s.status === 'Active').length}</div>
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Active Staff</div>
+                  <div className="text-foreground font-bold mt-1">{staff.filter((s) => s.status === 'Active').length}</div>
                 </div>
-                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
-                  <div className="text-xs text-[#c9b792] uppercase tracking-wider">On Leave</div>
-                  <div className="text-white font-bold mt-1">{staff.filter((s) => s.status === 'On Leave').length}</div>
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider">On Leave</div>
+                  <div className="text-foreground font-bold mt-1">{staff.filter((s) => s.status === 'On Leave').length}</div>
                 </div>
-                <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-4">
-                  <div className="text-xs text-[#c9b792] uppercase tracking-wider">Orders / Staff (avg)</div>
-                  <div className="text-white font-bold mt-1">{staffPerformance.rows.length ? (ordersProcessed / staffPerformance.rows.length).toFixed(1) : '0.0'}</div>
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Orders / Staff (avg)</div>
+                  <div className="text-foreground font-bold mt-1">{staffPerformance.rows.length ? (ordersProcessed / staffPerformance.rows.length).toFixed(1) : '0.0'}</div>
                 </div>
               </div>
             </div>
@@ -2214,41 +2213,41 @@ export const BranchReports: React.FC = () => {
 
           <div className="flex flex-col gap-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-white text-lg font-bold">Recent Transactions</h3>
-              <button onClick={() => setShowAll((s) => !s)} className="text-[#eead2b] hover:text-[#d49a26] text-sm font-bold flex items-center gap-1">
+              <h3 className="text-foreground text-lg font-bold">Recent Transactions</h3>
+              <button onClick={() => setShowAll((s) => !s)} className="text-primary hover:text-primary/90 text-sm font-bold flex items-center gap-1">
                 {showAll ? 'Show Less' : 'View All'} <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </button>
             </div>
-            <div className="overflow-x-auto rounded-xl border border-[#483c23] bg-[#221c10] shadow-sm">
+            <div className="overflow-x-auto rounded-xl border border-border bg-background shadow-sm">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-[#483c23] bg-[#2c241b]">
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Date/Time</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Order ID</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#c9b792]">Payment</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-right">Amount</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#c9b792] text-center">Status</th>
+                  <tr className="border-b border-border bg-card">
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Date/Time</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Order ID</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground text-right">Amount</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#483c23]">
+                <tbody className="divide-y divide-border">
                   {(showAll ? recentTransactions : recentTransactions.slice(0, 10)).length ? (
                     (showAll ? recentTransactions : recentTransactions.slice(0, 10)).map((t) => {
                       const pill =
                         t.statusTone === 'success'
                           ? 'bg-green-500/10 text-green-300 border border-green-500/20'
                           : t.statusTone === 'muted'
-                            ? 'bg-[#2c241b] text-[#c9b792] border border-[#483c23]'
+                            ? 'bg-muted text-muted-foreground border border-border'
                             : 'bg-orange-500/10 text-orange-300 border border-orange-500/20';
                       const icon = t.payment.toLowerCase().includes('card') ? 'credit_card' : t.payment.toLowerCase().includes('cash') ? 'payments' : 'smartphone';
                       return (
-                        <tr key={t.id} className="hover:bg-[#483c23]/20 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-medium">{t.date}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[#c9b792] font-mono">{t.id}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-white flex items-center gap-2">
-                            <span className="material-symbols-outlined text-lg text-[#c9b792]">{icon}</span>
+                        <tr key={t.id} className="hover:bg-accent transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground font-medium">{t.date}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground font-mono">{t.id}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground flex items-center gap-2">
+                            <span className="material-symbols-outlined text-lg text-muted-foreground">{icon}</span>
                             {t.payment}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-bold text-right font-mono">{formatMoney(t.amount)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground font-bold text-right font-mono">{formatMoney(t.amount)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">
                             <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${pill}`}>{t.statusLabel}</span>
                           </td>
@@ -2257,7 +2256,7 @@ export const BranchReports: React.FC = () => {
                     })
                   ) : (
                     <tr>
-                      <td className="px-6 py-6 text-sm text-[#c9b792]" colSpan={5}>No transactions in this period.</td>
+                      <td className="px-6 py-6 text-sm text-muted-foreground" colSpan={5}>No transactions in this period.</td>
                     </tr>
                   )}
                 </tbody>

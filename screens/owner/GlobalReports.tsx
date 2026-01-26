@@ -470,7 +470,7 @@ export const GlobalReports: React.FC = () => {
     return max;
   }, [soldCategories]);
 
-  const donutColors = ['#eead2b', '#8d764e', '#483c23', '#2a2316'];
+  const donutColors = ['hsl(var(--primary))', 'hsl(var(--muted-foreground))', 'hsl(var(--muted))', 'hsl(var(--border))'];
 
   const topBranch = useMemo(() => {
     if (!branchBreakdown.length) return null;
@@ -566,13 +566,13 @@ export const GlobalReports: React.FC = () => {
   };
 
   return (
-    <div className="relative flex h-full w-full flex-col bg-[#181611] text-white overflow-hidden antialiased">
+    <div className="relative flex h-full w-full flex-col bg-background text-foreground overflow-hidden antialiased">
       <OwnerPageHeader
         title="Global Reports"
         leftSlot={
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-xs text-[#b9b09d]">Location:</span>
-            <span className="text-xs font-bold px-2 py-1 rounded-full bg-[#393328] text-white">{locationLabel}</span>
+            <span className="text-xs text-muted-foreground">Location:</span>
+            <span className="text-xs font-bold px-2 py-1 rounded-full bg-muted text-foreground">{locationLabel}</span>
           </div>
         }
         rightSlot={
@@ -582,7 +582,7 @@ export const GlobalReports: React.FC = () => {
                 setBanner(null);
                 setScheduleOpen(true);
               }}
-              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-[#393328] text-white rounded-lg text-sm font-bold hover:bg-[#393328]/80 transition-colors"
+              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-muted text-foreground rounded-lg text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>schedule_send</span>
@@ -590,7 +590,7 @@ export const GlobalReports: React.FC = () => {
             </button>
             <button
               onClick={fetchAll}
-              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-[#393328] text-white rounded-lg text-sm font-bold hover:bg-[#393328]/80 transition-colors"
+              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-muted text-foreground rounded-lg text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>refresh</span>
@@ -598,7 +598,7 @@ export const GlobalReports: React.FC = () => {
             </button>
             <button
               onClick={exportCsv}
-              className="flex items-center justify-center gap-2 h-10 px-4 bg-[#eead2b] text-[#181611] rounded-lg text-sm font-bold hover:bg-[#d99a20] transition-colors shadow-[0_0_15px_rgba(238,173,43,0.3)]"
+              className="flex items-center justify-center gap-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-md"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>download</span>
@@ -606,7 +606,7 @@ export const GlobalReports: React.FC = () => {
             </button>
             <button
               onClick={logout}
-              className="flex items-center justify-center h-10 px-4 bg-[#221c10] border border-[#544b3b] text-[#eead2b] rounded-lg text-sm font-black hover:bg-[#2c2417] transition-colors"
+              className="flex items-center justify-center h-10 px-4 bg-card border border-border text-primary rounded-lg text-sm font-black hover:bg-accent transition-colors"
               type="button"
             >
               Log Out
@@ -620,14 +620,14 @@ export const GlobalReports: React.FC = () => {
           {banner ? (
             <div
               className={`rounded-xl border p-4 flex items-center justify-between gap-4 ${banner.kind === 'success'
-                  ? 'border-green-500/20 bg-green-900/10 text-green-200'
-                  : 'border-red-500/20 bg-red-900/10 text-red-200'
+                  ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                  : 'border-destructive/20 bg-destructive/10 text-destructive'
                 }`}
             >
               <div className="text-sm font-medium">{banner.message}</div>
               <button
                 onClick={() => setBanner(null)}
-                className="h-9 px-3 rounded-lg bg-[#2a2316] border border-[#483c23] text-white hover:border-primary/50"
+                className="h-9 px-3 rounded-lg bg-card border border-border text-foreground hover:bg-accent hover:border-primary/50"
                 type="button"
               >
                 Dismiss
@@ -642,15 +642,15 @@ export const GlobalReports: React.FC = () => {
                 if (e.target === e.currentTarget) setScheduleOpen(false);
               }}
             >
-              <div className="w-full max-w-[520px] rounded-2xl border border-[#483c23] bg-[#221c11] shadow-2xl">
-                <div className="flex items-start justify-between gap-4 border-b border-[#483c23] px-5 py-4">
+              <div className="w-full max-w-[520px] rounded-2xl border border-border bg-card shadow-2xl">
+                <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
                   <div>
-                    <div className="text-white text-lg font-black">Schedule Report Email</div>
-                    <div className="text-[#c9b792] text-sm mt-1">Sends the current report snapshot on a schedule (demo scheduler).</div>
+                    <div className="text-foreground text-lg font-black">Schedule Report Email</div>
+                    <div className="text-muted-foreground text-sm mt-1">Sends the current report snapshot on a schedule (demo scheduler).</div>
                   </div>
                   <button
                     onClick={() => setScheduleOpen(false)}
-                    className="p-1.5 rounded-md hover:bg-[#483c23] text-[#c9b792] hover:text-white transition-colors"
+                    className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <span className="material-symbols-outlined text-[22px]">close</span>
                   </button>
@@ -659,22 +659,22 @@ export const GlobalReports: React.FC = () => {
                 <div className="px-5 py-4 flex flex-col gap-4">
                   <div className="grid grid-cols-1 gap-3">
                     <label className="flex flex-col gap-1">
-                      <span className="text-xs text-[#c9b792] uppercase tracking-wider font-bold">Recipient Email</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Recipient Email</span>
                       <input
                         value={scheduleEmail}
                         onChange={(e) => setScheduleEmail(e.target.value)}
                         placeholder="owner@company.com"
                         type="email"
-                        className="h-10 rounded-lg border border-[#483c23] bg-[#2a2316] text-white px-3 text-sm focus:border-primary focus:outline-none"
+                        className="h-10 rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none"
                       />
                     </label>
 
                     <label className="flex flex-col gap-1">
-                      <span className="text-xs text-[#c9b792] uppercase tracking-wider font-bold">Frequency</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Frequency</span>
                       <select
                         value={scheduleFrequency}
                         onChange={(e) => setScheduleFrequency((e.target.value as any) || 'weekly')}
-                        className="h-10 rounded-lg border border-[#483c23] bg-[#2a2316] text-white px-3 text-sm focus:border-primary focus:outline-none"
+                        className="h-10 rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none"
                       >
                         <option value="daily">Daily</option>
                         <option value="weekly">Weekly</option>
@@ -683,24 +683,24 @@ export const GlobalReports: React.FC = () => {
                     </label>
                   </div>
 
-                  <div className="rounded-xl border border-[#483c23] bg-[#2a2316] p-4 text-sm text-[#c9b792]">
-                    <div className="font-bold text-white">Scope</div>
-                    <div className="mt-1">Location: <span className="text-white font-bold">{locationLabel}</span></div>
-                    <div className="mt-1">Range: <span className="text-white font-bold">{rangeLabel}</span></div>
+                  <div className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
+                    <div className="font-bold text-foreground">Scope</div>
+                    <div className="mt-1">Location: <span className="text-foreground font-bold">{locationLabel}</span></div>
+                    <div className="mt-1">Range: <span className="text-foreground font-bold">{rangeLabel}</span></div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 border-t border-[#483c23] px-5 py-4">
+                <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
                   <button
                     onClick={() => setScheduleOpen(false)}
-                    className="h-10 px-4 rounded-lg bg-[#2a2316] border border-[#483c23] text-white hover:border-primary/50"
+                    className="h-10 px-4 rounded-lg bg-background border border-border text-foreground hover:bg-accent hover:border-primary/50"
                     disabled={scheduleLoading}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={submitSchedule}
-                    className="h-10 px-4 rounded-lg bg-primary text-[#221c10] font-black hover:bg-primary/90 disabled:opacity-60"
+                    className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 disabled:opacity-60"
                     disabled={scheduleLoading}
                   >
                     {scheduleLoading ? 'Scheduling ¦' : 'Schedule'}
@@ -710,7 +710,7 @@ export const GlobalReports: React.FC = () => {
             </div>
           ) : null}
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 border-y border-[#483c23] py-4 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 border-y border-border py-4 items-center">
             <div className="lg:col-span-7 flex flex-wrap items-center gap-3">
               <div className="relative">
                 <button
@@ -737,12 +737,12 @@ export const GlobalReports: React.FC = () => {
                     }
                     setRangeOpen(true);
                   }}
-                  className="group flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-xl bg-[#2a2316] border border-[#483c23] px-4 transition-colors hover:border-[#c9b792]/50"
+                  className="group flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-xl bg-background border border-border px-4 transition-colors hover:border-primary/50"
                   type="button"
                 >
-                  <span className="material-symbols-outlined text-[#c9b792] group-hover:text-white text-[18px]">calendar_today</span>
-                  <span className="text-[#c9b792] group-hover:text-white text-sm font-medium">{rangeLabel}</span>
-                  <span className="material-symbols-outlined text-[#c9b792] group-hover:text-white text-[18px]">keyboard_arrow_down</span>
+                  <span className="material-symbols-outlined text-muted-foreground group-hover:text-foreground text-[18px]">calendar_today</span>
+                  <span className="text-muted-foreground group-hover:text-foreground text-sm font-medium">{rangeLabel}</span>
+                  <span className="material-symbols-outlined text-muted-foreground group-hover:text-foreground text-[18px]">keyboard_arrow_down</span>
                 </button>
 
                 <PortalMenu
@@ -755,30 +755,30 @@ export const GlobalReports: React.FC = () => {
                   width={320}
                 >
                   <div className="p-3">
-                    <div className="text-xs font-bold text-[#c9b792] uppercase tracking-wider">Date Range</div>
+                    <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Date Range</div>
                     <div className="mt-2 grid grid-cols-3 gap-2">
-                      <button onClick={presetThisMonth} className="h-9 rounded-lg bg-[#2a2316] border border-[#483c23] text-sm text-white hover:border-primary/50" type="button">This Month</button>
-                      <button onClick={presetLast30} className="h-9 rounded-lg bg-[#2a2316] border border-[#483c23] text-sm text-white hover:border-primary/50" type="button">Last 30</button>
-                      <button onClick={presetThisYear} className="h-9 rounded-lg bg-[#2a2316] border border-[#483c23] text-sm text-white hover:border-primary/50" type="button">This Year</button>
+                      <button onClick={presetThisMonth} className="h-9 rounded-lg bg-background border border-border text-sm text-foreground hover:bg-accent hover:border-primary/50" type="button">This Month</button>
+                      <button onClick={presetLast30} className="h-9 rounded-lg bg-background border border-border text-sm text-foreground hover:bg-accent hover:border-primary/50" type="button">Last 30</button>
+                      <button onClick={presetThisYear} className="h-9 rounded-lg bg-background border border-border text-sm text-foreground hover:bg-accent hover:border-primary/50" type="button">This Year</button>
                     </div>
 
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#c9b792]">From</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">From</span>
                         <input
                           value={toDateInput(draftFromIso || fromIso)}
                           onChange={(e) => setDraftFromIso(fromDateInputStartIso(e.target.value))}
                           type="date"
-                          className="h-9 rounded-lg border border-[#483c23] bg-[#2a2316] text-white px-2 text-sm focus:border-primary focus:outline-none"
+                          className="h-9 rounded-lg border border-border bg-background text-foreground px-2 text-sm focus:border-primary focus:outline-none"
                         />
                       </label>
                       <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#c9b792]">To</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">To</span>
                         <input
                           value={toDateInput(draftToIso || toIso)}
                           onChange={(e) => setDraftToIso(fromDateInputEndIso(e.target.value))}
                           type="date"
-                          className="h-9 rounded-lg border border-[#483c23] bg-[#2a2316] text-white px-2 text-sm focus:border-primary focus:outline-none"
+                          className="h-9 rounded-lg border border-border bg-background text-foreground px-2 text-sm focus:border-primary focus:outline-none"
                         />
                       </label>
                     </div>
@@ -789,7 +789,7 @@ export const GlobalReports: React.FC = () => {
                           setRangeOpen(false);
                           setRangeAnchor(null);
                         }}
-                        className="h-9 px-3 rounded-lg bg-[#2a2316] border border-[#483c23] text-sm text-[#c9b792] hover:text-white"
+                        className="h-9 px-3 rounded-lg bg-background border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent"
                         type="button"
                       >
                         Close
@@ -801,7 +801,7 @@ export const GlobalReports: React.FC = () => {
                           setRangeOpen(false);
                           setRangeAnchor(null);
                         }}
-                        className="h-9 px-3 rounded-lg bg-primary text-[#221c10] text-sm font-bold hover:bg-primary/90"
+                        className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90"
                         type="button"
                       >
                         Apply
@@ -811,13 +811,13 @@ export const GlobalReports: React.FC = () => {
                 </PortalMenu>
               </div>
 
-              <div className="flex items-center gap-2 rounded-xl bg-[#2a2316] border border-[#483c23] px-4 h-10">
-                <span className="material-symbols-outlined text-[#c9b792] text-[18px]">storefront</span>
-                <span className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Location</span>
+              <div className="flex items-center gap-2 rounded-xl bg-background border border-border px-4 h-10">
+                <span className="material-symbols-outlined text-muted-foreground text-[18px]">storefront</span>
+                <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Location</span>
                 <select
                   value={locationId}
                   onChange={(e) => setLocationId(e.target.value)}
-                  className="h-9 bg-transparent text-sm text-white focus:ring-0 border-none"
+                  className="h-9 bg-transparent text-sm text-foreground focus:ring-0 border-none"
                 >
                   <option value="">All Locations</option>
                   {branches.map((b) => (
@@ -831,59 +831,59 @@ export const GlobalReports: React.FC = () => {
           </div>
 
           {error ? (
-            <div className="rounded-xl border border-red-500/20 bg-red-900/10 text-red-300 p-4 flex items-center justify-between gap-4">
+            <div className="rounded-xl border border-destructive/20 bg-destructive/10 text-destructive p-4 flex items-center justify-between gap-4">
               <div className="text-sm">{error}</div>
-              <button onClick={fetchAll} className="h-10 px-4 rounded-lg bg-[#2a2316] border border-[#483c23] text-white hover:border-primary/50">
+              <button onClick={fetchAll} className="h-10 px-4 rounded-lg bg-background border border-border text-foreground hover:bg-accent hover:border-primary/50">
                 Retry
               </button>
             </div>
           ) : null}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-2xl border border-[#483c23] bg-[#2a2316] p-5 shadow-sm">
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <p className="text-[#c9b792] text-xs font-bold uppercase tracking-wider">Total Revenue (Net)</p>
-                <span className="material-symbols-outlined text-[#eead2b] text-[18px]">payments</span>
+                <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Total Revenue (Net)</p>
+                <span className="material-symbols-outlined text-primary text-[18px]">payments</span>
               </div>
-              <p className="text-white text-3xl font-black tracking-tight mt-2">{money.format(kpis.totalRevenueNet)}</p>
-              <p className="text-xs text-[#c9b792] mt-1">Location: {locationLabel}</p>
+              <p className="text-foreground text-3xl font-black tracking-tight mt-2">{money.format(kpis.totalRevenueNet)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Location: {locationLabel}</p>
             </div>
 
-            <div className="rounded-2xl border border-[#483c23] bg-[#2a2316] p-5 shadow-sm">
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <p className="text-[#c9b792] text-xs font-bold uppercase tracking-wider">Transactions</p>
-                <span className="material-symbols-outlined text-[#c9b792] text-[18px]">receipt_long</span>
+                <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Transactions</p>
+                <span className="material-symbols-outlined text-muted-foreground text-[18px]">receipt_long</span>
               </div>
-              <p className="text-white text-3xl font-black tracking-tight mt-2">{Number(totals.txCount || 0).toLocaleString()}</p>
-              <p className="text-xs text-[#c9b792] mt-1">Paid orders in range</p>
+              <p className="text-foreground text-3xl font-black tracking-tight mt-2">{Number(totals.txCount || 0).toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground mt-1">Paid orders in range</p>
             </div>
 
-            <div className="rounded-2xl border border-[#483c23] bg-[#2a2316] p-5 shadow-sm">
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <p className="text-[#c9b792] text-xs font-bold uppercase tracking-wider">Avg Ticket (Net)</p>
-                <span className="material-symbols-outlined text-[#c9b792] text-[18px]">query_stats</span>
+                <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Avg Ticket (Net)</p>
+                <span className="material-symbols-outlined text-muted-foreground text-[18px]">query_stats</span>
               </div>
-              <p className="text-white text-3xl font-black tracking-tight mt-2">{money.format(avgTicket)}</p>
-              <p className="text-xs text-[#c9b792] mt-1">Net sales / tx</p>
+              <p className="text-foreground text-3xl font-black tracking-tight mt-2">{money.format(avgTicket)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Net sales / tx</p>
             </div>
 
-            <div className="rounded-2xl border border-[#483c23] bg-[#2a2316] p-5 shadow-sm">
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <p className="text-[#c9b792] text-xs font-bold uppercase tracking-wider">Top Sold Item</p>
-                <span className="material-symbols-outlined text-[#c9b792] text-[18px]">restaurant</span>
+                <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Top Sold Item</p>
+                <span className="material-symbols-outlined text-muted-foreground text-[18px]">restaurant</span>
               </div>
-              <p className="text-white text-lg font-black tracking-tight mt-2 truncate">{topSoldItem?.name || '—'}</p>
-              <p className="text-xs text-[#c9b792] mt-1">{topSoldItem ? money.format(Number(topSoldItem.revenue || 0) || 0) : 'No sales yet'}</p>
+              <p className="text-foreground text-lg font-black tracking-tight mt-2 truncate">{topSoldItem?.name || '—'}</p>
+              <p className="text-xs text-muted-foreground mt-1">{topSoldItem ? money.format(Number(topSoldItem.revenue || 0) || 0) : 'No sales yet'}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div className="lg:col-span-8 flex flex-col gap-6">
-              <div className="flex flex-col gap-4 rounded-2xl border border-[#483c23] bg-[#2a2316] p-6">
+              <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-white text-lg font-bold">Revenue vs. Expenses Trend</p>
-                    <p className="text-[#c9b792] text-sm">Monthly comparison</p>
+                    <p className="text-foreground text-lg font-bold">Revenue vs. Expenses Trend</p>
+                    <p className="text-muted-foreground text-sm">Monthly comparison</p>
                   </div>
                 </div>
                 <div className="h-[240px] w-full min-h-0">
@@ -891,46 +891,46 @@ export const GlobalReports: React.FC = () => {
                     <AreaChart data={trend} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#eead2b" stopOpacity={0.25} />
-                          <stop offset="95%" stopColor="#eead2b" stopOpacity={0} />
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="4 4" stroke="#483c23" vertical={false} opacity={0.5} />
-                      <XAxis dataKey="name" stroke="#483c23" tick={{ fill: '#c9b792', fontSize: 12 }} />
-                      <YAxis stroke="#483c23" tick={{ fill: '#c9b792', fontSize: 12 }} />
+                      <CartesianGrid strokeDasharray="4 4" stroke="hsl(var(--border))" vertical={false} opacity={0.5} />
+                      <XAxis dataKey="name" stroke="hsl(var(--border))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis stroke="hsl(var(--border))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: '#221c11', borderColor: '#483c23', color: '#fff' }}
-                        labelStyle={{ color: '#fff' }}
-                        itemStyle={{ color: '#fff' }}
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))' }}
+                        labelStyle={{ color: 'hsl(var(--foreground))' }}
+                        itemStyle={{ color: 'hsl(var(--foreground))' }}
                         formatter={(v) => [money.format(Number(v) || 0), '']}
                       />
-                      <Area type="monotone" dataKey="revenue" stroke="#eead2b" strokeWidth={3} fill="url(#revFill)" />
-                      <Area type="monotone" dataKey="expenses" stroke="#8d764e" strokeWidth={2} fillOpacity={0.1} fill="#8d764e" />
+                      <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={3} fill="url(#revFill)" />
+                      <Area type="monotone" dataKey="expenses" stroke="hsl(var(--muted-foreground))" strokeWidth={2} fillOpacity={0.1} fill="hsl(var(--muted-foreground))" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-4 rounded-2xl border border-[#483c23] bg-[#2a2316] p-6">
+              <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                   <div>
-                    <p className="text-white text-lg font-black">What's Sold (Top Items)</p>
-                    <p className="text-[#c9b792] text-sm">Based on paid orders in the selected range</p>
+                    <p className="text-foreground text-lg font-black">What's Sold (Top Items)</p>
+                    <p className="text-muted-foreground text-sm">Based on paid orders in the selected range</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="relative w-full sm:w-[260px]">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#c9b792] text-[18px]">search</span>
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]">search</span>
                       <input
                         value={soldSearch}
                         onChange={(e) => setSoldSearch(e.target.value)}
-                        className="w-full h-10 rounded-xl border border-[#483c23] bg-[#221c11] pl-10 pr-10 text-sm text-white focus:border-primary focus:outline-none placeholder:text-[#c9b792]/60"
+                        className="w-full h-10 rounded-xl border border-border bg-background pl-10 pr-10 text-sm text-foreground focus:border-primary focus:outline-none placeholder:text-muted-foreground"
                         placeholder="Search item or category"
                         type="text"
                       />
                       {soldSearch.trim() ? (
                         <button
                           onClick={() => setSoldSearch('')}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-[#483c23] text-[#c9b792] hover:text-white"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
                           type="button"
                           title="Clear"
                         >
@@ -939,12 +939,12 @@ export const GlobalReports: React.FC = () => {
                       ) : null}
                     </div>
 
-                    <div className="flex items-center rounded-xl border border-[#483c23] bg-[#221c11] px-2 h-10">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#c9b792] mr-2">Top</span>
+                    <div className="flex items-center rounded-xl border border-border bg-background px-2 h-10">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mr-2">Top</span>
                       <select
                         value={soldLimit}
                         onChange={(e) => setSoldLimit((Number(e.target.value) as any) || 10)}
-                        className="h-9 bg-transparent text-sm text-white focus:ring-0 border-none"
+                        className="h-9 bg-transparent text-sm text-foreground focus:ring-0 border-none"
                       >
                         <option value={10}>10</option>
                         <option value={25}>25</option>
@@ -952,32 +952,32 @@ export const GlobalReports: React.FC = () => {
                       </select>
                     </div>
 
-                    <div className="flex items-center rounded-xl border border-[#483c23] bg-[#221c11] p-1">
+                    <div className="flex items-center rounded-xl border border-border bg-background p-1">
                       <button
                         onClick={() => setSoldSort('revenue')}
-                        className={`h-8 px-3 rounded-lg text-xs font-black uppercase tracking-wider ${soldSort === 'revenue' ? 'bg-primary text-[#221c10]' : 'text-[#c9b792] hover:text-white'}`}
+                        className={`h-8 px-3 rounded-lg text-xs font-black uppercase tracking-wider ${soldSort === 'revenue' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         type="button"
                       >
                         Revenue
                       </button>
                       <button
                         onClick={() => setSoldSort('qty')}
-                        className={`h-8 px-3 rounded-lg text-xs font-black uppercase tracking-wider ${soldSort === 'qty' ? 'bg-primary text-[#221c10]' : 'text-[#c9b792] hover:text-white'}`}
+                        className={`h-8 px-3 rounded-lg text-xs font-black uppercase tracking-wider ${soldSort === 'qty' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         type="button"
                       >
                         Qty
                       </button>
                     </div>
 
-                    <div className="text-xs text-[#c9b792]">
+                    <div className="text-xs text-muted-foreground">
                       Showing {Math.min(soldLimit, soldItemsSorted.length)} of {soldItemsSorted.length}
                     </div>
                   </div>
                 </div>
 
-                <div className="overflow-x-auto rounded-xl border border-[#483c23] bg-[#221c11]">
+                <div className="overflow-x-auto rounded-xl border border-border bg-background">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-[#221c11] text-xs uppercase text-[#c9b792] border-b border-[#483c23]">
+                    <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b border-border">
                       <tr>
                         <th className="px-5 py-3">Item</th>
                         <th className="px-5 py-3">Category</th>
@@ -985,19 +985,19 @@ export const GlobalReports: React.FC = () => {
                         <th className="px-5 py-3 text-right">Revenue</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#483c23]">
+                    <tbody className="divide-y divide-border">
                       {topSoldItems.length ? (
                         topSoldItems.map((it) => (
-                          <tr key={it.productId} className="hover:bg-[#322a1b] transition-colors">
-                            <td className="px-5 py-3 text-white font-bold whitespace-nowrap">{it.name}</td>
-                            <td className="px-5 py-3 text-[#c9b792] whitespace-nowrap">{it.category || 'Uncategorized'}</td>
-                            <td className="px-5 py-3 text-right font-mono text-white">{Number(it.qty || 0).toLocaleString()}</td>
+                          <tr key={it.productId} className="hover:bg-accent/50 transition-colors">
+                            <td className="px-5 py-3 text-foreground font-bold whitespace-nowrap">{it.name}</td>
+                            <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">{it.category || 'Uncategorized'}</td>
+                            <td className="px-5 py-3 text-right font-mono text-foreground">{Number(it.qty || 0).toLocaleString()}</td>
                             <td className="px-5 py-3 text-right font-bold text-primary">{money.format(Number(it.revenue || 0) || 0)}</td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td className="px-5 py-10 text-[#c9b792]" colSpan={4}>
+                          <td className="px-5 py-10 text-muted-foreground" colSpan={4}>
                             {soldSearch.trim() ? 'No matching items found.' : 'No sold items found for this range. Create a few paid orders to populate.'}
                           </td>
                         </tr>
@@ -1009,65 +1009,65 @@ export const GlobalReports: React.FC = () => {
             </div>
 
             <div className="lg:col-span-4 flex flex-col gap-4">
-              <div className="rounded-2xl border border-[#483c23] bg-[#2a2316] p-6">
+              <div className="rounded-2xl border border-border bg-card p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-white text-lg font-black">Action Center</p>
-                    <p className="text-[#c9b792] text-sm">Quick insights + exports</p>
+                    <p className="text-foreground text-lg font-black">Action Center</p>
+                    <p className="text-muted-foreground text-sm">Quick insights + exports</p>
                   </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-[#483c23] bg-[#221c11] px-4 py-3">
-                    <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Sold Revenue</div>
-                    <div className="text-white font-black mt-1">{money.format(soldInsights.totalRevenue)}</div>
+                  <div className="rounded-xl border border-border bg-background px-4 py-3">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Sold Revenue</div>
+                    <div className="text-foreground font-black mt-1">{money.format(soldInsights.totalRevenue)}</div>
                   </div>
-                  <div className="rounded-xl border border-[#483c23] bg-[#221c11] px-4 py-3">
-                    <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Units Sold</div>
-                    <div className="text-white font-black mt-1">{Number(soldInsights.totalQty || 0).toLocaleString()}</div>
+                  <div className="rounded-xl border border-border bg-background px-4 py-3">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Units Sold</div>
+                    <div className="text-foreground font-black mt-1">{Number(soldInsights.totalQty || 0).toLocaleString()}</div>
                   </div>
-                  <div className="rounded-xl border border-[#483c23] bg-[#221c11] px-4 py-3">
-                    <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Unique Items</div>
-                    <div className="text-white font-black mt-1">{Number(soldInsights.uniqueItems || 0).toLocaleString()}</div>
+                  <div className="rounded-xl border border-border bg-background px-4 py-3">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Unique Items</div>
+                    <div className="text-foreground font-black mt-1">{Number(soldInsights.uniqueItems || 0).toLocaleString()}</div>
                   </div>
-                  <div className="rounded-xl border border-[#483c23] bg-[#221c11] px-4 py-3">
-                    <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Top Category</div>
-                    <div className="text-white font-black mt-1 truncate" title={soldInsights.topCategoryName}>{soldInsights.topCategoryName}</div>
-                    <div className="text-[#c9b792] text-xs mt-0.5">{soldInsights.topCategoryRevenue ? money.format(soldInsights.topCategoryRevenue) : '—'}</div>
+                  <div className="rounded-xl border border-border bg-background px-4 py-3">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Top Category</div>
+                    <div className="text-foreground font-black mt-1 truncate" title={soldInsights.topCategoryName}>{soldInsights.topCategoryName}</div>
+                    <div className="text-muted-foreground text-xs mt-0.5">{soldInsights.topCategoryRevenue ? money.format(soldInsights.topCategoryRevenue) : '—'}</div>
                   </div>
                 </div>
 
-                <div className="mt-5 rounded-2xl border border-[#483c23] bg-[#221c11] p-4">
+                <div className="mt-5 rounded-2xl border border-border bg-background p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-white font-black">Payments</div>
-                      <div className="text-[#c9b792] text-xs mt-0.5">Breakdown by method</div>
+                      <div className="text-foreground font-black">Payments</div>
+                      <div className="text-muted-foreground text-xs mt-0.5">Breakdown by method</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Top</div>
-                      <div className="text-white font-black">{payments.primary?.name || '—'}</div>
-                      <div className="text-[#c9b792] text-xs">{payments.total ? `${payments.pct}%` : '—'}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Top</div>
+                      <div className="text-foreground font-black">{payments.primary?.name || '—'}</div>
+                      <div className="text-muted-foreground text-xs">{payments.total ? `${payments.pct}%` : '—'}</div>
                     </div>
                   </div>
 
                   <div className="mt-3 flex items-center justify-between">
-                    <div className="text-[#c9b792] text-xs">Total collected (payments)</div>
+                    <div className="text-muted-foreground text-xs">Total collected (payments)</div>
                     <div className="text-primary font-black">{payments.total ? money.format(payments.total) : '—'}</div>
                   </div>
 
                   <div className="mt-3 space-y-2">
                     {(payments.list || []).slice(0, 6).map((p) => (
-                      <div key={p.name} className="flex items-center justify-between rounded-xl border border-[#483c23] bg-[#2a2316] px-3 py-2">
+                      <div key={p.name} className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2">
                         <div className="min-w-0">
-                          <div className="text-white font-bold truncate">{p.name}</div>
-                          <div className="text-[#c9b792] text-[11px]">Tx: {Number(p.txCount || 0).toLocaleString()}</div>
+                          <div className="text-foreground font-bold truncate">{p.name}</div>
+                          <div className="text-muted-foreground text-[11px]">Tx: {Number(p.txCount || 0).toLocaleString()}</div>
                         </div>
-                        <div className="text-white font-black whitespace-nowrap">{money.format(Number(p.amount || 0) || 0)}</div>
+                        <div className="text-foreground font-black whitespace-nowrap">{money.format(Number(p.amount || 0) || 0)}</div>
                       </div>
                     ))}
 
                     {!payments.list?.length ? (
-                      <div className="text-[#c9b792] text-sm">No payment method data yet.</div>
+                      <div className="text-muted-foreground text-sm">No payment method data yet.</div>
                     ) : null}
                   </div>
                 </div>
@@ -1075,7 +1075,7 @@ export const GlobalReports: React.FC = () => {
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <button
                     onClick={exportCsv}
-                    className="h-11 rounded-xl bg-primary text-[#221c10] font-black text-sm hover:bg-primary/90 flex items-center justify-center gap-2"
+                    className="h-11 rounded-xl bg-primary text-primary-foreground font-black text-sm hover:bg-primary/90 flex items-center justify-center gap-2"
                     type="button"
                   >
                     <span className="material-symbols-outlined text-[18px]">download</span>
@@ -1083,7 +1083,7 @@ export const GlobalReports: React.FC = () => {
                   </button>
                   <button
                     onClick={exportSoldCsv}
-                    className="h-11 rounded-xl bg-[#221c11] border border-[#483c23] text-white font-black text-sm hover:border-primary/50 flex items-center justify-center gap-2"
+                    className="h-11 rounded-xl bg-background border border-border text-foreground font-black text-sm hover:bg-accent hover:border-primary/50 flex items-center justify-center gap-2"
                     type="button"
                   >
                     <span className="material-symbols-outlined text-[18px]">table_view</span>
@@ -1094,7 +1094,7 @@ export const GlobalReports: React.FC = () => {
                       setBanner(null);
                       setScheduleOpen(true);
                     }}
-                    className="h-11 rounded-xl bg-[#221c11] border border-[#483c23] text-white font-black text-sm hover:border-primary/50 flex items-center justify-center gap-2 col-span-2"
+                    className="h-11 rounded-xl bg-background border border-border text-foreground font-black text-sm hover:bg-accent hover:border-primary/50 flex items-center justify-center gap-2 col-span-2"
                     type="button"
                   >
                     <span className="material-symbols-outlined text-[18px]">schedule_send</span>
@@ -1107,50 +1107,50 @@ export const GlobalReports: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
-            <div className="flex flex-col gap-4 rounded-2xl border border-[#483c23] bg-gradient-to-br from-[#2a2316] to-[#221c11] p-6 shadow-sm hover:shadow-[0_0_18px_rgba(238,173,43,0.12)] hover:border-[#eead2b]/40 transition-all h-full overflow-hidden">
+            <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md hover:border-primary/40 transition-all h-full overflow-hidden">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-white text-lg font-bold">Revenue Summary</p>
-                  <p className="text-[#c9b792] text-sm truncate" title={`${rangeLabel} • ${locationLabel}`}>{rangeLabel} • {locationLabel}</p>
+                  <p className="text-foreground text-lg font-bold">Revenue Summary</p>
+                  <p className="text-muted-foreground text-sm truncate" title={`${rangeLabel} • ${locationLabel}`}>{rangeLabel} • {locationLabel}</p>
                 </div>
-                <div className="shrink-0 size-10 rounded-xl border border-[#483c23] bg-[#221c11] flex items-center justify-center">
+                <div className="shrink-0 size-10 rounded-xl border border-border bg-background flex items-center justify-center">
                   <span className="material-symbols-outlined text-primary text-[20px]">monitoring</span>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[#483c23] bg-[#221c11]/60 p-4">
-                <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Total Collected</div>
-                <div className="mt-1 text-white font-black text-2xl md:text-3xl tracking-tight font-mono">{money.format(Number(totals.totalCollected || 0) || 0)}</div>
+              <div className="rounded-2xl border border-border bg-background p-4">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Total Collected</div>
+                <div className="mt-1 text-foreground font-black text-2xl md:text-3xl tracking-tight font-mono">{money.format(Number(totals.totalCollected || 0) || 0)}</div>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Net Sales</div>
-                    <div className="text-white font-black text-sm font-mono truncate">{money.format(Number(totals.netSales || 0) || 0)}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Net Sales</div>
+                    <div className="text-foreground font-black text-sm font-mono truncate">{money.format(Number(totals.netSales || 0) || 0)}</div>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Tax</div>
-                    <div className="text-white font-black text-sm font-mono truncate">{money.format(Number(totals.tax || 0) || 0)}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Tax</div>
+                    <div className="text-foreground font-black text-sm font-mono truncate">{money.format(Number(totals.tax || 0) || 0)}</div>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Tips</div>
-                    <div className="text-white font-black text-sm font-mono truncate">{money.format(Number(totals.tips || 0) || 0)}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Tips</div>
+                    <div className="text-foreground font-black text-sm font-mono truncate">{money.format(Number(totals.tips || 0) || 0)}</div>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold text-red-300">Discounts</div>
-                    <div className="text-red-200 font-black text-sm font-mono truncate">-{money.format(Math.abs(Number(totals.discounts || 0) || 0))}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold text-destructive">Discounts</div>
+                    <div className="text-destructive font-black text-sm font-mono truncate">-{money.format(Math.abs(Number(totals.discounts || 0) || 0))}</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[#483c23] bg-gradient-to-br from-[#2a2316] to-[#221c11] p-6 shadow-sm hover:shadow-[0_0_18px_rgba(238,173,43,0.12)] hover:border-[#eead2b]/40 transition-all h-full overflow-hidden">
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md hover:border-primary/40 transition-all h-full overflow-hidden">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="text-[#c9b792] text-xs uppercase tracking-wider font-bold">What's Sold (Categories)</div>
-                  <div className="text-white font-black mt-1">Top mix share</div>
+                  <div className="text-muted-foreground text-xs uppercase tracking-wider font-bold">What's Sold (Categories)</div>
+                  <div className="text-foreground font-black mt-1">Top mix share</div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="text-[10px] uppercase tracking-wider text-[#c9b792] font-bold">Total</div>
-                  <div className="text-white font-black">{money.format(Number(donut.total || 0) || 0)}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Total</div>
+                  <div className="text-foreground font-black">{money.format(Number(donut.total || 0) || 0)}</div>
                 </div>
               </div>
 
@@ -1166,7 +1166,7 @@ export const GlobalReports: React.FC = () => {
                           innerRadius={54}
                           outerRadius={72}
                           paddingAngle={2}
-                          stroke="#221c11"
+                          stroke="hsl(var(--background))"
                           strokeWidth={2}
                         >
                           {donut.list.map((_, idx) => (
@@ -1174,14 +1174,14 @@ export const GlobalReports: React.FC = () => {
                           ))}
                         </Pie>
                         <Tooltip
-                          contentStyle={{ backgroundColor: '#221c11', borderColor: '#483c23', color: '#fff' }}
+                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))' }}
                           formatter={(v, n) => [money.format(Number(v) || 0), String(n)]}
                         />
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="absolute inset-0 m-auto size-28 rounded-full bg-[#2a2316] border border-[#483c23] flex flex-col items-center justify-center">
-                      <span className="text-2xl font-bold text-white">{donut.pct}%</span>
-                      <span className="text-xs text-[#c9b792] uppercase tracking-widest truncate max-w-[92px]" title={donut.primary.name}>{donut.primary.name}</span>
+                    <div className="absolute inset-0 m-auto size-28 rounded-full bg-background border border-border flex flex-col items-center justify-center">
+                      <span className="text-2xl font-bold text-foreground">{donut.pct}%</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-widest truncate max-w-[92px]" title={donut.primary.name}>{donut.primary.name}</span>
                     </div>
                   </div>
                 </div>
@@ -1191,35 +1191,35 @@ export const GlobalReports: React.FC = () => {
                     donut.list.slice(0, 4).map((x, idx) => {
                       const pct = donut.total > 0 ? Math.round(((Number(x.value) || 0) / donut.total) * 100) : 0;
                       return (
-                        <div key={x.name} className="rounded-xl border border-[#483c23] bg-[#221c11]/60 px-4 py-3 min-w-0 overflow-hidden">
+                        <div key={x.name} className="rounded-xl border border-border bg-background px-4 py-3 min-w-0 overflow-hidden">
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0 flex items-center gap-2">
                               <span className="inline-block size-2.5 rounded-full" style={{ backgroundColor: donutColors[idx % donutColors.length] }} />
-                              <div className="text-white font-bold truncate" title={x.name}>{x.name}</div>
+                              <div className="text-foreground font-bold truncate" title={x.name}>{x.name}</div>
                             </div>
-                            <div className="text-[#c9b792] text-xs font-bold whitespace-nowrap">{pct}%</div>
+                            <div className="text-muted-foreground text-xs font-bold whitespace-nowrap">{pct}%</div>
                           </div>
                           <div className="mt-2 flex items-center justify-between gap-2 min-w-0">
-                            <div className="text-[#c9b792] text-xs whitespace-nowrap">Revenue</div>
+                            <div className="text-muted-foreground text-xs whitespace-nowrap">Revenue</div>
                             <div className="text-primary font-black whitespace-nowrap truncate">{money.format(Number(x.value || 0) || 0)}</div>
                           </div>
                         </div>
                       );
                     })
                   ) : (
-                    <div className="text-[#c9b792] text-sm">No category sales yet.</div>
+                    <div className="text-muted-foreground text-sm">No category sales yet.</div>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[#483c23] bg-gradient-to-br from-[#2a2316] to-[#221c11] p-6 shadow-sm hover:shadow-[0_0_18px_rgba(238,173,43,0.12)] hover:border-[#eead2b]/40 transition-all h-full overflow-hidden">
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md hover:border-primary/40 transition-all h-full overflow-hidden">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="text-white font-black">Top Categories</div>
-                  <div className="text-[#c9b792] text-sm mt-1">By revenue</div>
+                  <div className="text-foreground font-black">Top Categories</div>
+                  <div className="text-muted-foreground text-sm mt-1">By revenue</div>
                 </div>
-                <div className="shrink-0 size-10 rounded-xl border border-[#483c23] bg-[#221c11] flex items-center justify-center">
+                <div className="shrink-0 size-10 rounded-xl border border-border bg-background flex items-center justify-center">
                   <span className="material-symbols-outlined text-primary text-[20px]">leaderboard</span>
                 </div>
               </div>
@@ -1228,60 +1228,60 @@ export const GlobalReports: React.FC = () => {
                   const revenue = Number((c as any).revenue || 0) || 0;
                   const pct = maxSoldCategoryRevenue > 0 ? Math.round((revenue / maxSoldCategoryRevenue) * 100) : 0;
                   return (
-                    <div key={c.name} className="rounded-xl border border-[#483c23] bg-[#221c11] px-4 py-3">
+                    <div key={c.name} className="rounded-xl border border-border bg-background px-4 py-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0 flex items-center gap-3">
-                          <div className="size-8 rounded-lg border border-[#483c23] bg-[#2a2316] flex items-center justify-center text-[#c9b792] font-black">{idx + 1}</div>
+                          <div className="size-8 rounded-lg border border-border bg-muted flex items-center justify-center text-muted-foreground font-black">{idx + 1}</div>
                           <div className="min-w-0">
-                            <div className="text-white font-bold truncate">{c.name || 'Uncategorized'}</div>
-                            <div className="text-[#c9b792] text-xs">Qty: {Number(c.qty || 0).toLocaleString()}</div>
+                            <div className="text-foreground font-bold truncate">{c.name || 'Uncategorized'}</div>
+                            <div className="text-muted-foreground text-xs">Qty: {Number(c.qty || 0).toLocaleString()}</div>
                           </div>
                         </div>
                         <div className="text-primary font-black whitespace-nowrap">{money.format(revenue)}</div>
                       </div>
-                      <div className="mt-3 h-2 rounded-full bg-[#2a2316] border border-[#483c23] overflow-hidden">
+                      <div className="mt-3 h-2 rounded-full bg-muted border border-border overflow-hidden">
                         <div className="h-full bg-primary/90" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
                 })}
-                {!soldCategories.length ? <div className="text-[#c9b792] text-sm">No category sales yet.</div> : null}
+                {!soldCategories.length ? <div className="text-muted-foreground text-sm">No category sales yet.</div> : null}
               </div>
             </div>
           </div>
 
           {!locationId ? (
-            <div className="flex flex-col gap-4 rounded-xl border border-[#483c23] bg-[#2a2316] p-6">
+            <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-white text-lg font-bold">All Locations Command Center</p>
-                  <p className="text-[#c9b792] text-sm">Branch ranking + executive insights for the selected range</p>
+                  <p className="text-foreground text-lg font-bold">All Locations Command Center</p>
+                  <p className="text-muted-foreground text-sm">Branch ranking + executive insights for the selected range</p>
                 </div>
-                <div className="text-xs text-[#c9b792]">Sorted by Net Sales</div>
+                <div className="text-xs text-muted-foreground">Sorted by Net Sales</div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="rounded-xl border border-[#483c23] bg-[#221c11] p-4">
-                  <div className="text-[#c9b792] text-xs uppercase tracking-wider">Top Branch</div>
-                  <div className="text-white text-lg font-black mt-1">{topBranch?.name || '—'}</div>
-                  <div className="text-[#c9b792] text-sm mt-1">{topBranch ? money.format(topBranch.netSales) : '—'}</div>
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="text-muted-foreground text-xs uppercase tracking-wider">Top Branch</div>
+                  <div className="text-foreground text-lg font-black mt-1">{topBranch?.name || '—'}</div>
+                  <div className="text-muted-foreground text-sm mt-1">{topBranch ? money.format(topBranch.netSales) : '—'}</div>
                 </div>
-                <div className="rounded-xl border border-[#483c23] bg-[#221c11] p-4">
-                  <div className="text-[#c9b792] text-xs uppercase tracking-wider">Avg Ticket (Net)</div>
-                  <div className="text-white text-lg font-black mt-1">{money.format(avgTicket)}</div>
-                  <div className="text-[#c9b792] text-sm mt-1">{totals.txCount} transactions</div>
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="text-muted-foreground text-xs uppercase tracking-wider">Avg Ticket (Net)</div>
+                  <div className="text-foreground text-lg font-black mt-1">{money.format(avgTicket)}</div>
+                  <div className="text-muted-foreground text-sm mt-1">{totals.txCount} transactions</div>
                 </div>
-                <div className="rounded-xl border border-[#483c23] bg-[#221c11] p-4">
-                  <div className="text-[#c9b792] text-xs uppercase tracking-wider">Top Category (Sold)</div>
-                  <div className="text-white text-lg font-black mt-1">{topCategory?.name || '—'}</div>
-                  <div className="text-[#c9b792] text-sm mt-1">{topCategory ? money.format(Number((topCategory as any).revenue || 0) || 0) : '—'}</div>
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <div className="text-muted-foreground text-xs uppercase tracking-wider">Top Category (Sold)</div>
+                  <div className="text-foreground text-lg font-black mt-1">{topCategory?.name || '—'}</div>
+                  <div className="text-muted-foreground text-sm mt-1">{topCategory ? money.format(Number((topCategory as any).revenue || 0) || 0) : '—'}</div>
                 </div>
               </div>
 
               {branchBreakdown.length ? (
-                <div className="overflow-x-auto rounded-xl border border-[#483c23]">
-                  <table className="w-full text-left text-sm text-[#c9b792]">
-                    <thead className="bg-[#221c11] text-xs uppercase text-[#c9b792] border-b border-[#483c23]">
+                <div className="overflow-x-auto rounded-xl border border-border">
+                  <table className="w-full text-left text-sm text-muted-foreground">
+                    <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b border-border">
                       <tr>
                         <th className="whitespace-nowrap px-5 py-3 font-bold tracking-wider">Branch</th>
                         <th className="whitespace-nowrap px-5 py-3 font-bold tracking-wider">Status</th>
@@ -1289,31 +1289,31 @@ export const GlobalReports: React.FC = () => {
                         <th className="whitespace-nowrap px-5 py-3 font-bold tracking-wider text-right">Net Sales</th>
                         <th className="whitespace-nowrap px-5 py-3 font-bold tracking-wider text-right">Tax</th>
                         <th className="whitespace-nowrap px-5 py-3 font-bold tracking-wider text-right">Tips</th>
-                        <th className="whitespace-nowrap px-5 py-3 font-bold tracking-wider text-right text-red-400">Discounts</th>
-                        <th className="whitespace-nowrap px-5 py-3 font-bold tracking-wider text-right text-white">Total Collected</th>
+                        <th className="whitespace-nowrap px-5 py-3 font-bold tracking-wider text-right text-destructive">Discounts</th>
+                        <th className="whitespace-nowrap px-5 py-3 font-bold tracking-wider text-right text-foreground">Total Collected</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#483c23] font-medium">
+                    <tbody className="divide-y divide-border font-medium">
                       {branchBreakdown.map((b, idx) => (
-                        <tr key={b.branchId} className={idx % 2 === 1 ? 'bg-[#221c11]/40 hover:bg-[#322a1b] transition-colors' : 'hover:bg-[#322a1b] transition-colors'}>
-                          <td className="whitespace-nowrap px-5 py-3 text-white font-bold">{b.name}</td>
+                        <tr key={b.branchId} className={idx % 2 === 1 ? 'bg-muted/20 hover:bg-accent/50 transition-colors' : 'hover:bg-accent/50 transition-colors'}>
+                          <td className="whitespace-nowrap px-5 py-3 text-foreground font-bold">{b.name}</td>
                           <td className="whitespace-nowrap px-5 py-3">
                             <span
                               className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold border ${b.status === 'Open'
-                                  ? 'bg-green-500/10 text-green-300 border-green-500/20'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-emerald-500/20'
                                   : b.status === 'Closed'
-                                    ? 'bg-red-500/10 text-red-300 border-red-500/20'
-                                    : 'bg-[#2a2316] text-[#c9b792] border-[#483c23]'
+                                    ? 'bg-destructive/10 text-destructive border-destructive/20'
+                                    : 'bg-muted text-muted-foreground border-border'
                                 }`}
                             >
                               {b.status}
                             </span>
                           </td>
                           <td className="whitespace-nowrap px-5 py-3 text-center">{b.txCount}</td>
-                          <td className="whitespace-nowrap px-5 py-3 text-right text-white font-bold">{money.format(b.netSales)}</td>
+                          <td className="whitespace-nowrap px-5 py-3 text-right text-foreground font-bold">{money.format(b.netSales)}</td>
                           <td className="whitespace-nowrap px-5 py-3 text-right">{money.format(b.tax)}</td>
                           <td className="whitespace-nowrap px-5 py-3 text-right">{money.format(b.tips)}</td>
-                          <td className="whitespace-nowrap px-5 py-3 text-right text-red-400">-{money.format(Math.abs(b.discounts))}</td>
+                          <td className="whitespace-nowrap px-5 py-3 text-right text-destructive">-{money.format(Math.abs(b.discounts))}</td>
                           <td className="whitespace-nowrap px-5 py-3 text-right font-black text-primary">{money.format(b.totalCollected)}</td>
                         </tr>
                       ))}
@@ -1321,36 +1321,36 @@ export const GlobalReports: React.FC = () => {
                   </table>
                 </div>
               ) : (
-                <div className="rounded-xl border border-[#483c23] bg-[#221c11] p-4 text-sm text-[#c9b792]">
+                <div className="rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
                   No branch payment data found for this range. Create a few orders/payments in different branches to populate the All Locations ranking.
                 </div>
               )}
             </div>
           ) : null}
 
-          <div className="flex flex-col rounded-xl border border-[#483c23] bg-[#2a2316] overflow-hidden">
-            <div className="flex flex-wrap items-center border-b border-[#483c23] bg-[#221c11]/50 px-4 pt-4">
+          <div className="flex flex-col rounded-xl border border-border bg-card overflow-hidden">
+            <div className="flex flex-wrap items-center border-b border-border bg-muted/20 px-4 pt-4">
               <button
                 onClick={() => setTab('ledger')}
-                className={`mr-4 pb-4 ${tab === 'ledger' ? 'border-b-2 border-primary text-white font-bold' : 'border-b-2 border-transparent text-[#c9b792] hover:text-white font-medium'} text-sm px-2`}
+                className={`mr-4 pb-4 ${tab === 'ledger' ? 'border-b-2 border-primary text-foreground font-bold' : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground font-medium'} text-sm px-2`}
               >
                 Daily Sales Ledger
               </button>
               <button
                 onClick={() => setTab('mix')}
-                className={`mr-4 pb-4 ${tab === 'mix' ? 'border-b-2 border-primary text-white font-bold' : 'border-b-2 border-transparent text-[#c9b792] hover:text-white font-medium'} text-sm px-2`}
+                className={`mr-4 pb-4 ${tab === 'mix' ? 'border-b-2 border-primary text-foreground font-bold' : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground font-medium'} text-sm px-2`}
               >
                 Product Mix
               </button>
               <button
                 onClick={() => setTab('void')}
-                className={`mr-4 pb-4 ${tab === 'void' ? 'border-b-2 border-primary text-white font-bold' : 'border-b-2 border-transparent text-[#c9b792] hover:text-white font-medium'} text-sm px-2`}
+                className={`mr-4 pb-4 ${tab === 'void' ? 'border-b-2 border-primary text-foreground font-bold' : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground font-medium'} text-sm px-2`}
               >
                 Void / Comp Log
               </button>
               <button
                 onClick={() => setTab('labor')}
-                className={`mr-4 pb-4 ${tab === 'labor' ? 'border-b-2 border-primary text-white font-bold' : 'border-b-2 border-transparent text-[#c9b792] hover:text-white font-medium'} text-sm px-2`}
+                className={`mr-4 pb-4 ${tab === 'labor' ? 'border-b-2 border-primary text-foreground font-bold' : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground font-medium'} text-sm px-2`}
               >
                 Labor Analysis
               </button>
@@ -1365,28 +1365,28 @@ export const GlobalReports: React.FC = () => {
             {tab === 'ledger' ? (
               <div className="flex items-center justify-between gap-4 p-4">
                 <div className="relative max-w-sm w-full">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#c9b792] text-[20px]">search</span>
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]">search</span>
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    className="w-full rounded-lg border border-[#483c23] bg-[#221c11] py-2 pl-10 pr-4 text-sm text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-[#c9b792]/60"
+                    className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
                     placeholder="Search transactions (by date)..."
                     type="text"
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-[#c9b792]">Showing {pageRows.length} of {filteredLedger.length} rows</span>
+                  <span className="text-sm text-muted-foreground">Showing {pageRows.length} of {filteredLedger.length} rows</span>
                   <div className="flex gap-1">
                     <button
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      className="p-1 rounded hover:bg-[#483c23] text-[#c9b792] disabled:opacity-50"
+                      className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-50"
                       disabled={safePage <= 1}
                     >
                       <span className="material-symbols-outlined text-[20px]">chevron_left</span>
                     </button>
                     <button
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      className="p-1 rounded hover:bg-[#483c23] text-white disabled:opacity-50"
+                      className="p-1 rounded hover:bg-accent text-foreground disabled:opacity-50"
                       disabled={safePage >= totalPages}
                     >
                       <span className="material-symbols-outlined text-[20px]">chevron_right</span>
@@ -1398,20 +1398,20 @@ export const GlobalReports: React.FC = () => {
 
             <div className="overflow-x-auto">
               {tab === 'ledger' ? (
-                <table className="w-full text-left text-sm text-[#c9b792]">
-                  <thead className="bg-[#221c11] text-xs uppercase text-[#c9b792] border-b border-[#483c23]">
+                <table className="w-full text-left text-sm text-muted-foreground">
+                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b border-border">
                     <tr>
                       <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider">Date</th>
                       <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-center">Trans. Count</th>
                       <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right">Net Sales</th>
                       <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right">Tax</th>
                       <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right">Tips</th>
-                      <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right text-red-400">Discounts</th>
-                      <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right text-white">Total Collected</th>
+                      <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right text-destructive">Discounts</th>
+                      <th className="whitespace-nowrap px-6 py-3 font-bold tracking-wider text-right text-foreground">Total Collected</th>
                       <th className="px-4 py-3"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#483c23] font-medium">
+                  <tbody className="divide-y divide-border font-medium">
                     {loading ? (
                       <tr>
                         <td className="px-6 py-6" colSpan={8}>
@@ -1426,16 +1426,16 @@ export const GlobalReports: React.FC = () => {
                       </tr>
                     ) : (
                       pageRows.map((r, idx) => (
-                        <tr key={r.date} className={idx % 2 === 1 ? 'bg-[#221c11]/40 hover:bg-[#322a1b] transition-colors' : 'hover:bg-[#322a1b] transition-colors'}>
-                          <td className="whitespace-nowrap px-6 py-4 text-white">{fmtDate(r.date)}</td>
+                        <tr key={r.date} className={idx % 2 === 1 ? 'bg-muted/20 hover:bg-accent/50 transition-colors' : 'hover:bg-accent/50 transition-colors'}>
+                          <td className="whitespace-nowrap px-6 py-4 text-foreground">{fmtDate(r.date)}</td>
                           <td className="whitespace-nowrap px-6 py-4 text-center">{r.txCount}</td>
                           <td className="whitespace-nowrap px-6 py-4 text-right">{money.format(r.netSales)}</td>
                           <td className="whitespace-nowrap px-6 py-4 text-right">{money.format(r.tax)}</td>
                           <td className="whitespace-nowrap px-6 py-4 text-right">{money.format(r.tips)}</td>
-                          <td className="whitespace-nowrap px-6 py-4 text-right text-red-400">-{money.format(Math.abs(r.discounts))}</td>
-                          <td className="whitespace-nowrap px-6 py-4 text-right font-bold text-white">{money.format(r.totalCollected)}</td>
+                          <td className="whitespace-nowrap px-6 py-4 text-right text-destructive">-{money.format(Math.abs(r.discounts))}</td>
+                          <td className="whitespace-nowrap px-6 py-4 text-right font-bold text-foreground">{money.format(r.totalCollected)}</td>
                           <td className="px-4 py-4 text-right">
-                            <button className="text-[#c9b792] hover:text-primary">
+                            <button className="text-muted-foreground hover:text-primary">
                               <span className="material-symbols-outlined">more_vert</span>
                             </button>
                           </td>
@@ -1443,14 +1443,14 @@ export const GlobalReports: React.FC = () => {
                       ))
                     )}
                   </tbody>
-                  <tfoot className="bg-[#221c11] border-t-2 border-[#483c23]">
+                  <tfoot className="bg-muted/50 border-t-2 border-border">
                     <tr>
-                      <td className="px-6 py-4 font-bold text-white uppercase">Totals</td>
-                      <td className="px-6 py-4 text-center font-bold text-white">{totals.txCount}</td>
-                      <td className="px-6 py-4 text-right font-bold text-white">{money.format(totals.netSales)}</td>
-                      <td className="px-6 py-4 text-right font-bold text-white">{money.format(totals.tax)}</td>
-                      <td className="px-6 py-4 text-right font-bold text-white">{money.format(totals.tips)}</td>
-                      <td className="px-6 py-4 text-right font-bold text-red-400">-{money.format(Math.abs(totals.discounts))}</td>
+                      <td className="px-6 py-4 font-bold text-foreground uppercase">Totals</td>
+                      <td className="px-6 py-4 text-center font-bold text-foreground">{totals.txCount}</td>
+                      <td className="px-6 py-4 text-right font-bold text-foreground">{money.format(totals.netSales)}</td>
+                      <td className="px-6 py-4 text-right font-bold text-foreground">{money.format(totals.tax)}</td>
+                      <td className="px-6 py-4 text-right font-bold text-foreground">{money.format(totals.tips)}</td>
+                      <td className="px-6 py-4 text-right font-bold text-destructive">-{money.format(Math.abs(totals.discounts))}</td>
                       <td className="px-6 py-4 text-right font-bold text-primary text-base">{money.format(totals.totalCollected)}</td>
                       <td></td>
                     </tr>
@@ -1458,49 +1458,49 @@ export const GlobalReports: React.FC = () => {
                 </table>
               ) : tab === 'mix' ? (
                 <div className="p-6 text-sm">
-                  <div className="text-white font-bold">Product Mix (by Sold Categories)</div>
-                  <div className="text-[#c9b792] mt-1">Derived from paid orders (order payload items).</div>
+                  <div className="text-foreground font-bold">Product Mix (by Sold Categories)</div>
+                  <div className="text-muted-foreground mt-1">Derived from paid orders (order payload items).</div>
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                     {soldCategories.length ? (
                       soldCategories.slice(0, 8).map((c) => (
-                        <div key={c.name} className="rounded-lg border border-[#483c23] bg-[#221c11] p-4 flex items-center justify-between">
-                          <div className="text-white font-semibold">{c.name}</div>
+                        <div key={c.name} className="rounded-lg border border-border bg-background p-4 flex items-center justify-between">
+                          <div className="text-foreground font-semibold">{c.name}</div>
                           <div className="text-primary font-black">{money.format(Number(c.revenue || 0) || 0)}</div>
                         </div>
                       ))
                     ) : (
-                      <div className="text-[#c9b792]">No category data yet.</div>
+                      <div className="text-muted-foreground">No category data yet.</div>
                     )}
                   </div>
                 </div>
               ) : tab === 'labor' ? (
                 <div className="p-6 text-sm">
-                  <div className="text-white font-bold">Labor Analysis</div>
-                  <div className="text-[#c9b792] mt-1">Shift activity is tracked from real clock-in/clock-out logs.</div>
+                  <div className="text-foreground font-bold">Labor Analysis</div>
+                  <div className="text-muted-foreground mt-1">Shift activity is tracked from real clock-in/clock-out logs.</div>
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="rounded-lg border border-[#483c23] bg-[#221c11] p-4">
-                      <div className="text-[#c9b792] text-xs uppercase tracking-wider">Net Revenue</div>
-                      <div className="text-white text-xl font-black mt-1">{money.format(kpis.totalRevenueNet)}</div>
+                    <div className="rounded-lg border border-border bg-background p-4">
+                      <div className="text-muted-foreground text-xs uppercase tracking-wider">Net Revenue</div>
+                      <div className="text-foreground text-xl font-black mt-1">{money.format(kpis.totalRevenueNet)}</div>
                     </div>
-                    <div className="rounded-lg border border-[#483c23] bg-[#221c11] p-4">
-                      <div className="text-[#c9b792] text-xs uppercase tracking-wider">Shift Hours</div>
-                      <div className="text-white text-xl font-black mt-1">{(shift?.totalHours ?? 0).toFixed(2)} h</div>
+                    <div className="rounded-lg border border-border bg-background p-4">
+                      <div className="text-muted-foreground text-xs uppercase tracking-wider">Shift Hours</div>
+                      <div className="text-foreground text-xl font-black mt-1">{(shift?.totalHours ?? 0).toFixed(2)} h</div>
                     </div>
-                    <div className="rounded-lg border border-[#483c23] bg-[#221c11] p-4">
-                      <div className="text-[#c9b792] text-xs uppercase tracking-wider">Shifts</div>
-                      <div className="text-white text-xl font-black mt-1">{shift?.shifts ?? 0}</div>
+                    <div className="rounded-lg border border-border bg-background p-4">
+                      <div className="text-muted-foreground text-xs uppercase tracking-wider">Shifts</div>
+                      <div className="text-foreground text-xl font-black mt-1">{shift?.shifts ?? 0}</div>
                     </div>
                   </div>
 
                   {shift ? (
-                    <div className="mt-6 rounded-xl border border-[#483c23] overflow-hidden">
-                      <div className="px-5 py-4 bg-[#221c11] border-b border-[#483c23] flex items-center justify-between">
-                        <div className="text-white font-extrabold">Staff Shift Activity</div>
-                        <div className="text-[11px] text-[#c9b792]">Open shifts: {shift.openShifts}</div>
+                    <div className="mt-6 rounded-xl border border-border overflow-hidden">
+                      <div className="px-5 py-4 bg-muted/50 border-b border-border flex items-center justify-between">
+                        <div className="text-foreground font-extrabold">Staff Shift Activity</div>
+                        <div className="text-[11px] text-muted-foreground">Open shifts: {shift.openShifts}</div>
                       </div>
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-[#c9b792]">
-                          <thead className="bg-[#221c11] text-xs uppercase text-[#c9b792] border-b border-[#483c23]">
+                        <table className="w-full text-left text-sm text-muted-foreground">
+                          <thead className="bg-muted/50 text-xs uppercase text-muted-foreground border-b border-border">
                             <tr>
                               <th className="px-5 py-3">Staff</th>
                               <th className="px-5 py-3">Role</th>
@@ -1509,11 +1509,11 @@ export const GlobalReports: React.FC = () => {
                               <th className="px-5 py-3 text-right">Open</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[#483c23]">
+                          <tbody className="divide-y divide-border">
                             {Array.isArray(shift.staff) && shift.staff.length ? (
                               shift.staff.slice(0, 50).map((r) => (
-                                <tr key={r.staffId} className="hover:bg-[#322a1b] transition-colors">
-                                  <td className="px-5 py-3 text-white font-bold whitespace-nowrap">{r.name}</td>
+                                <tr key={r.staffId} className="hover:bg-accent/50 transition-colors">
+                                  <td className="px-5 py-3 text-foreground font-bold whitespace-nowrap">{r.name}</td>
                                   <td className="px-5 py-3 whitespace-nowrap">{r.roleName || '—'}</td>
                                   <td className="px-5 py-3 text-right font-mono">{Number(r.hours || 0).toFixed(2)}</td>
                                   <td className="px-5 py-3 text-right font-mono">{r.shifts}</td>
@@ -1522,7 +1522,7 @@ export const GlobalReports: React.FC = () => {
                               ))
                             ) : (
                               <tr>
-                                <td className="px-5 py-6 text-[#c9b792]" colSpan={5}>
+                                <td className="px-5 py-6 text-muted-foreground" colSpan={5}>
                                   No shift activity in this date range.
                                 </td>
                               </tr>
@@ -1532,11 +1532,11 @@ export const GlobalReports: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-6 text-[#c9b792]">No shift activity data available.</div>
+                    <div className="mt-6 text-muted-foreground">No shift activity data available.</div>
                   )}
                 </div>
               ) : (
-                <div className="p-6 text-sm text-[#c9b792]">No void/comp events recorded yet.</div>
+                <div className="p-6 text-sm text-muted-foreground">No void/comp events recorded yet.</div>
               )}
             </div>
           </div>

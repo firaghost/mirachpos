@@ -356,7 +356,7 @@ export const OwnerDashboard: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#181611] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <InitializePosModal
         open={posInitOpen}
         onClose={() => setPosInitOpen(false)}
@@ -369,29 +369,29 @@ export const OwnerDashboard: React.FC = () => {
         title="Overview"
         leftSlot={
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-xs text-[#b9b09d]">Branch:</span>
-            <span className="text-xs font-bold px-2 py-1 rounded-full bg-[#393328] text-white">{selectedBranchName || selectedBranchId || 'All Locations'}</span>
+            <span className="text-xs text-muted-foreground">Branch:</span>
+            <span className="text-xs font-bold px-2 py-1 rounded-full bg-muted text-foreground">{selectedBranchName || selectedBranchId || 'All Locations'}</span>
           </div>
         }
         rightSlot={
           <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center bg-[#393328] rounded-lg h-10 w-64 px-3 gap-2">
-              <span className="material-symbols-outlined text-[#b9b09d]" style={{ fontSize: 20 }}>search</span>
+            <div className="hidden md:flex items-center bg-muted rounded-lg h-10 w-64 px-3 gap-2">
+              <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: 20 }}>search</span>
               <input
                 value={tableQuery}
                 onChange={(e) => setTableQuery(e.target.value)}
-                className="bg-transparent border-none text-sm text-white placeholder-[#b9b09d] focus:ring-0 w-full p-0"
+                className="bg-transparent border-none text-sm text-foreground placeholder:text-muted-foreground focus:ring-0 w-full p-0"
                 placeholder="Search branches ¦"
                 type="text"
               />
             </div>
-            <button className="relative text-[#b9b09d] hover:text-white transition-colors" onClick={() => setTableStatus('All')} type="button">
+            <button className="relative text-muted-foreground hover:text-foreground transition-colors" onClick={() => setTableStatus('All')} type="button">
               <span className="material-symbols-outlined">notifications</span>
-              {alertsCount > 0 ? <span className="absolute top-0 right-0 size-2 bg-red-500 rounded-full border-2 border-[#181611]"></span> : null}
+              {alertsCount > 0 ? <span className="absolute top-0 right-0 size-2 bg-destructive rounded-full border-2 border-background"></span> : null}
             </button>
             <button
               onClick={refreshOverview}
-              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-[#393328] text-white rounded-lg text-sm font-bold hover:bg-[#393328]/80 transition-colors"
+              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-muted text-foreground rounded-lg text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>refresh</span>
@@ -399,7 +399,7 @@ export const OwnerDashboard: React.FC = () => {
             </button>
             <button
               onClick={goToBranchSelect}
-              className="flex items-center justify-center gap-2 h-10 px-4 bg-[#eead2b] text-[#181611] rounded-lg text-sm font-bold hover:bg-[#d99a20] transition-colors shadow-[0_0_15px_rgba(238,173,43,0.3)]"
+              className="flex items-center justify-center gap-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-md"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>swap_horiz</span>
@@ -408,7 +408,7 @@ export const OwnerDashboard: React.FC = () => {
             {selectedBranchId ? (
               <button
                 onClick={clearBranchSelection}
-                className="hidden lg:flex items-center justify-center gap-2 h-10 px-4 bg-[#393328] text-white rounded-lg text-sm font-bold hover:bg-[#393328]/80 transition-colors"
+                className="hidden lg:flex items-center justify-center gap-2 h-10 px-4 bg-muted text-foreground rounded-lg text-sm font-bold hover:bg-accent transition-colors"
                 type="button"
               >
                 <span className="material-symbols-outlined" style={{ fontSize: 20 }}>public</span>
@@ -419,7 +419,7 @@ export const OwnerDashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPosInitOpen(true)}
-                className="hidden lg:flex items-center justify-center gap-2 h-10 px-4 bg-[#221c10] border border-[#544b3b] text-[#eead2b] rounded-lg text-sm font-black hover:bg-[#2c2417] transition-colors"
+                className="hidden lg:flex items-center justify-center gap-2 h-10 px-4 bg-card border border-border text-primary rounded-lg text-sm font-black hover:bg-accent transition-colors"
               >
                 <span className="material-symbols-outlined" style={{ fontSize: 20 }}>build</span>
                 <span className="hidden sm:inline">Initialize POS</span>
@@ -433,103 +433,103 @@ export const OwnerDashboard: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-6 lg:p-10">
         <div className="max-w-[1400px] mx-auto flex flex-col gap-8">
           {error ? (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+            <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
               {error}
             </div>
           ) : null}
 
           {!loading && !error && (!overview || safeBranches.length === 0) ? (
-            <div className="rounded-xl border border-[#393328] bg-[#1f1b14] p-6 text-sm text-[#c8ad93]">
-              No branches yet for this workspace. Create your first branch in <span className="font-bold text-white">Branch Management</span>.
+            <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+              No branches yet for this workspace. Create your first branch in <span className="font-bold text-foreground">Branch Management</span>.
             </div>
           ) : null}
 
           <div className="flex items-center justify-between">
-            <div className="text-xs text-[#b9b09d]">{lastUpdatedAt ? `Last updated: ${lastUpdatedAt}` : null}</div>
-            {loading ? <div className="text-xs text-[#b9b09d]">Loading ¦</div> : null}
+            <div className="text-xs text-muted-foreground">{lastUpdatedAt ? `Last updated: ${lastUpdatedAt}` : null}</div>
+            {loading ? <div className="text-xs text-muted-foreground">Loading ¦</div> : null}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="flex flex-col gap-1 rounded-xl p-5 bg-[#393328] border border-[#544b3b] shadow-lg">
+            <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border shadow-lg">
               <div className="flex justify-between items-start">
-                <div className="p-2 bg-[#2d2820] rounded-lg text-[#eead2b]">
+                <div className="p-2 bg-muted rounded-lg text-primary">
                   <span className="material-symbols-outlined">attach_money</span>
                 </div>
-                <span className="bg-[#1e3a23] text-[#4ade80] text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-500 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                   <span className="material-symbols-outlined" style={{ fontSize: 14 }}>trending_up</span>
                   {Math.round(Number((data.kpis as any).revenueDeltaPct || 0))}%
                 </span>
               </div>
               <div className="mt-3">
-                <p className="text-[#b9b09d] text-sm font-medium">Total Revenue (Month)</p>
-                <p className="text-white text-2xl font-bold tracking-tight mt-1">{fmtMoney(data.kpis.totalRevenueMonth)}</p>
+                <p className="text-muted-foreground text-sm font-medium">Total Revenue (Month)</p>
+                <p className="text-foreground text-2xl font-bold tracking-tight mt-1">{fmtMoney(data.kpis.totalRevenueMonth)}</p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-1 rounded-xl p-5 bg-[#393328] border border-[#544b3b] shadow-lg">
+            <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border shadow-lg">
               <div className="flex justify-between items-start">
-                <div className="p-2 bg-[#2d2820] rounded-lg text-white">
+                <div className="p-2 bg-muted rounded-lg text-foreground">
                   <span className="material-symbols-outlined">store</span>
                 </div>
-                <span className="bg-[#1e3a23] text-[#4ade80] text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-500 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                   <span className="material-symbols-outlined" style={{ fontSize: 14 }}>trending_up</span>
                   2%
                 </span>
               </div>
               <div className="mt-3">
-                <p className="text-[#b9b09d] text-sm font-medium">Active Branches</p>
-                <p className="text-white text-2xl font-bold tracking-tight mt-1">
-                  {data.kpis.activeBranches} <span className="text-[#b9b09d] text-base font-normal">/ {data.kpis.totalBranches}</span>
+                <p className="text-muted-foreground text-sm font-medium">Active Branches</p>
+                <p className="text-foreground text-2xl font-bold tracking-tight mt-1">
+                  {data.kpis.activeBranches} <span className="text-muted-foreground text-base font-normal">/ {data.kpis.totalBranches}</span>
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-1 rounded-xl p-5 bg-[#393328] border border-[#544b3b] shadow-lg">
+            <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border shadow-lg">
               <div className="flex justify-between items-start">
-                <div className="p-2 bg-[#2d2820] rounded-lg text-white">
+                <div className="p-2 bg-muted rounded-lg text-foreground">
                   <span className="material-symbols-outlined">receipt_long</span>
                 </div>
-                <span className="bg-[#1e3a23] text-[#4ade80] text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-500 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                   <span className="material-symbols-outlined" style={{ fontSize: 14 }}>trending_up</span>
                   {Math.round(Number((data.kpis as any).ordersDeltaPct || 0))}%
                 </span>
               </div>
               <div className="mt-3">
-                <p className="text-[#b9b09d] text-sm font-medium">Total Orders</p>
-                <p className="text-white text-2xl font-bold tracking-tight mt-1">{data.kpis.totalOrders.toLocaleString()}</p>
+                <p className="text-muted-foreground text-sm font-medium">Total Orders</p>
+                <p className="text-foreground text-2xl font-bold tracking-tight mt-1">{data.kpis.totalOrders.toLocaleString()}</p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-1 rounded-xl p-5 bg-[#393328] border border-[#544b3b] shadow-lg">
+            <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border shadow-lg">
               <div className="flex justify-between items-start">
-                <div className="p-2 bg-[#2d2820] rounded-lg text-white">
+                <div className="p-2 bg-muted rounded-lg text-foreground">
                   <span className="material-symbols-outlined">account_balance_wallet</span>
                 </div>
-                <span className="bg-[#1e3a23] text-[#4ade80] text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-500 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                   <span className="material-symbols-outlined" style={{ fontSize: 14 }}>trending_up</span>
                   {Math.round(Number((data.kpis as any).netProfitDeltaPct || 0))}%
                 </span>
               </div>
               <div className="mt-3">
-                <p className="text-[#b9b09d] text-sm font-medium">Net Profit</p>
-                <p className="text-white text-2xl font-bold tracking-tight mt-1">{fmtMoney(data.kpis.netProfit)}</p>
+                <p className="text-muted-foreground text-sm font-medium">Net Profit</p>
+                <p className="text-foreground text-2xl font-bold tracking-tight mt-1">{fmtMoney(data.kpis.netProfit)}</p>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 rounded-xl border border-[#544b3b] bg-[#221c10] p-6 shadow-lg">
+            <div className="lg:col-span-2 rounded-xl border border-border bg-card p-6 shadow-lg">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-white text-lg font-bold">Revenue Analytics</h3>
-                  <p className="text-[#b9b09d] text-sm">Comparison across all branches</p>
+                  <h3 className="text-foreground text-lg font-bold">Revenue Analytics</h3>
+                  <p className="text-muted-foreground text-sm">Comparison across all branches</p>
                 </div>
-                <div className="flex bg-[#393328] rounded-lg p-1">
+                <div className="flex bg-muted rounded-lg p-1">
                   {(['Daily', 'Weekly', 'Monthly'] as const).map((r) => (
                     <button
                       key={r}
                       onClick={() => setRange(r)}
-                      className={`px-3 py-1 rounded text-xs font-bold transition-colors ${range === r ? 'bg-[#181611] text-white shadow-sm' : 'text-[#b9b09d] hover:text-white'
+                      className={`px-3 py-1 rounded text-xs font-bold transition-colors ${range === r ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                     >
                       {r}
@@ -539,10 +539,10 @@ export const OwnerDashboard: React.FC = () => {
               </div>
 
               {trend.length === 0 ? (
-                <div className="h-64 w-full rounded-lg border border-dashed border-[#393328] bg-[#1a1611] flex items-center justify-center px-6 text-center">
+                <div className="h-64 w-full rounded-lg border border-dashed border-border bg-muted flex items-center justify-center px-6 text-center">
                   <div className="flex flex-col gap-2">
-                    <div className="text-sm font-bold text-white">No revenue history yet</div>
-                    <div className="text-xs text-[#b9b09d]">
+                    <div className="text-sm font-bold text-foreground">No revenue history yet</div>
+                    <div className="text-xs text-muted-foreground">
                       This chart will populate automatically after orders are recorded.
                     </div>
                   </div>
@@ -551,14 +551,14 @@ export const OwnerDashboard: React.FC = () => {
                 <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                      <CartesianGrid stroke="#393328" strokeDasharray="3 3" />
-                      <XAxis dataKey="key" stroke="#b9b09d" tick={{ fill: '#b9b09d', fontSize: 12 }} />
-                      <YAxis stroke="#b9b09d" tick={{ fill: '#b9b09d', fontSize: 12 }} />
+                      <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                      <XAxis dataKey="key" stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: '#221c10', borderColor: '#544b3b', color: '#fff' }}
-                        itemStyle={{ color: '#eead2b' }}
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))' }}
+                        itemStyle={{ color: 'hsl(var(--primary))' }}
                       />
-                      <Line type="monotone" dataKey="revenue" stroke="#eead2b" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -566,19 +566,19 @@ export const OwnerDashboard: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-4">
-              <div className="rounded-xl border border-[#544b3b] bg-[#221c10] p-5 shadow-lg flex-1">
-                <h3 className="text-white text-base font-bold mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#eead2b]">dns</span> System Health
+              <div className="rounded-xl border border-border bg-card p-5 shadow-lg flex-1">
+                <h3 className="text-foreground text-base font-bold mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">dns</span> System Health
                 </h3>
                 <div className="flex flex-col gap-4">
                   {data.health.map((h) => {
-                    const dot = h.status === 'Good' ? 'bg-[#4ade80] shadow-[0_0_8px_#4ade80]' : h.status === 'Warn' ? 'bg-[#eead2b]' : 'bg-[#ef4444]';
-                    const val = h.status === 'Good' ? 'text-[#4ade80]' : h.status === 'Warn' ? 'text-[#b9b09d]' : 'text-[#ef4444]';
+                    const dot = h.status === 'Good' ? 'bg-emerald-500' : h.status === 'Warn' ? 'bg-primary' : 'bg-destructive';
+                    const val = h.status === 'Good' ? 'text-emerald-600 dark:text-emerald-500' : h.status === 'Warn' ? 'text-muted-foreground' : 'text-destructive';
                     return (
                       <div key={h.label} className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className={`size-2 rounded-full ${dot}`}></div>
-                          <span className="text-sm text-white">{h.label}</span>
+                          <span className="text-sm text-foreground">{h.label}</span>
                         </div>
                         <span className={`text-xs font-mono ${val}`}>{h.value}</span>
                       </div>
@@ -587,25 +587,25 @@ export const OwnerDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[#544b3b] bg-[#221c10] p-5 shadow-lg flex-1">
-                <h3 className="text-white text-base font-bold mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#ef4444]">warning</span> Critical Alerts
+              <div className="rounded-xl border border-border bg-card p-5 shadow-lg flex-1">
+                <h3 className="text-foreground text-base font-bold mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-destructive">warning</span> Critical Alerts
                 </h3>
                 <div className="flex flex-col gap-3">
                   {data.alerts.map((a) => (
                     <div
                       key={a.title}
-                      className={`p-3 rounded-lg bg-[#393328]/50 border flex items-start gap-3 ${a.severity === 'Critical' ? 'border-[#ef4444]/30' : 'border-[#eead2b]/30'
+                      className={`p-3 rounded-lg bg-muted/50 border flex items-start gap-3 ${a.severity === 'Critical' ? 'border-destructive/30' : 'border-primary/30'
                         }`}
                     >
                       <span
-                        className={`material-symbols-outlined text-lg shrink-0 mt-0.5 ${a.severity === 'Critical' ? 'text-[#ef4444]' : 'text-[#eead2b]'}`}
+                        className={`material-symbols-outlined text-lg shrink-0 mt-0.5 ${a.severity === 'Critical' ? 'text-destructive' : 'text-primary'}`}
                       >
                         {a.icon}
                       </span>
                       <div>
-                        <p className="text-white text-xs font-bold">{a.title}</p>
-                        <p className="text-[#b9b09d] text-[11px] mt-0.5">{a.detail}</p>
+                        <p className="text-foreground text-xs font-bold">{a.title}</p>
+                        <p className="text-muted-foreground text-[11px] mt-0.5">{a.detail}</p>
                       </div>
                     </div>
                   ))}
@@ -614,19 +614,19 @@ export const OwnerDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#544b3b] bg-[#221c10] overflow-hidden shadow-lg mb-8">
-            <div className="px-6 py-4 border-b border-[#393328] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-lg mb-8">
+            <div className="px-6 py-4 border-b border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-white text-lg font-bold">Branch Performance</h3>
-                <p className="text-[#b9b09d] text-sm">Real-time data from all locations</p>
+                <h3 className="text-foreground text-lg font-bold">Branch Performance</h3>
+                <p className="text-muted-foreground text-sm">Real-time data from all locations</p>
               </div>
               <div className="flex gap-3">
-                <div className="hidden md:flex items-center bg-[#393328] rounded-lg h-10 w-64 px-3 gap-2">
-                  <span className="material-symbols-outlined text-[#b9b09d]" style={{ fontSize: 20 }}>search</span>
+                <div className="hidden md:flex items-center bg-muted rounded-lg h-10 w-64 px-3 gap-2">
+                  <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: 20 }}>search</span>
                   <input
                     value={tableQuery}
                     onChange={(e) => setTableQuery(e.target.value)}
-                    className="bg-transparent border-none text-sm text-white placeholder-[#b9b09d] focus:ring-0 w-full p-0"
+                    className="bg-transparent border-none text-sm text-foreground placeholder:text-muted-foreground focus:ring-0 w-full p-0"
                     placeholder="Search in table ¦"
                     type="text"
                   />
@@ -634,7 +634,7 @@ export const OwnerDashboard: React.FC = () => {
                 <select
                   value={tableStatus}
                   onChange={(e) => setTableStatus(e.target.value as 'All' | 'Open' | 'Closed')}
-                  className="h-10 px-3 rounded-lg border border-[#544b3b] bg-[#221c10] text-[#b9b09d] text-sm hover:text-white"
+                  className="h-10 px-3 rounded-lg border border-border bg-background text-muted-foreground text-sm hover:text-foreground"
                 >
                   <option value="All">All</option>
                   <option value="Open">Open</option>
@@ -642,7 +642,7 @@ export const OwnerDashboard: React.FC = () => {
                 </select>
                 <button
                   onClick={exportCsv}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#544b3b] text-[#b9b09d] text-sm hover:text-white hover:bg-[#393328] transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border text-muted-foreground text-sm hover:text-foreground hover:bg-accent transition-colors"
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 18 }}>download</span>
                   Export CSV
@@ -653,7 +653,7 @@ export const OwnerDashboard: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-[#27231c] text-[#b9b09d] text-xs uppercase tracking-wider">
+                  <tr className="bg-muted text-muted-foreground text-xs uppercase tracking-wider">
                     <th className="px-6 py-4 font-medium">Branch Name</th>
                     <th className="px-6 py-4 font-medium">Manager</th>
                     <th className="px-6 py-4 font-medium text-right">Today's Revenue</th>
@@ -662,21 +662,21 @@ export const OwnerDashboard: React.FC = () => {
                     <th className="px-6 py-4 font-medium text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#393328] text-sm">
+                <tbody className="divide-y divide-border text-sm">
                   {pageRows.map((b) => (
-                    <tr key={b.id} className="hover:bg-[#393328]/30 transition-colors group">
-                      <td className="px-6 py-4 text-white font-medium">
+                    <tr key={b.id} className="hover:bg-accent/50 transition-colors group">
+                      <td className="px-6 py-4 text-foreground font-medium">
                         <div className="flex items-center gap-3">
-                          <div className="size-8 rounded bg-[#393328] flex items-center justify-center text-[#eead2b] font-bold">{b.name.slice(0, 1).toUpperCase()}</div>
+                          <div className="size-8 rounded bg-muted flex items-center justify-center text-primary font-bold">{b.name.slice(0, 1).toUpperCase()}</div>
                           <span>{b.name}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-[#b9b09d]">{b.manager}</td>
-                      <td className="px-6 py-4 text-white text-right font-medium">{fmtMoney(b.revenueToday)}</td>
-                      <td className="px-6 py-4 text-[#b9b09d] text-right">{b.ordersToday}</td>
+                      <td className="px-6 py-4 text-muted-foreground">{b.manager}</td>
+                      <td className="px-6 py-4 text-foreground text-right font-medium">{fmtMoney(b.revenueToday)}</td>
+                      <td className="px-6 py-4 text-muted-foreground text-right">{b.ordersToday}</td>
                       <td className="px-6 py-4 text-center">
                         <span
-                          className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${b.status === 'Open' ? 'bg-[#1e3a23] text-[#4ade80]' : 'bg-[#3a1e1e] text-[#ef4444]'
+                          className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${b.status === 'Open' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-500' : 'bg-destructive/15 text-destructive'
                             }`}
                         >
                           {b.status}
@@ -687,7 +687,7 @@ export const OwnerDashboard: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setFiscalConfig({ id: b.id, name: b.name })}
-                            className="size-8 rounded hover:bg-[#393328] flex items-center justify-center text-[#b9b09d] hover:text-white transition-colors"
+                            className="size-8 rounded hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                             title="Fiscal Settings"
                           >
                             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>settings</span>
@@ -695,7 +695,7 @@ export const OwnerDashboard: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => focusBranch(b.id, b.name)}
-                            className="size-8 rounded hover:bg-[#393328] flex items-center justify-center text-[#b9b09d] hover:text-white transition-colors"
+                            className="size-8 rounded hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                             title="View Dashboard"
                           >
                             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>visibility</span>
@@ -708,20 +708,20 @@ export const OwnerDashboard: React.FC = () => {
               </table>
             </div>
 
-            <div className="px-6 py-4 border-t border-[#393328] flex items-center justify-between">
-              <p className="text-[#b9b09d] text-xs">Showing {pageRows.length} of {filteredRows.length} branches</p>
+            <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+              <p className="text-muted-foreground text-xs">Showing {pageRows.length} of {filteredRows.length} branches</p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="size-8 flex items-center justify-center rounded bg-[#393328] text-[#b9b09d] hover:text-white disabled:opacity-50"
+                  className="size-8 flex items-center justify-center rounded bg-muted text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
                   disabled={safePage <= 1}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 18 }}>chevron_left</span>
                 </button>
-                <button className="size-8 flex items-center justify-center rounded bg-[#eead2b] text-[#181611] font-bold">{safePage}</button>
+                <button className="size-8 flex items-center justify-center rounded bg-primary text-primary-foreground font-bold">{safePage}</button>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="size-8 flex items-center justify-center rounded bg-[#393328] text-[#b9b09d] hover:text-white disabled:opacity-50"
+                  className="size-8 flex items-center justify-center rounded bg-muted text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
                   disabled={safePage >= totalPages}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 18 }}>chevron_right</span>

@@ -93,7 +93,7 @@ export const PortalMenu: React.FC<{
     >
       <div
         ref={ref}
-        className="rounded-lg border border-[#675532] bg-[#1a150c] text-white shadow-2xl overflow-hidden"
+        className="rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden"
         style={{
           pointerEvents: 'auto',
           position: 'fixed',

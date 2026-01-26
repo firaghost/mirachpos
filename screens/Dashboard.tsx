@@ -30,12 +30,12 @@ export const Dashboard: React.FC<{ role: UserRole }> = ({ role }) => {
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {currentStats.map((stat, idx) => (
-                    <div key={idx} className="bg-surface p-5 rounded-xl border border-border flex flex-col gap-1 relative overflow-hidden group hover:border-primary/30 transition-colors">
+                    <div key={idx} className="bg-card p-5 rounded-xl border border-border flex flex-col gap-1 relative overflow-hidden group hover:border-primary/30 transition-colors">
                         <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <span className="material-symbols-outlined text-[64px] text-primary">{stat.icon}</span>
                         </div>
-                        <p className="text-text-muted text-sm font-medium">{stat.label}</p>
-                        <h3 className="text-white text-3xl font-bold tracking-tight mt-1">{stat.value}</h3>
+                        <p className="text-muted-foreground text-sm font-medium">{stat.label}</p>
+                        <h3 className="text-foreground text-3xl font-bold tracking-tight mt-1">{stat.value}</h3>
                         <div className={`flex items-center gap-1 mt-2 text-xs font-bold ${stat.positive ? 'text-success' : 'text-danger'} bg-${stat.positive ? 'success' : 'danger'}/10 w-fit px-2 py-1 rounded`}>
                             <span className="material-symbols-outlined text-[14px]">{stat.positive ? 'trending_up' : 'trending_down'}</span>
                             <span>{stat.trend}</span>
@@ -48,12 +48,12 @@ export const Dashboard: React.FC<{ role: UserRole }> = ({ role }) => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 {/* Main Chart */}
-                <div className="lg:col-span-2 bg-surface rounded-xl border border-border p-6 flex flex-col">
+                <div className="lg:col-span-2 bg-card rounded-xl border border-border p-6 flex flex-col">
                     <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-white text-lg font-bold">{isSuperAdmin ? 'System Revenue' : 'Sales Trends (Hourly)'}</h3>
-                        <div className="flex bg-surface-light p-1 rounded-lg">
-                            <button className="px-3 py-1 bg-border text-white text-xs font-medium rounded shadow-sm">Today</button>
-                            <button className="px-3 py-1 text-text-muted hover:text-white text-xs font-medium rounded transition-colors">Week</button>
+                        <h3 className="text-foreground text-lg font-bold">{isSuperAdmin ? 'System Revenue' : 'Sales Trends (Hourly)'}</h3>
+                        <div className="flex bg-muted p-1 rounded-lg">
+                            <button className="px-3 py-1 bg-border text-foreground text-xs font-medium rounded shadow-sm">Today</button>
+                            <button className="px-3 py-1 text-muted-foreground hover:text-foreground text-xs font-medium rounded transition-colors">Week</button>
                         </div>
                     </div>
                     <div className="h-[300px] w-full">
@@ -61,25 +61,25 @@ export const Dashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                             <AreaChart data={data}>
                                 <defs>
                                     <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#eead2b" stopOpacity={0.3}/>
-                                        <stop offset="95%" stopColor="#eead2b" stopOpacity={0}/>
+                                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
                                     </linearGradient>
                                 </defs>
-                                <XAxis dataKey="name" stroke="#483c23" tick={{fill: '#c9b792', fontSize: 12}} />
+                                <XAxis dataKey="name" stroke="hsl(var(--border))" tick={{fill: 'hsl(var(--muted-foreground))', fontSize: 12}} />
                                 <Tooltip 
-                                    contentStyle={{backgroundColor: '#2c2417', borderColor: '#483c23', color: '#fff'}}
-                                    itemStyle={{color: '#eead2b'}}
+                                    contentStyle={{backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))'}}
+                                    itemStyle={{color: 'hsl(var(--primary))'}}
                                 />
-                                <Area type="monotone" dataKey="uv" stroke="#eead2b" strokeWidth={2} fillOpacity={1} fill="url(#colorUv)" />
+                                <Area type="monotone" dataKey="uv" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorUv)" />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
                 {/* Right Panel: Recent Orders (Cafe) OR System Alerts (Super Admin) */}
-                <div className="bg-surface rounded-xl border border-border flex flex-col h-full">
+                <div className="bg-card rounded-xl border border-border flex flex-col h-full">
                     <div className="p-4 border-b border-border flex items-center justify-between">
-                        <h3 className="text-white font-bold">{isSuperAdmin ? 'System Alerts' : 'Recent Orders'}</h3>
+                        <h3 className="text-foreground font-bold">{isSuperAdmin ? 'System Alerts' : 'Recent Orders'}</h3>
                         <span className="flex h-2 w-2 relative">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
@@ -93,9 +93,9 @@ export const Dashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                                     <div key={i} className="flex items-start gap-3 p-4 border-b border-border/50">
                                         <span className="material-symbols-outlined text-warning mt-1">warning</span>
                                         <div>
-                                            <p className="text-white text-sm font-bold">High Server Load</p>
-                                            <p className="text-text-muted text-xs">US-East Region database latency spike.</p>
-                                            <span className="text-[10px] text-text-muted mt-1 block">2 mins ago</span>
+                                            <p className="text-foreground text-sm font-bold">High Server Load</p>
+                                            <p className="text-muted-foreground text-xs">US-East Region database latency spike.</p>
+                                            <span className="text-[10px] text-muted-foreground mt-1 block">2 mins ago</span>
                                         </div>
                                     </div>
                                 ))}
@@ -103,21 +103,21 @@ export const Dashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                         ) : (
                             <div className="flex flex-col">
                                 {RECENT_ORDERS.map((order, i) => (
-                                    <div key={i} className="flex items-center justify-between p-4 border-b border-border/50 hover:bg-surface-light transition-colors cursor-pointer">
+                                    <div key={i} className="flex items-center justify-between p-4 border-b border-border/50 hover:bg-accent transition-colors cursor-pointer">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-lg bg-surface-light border border-border flex items-center justify-center text-primary">
+                                            <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center text-primary">
                                                 <span className="material-symbols-outlined">restaurant</span>
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-white text-sm font-bold">{order.id} <span className="text-text-muted font-normal">• {order.table}</span></span>
-                                                <span className="text-text-muted text-xs truncate max-w-[120px]">{order.items}</span>
+                                                <span className="text-foreground text-sm font-bold">{order.id} <span className="text-muted-foreground font-normal">• {order.table}</span></span>
+                                                <span className="text-muted-foreground text-xs truncate max-w-[120px]">{order.items}</span>
                                             </div>
                                         </div>
                                         <div className="flex flex-col items-end">
-                                            <span className="text-white font-mono font-bold text-sm">ETB {order.total}</span>
+                                            <span className="text-foreground font-mono font-bold text-sm">ETB {order.total}</span>
                                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                                                 order.status === 'Cooking' ? 'bg-warning/20 text-warning' :
-                                                order.status === 'Ready' ? 'bg-white-500/20 text-white-400' :
+                                                order.status === 'Ready' ? 'bg-primary/10 text-primary' :
                                                 'bg-success/20 text-success'
                                             }`}>
                                                 {order.status}
@@ -130,7 +130,7 @@ export const Dashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                     </div>
                     
                     <div className="p-3 border-t border-border text-center">
-                        <button className="text-xs text-text-muted hover:text-white font-bold uppercase tracking-wider">View All</button>
+                        <button className="text-xs text-muted-foreground hover:text-foreground font-bold uppercase tracking-wider">View All</button>
                     </div>
                 </div>
             </div>

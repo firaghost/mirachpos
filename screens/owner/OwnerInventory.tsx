@@ -24,6 +24,8 @@ type Api = {
   meta: { generatedAt: string };
 };
 
+type Supplier = { id: string; name: string; status?: string };
+
 const csvEscape = (v: unknown) => {
   const s = String(v ?? '');
   return `"${s.replace(/"/g, '""')}"`;
@@ -44,9 +46,14 @@ export const OwnerInventory: React.FC = () => {
   const [activeItem, setActiveItem] = useState<Item | null>(null);
 
   const [poBranchId, setPoBranchId] = useState('');
+  const [poSupplierId, setPoSupplierId] = useState('');
   const [poSku, setPoSku] = useState('');
   const [poQty, setPoQty] = useState('');
   const [poNotes, setPoNotes] = useState('');
+
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(false);
+  const [suppliersError, setSuppliersError] = useState<string | null>(null);
 
   const [trFromBranchId, setTrFromBranchId] = useState('');
   const [trToBranchId, setTrToBranchId] = useState('');
@@ -204,6 +211,7 @@ export const OwnerInventory: React.FC = () => {
     setModalLoading(false);
     setActiveItem(null);
     setPoBranchId('');
+    setPoSupplierId('');
     setPoSku('');
     setPoQty('');
     setPoNotes('');
@@ -216,6 +224,48 @@ export const OwnerInventory: React.FC = () => {
     setCountSku('');
   };
 
+  const loadSuppliers = useCallback(async (branchId: string) => {
+    const bid = String(branchId || '').trim();
+    if (!bid) {
+      setSuppliers([]);
+      setSuppliersError('Select a branch to load suppliers.');
+      return;
+    }
+    setSuppliersLoading(true);
+    setSuppliersError(null);
+    try {
+      const qs = new URLSearchParams({ branchId: bid, limit: '200' });
+      const res = await apiFetch(`/api/manager/suppliers?${qs.toString()}`);
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(String(json?.error || json?.message || res.status));
+      const rows = Array.isArray(json?.suppliers) ? (json.suppliers as any[]) : [];
+      const mapped = rows
+        .map((s) => ({ id: String(s?.id || ''), name: String(s?.name || ''), status: s?.status ? String(s.status) : undefined }))
+        .filter((s) => s.id && s.name);
+      setSuppliers(mapped);
+      if (!poSupplierId && mapped[0]?.id) setPoSupplierId(mapped[0].id);
+    } catch (e) {
+      setSuppliers([]);
+      setSuppliersError(e instanceof Error ? e.message : 'Failed to load suppliers.');
+    } finally {
+      setSuppliersLoading(false);
+    }
+  }, [poSupplierId]);
+
+  useEffect(() => {
+    if (modal !== 'po') return;
+    if (!poBranchId) {
+      setSuppliers([]);
+      setSuppliersError(null);
+      setPoSupplierId('');
+      return;
+    }
+    setSuppliers([]);
+    setSuppliersError(null);
+    setPoSupplierId('');
+    void loadSuppliers(poBranchId);
+  }, [loadSuppliers, modal, poBranchId]);
+
   const closeModal = () => {
     setModal(null);
     resetModalState();
@@ -226,10 +276,13 @@ export const OwnerInventory: React.FC = () => {
     setModalLoading(false);
     setActiveItem(null);
     setModal('po');
+    const bid = prefill?.branchId || branchId || '';
     setPoSku(prefill?.sku || '');
-    setPoBranchId(prefill?.branchId || branchId || '');
+    setPoBranchId(bid);
+    setPoSupplierId('');
     setPoQty('');
     setPoNotes('');
+    if (bid) void loadSuppliers(bid);
   };
 
   const openTransfer = (prefill?: { sku?: string }) => {
@@ -266,6 +319,11 @@ export const OwnerInventory: React.FC = () => {
       setBanner({ kind: 'error', message: 'Select a branch for the PO.' });
       return;
     }
+    const supplierId = poSupplierId.trim();
+    if (!supplierId) {
+      setBanner({ kind: 'error', message: 'Select a supplier.' });
+      return;
+    }
     const sku = poSku.trim();
     if (!sku) {
       setBanner({ kind: 'error', message: 'Enter SKU.' });
@@ -278,8 +336,35 @@ export const OwnerInventory: React.FC = () => {
     }
     setModalLoading(true);
     try {
-      await postBranchEvent(bid, 'po_created', { sku, qty, notes: poNotes.trim() });
-      setBanner({ kind: 'success', message: `PO created for ${sku} (${qty}).` });
+      const inv = (data?.items || []).find((x) => String(x.sku) === String(sku));
+      const unitCost = Number(inv?.cost ?? 0) || 0;
+      const unit = String(inv?.unit || '');
+      const name = String(inv?.name || sku);
+
+      const qs = new URLSearchParams({ branchId: bid });
+      const res = await apiFetch(`/api/manager/purchase-orders?${qs.toString()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          supplierId,
+          referenceNo: '',
+          notes: poNotes.trim(),
+          status: 'Sent',
+          items: [
+            {
+              inventoryItemId: sku,
+              name,
+              unit,
+              qtyOrdered: qty,
+              unitCost,
+            },
+          ],
+        }),
+      });
+      const payload = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(String(payload?.error || payload?.message || res.status));
+      const ref = typeof payload?.referenceNo === 'string' ? payload.referenceNo : '';
+      setBanner({ kind: 'success', message: `PO sent${ref ? ` (${ref})` : ''}. Branch manager can receive it in Inventory → Purchase Orders.` });
       closeModal();
     } catch (e) {
       setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to create PO.' });
@@ -339,27 +424,27 @@ export const OwnerInventory: React.FC = () => {
     }
   };
 
-  const distColors = ['bg-primary', 'bg-white-500', 'bg-purple-500', 'bg-green-500', 'bg-red-500', 'bg-teal-500'];
+  const distColors = ['bg-primary', 'bg-sky-500', 'bg-violet-500', 'bg-emerald-500', 'bg-rose-500', 'bg-teal-500'];
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <OwnerPageHeader
         title="Global Inventory"
         rightSlot={
           <div className="flex items-center gap-3">
-            <div className="flex items-center bg-[#393328] rounded-lg h-10 w-40 sm:w-56 md:w-72 px-3 gap-2">
-              <span className="material-symbols-outlined text-[#b9b09d]" style={{ fontSize: 20 }}>search</span>
+            <div className="flex items-center bg-muted rounded-lg h-10 w-40 sm:w-56 md:w-72 px-3 gap-2 border border-border">
+              <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: 20 }}>search</span>
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                className="bg-transparent border-none text-sm text-white placeholder-[#b9b09d] focus:ring-0 w-full p-0"
+                className="bg-transparent border-none text-sm text-foreground placeholder:text-muted-foreground focus:ring-0 w-full p-0"
                 placeholder="Search SKU, item"
                 type="text"
               />
             </div>
             <button
               onClick={fetchInv}
-              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-[#393328] text-white rounded-lg text-sm font-bold hover:bg-[#393328]/80 transition-colors"
+              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-secondary text-secondary-foreground rounded-lg text-sm font-bold hover:bg-secondary/80 transition-colors"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>refresh</span>
@@ -367,7 +452,7 @@ export const OwnerInventory: React.FC = () => {
             </button>
             <button
               onClick={exportCsv}
-              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-[#393328] text-white rounded-lg text-sm font-bold hover:bg-[#393328]/80 transition-colors"
+              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-secondary text-secondary-foreground rounded-lg text-sm font-bold hover:bg-secondary/80 transition-colors"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>download</span>
@@ -375,7 +460,7 @@ export const OwnerInventory: React.FC = () => {
             </button>
             <button
               onClick={() => openPo()}
-              className="flex items-center justify-center gap-2 h-10 px-4 bg-[#eead2b] text-[#181611] rounded-lg text-sm font-bold hover:bg-[#d99a20] transition-colors shadow-[0_0_15px_rgba(238,173,43,0.3)]"
+              className="flex items-center justify-center gap-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>add</span>
@@ -388,21 +473,21 @@ export const OwnerInventory: React.FC = () => {
         <div
           className={`rounded-xl border p-4 flex items-center justify-between gap-4 ${
             banner.kind === 'success'
-              ? 'border-green-500/20 bg-green-900/10 text-green-200'
-              : 'border-red-500/20 bg-red-900/10 text-red-200'
+              ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+              : 'border-destructive/20 bg-destructive/10 text-destructive'
           }`}
         >
           <div className="text-sm font-medium">{banner.message}</div>
-          <button onClick={() => setBanner(null)} className="h-9 px-3 rounded-lg bg-[#2c241e] border border-[#3a3028] text-white hover:border-primary/50">
+          <button onClick={() => setBanner(null)} className="h-9 px-3 rounded-lg bg-background border border-border text-foreground hover:bg-accent">
             Dismiss
           </button>
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-xl border border-red-500/20 bg-red-900/10 text-red-200 p-4 flex items-center justify-between gap-4">
+        <div className="rounded-xl border border-destructive/20 bg-destructive/10 text-destructive p-4 flex items-center justify-between gap-4">
           <div className="text-sm">{error}</div>
-          <button onClick={fetchInv} className="h-10 px-4 rounded-lg bg-[#2c241e] border border-[#3a3028] text-white hover:border-primary/50">
+          <button onClick={fetchInv} className="h-10 px-4 rounded-lg bg-background border border-border text-foreground hover:bg-accent">
             Retry
           </button>
         </div>
@@ -412,10 +497,10 @@ export const OwnerInventory: React.FC = () => {
         <div className="max-w-[1400px] mx-auto flex flex-col gap-6">
 
           <div className="flex flex-wrap gap-3 items-center pb-2">
-            <div className="flex items-center gap-2 bg-[#2c241e] px-3 py-1.5 rounded-lg border border-[#3a3028] text-[#b9b09d] text-sm hover:border-primary/50 transition-colors">
+            <div className="flex items-center gap-2 bg-card px-3 py-1.5 rounded-lg border border-border text-muted-foreground text-sm hover:border-primary/50 transition-colors">
               <span className="material-symbols-outlined text-[18px]">store</span>
-              <span>Region: <strong className="text-white">{scopeLabel}</strong></span>
-              <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="h-7 bg-transparent text-sm text-[#b9b09d] focus:ring-0 border-none">
+              <span>Region: <strong className="text-foreground">{scopeLabel}</strong></span>
+              <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="h-7 bg-transparent text-sm text-muted-foreground focus:ring-0 border-none">
                 <option value="">All Branches</option>
                 {branches.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -425,10 +510,10 @@ export const OwnerInventory: React.FC = () => {
               </select>
             </div>
 
-            <div className="flex items-center gap-2 bg-[#2c241e] px-3 py-1.5 rounded-lg border border-[#3a3028] text-[#b9b09d] text-sm hover:border-primary/50 transition-colors">
+            <div className="flex items-center gap-2 bg-card px-3 py-1.5 rounded-lg border border-border text-muted-foreground text-sm hover:border-primary/50 transition-colors">
               <span className="material-symbols-outlined text-[18px]">category</span>
-              <span>Category: <strong className="text-white">{category || 'All'}</strong></span>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-7 bg-transparent text-sm text-[#b9b09d] focus:ring-0 border-none">
+              <span>Category: <strong className="text-foreground">{category || 'All'}</strong></span>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-7 bg-transparent text-sm text-muted-foreground focus:ring-0 border-none">
                 <option value="">All</option>
                 {categories.map((c) => (
                   <option key={c} value={c}>
@@ -444,108 +529,108 @@ export const OwnerInventory: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <div className="bg-[#2c241e] rounded-xl p-5 border border-[#3a3028] relative overflow-hidden">
-              <p className="text-[#b9b09d] text-sm font-medium mb-1">Total Stock Value</p>
-              <h3 className="text-2xl font-bold text-white mb-2">{money.format(kpis.totalValue)}</h3>
-              <div className="text-[#5ba968] text-xs font-bold bg-[#5ba968]/10 w-fit px-2 py-1 rounded">{kpis.totalSkus} SKUs tracked</div>
+            <div className="bg-card rounded-xl p-5 border border-border relative overflow-hidden">
+              <p className="text-muted-foreground text-sm font-medium mb-1">Total Stock Value</p>
+              <h3 className="text-2xl font-bold text-foreground mb-2">{money.format(kpis.totalValue)}</h3>
+              <div className="text-emerald-600 dark:text-emerald-500 text-xs font-bold bg-emerald-500/10 w-fit px-2 py-1 rounded">{kpis.totalSkus} SKUs tracked</div>
             </div>
-            <div className="bg-[#2c241e] rounded-xl p-5 border border-[#3a3028] relative overflow-hidden">
-              <p className="text-[#b9b09d] text-sm font-medium mb-1">Critical Low Stock</p>
-              <h3 className="text-2xl font-bold text-white mb-2">{kpis.criticalCount} Items</h3>
-              <div className="text-[#e55d5d] text-xs font-bold bg-[#e55d5d]/10 w-fit px-2 py-1 rounded">Action Required</div>
+            <div className="bg-card rounded-xl p-5 border border-border relative overflow-hidden">
+              <p className="text-muted-foreground text-sm font-medium mb-1">Critical Low Stock</p>
+              <h3 className="text-2xl font-bold text-foreground mb-2">{kpis.criticalCount} Items</h3>
+              <div className="text-destructive text-xs font-bold bg-destructive/10 w-fit px-2 py-1 rounded">Action Required</div>
             </div>
-            <div className="bg-[#2c241e] rounded-xl p-5 border border-[#3a3028] relative overflow-hidden">
-              <p className="text-[#b9b09d] text-sm font-medium mb-1">Low Stock</p>
-              <h3 className="text-2xl font-bold text-white mb-2">{kpis.lowStockCount} Items</h3>
-              <div className="text-orange-400 text-xs font-bold bg-orange-400/10 w-fit px-2 py-1 rounded">Below minimum</div>
+            <div className="bg-card rounded-xl p-5 border border-border relative overflow-hidden">
+              <p className="text-muted-foreground text-sm font-medium mb-1">Low Stock</p>
+              <h3 className="text-2xl font-bold text-foreground mb-2">{kpis.lowStockCount} Items</h3>
+              <div className="text-amber-600 dark:text-amber-500 text-xs font-bold bg-amber-500/10 w-fit px-2 py-1 rounded">Below minimum</div>
             </div>
-            <div className="bg-[#2c241e] rounded-xl p-5 border border-[#3a3028] relative overflow-hidden">
-              <p className="text-[#b9b09d] text-sm font-medium mb-1">Top Value Item</p>
-              <h3 className="text-2xl font-bold text-white mb-2 truncate" title={topItem}>{topItem}</h3>
-              <div className="text-[#b9b09d] text-xs font-bold bg-white/5 w-fit px-2 py-1 rounded">By valuation</div>
+            <div className="bg-card rounded-xl p-5 border border-border relative overflow-hidden">
+              <p className="text-muted-foreground text-sm font-medium mb-1">Top Value Item</p>
+              <h3 className="text-2xl font-bold text-foreground mb-2 truncate" title={topItem}>{topItem}</h3>
+              <div className="text-muted-foreground text-xs font-bold bg-muted w-fit px-2 py-1 rounded">By valuation</div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            <div className="lg:col-span-8 bg-[#2c241e] rounded-xl border border-[#3a3028] p-6 flex flex-col min-h-[320px]">
+            <div className="lg:col-span-8 bg-card rounded-xl border border-border p-6 flex flex-col min-h-[320px]">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h3 className="text-white text-lg font-bold">Stock Consumption Rate</h3>
-                  <p className="text-[#b9b09d] text-sm">Category weighting (proxy by valuation)</p>
+                  <h3 className="text-foreground text-lg font-bold">Stock Consumption Rate</h3>
+                  <p className="text-muted-foreground text-sm">Category weighting (proxy by valuation)</p>
                 </div>
               </div>
               <div className="flex-1 flex items-end justify-between gap-4 px-2 relative pt-8">
                 <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-6 z-0">
-                  <div className="w-full h-px bg-[#3a3028]/30"></div>
-                  <div className="w-full h-px bg-[#3a3028]/30"></div>
-                  <div className="w-full h-px bg-[#3a3028]/30"></div>
-                  <div className="w-full h-px bg-[#3a3028]/30"></div>
-                  <div className="w-full h-px bg-[#3a3028]/30"></div>
+                  <div className="w-full h-px bg-border/50"></div>
+                  <div className="w-full h-px bg-border/50"></div>
+                  <div className="w-full h-px bg-border/50"></div>
+                  <div className="w-full h-px bg-border/50"></div>
+                  <div className="w-full h-px bg-border/50"></div>
                 </div>
                 {categoryBars.map((c) => (
                   <div key={c.name} className="flex flex-col items-center gap-2 z-10 w-full group">
-                    <div className="relative w-full max-w-[40px] h-56 bg-[#3a3028] rounded-t-sm overflow-hidden flex items-end">
+                    <div className="relative w-full max-w-[40px] h-56 bg-muted rounded-t-sm overflow-hidden flex items-end">
                       <div className="w-full bg-primary/80 group-hover:bg-primary transition-colors" style={{ height: `${Math.round(c.pct * 100)}%` }}></div>
                     </div>
-                    <span className="text-xs text-[#b9b09d] truncate max-w-[72px]" title={c.name}>{c.name}</span>
+                    <span className="text-xs text-muted-foreground truncate max-w-[72px]" title={c.name}>{c.name}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="lg:col-span-4 bg-[#2c241e] rounded-xl border border-[#3a3028] p-6 flex flex-col">
-              <h3 className="text-white text-lg font-bold mb-4">Action Center</h3>
+            <div className="lg:col-span-4 bg-card rounded-xl border border-border p-6 flex flex-col">
+              <h3 className="text-foreground text-lg font-bold mb-4">Action Center</h3>
               <div className="grid grid-cols-2 gap-3 mb-6">
-                <button onClick={() => openTransfer()} className="flex flex-col items-center justify-center gap-2 p-3 rounded-lg bg-[#3a3028]/50 hover:bg-[#3a3028] border border-[#3a3028] hover:border-primary/30 transition-all group">
+                <button onClick={() => openTransfer()} className="flex flex-col items-center justify-center gap-2 p-3 rounded-lg bg-muted hover:bg-accent border border-border hover:border-primary/30 transition-all group">
                   <span className="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">swap_horiz</span>
-                  <span className="text-xs font-bold text-white">Transfer</span>
+                  <span className="text-xs font-bold text-foreground">Transfer</span>
                 </button>
-                <button onClick={openCount} className="flex flex-col items-center justify-center gap-2 p-3 rounded-lg bg-[#3a3028]/50 hover:bg-[#3a3028] border border-[#3a3028] hover:border-primary/30 transition-all group">
+                <button onClick={openCount} className="flex flex-col items-center justify-center gap-2 p-3 rounded-lg bg-muted hover:bg-accent border border-border hover:border-primary/30 transition-all group">
                   <span className="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">inventory</span>
-                  <span className="text-xs font-bold text-white">Count</span>
+                  <span className="text-xs font-bold text-foreground">Count</span>
                 </button>
               </div>
-              <h4 className="text-[#b9b09d] text-xs font-bold uppercase tracking-wider mb-3">Recent Alerts</h4>
+              <h4 className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-3">Recent Alerts</h4>
               <div className="flex-1 space-y-3 overflow-y-auto pr-1">
                 {loading ? (
-                  <div className="text-sm text-[#b9b09d]">Loading...</div>
+                  <div className="text-sm text-muted-foreground">Loading...</div>
                 ) : alerts.length ? (
                   alerts.map((a) => (
-                    <div key={a.id} className="flex gap-3 items-start p-3 rounded-lg bg-[#221c10]/50 border border-[#3a3028]">
-                      <div className={`size-2 mt-1.5 rounded-full shrink-0 ${a.kind === 'Critical' ? 'bg-[#e55d5d]' : 'bg-primary'}`}></div>
+                    <div key={a.id} className="flex gap-3 items-start p-3 rounded-lg bg-muted/50 border border-border">
+                      <div className={`size-2 mt-1.5 rounded-full shrink-0 ${a.kind === 'Critical' ? 'bg-destructive' : 'bg-primary'}`}></div>
                       <div>
-                        <p className="text-sm font-bold text-white">{a.title}</p>
-                        <p className="text-xs text-[#b9b09d] mt-1">{a.detail}</p>
-                        <p className="text-[10px] text-[#b9b09d] mt-2 opacity-60">Just now</p>
+                        <p className="text-sm font-bold text-foreground">{a.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{a.detail}</p>
+                        <p className="text-[10px] text-muted-foreground mt-2 opacity-60">Just now</p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="text-sm text-[#b9b09d]">No alerts right now.</div>
+                  <div className="text-sm text-muted-foreground">No alerts right now.</div>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="bg-[#2c241e] rounded-xl border border-[#3a3028] overflow-hidden flex flex-col shadow-lg">
-            <div className="p-4 border-b border-[#3a3028] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-card rounded-xl border border-border overflow-hidden flex flex-col shadow-lg">
+            <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="text-white text-lg font-bold">Global Master Inventory</h3>
-                <div className="text-xs text-[#b9b09d] mt-1">
-                  Showing <span className="text-white font-bold">{rows.length}</span>
-                  {data?.items ? <span> of <span className="text-white font-bold">{data.items.length}</span></span> : null}
+                <h3 className="text-foreground text-lg font-bold">Global Master Inventory</h3>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Showing <span className="text-foreground font-bold">{rows.length}</span>
+                  {data?.items ? <span> of <span className="text-foreground font-bold">{data.items.length}</span></span> : null}
                   <span className="mx-2 opacity-50">|</span>
-                  <span className="text-[#b9b09d]">Scope:</span> <span className="text-white font-bold">{scopeLabel}</span>
+                  <span className="text-muted-foreground">Scope:</span> <span className="text-foreground font-bold">{scopeLabel}</span>
                   <span className="mx-2 opacity-50">|</span>
-                  <span className="text-[#b9b09d]">Category:</span> <span className="text-white font-bold">{category || 'All'}</span>
+                  <span className="text-muted-foreground">Category:</span> <span className="text-foreground font-bold">{category || 'All'}</span>
                   <span className="mx-2 opacity-50">|</span>
-                  <span className="text-[#b9b09d]">Status:</span> <span className="text-white font-bold">{status === 'all' ? 'All' : status === 'in_stock' ? 'In Stock' : status === 'low' ? 'Low' : 'Critical'}</span>
+                  <span className="text-muted-foreground">Status:</span> <span className="text-foreground font-bold">{status === 'all' ? 'All' : status === 'in_stock' ? 'In Stock' : status === 'low' ? 'Low' : 'Critical'}</span>
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[#b9b09d] text-[18px]">filter_alt</span>
-                  <select value={status} onChange={(e) => setStatus(e.target.value as any)} className="bg-[#221c10] text-[#b9b09d] text-sm rounded-lg pl-9 pr-8 py-2 border border-[#3a3028] focus:border-primary focus:ring-0 outline-none appearance-none cursor-pointer hover:bg-[#3a3028]">
+                  <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]">filter_alt</span>
+                  <select value={status} onChange={(e) => setStatus(e.target.value as any)} className="bg-background text-foreground text-sm rounded-lg pl-9 pr-8 py-2 border border-border focus:border-primary focus:ring-0 outline-none appearance-none cursor-pointer hover:bg-accent">
                     <option value="all">Status: All</option>
                     <option value="low">Low Stock</option>
                     <option value="critical">Critical</option>
@@ -555,8 +640,8 @@ export const OwnerInventory: React.FC = () => {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-[#b9b09d]">
-                <thead className="bg-[#3a3028]/50 text-xs uppercase font-bold text-[#b9b09d]">
+              <table className="w-full text-left text-sm text-muted-foreground">
+                <thead className="bg-muted/50 text-xs uppercase font-bold text-muted-foreground">
                   <tr>
                     <th className="px-6 py-4">SKU / Item</th>
                     <th className="px-6 py-4">Category</th>
@@ -567,7 +652,7 @@ export const OwnerInventory: React.FC = () => {
                     <th className="px-6 py-4 text-center">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#3a3028]">
+                <tbody className="divide-y divide-border">
                   {loading ? (
                     <tr><td className="px-6 py-6" colSpan={7}>Loading...</td></tr>
                   ) : rows.length === 0 ? (
@@ -579,41 +664,41 @@ export const OwnerInventory: React.FC = () => {
                         .map((b, idx) => ({ id: b.id, name: b.name, qty: it.byBranch?.[b.id] ?? 0, color: distColors[idx % distColors.length] }))
                         .filter((p) => p.qty > 0);
                       return (
-                        <tr key={it.sku} className="hover:bg-[#3a3028]/30 transition-colors group">
+                        <tr key={it.sku} className="hover:bg-muted/30 transition-colors group">
                           <td className="px-6 py-4">
                             <div>
-                              <p className="font-bold text-white">{it.name}</p>
-                              <p className="text-xs text-[#b9b09d]">#{it.sku}</p>
+                              <p className="font-bold text-foreground">{it.name}</p>
+                              <p className="text-xs text-muted-foreground">#{it.sku}</p>
                             </div>
                           </td>
                           <td className="px-6 py-4">{it.category}</td>
                           <td className="px-6 py-4 text-center">
-                            <span className="font-bold text-white block">{it.globalQty}</span>
+                            <span className="font-bold text-foreground block">{it.globalQty}</span>
                             <span className="text-xs">{it.unit}</span>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center gap-1 w-32 h-2 rounded-full overflow-hidden bg-[#221c10] border border-[#3a3028]">
+                            <div className="flex items-center gap-1 w-32 h-2 rounded-full overflow-hidden bg-muted border border-border">
                               {parts.length ? (
                                 parts.map((p) => (
                                   <div key={p.id} className={`h-full ${p.color}`} style={{ width: `${Math.max(2, Math.round((p.qty / (total || 1)) * 100))}%` }} title={`${p.name}: ${p.qty} ${it.unit}`}></div>
                                 ))
                               ) : (
-                                <div className="h-full bg-[#3a3028]" style={{ width: '100%' }}></div>
+                                <div className="h-full bg-border" style={{ width: '100%' }}></div>
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-right font-medium text-white">{money.format(it.cost)}</td>
+                          <td className="px-6 py-4 text-right font-medium text-foreground">{money.format(it.cost)}</td>
                           <td className="px-6 py-4 text-center">
                             <span
                               className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
                                 it.status === 'In Stock'
-                                  ? 'bg-[#5ba968]/20 text-[#5ba968]'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                                   : it.status === 'Low'
-                                    ? 'bg-orange-500/20 text-orange-400'
-                                    : 'bg-[#e55d5d]/20 text-[#e55d5d]'
+                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500'
+                                    : 'bg-destructive/10 text-destructive'
                               }`}
                             >
-                              <span className={`size-1.5 rounded-full ${it.status === 'In Stock' ? 'bg-[#5ba968]' : it.status === 'Low' ? 'bg-orange-400' : 'bg-[#e55d5d]'}`}></span>
+                              <span className={`size-1.5 rounded-full ${it.status === 'In Stock' ? 'bg-emerald-500' : it.status === 'Low' ? 'bg-amber-500' : 'bg-destructive'}`}></span>
                               {it.status}
                             </span>
                           </td>
@@ -621,12 +706,12 @@ export const OwnerInventory: React.FC = () => {
                             {it.status === 'Critical' ? (
                               <button
                                 onClick={() => openPo({ sku: it.sku })}
-                                className="text-primary hover:text-white text-xs font-bold border border-primary/30 hover:border-primary px-2 py-1 rounded transition-colors"
+                                className="text-primary hover:text-primary/90 text-xs font-bold border border-primary/30 hover:border-primary px-2 py-1 rounded transition-colors"
                               >
                                 Reorder
                               </button>
                             ) : (
-                              <button onClick={() => openRowActions(it)} className="text-[#b9b09d] hover:text-white transition-colors">
+                              <button onClick={() => openRowActions(it)} className="text-muted-foreground hover:text-foreground transition-colors">
                                 <span className="material-symbols-outlined">more_vert</span>
                               </button>
                             )}
@@ -647,10 +732,10 @@ export const OwnerInventory: React.FC = () => {
               if (e.target === e.currentTarget) closeModal();
             }}
           >
-            <div className="w-full max-w-[520px] rounded-2xl border border-[#3a3028] bg-[#221c10] shadow-2xl">
-              <div className="flex items-start justify-between gap-4 border-b border-[#3a3028] px-5 py-4">
+            <div className="w-full max-w-[520px] rounded-2xl border border-border bg-card shadow-2xl">
+              <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
                 <div>
-                  <div className="text-white text-lg font-black">
+                  <div className="text-foreground text-lg font-black">
                     {modal === 'po'
                       ? 'Create Purchase Order'
                       : modal === 'transfer'
@@ -659,11 +744,11 @@ export const OwnerInventory: React.FC = () => {
                           ? 'Log Inventory Count'
                           : 'Item Actions'}
                   </div>
-                  <div className="text-[#b9b09d] text-sm mt-1">
+                  <div className="text-muted-foreground text-sm mt-1">
                     {modal === 'row' && activeItem ? `${activeItem.name}    #${activeItem.sku}` : `Scope: ${scopeLabel}`}
                   </div>
                 </div>
-                <button onClick={closeModal} className="p-1.5 rounded-md hover:bg-[#3a3028] text-[#b9b09d] hover:text-white transition-colors">
+                <button onClick={closeModal} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
                   <span className="material-symbols-outlined text-[22px]">close</span>
                 </button>
               </div>
@@ -671,8 +756,19 @@ export const OwnerInventory: React.FC = () => {
               <div className="px-5 py-4 flex flex-col gap-3">
                 {modal === 'po' ? (
                   <>
-                    <label className="text-xs font-bold text-[#b9b09d] uppercase tracking-wider">Branch</label>
-                    <select value={poBranchId} onChange={(e) => setPoBranchId(e.target.value)} className="h-10 rounded-lg border border-[#3a3028] bg-[#2c241e] text-white px-3 text-sm focus:border-primary focus:outline-none">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Branch</label>
+                    <select
+                      value={poBranchId}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setPoBranchId(next);
+                        setSuppliers([]);
+                        setSuppliersError(null);
+                        setPoSupplierId('');
+                        if (next) void loadSuppliers(next);
+                      }}
+                      className="h-10 rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none"
+                    >
                       <option value="">Select Branch</option>
                       {branches.map((b) => (
                         <option key={b.id} value={b.id}>
@@ -681,14 +777,33 @@ export const OwnerInventory: React.FC = () => {
                       ))}
                     </select>
 
-                    <label className="text-xs font-bold text-[#b9b09d] uppercase tracking-wider">SKU</label>
-                    <input value={poSku} onChange={(e) => setPoSku(e.target.value)} className="h-10 rounded-lg border border-[#3a3028] bg-[#2c241e] text-white px-3 text-sm focus:border-primary focus:outline-none" placeholder="RM-COF-001" />
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Supplier</label>
+                    <select
+                      value={poSupplierId}
+                      onChange={(e) => setPoSupplierId(e.target.value)}
+                      className="h-10 rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none"
+                      disabled={!poBranchId || suppliersLoading}
+                    >
+                      <option value="">{!poBranchId ? 'Select Branch first' : suppliersLoading ? 'Loading suppliers…' : 'Select Supplier'}</option>
+                      {suppliers.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
 
-                    <label className="text-xs font-bold text-[#b9b09d] uppercase tracking-wider">Quantity</label>
-                    <input value={poQty} onChange={(e) => setPoQty(e.target.value)} className="h-10 rounded-lg border border-[#3a3028] bg-[#2c241e] text-white px-3 text-sm focus:border-primary focus:outline-none" placeholder="10" />
+                    {suppliersLoading ? <div className="text-xs text-muted-foreground">Loading suppliers…</div> : null}
 
-                    <label className="text-xs font-bold text-[#b9b09d] uppercase tracking-wider">Notes</label>
-                    <input value={poNotes} onChange={(e) => setPoNotes(e.target.value)} className="h-10 rounded-lg border border-[#3a3028] bg-[#2c241e] text-white px-3 text-sm focus:border-primary focus:outline-none" placeholder="Optional" />
+                    {suppliersError ? <div className="text-xs text-destructive">{suppliersError}</div> : null}
+
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">SKU</label>
+                    <input value={poSku} onChange={(e) => setPoSku(e.target.value)} className="h-10 rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="RM-COF-001" />
+
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Quantity</label>
+                    <input value={poQty} onChange={(e) => setPoQty(e.target.value)} className="h-10 rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="10" />
+
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Notes</label>
+                    <input value={poNotes} onChange={(e) => setPoNotes(e.target.value)} className="h-10 rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="Optional" />
                   </>
                 ) : null}
 
@@ -696,8 +811,8 @@ export const OwnerInventory: React.FC = () => {
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs font-bold text-[#b9b09d] uppercase tracking-wider">From Branch</label>
-                        <select value={trFromBranchId} onChange={(e) => setTrFromBranchId(e.target.value)} className="mt-2 h-10 w-full rounded-lg border border-[#3a3028] bg-[#2c241e] text-white px-3 text-sm focus:border-primary focus:outline-none">
+                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">From Branch</label>
+                        <select value={trFromBranchId} onChange={(e) => setTrFromBranchId(e.target.value)} className="mt-2 h-10 w-full rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none">
                           <option value="">Select</option>
                           {branches.map((b) => (
                             <option key={b.id} value={b.id}>
@@ -707,8 +822,8 @@ export const OwnerInventory: React.FC = () => {
                         </select>
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-[#b9b09d] uppercase tracking-wider">To Branch</label>
-                        <select value={trToBranchId} onChange={(e) => setTrToBranchId(e.target.value)} className="mt-2 h-10 w-full rounded-lg border border-[#3a3028] bg-[#2c241e] text-white px-3 text-sm focus:border-primary focus:outline-none">
+                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">To Branch</label>
+                        <select value={trToBranchId} onChange={(e) => setTrToBranchId(e.target.value)} className="mt-2 h-10 w-full rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none">
                           <option value="">Select</option>
                           {branches.map((b) => (
                             <option key={b.id} value={b.id}>
@@ -719,18 +834,18 @@ export const OwnerInventory: React.FC = () => {
                       </div>
                     </div>
 
-                    <label className="text-xs font-bold text-[#b9b09d] uppercase tracking-wider">SKU</label>
-                    <input value={trSku} onChange={(e) => setTrSku(e.target.value)} className="h-10 rounded-lg border border-[#3a3028] bg-[#2c241e] text-white px-3 text-sm focus:border-primary focus:outline-none" placeholder="RM-COF-001" />
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">SKU</label>
+                    <input value={trSku} onChange={(e) => setTrSku(e.target.value)} className="h-10 rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="RM-COF-001" />
 
-                    <label className="text-xs font-bold text-[#b9b09d] uppercase tracking-wider">Quantity</label>
-                    <input value={trQty} onChange={(e) => setTrQty(e.target.value)} className="h-10 rounded-lg border border-[#3a3028] bg-[#2c241e] text-white px-3 text-sm focus:border-primary focus:outline-none" placeholder="5" />
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Quantity</label>
+                    <input value={trQty} onChange={(e) => setTrQty(e.target.value)} className="h-10 rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="5" />
                   </>
                 ) : null}
 
                 {modal === 'count' ? (
                   <>
-                    <label className="text-xs font-bold text-[#b9b09d] uppercase tracking-wider">Branch</label>
-                    <select value={countBranchId} onChange={(e) => setCountBranchId(e.target.value)} className="h-10 rounded-lg border border-[#3a3028] bg-[#2c241e] text-white px-3 text-sm focus:border-primary focus:outline-none">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Branch</label>
+                    <select value={countBranchId} onChange={(e) => setCountBranchId(e.target.value)} className="h-10 rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none">
                       <option value="">Select Branch</option>
                       {branches.map((b) => (
                         <option key={b.id} value={b.id}>
@@ -739,8 +854,8 @@ export const OwnerInventory: React.FC = () => {
                       ))}
                     </select>
 
-                    <label className="text-xs font-bold text-[#b9b09d] uppercase tracking-wider">Scope</label>
-                    <select value={countScope} onChange={(e) => setCountScope(e.target.value as any)} className="h-10 rounded-lg border border-[#3a3028] bg-[#2c241e] text-white px-3 text-sm focus:border-primary focus:outline-none">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Scope</label>
+                    <select value={countScope} onChange={(e) => setCountScope(e.target.value as any)} className="h-10 rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none">
                       <option value="full">Full Count</option>
                       <option value="category">Current Category</option>
                       <option value="sku">Single SKU</option>
@@ -748,8 +863,8 @@ export const OwnerInventory: React.FC = () => {
 
                     {countScope === 'sku' ? (
                       <>
-                        <label className="text-xs font-bold text-[#b9b09d] uppercase tracking-wider">SKU</label>
-                        <input value={countSku} onChange={(e) => setCountSku(e.target.value)} className="h-10 rounded-lg border border-[#3a3028] bg-[#2c241e] text-white px-3 text-sm focus:border-primary focus:outline-none" placeholder="RM-COF-001" />
+                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">SKU</label>
+                        <input value={countSku} onChange={(e) => setCountSku(e.target.value)} className="h-10 rounded-lg border border-border bg-background text-foreground px-3 text-sm focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="RM-COF-001" />
                       </>
                     ) : null}
                   </>
@@ -762,7 +877,7 @@ export const OwnerInventory: React.FC = () => {
                         closeModal();
                         openPo({ sku: activeItem.sku });
                       }}
-                      className="h-10 rounded-lg bg-primary text-[#221c10] font-black hover:bg-primary/90"
+                      className="h-10 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90"
                     >
                       Create PO for this SKU
                     </button>
@@ -793,7 +908,7 @@ export const OwnerInventory: React.FC = () => {
                         setBanner({ kind: 'success', message: 'SKU export downloaded.' });
                         closeModal();
                       }}
-                      className="h-10 rounded-lg bg-[#2c241e] border border-[#3a3028] text-white hover:border-primary/50"
+                      className="h-10 rounded-lg bg-background border border-border text-foreground hover:bg-accent"
                     >
                       Export this SKU
                     </button>
@@ -802,7 +917,7 @@ export const OwnerInventory: React.FC = () => {
                         closeModal();
                         openTransfer({ sku: activeItem.sku });
                       }}
-                      className="h-10 rounded-lg bg-[#2c241e] border border-[#3a3028] text-white hover:border-primary/50"
+                      className="h-10 rounded-lg bg-background border border-border text-foreground hover:bg-accent"
                     >
                       Request Transfer
                     </button>
@@ -810,22 +925,22 @@ export const OwnerInventory: React.FC = () => {
                 ) : null}
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-[#3a3028] px-5 py-4">
-                <button onClick={closeModal} className="h-10 px-4 rounded-lg bg-[#2c241e] border border-[#3a3028] text-white hover:border-primary/50" disabled={modalLoading}>
+              <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
+                <button onClick={closeModal} className="h-10 px-4 rounded-lg bg-background border border-border text-foreground hover:bg-accent" disabled={modalLoading}>
                   Cancel
                 </button>
                 {modal === 'po' ? (
-                  <button onClick={submitPo} className="h-10 px-4 rounded-lg bg-primary text-[#221c10] font-black hover:bg-primary/90 disabled:opacity-60" disabled={modalLoading}>
+                  <button onClick={submitPo} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 disabled:opacity-60" disabled={modalLoading}>
                     {modalLoading ? 'Creating ¦' : 'Create PO'}
                   </button>
                 ) : null}
                 {modal === 'transfer' ? (
-                  <button onClick={submitTransfer} className="h-10 px-4 rounded-lg bg-primary text-[#221c10] font-black hover:bg-primary/90 disabled:opacity-60" disabled={modalLoading}>
+                  <button onClick={submitTransfer} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 disabled:opacity-60" disabled={modalLoading}>
                     {modalLoading ? 'Requesting ¦' : 'Request'}
                   </button>
                 ) : null}
                 {modal === 'count' ? (
-                  <button onClick={submitCount} className="h-10 px-4 rounded-lg bg-primary text-[#221c10] font-black hover:bg-primary/90 disabled:opacity-60" disabled={modalLoading}>
+                  <button onClick={submitCount} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 disabled:opacity-60" disabled={modalLoading}>
                     {modalLoading ? 'Saving ¦' : 'Log Count'}
                   </button>
                 ) : null}

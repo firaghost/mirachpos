@@ -79,7 +79,7 @@ export const SA_SystemHealth: React.FC = () => {
   const envLabel = health?.environment || 'Production';
   const allOk = Boolean(health?.allOperational);
   const headerStatusText = allOk ? 'All Systems Operational' : 'Degraded';
-  const headerDotClass = allOk ? 'bg-[#4ade80]' : 'bg-[#ef4444]';
+  const headerDotClass = allOk ? 'bg-emerald-500' : 'bg-destructive';
   const lastRefreshed = health?.lastRefreshedAt ? fmtTime(health.lastRefreshedAt) : '';
 
   const errorFeed = useMemo(() => {
@@ -109,26 +109,26 @@ export const SA_SystemHealth: React.FC = () => {
   const latencyTrendText = `${kpiLatencyTrend >= 0 ? '+' : ''}${kpiLatencyTrend}% vs 1h ago`;
   const failedDeltaText = `${kpiFailedDelta >= 0 ? '+' : ''}${kpiFailedDelta} incidents`;
   const failedDeltaIsUp = kpiFailedDelta >= 0;
-  const errorDotClass = errorFeed.length > 0 ? 'bg-[#ef4444]' : 'bg-[#4ade80]';
+  const errorDotClass = errorFeed.length > 0 ? 'bg-destructive' : 'bg-emerald-500';
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-slate-100">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       {/* Header */}
-      <header className="h-16 border-b border-[#483c23] flex items-center justify-between px-6 bg-[#221c10] flex-shrink-0">
+      <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card flex-shrink-0">
         <div className="flex flex-col">
-          <h2 className="text-lg font-bold text-white tracking-tight">System Infrastructure Monitor</h2>
+          <h2 className="text-lg font-bold text-foreground tracking-tight">System Infrastructure Monitor</h2>
           <div className="flex items-center gap-2">
             <span className={`w-1.5 h-1.5 rounded-full ${headerDotClass} animate-pulse`}></span>
-            <p className="text-xs text-[#c9b792] font-medium uppercase tracking-wide">Environment: {envLabel}    {headerStatusText}</p>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Environment: {envLabel}    {headerStatusText}</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <p className="text-xs text-[#c9b792] font-mono">Last refreshed: {lastRefreshed || (loading ? 'Loading ¦' : ' ”')}</p>
-          <div className="h-4 w-px bg-[#483c23]"></div>
+          <p className="text-xs text-muted-foreground font-mono">Last refreshed: {lastRefreshed || (loading ? 'Loading ¦' : ' ”')}</p>
+          <div className="h-4 w-px bg-border"></div>
           <button
             onClick={onForceSync}
             disabled={syncing}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#eead2b]/10 hover:bg-[#eead2b]/20 border border-[#eead2b]/20 rounded text-[#eead2b] text-xs font-medium transition-colors disabled:opacity-50 disabled:hover:bg-[#eead2b]/10"
+            className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded text-primary text-xs font-medium transition-colors disabled:opacity-50 disabled:hover:bg-primary/10"
           >
             <span className="material-symbols-outlined text-[16px]">sync</span> Force Sync
           </button>
@@ -139,144 +139,144 @@ export const SA_SystemHealth: React.FC = () => {
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* KPI Card 1 */}
-          <div className="bg-[#2c2415] border border-[#483c23] p-5 rounded-md flex flex-col justify-between h-32 relative overflow-hidden group">
+          <div className="bg-card border border-border p-5 rounded-md flex flex-col justify-between h-32 relative overflow-hidden group">
             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <span className="material-symbols-outlined text-6xl text-[#eead2b]">speed</span>
+              <span className="material-symbols-outlined text-6xl text-primary">speed</span>
             </div>
             <div>
-              <p className="text-[#c9b792] text-xs font-medium uppercase tracking-wider">Avg Sync Latency</p>
-              <h3 className="text-3xl font-bold text-white mt-1 tabular-nums">{kpiLatency}<span className="text-lg font-medium text-[#c9b792] ml-1">ms</span></h3>
+              <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Avg Sync Latency</p>
+              <h3 className="text-3xl font-bold text-foreground mt-1 tabular-nums">{kpiLatency}<span className="text-lg font-medium text-muted-foreground ml-1">ms</span></h3>
             </div>
             <div className="flex items-center gap-2">
               <span
-                className={`flex items-center justify-center w-4 h-4 rounded-full ${latencyTrendIsDown ? 'bg-[#4ade80]/20 text-[#4ade80]' : 'bg-[#eead2b]/20 text-[#eead2b]'} text-[10px]`}
+                className={`flex items-center justify-center w-4 h-4 rounded-full ${latencyTrendIsDown ? 'bg-emerald-500/15 text-emerald-500' : 'bg-primary/20 text-primary'} text-[10px]`}
               >
                 <span className="material-symbols-outlined text-[12px]">{latencyTrendIsDown ? 'arrow_downward' : 'arrow_upward'}</span>
               </span>
-              <p className={`${latencyTrendIsDown ? 'text-[#4ade80]' : 'text-[#eead2b]'} text-xs font-medium`}>{latencyTrendText}</p>
+              <p className={`${latencyTrendIsDown ? 'text-emerald-500' : 'text-primary'} text-xs font-medium`}>{latencyTrendText}</p>
             </div>
-            <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-[#eead2b]/0 via-[#eead2b]/50 to-[#eead2b]/0"></div>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-primary/0 via-primary/40 to-primary/0"></div>
           </div>
           {/* KPI Card 2 */}
-          <div className="bg-[#2c2415] border border-[#483c23] p-5 rounded-md flex flex-col justify-between h-32 relative overflow-hidden group">
+          <div className="bg-card border border-border p-5 rounded-md flex flex-col justify-between h-32 relative overflow-hidden group">
             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <span className="material-symbols-outlined text-6xl text-[#eead2b]">warning</span>
+              <span className="material-symbols-outlined text-6xl text-primary">warning</span>
             </div>
             <div>
-              <p className="text-[#c9b792] text-xs font-medium uppercase tracking-wider">Failed Syncs (24h)</p>
-              <h3 className="text-3xl font-bold text-white mt-1 tabular-nums">{kpiFailed24}</h3>
+              <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Failed Syncs (24h)</p>
+              <h3 className="text-3xl font-bold text-foreground mt-1 tabular-nums">{kpiFailed24}</h3>
             </div>
             <div className="flex items-center gap-2">
               <span
-                className={`flex items-center justify-center w-4 h-4 rounded-full ${failedDeltaIsUp ? 'bg-[#eead2b]/20 text-[#eead2b]' : 'bg-[#4ade80]/20 text-[#4ade80]'} text-[10px]`}
+                className={`flex items-center justify-center w-4 h-4 rounded-full ${failedDeltaIsUp ? 'bg-primary/20 text-primary' : 'bg-emerald-500/15 text-emerald-500'} text-[10px]`}
               >
                 <span className="material-symbols-outlined text-[12px]">{failedDeltaIsUp ? 'arrow_upward' : 'arrow_downward'}</span>
               </span>
-              <p className={`${failedDeltaIsUp ? 'text-[#eead2b]' : 'text-[#4ade80]'} text-xs font-medium`}>{failedDeltaText}</p>
+              <p className={`${failedDeltaIsUp ? 'text-primary' : 'text-emerald-500'} text-xs font-medium`}>{failedDeltaText}</p>
             </div>
-            <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-[#eead2b]/0 via-[#eead2b]/50 to-[#eead2b]/0"></div>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-primary/0 via-primary/40 to-primary/0"></div>
           </div>
           {/* KPI Card 4 */}
-          <div className="bg-[#2c2415] border border-[#483c23] p-5 rounded-md flex flex-col justify-between h-32 relative overflow-hidden group">
+          <div className="bg-card border border-border p-5 rounded-md flex flex-col justify-between h-32 relative overflow-hidden group">
             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <span className="material-symbols-outlined text-6xl text-[#4ade80]">check_circle</span>
+              <span className="material-symbols-outlined text-6xl text-emerald-500">check_circle</span>
             </div>
             <div>
-              <p className="text-[#c9b792] text-xs font-medium uppercase tracking-wider">API Uptime</p>
-              <h3 className="text-3xl font-bold text-white mt-1 tabular-nums">{kpiUptime.toFixed(2)}<span className="text-lg font-medium text-[#c9b792] ml-1">%</span></h3>
+              <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">API Uptime</p>
+              <h3 className="text-3xl font-bold text-foreground mt-1 tabular-nums">{kpiUptime.toFixed(2)}<span className="text-lg font-medium text-muted-foreground ml-1">%</span></h3>
             </div>
             <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${allOk ? 'bg-[#4ade80]' : 'bg-[#eead2b]'}`}></span>
-              <p className="text-[#c9b792] text-xs font-medium">{kpiApiStatusLabel}</p>
+              <span className={`w-2 h-2 rounded-full ${allOk ? 'bg-emerald-500' : 'bg-primary'}`}></span>
+              <p className="text-muted-foreground text-xs font-medium">{kpiApiStatusLabel}</p>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Latency Chart Section */}
-          <div className="lg:col-span-2 bg-[#2c2415] border border-[#483c23] rounded-md p-5 flex flex-col">
+          <div className="lg:col-span-2 bg-card border border-border rounded-md p-5 flex flex-col">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wide">Real-Time Sync Latency</h3>
-                <p className="text-xs text-[#c9b792] mt-1">Measuring end-to-end packet travel time (ms)</p>
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Real-Time Sync Latency</h3>
+                <p className="text-xs text-muted-foreground mt-1">Measuring end-to-end packet travel time (ms)</p>
               </div>
               <div className="flex gap-2">
-                <button className="px-2 py-1 text-[10px] font-bold uppercase rounded bg-[#eead2b] text-white">1H</button>
+                <button className="px-2 py-1 text-[10px] font-bold uppercase rounded bg-primary text-primary-foreground">1H</button>
               </div>
             </div>
-            <div className="relative w-full h-[240px] bg-[#221c10] rounded border border-[#483c23]/50 p-5 flex flex-col justify-between">
+            <div className="relative w-full h-[240px] bg-background rounded border border-border p-5 flex flex-col justify-between">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-[#c9b792] text-xs uppercase tracking-wider font-medium">Current latency</div>
-                  <div className="text-white text-3xl font-black tabular-nums mt-1">{Math.round(kpiLatency)}<span className="text-[#c9b792] text-base font-bold ml-1">ms</span></div>
-                  <div className="text-[#c9b792] text-xs mt-2">Failed syncs (24h): <span className="text-white font-bold tabular-nums">{kpiFailed24}</span></div>
+                  <div className="text-muted-foreground text-xs uppercase tracking-wider font-medium">Current latency</div>
+                  <div className="text-foreground text-3xl font-black tabular-nums mt-1">{Math.round(kpiLatency)}<span className="text-muted-foreground text-base font-bold ml-1">ms</span></div>
+                  <div className="text-muted-foreground text-xs mt-2">Failed syncs (24h): <span className="text-foreground font-bold tabular-nums">{kpiFailed24}</span></div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[#c9b792] text-xs uppercase tracking-wider font-medium">Status</div>
-                  <div className={"mt-1 inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold " + (allOk ? 'border-[#4ade80]/30 bg-[#4ade80]/10 text-[#4ade80]' : 'border-[#eead2b]/30 bg-[#eead2b]/10 text-[#eead2b]')}>
-                    <span className={"w-2 h-2 rounded-full " + (allOk ? 'bg-[#4ade80]' : 'bg-[#eead2b]')} />
+                  <div className="text-muted-foreground text-xs uppercase tracking-wider font-medium">Status</div>
+                  <div className={"mt-1 inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold " + (allOk ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' : 'border-primary/30 bg-primary/10 text-primary')}>
+                    <span className={"w-2 h-2 rounded-full " + (allOk ? 'bg-emerald-500' : 'bg-primary')} />
                     {allOk ? 'HEALTHY' : 'DEGRADED'}
                   </div>
                 </div>
               </div>
 
               <div>
-                <div className="flex items-center justify-between text-[10px] text-[#c9b792] font-medium uppercase tracking-wider mb-2">
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-2">
                   <span>0ms</span>
                   <span>5,000ms+</span>
                 </div>
-                <div className="w-full h-3 rounded-full border border-[#483c23] bg-[#2c2415] overflow-hidden">
-                  <div className={"h-full " + (allOk ? 'bg-[#4ade80]' : 'bg-[#eead2b]')} style={{ width: `${latencyPct}%` }} />
+                <div className="w-full h-3 rounded-full border border-border bg-muted overflow-hidden">
+                  <div className={"h-full " + (allOk ? 'bg-emerald-500' : 'bg-primary')} style={{ width: `${latencyPct}%` }} />
                 </div>
               </div>
             </div>
           </div>
           {/* Recent Incidents Log */}
-          <div className="lg:col-span-1 bg-[#2c2415] border border-[#483c23] rounded-md p-5 flex flex-col h-[366px]">
+          <div className="lg:col-span-1 bg-card border border-border rounded-md p-5 flex flex-col h-[366px]">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wide">Error Log Feed</h3>
+              <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Error Log Feed</h3>
               <span className={`w-2 h-2 rounded-full ${errorDotClass} animate-pulse`}></span>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar font-mono text-xs space-y-3 pr-2">
               {error && (
-                <div className="border-l-2 border-[#ef4444]/50 pl-3 py-1">
-                  <div className="flex justify-between text-[#c9b792] text-[10px] mb-1">
+                <div className="border-l-2 border-destructive/50 pl-3 py-1">
+                  <div className="flex justify-between text-muted-foreground text-[10px] mb-1">
                     <span>{lastRefreshed || ' ”'}</span>
-                    <span className="text-[#ef4444] font-bold">ERROR</span>
+                    <span className="text-destructive font-bold">ERROR</span>
                   </div>
-                  <p className="text-slate-300">{error}</p>
+                  <p className="text-muted-foreground">{error}</p>
                 </div>
               )}
               {!error && loading && (
-                <div className="border-l-2 border-[#eead2b]/50 pl-3 py-1">
-                  <div className="flex justify-between text-[#c9b792] text-[10px] mb-1">
+                <div className="border-l-2 border-primary/50 pl-3 py-1">
+                  <div className="flex justify-between text-muted-foreground text-[10px] mb-1">
                     <span> ”</span>
-                    <span className="text-[#eead2b] font-bold">INFO</span>
+                    <span className="text-primary font-bold">INFO</span>
                   </div>
-                  <p className="text-slate-300">Loading ¦</p>
+                  <p className="text-muted-foreground">Loading ¦</p>
                 </div>
               )}
               {!error && !loading && errorFeed.length === 0 && (
-                <div className="border-l-2 border-[#4ade80]/50 pl-3 py-1">
-                  <div className="flex justify-between text-[#c9b792] text-[10px] mb-1">
+                <div className="border-l-2 border-emerald-500/50 pl-3 py-1">
+                  <div className="flex justify-between text-muted-foreground text-[10px] mb-1">
                     <span>{lastRefreshed || ' ”'}</span>
-                    <span className="text-[#4ade80] font-bold">OK</span>
+                    <span className="text-emerald-500 font-bold">OK</span>
                   </div>
-                  <p className="text-slate-300">No recent incidents.</p>
+                  <p className="text-muted-foreground">No recent incidents.</p>
                 </div>
               )}
               {!error && errorFeed.map((it, idx) => {
                 const lvl = String(it.level || '').toUpperCase();
                 const isCritical = lvl === 'CRITICAL' || lvl === 'ERROR';
-                const border = isCritical ? 'border-[#ef4444]/50' : 'border-[#eead2b]/50';
-                const label = isCritical ? 'text-[#ef4444]' : 'text-[#eead2b]';
+                const border = isCritical ? 'border-destructive/50' : 'border-primary/50';
+                const label = isCritical ? 'text-destructive' : 'text-primary';
                 return (
                   <div key={`${it.at}_${idx}`} className={`border-l-2 ${border} pl-3 py-1`}>
-                    <div className="flex justify-between text-[#c9b792] text-[10px] mb-1">
+                    <div className="flex justify-between text-muted-foreground text-[10px] mb-1">
                       <span>{fmtShortTime(it.at)}</span>
                       <span className={`${label} font-bold`}>{lvl || 'WARN'}</span>
                     </div>
-                    <p className="text-slate-300">{it.message}</p>
+                    <p className="text-muted-foreground">{it.message}</p>
                   </div>
                 );
               })}
@@ -285,14 +285,14 @@ export const SA_SystemHealth: React.FC = () => {
         </div>
 
         {/* Detailed Component Health Status Grid */}
-        <div className="bg-[#2c2415] border border-[#483c23] rounded-md overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#483c23] flex justify-between items-center bg-white/5">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wide">Component Health Status</h3>
+        <div className="bg-card border border-border rounded-md overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex justify-between items-center bg-muted/40">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Component Health Status</h3>
           </div>
           <div className="w-full overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-white/5 text-xs text-[#c9b792] font-medium uppercase tracking-wider">
+                <tr className="bg-muted/40 text-xs text-muted-foreground font-medium uppercase tracking-wider">
                   <th className="px-5 py-3 font-semibold">Service Name</th>
                   <th className="px-5 py-3 font-semibold">Region</th>
                   <th className="px-5 py-3 font-semibold text-center">Status</th>
@@ -300,33 +300,33 @@ export const SA_SystemHealth: React.FC = () => {
                   <th className="px-5 py-3 font-semibold text-right">Uptime (30d)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#483c23] text-sm">
+              <tbody className="divide-y divide-border text-sm">
                 {components.length === 0 && (
-                  <tr className="hover:bg-white/5 transition-colors">
-                    <td className="px-5 py-3 text-[#c9b792]" colSpan={5}>{loading ? 'Loading ¦' : 'No components reported.'}</td>
+                  <tr className="hover:bg-accent transition-colors">
+                    <td className="px-5 py-3 text-muted-foreground" colSpan={5}>{loading ? 'Loading ¦' : 'No components reported.'}</td>
                   </tr>
                 )}
                 {components.map((c) => {
                   const status = String(c.status || 'DEGRADED').toUpperCase();
                   const isHealthy = status === 'HEALTHY';
                   const isDown = status === 'DOWN';
-                  const badgeBg = isDown ? 'bg-[#ef4444]/10 text-[#ef4444] border-[#ef4444]/20' : (isHealthy ? 'bg-[#4ade80]/10 text-[#4ade80] border-[#4ade80]/20' : 'bg-[#eead2b]/10 text-[#eead2b] border-[#eead2b]/20');
-                  const dot = isDown ? 'bg-[#ef4444]' : (isHealthy ? 'bg-[#4ade80]' : 'bg-[#eead2b]');
-                  const rtClass = isHealthy ? 'text-slate-400' : (isDown ? 'text-[#ef4444]' : 'text-[#eead2b]');
+                  const badgeBg = isDown ? 'bg-destructive/10 text-destructive border-destructive/20' : (isHealthy ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-primary/10 text-primary border-primary/20');
+                  const dot = isDown ? 'bg-destructive' : (isHealthy ? 'bg-emerald-500' : 'bg-primary');
+                  const rtClass = isHealthy ? 'text-muted-foreground' : (isDown ? 'text-destructive' : 'text-primary');
                   return (
-                    <tr key={c.id} className="hover:bg-white/5 transition-colors">
-                      <td className="px-5 py-3 font-medium text-slate-200 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-[#c9b792]">{c.icon || 'dns'}</span>
+                    <tr key={c.id} className="hover:bg-accent transition-colors">
+                      <td className="px-5 py-3 font-medium text-foreground flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[18px] text-muted-foreground">{c.icon || 'dns'}</span>
                         {c.name}
                       </td>
-                      <td className="px-5 py-3 text-[#c9b792]">{c.region}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{c.region}</td>
                       <td className="px-5 py-3 text-center">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${badgeBg}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${dot}`}></span> {status}
                         </span>
                       </td>
                       <td className={`px-5 py-3 text-right font-mono ${rtClass}`}>{Math.round(Number(c.responseTimeMs || 0))}ms</td>
-                      <td className="px-5 py-3 text-right font-mono text-slate-400">{Number(c.uptime30dPct || 0).toFixed(2)}%</td>
+                      <td className="px-5 py-3 text-right font-mono text-muted-foreground">{Number(c.uptime30dPct || 0).toFixed(2)}%</td>
                     </tr>
                   );
                 })}

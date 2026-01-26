@@ -159,20 +159,20 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
   const pageCount = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [pageSize, total]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <div className="px-8 py-6 pb-2">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-3xl font-black tracking-tight text-white mb-1">Order History</h2>
-            <p className="text-[#c9b792]">View and manage past transactions</p>
+            <h2 className="text-3xl font-black tracking-tight text-foreground mb-1">Order History</h2>
+            <p className="text-muted-foreground">View and manage past transactions</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setDateFilter('Today')}
               className={`h-10 px-3 rounded-lg border text-sm font-bold transition-colors ${
                 dateFilter === 'Today'
-                  ? 'bg-[#eead2b] text-[#221c11] border-[#eead2b]'
-                  : 'bg-[#2c241b] text-[#c9b792] border-[#483c23] hover:border-[#eead2b]/50 hover:text-white'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
               }`}
             >
               Today
@@ -181,40 +181,40 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
               onClick={() => setDateFilter('AllTime')}
               className={`h-10 px-3 rounded-lg border text-sm font-bold transition-colors ${
                 dateFilter === 'AllTime'
-                  ? 'bg-[#eead2b] text-[#221c11] border-[#eead2b]'
-                  : 'bg-[#2c241b] text-[#c9b792] border-[#483c23] hover:border-[#eead2b]/50 hover:text-white'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
               }`}
             >
               All Time
             </button>
-            <div className="hidden md:flex items-center bg-[#2c241b] rounded-lg border border-[#483c23] h-10 px-3">
-              <span className="material-symbols-outlined text-[#c9b792] text-[20px] mr-2">calendar_today</span>
-              <span className="text-sm text-white font-medium">{todayLabel}</span>
+            <div className="hidden md:flex items-center bg-card rounded-lg border border-border h-10 px-3">
+              <span className="material-symbols-outlined text-muted-foreground text-[20px] mr-2">calendar_today</span>
+              <span className="text-sm text-foreground font-medium">{todayLabel}</span>
             </div>
           </div>
         </div>
         <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 xl:pb-0 scrollbar-hide max-w-full">
-            <button onClick={() => setStatusFilter('All')} className={`px-4 py-1.5 rounded-lg text-sm shadow-sm ${statusFilter === 'All' ? 'bg-[#eead2b] text-[#221c11] font-bold' : 'bg-[#2c241b] text-[#c9b792] border border-transparent hover:border-[#483c23] hover:text-white font-medium transition-all'}`}>All Orders</button>
-            <button onClick={() => setStatusFilter('Open')} className={`px-4 py-1.5 rounded-lg text-sm shadow-sm ${statusFilter === 'Open' ? 'bg-[#eead2b] text-[#221c11] font-bold' : 'bg-[#2c241b] text-[#c9b792] border border-transparent hover:border-[#483c23] hover:text-white font-medium transition-all'}`}>Open</button>
-            <button onClick={() => setStatusFilter('Completed')} className={`px-4 py-1.5 rounded-lg text-sm shadow-sm ${statusFilter === 'Completed' ? 'bg-[#eead2b] text-[#221c11] font-bold' : 'bg-[#2c241b] text-[#c9b792] border border-transparent hover:border-[#483c23] hover:text-white font-medium transition-all'}`}>Completed</button>
-            <button onClick={() => setStatusFilter('Voided')} className={`px-4 py-1.5 rounded-lg text-sm shadow-sm ${statusFilter === 'Voided' ? 'bg-red-500 text-white font-bold' : 'bg-[#2c241b] text-[#c9b792] border border-transparent hover:border-red-500/30 hover:text-white font-medium transition-all'}`}>Voided</button>
+            <button onClick={() => setStatusFilter('All')} className={`px-4 py-1.5 rounded-lg text-sm shadow-sm ${statusFilter === 'All' ? 'bg-primary text-primary-foreground font-bold' : 'bg-card text-muted-foreground border border-transparent hover:border-border hover:text-foreground font-medium transition-all'}`}>All Orders</button>
+            <button onClick={() => setStatusFilter('Open')} className={`px-4 py-1.5 rounded-lg text-sm shadow-sm ${statusFilter === 'Open' ? 'bg-primary text-primary-foreground font-bold' : 'bg-card text-muted-foreground border border-transparent hover:border-border hover:text-foreground font-medium transition-all'}`}>Open</button>
+            <button onClick={() => setStatusFilter('Completed')} className={`px-4 py-1.5 rounded-lg text-sm shadow-sm ${statusFilter === 'Completed' ? 'bg-primary text-primary-foreground font-bold' : 'bg-card text-muted-foreground border border-transparent hover:border-border hover:text-foreground font-medium transition-all'}`}>Completed</button>
+            <button onClick={() => setStatusFilter('Voided')} className={`px-4 py-1.5 rounded-lg text-sm shadow-sm ${statusFilter === 'Voided' ? 'bg-destructive text-destructive-foreground font-bold' : 'bg-card text-muted-foreground border border-transparent hover:border-destructive/30 hover:text-foreground font-medium transition-all'}`}>Voided</button>
           </div>
           <div className="relative w-full xl:w-96">
-            <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#c9b792] text-[20px]">search</span>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} className="block w-full pl-10 pr-3 py-2 border-none rounded-lg bg-[#2c241b] text-white placeholder-[#c9b792] focus:outline-none focus:ring-1 focus:ring-[#eead2b] sm:text-sm" placeholder="Search by Order ID or Table #" type="text"/>
+            <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground text-[20px]">search</span>
+            <input value={query} onChange={(e) => setQuery(e.target.value)} className="block w-full pl-10 pr-3 py-2 border-none rounded-lg bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm" placeholder="Search by Order ID or Table #" type="text"/>
           </div>
         </div>
       </div>
 
       <div className="flex-1 px-8 py-4 overflow-hidden flex flex-col">
-        <div className="flex-1 bg-[#2c241b] rounded-xl border border-[#483c23] flex flex-col overflow-hidden shadow-xl">
+        <div className="flex-1 bg-card rounded-xl border border-border flex flex-col overflow-hidden shadow-xl">
           {error ? (
-            <div className="px-6 py-4 text-sm text-red-300 flex items-center justify-between gap-4 border-b border-[#483c23]">
+            <div className="px-6 py-4 text-sm text-destructive flex items-center justify-between gap-4 border-b border-border">
               <div>Failed to load history: {error}</div>
               <button
                 onClick={() => setPage((p) => p)}
-                className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221c11] font-bold"
+                className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-bold"
               >
                 Retry
               </button>
@@ -222,7 +222,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
           ) : null}
           <div className="overflow-x-auto flex-1">
             <table className="min-w-full text-left whitespace-nowrap">
-              <thead className="bg-[#3a2e22]/50 text-[#c9b792] text-xs uppercase font-semibold tracking-wider sticky top-0 z-10 backdrop-blur-sm">
+              <thead className="bg-secondary/50 text-muted-foreground text-xs uppercase font-semibold tracking-wider sticky top-0 z-10 backdrop-blur-sm">
                 <tr>
                   <th className="px-6 py-4">Order ID</th>
                   <th className="px-6 py-4">Table</th>
@@ -234,10 +234,10 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#483c23] text-sm">
+              <tbody className="divide-y divide-border text-sm">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-8 text-[#c9b792]">
+                    <td colSpan={8} className="px-6 py-8 text-muted-foreground">
                       Loading ¦
                     </td>
                   </tr>
@@ -245,21 +245,21 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
                 {rows.map((r) => (
                   <tr
                     key={r.id}
-                    className="hover:bg-[#3a2e22]/40 transition-colors cursor-pointer"
+                    className="hover:bg-secondary/40 transition-colors cursor-pointer"
                     onClick={() => openOrder(r.id)}
                   >
-                    <td className="px-6 py-4 font-mono text-[#eead2b]">{r.number}</td>
-                    <td className="px-6 py-4 text-white">{r.table}</td>
-                    <td className="px-6 py-4 text-[#c9b792]">{r.time}</td>
-                    <td className="px-6 py-4 text-[#c9b792]">{r.by || ' ”'}</td>
-                    <td className="px-6 py-4 text-white truncate max-w-xs">{r.itemsSummary}</td>
-                    <td className="px-6 py-4 text-right font-mono text-white font-medium">ETB {r.total.toFixed(2)}</td>
+                    <td className="px-6 py-4 font-mono text-primary">{r.number}</td>
+                    <td className="px-6 py-4 text-foreground">{r.table}</td>
+                    <td className="px-6 py-4 text-muted-foreground">{r.time}</td>
+                    <td className="px-6 py-4 text-muted-foreground">{r.by || ' ”'}</td>
+                    <td className="px-6 py-4 text-foreground truncate max-w-xs">{r.itemsSummary}</td>
+                    <td className="px-6 py-4 text-right font-mono text-foreground font-medium">ETB {r.total.toFixed(2)}</td>
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                        r.status === 'Paid' ? 'bg-green-500/10 text-green-500 border-green-500/20' :
-                        r.status === 'Voided' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                        r.status === 'Cooking' ? 'bg-[#eead2b]/10 text-[#eead2b] border-[#eead2b]/20' :
-                        'bg-white/10 text-white border-white/10'
+                        r.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' :
+                        r.status === 'Voided' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                        r.status === 'Cooking' ? 'bg-primary/10 text-primary border-primary/20' :
+                        'bg-muted/40 text-foreground border-border'
                       }`}>{r.status}</span>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -268,7 +268,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
                           e.stopPropagation();
                           openOrder(r.id);
                         }}
-                        className="text-[#c9b792] hover:text-white p-1 rounded hover:bg-white/10 transition-colors"
+                        className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/40 transition-colors"
                       >
                         <span className="material-symbols-outlined text-[20px]">visibility</span>
                       </button>
@@ -279,21 +279,21 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
             </table>
           </div>
 
-          <div className="px-6 py-4 border-t border-[#483c23] flex items-center justify-between gap-4">
-            <div className="text-xs text-[#c9b792]">Total: {total}</div>
+          <div className="px-6 py-4 border-t border-border flex items-center justify-between gap-4">
+            <div className="text-xs text-muted-foreground">Total: {total}</div>
             <div className="flex items-center gap-2">
               <button
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="h-9 px-3 rounded-lg bg-[#221c11] border border-[#483c23] text-[#c9b792] disabled:opacity-50"
+                className="h-9 px-3 rounded-lg bg-background border border-border text-muted-foreground disabled:opacity-50"
               >
                 Prev
               </button>
-              <div className="text-xs text-[#c9b792]">Page {page} / {pageCount}</div>
+              <div className="text-xs text-muted-foreground">Page {page} / {pageCount}</div>
               <button
                 disabled={page >= pageCount}
                 onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                className="h-9 px-3 rounded-lg bg-[#221c11] border border-[#483c23] text-[#c9b792] disabled:opacity-50"
+                className="h-9 px-3 rounded-lg bg-background border border-border text-muted-foreground disabled:opacity-50"
               >
                 Next
               </button>

@@ -250,7 +250,7 @@ const cx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolea
 const Toggle: React.FC<{ checked: boolean; onChange: (next: boolean) => void; label?: string }> = ({ checked, onChange, label }) => (
   <label className="relative inline-flex items-center cursor-pointer" aria-label={label ?? 'toggle'}>
     <input checked={checked} onChange={(e) => onChange(e.target.checked)} className="sr-only peer" type="checkbox" />
-    <div className="w-11 h-6 bg-[#393328] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+    <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-background after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-background after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
   </label>
 );
 
@@ -258,7 +258,7 @@ const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => 
   <input
     {...props}
     className={cx(
-      'w-full h-11 bg-background border border-border text-white text-sm rounded-lg focus:ring-1 focus:ring-primary/60 focus:border-primary px-4 placeholder-text-muted/50',
+      'w-full h-11 bg-background border border-border text-foreground text-sm rounded-lg focus:ring-1 focus:ring-primary/60 focus:border-primary px-4 placeholder:text-muted-foreground/50',
       props.className,
     )}
   />
@@ -268,7 +268,7 @@ const TextArea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement>> = (p
   <textarea
     {...props}
     className={cx(
-      'w-full min-h-[92px] bg-background border border-border text-white text-sm rounded-lg focus:ring-1 focus:ring-primary/60 focus:border-primary px-4 py-3 placeholder-text-muted/50',
+      'w-full min-h-[92px] bg-background border border-border text-foreground text-sm rounded-lg focus:ring-1 focus:ring-primary/60 focus:border-primary px-4 py-3 placeholder:text-muted-foreground/50',
       props.className,
     )}
   />
@@ -278,7 +278,7 @@ const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = (props) 
   <select
     {...props}
     className={cx(
-      'w-full h-11 bg-background border border-border text-white text-sm rounded-lg focus:ring-1 focus:ring-primary/60 focus:border-primary px-4',
+      'w-full h-11 bg-background border border-border text-foreground text-sm rounded-lg focus:ring-1 focus:ring-primary/60 focus:border-primary px-4',
       props.className,
     )}
   />
@@ -287,8 +287,8 @@ const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = (props) 
 const Field: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => (
   <div className="flex flex-col gap-2">
     <div className="flex flex-col">
-      <label className="text-xs text-text-muted font-bold uppercase tracking-wider">{label}</label>
-      {hint ? <div className="text-xs text-text-muted mt-1">{hint}</div> : null}
+      <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">{label}</label>
+      {hint ? <div className="text-xs text-muted-foreground mt-1">{hint}</div> : null}
     </div>
     {children}
   </div>
@@ -872,10 +872,10 @@ export const Settings: React.FC = () => {
 
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#181611] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <OwnerPageHeader
         title="Settings"
-        leftSlot={<div className="text-xs text-[#b9b09d]">Advanced configuration and preferences</div>}
+        leftSlot={<div className="text-xs text-muted-foreground">Advanced configuration and preferences</div>}
       />
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -898,10 +898,10 @@ export const Settings: React.FC = () => {
 
           <div className="grid grid-cols-12 gap-6">
             <div className="col-span-12 lg:col-span-3">
-              <div className="bg-[#221c10] border border-[#393328] rounded-xl overflow-hidden lg:sticky lg:top-6">
-                <div className="p-4 border-b border-[#393328] bg-[#2c241b]">
-                  <div className="text-white font-extrabold">Configuration</div>
-                  <div className="text-xs text-text-muted mt-1">Owner-level settings</div>
+              <div className="bg-card border border-border rounded-xl overflow-hidden lg:sticky lg:top-6">
+                <div className="p-4 border-b border-border bg-card">
+                  <div className="text-foreground font-extrabold">Configuration</div>
+                  <div className="text-xs text-muted-foreground mt-1">Owner-level settings</div>
                 </div>
                 <div className="p-2 flex flex-col gap-1">
                   {tabs.map((t) => (
@@ -912,8 +912,8 @@ export const Settings: React.FC = () => {
                       className={cx(
                         'w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-left transition-colors',
                         activeTab === t.key
-                          ? 'bg-primary/10 border-primary/40 text-white'
-                          : 'bg-transparent border-transparent text-text-muted hover:text-white hover:bg-[#2c241b]',
+                          ? 'bg-primary/10 border-primary/40 text-foreground'
+                          : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-accent',
                       )}
                     >
                       <span className="material-symbols-outlined text-[20px]">{t.icon}</span>
@@ -921,7 +921,7 @@ export const Settings: React.FC = () => {
                     </button>
                   ))}
                 </div>
-                <div className="p-4 border-t border-[#393328] flex items-center justify-between gap-2">
+                <div className="p-4 border-t border-border flex items-center justify-between gap-2">
                   <button
                     type="button"
                     onClick={discard}
@@ -929,8 +929,8 @@ export const Settings: React.FC = () => {
                     className={cx(
                       'px-4 h-10 rounded-lg border text-sm font-bold transition-colors',
                       !dirty || saving || loading
-                        ? 'border-border text-text-muted opacity-60 cursor-not-allowed'
-                        : 'border-border text-text-muted hover:text-white hover:bg-[#2c241b]',
+                        ? 'border-border text-muted-foreground opacity-60 cursor-not-allowed'
+                        : 'border-border text-muted-foreground hover:text-foreground hover:bg-accent',
                     )}
                   >
                     Discard
@@ -941,7 +941,7 @@ export const Settings: React.FC = () => {
                     disabled={!canSave}
                     className={cx(
                       'px-4 h-10 rounded-lg text-sm font-extrabold transition-colors shadow-lg',
-                      canSave ? 'bg-primary text-background hover:bg-primary-hover shadow-primary/20' : 'bg-border text-text-muted cursor-not-allowed',
+                      canSave ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20' : 'bg-border text-muted-foreground cursor-not-allowed',
                     )}
                   >
                     {saving ? 'Saving ¦' : 'Save'}
@@ -951,25 +951,25 @@ export const Settings: React.FC = () => {
             </div>
 
             <div className="col-span-12 lg:col-span-9 flex flex-col gap-6">
-              <div className="bg-[#221c10] border border-[#393328] rounded-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-[#393328] bg-[#2c241b] flex items-center justify-between">
-                  <div className="text-white font-extrabold">
+              <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-border bg-card flex items-center justify-between">
+                  <div className="text-foreground font-extrabold">
                     {tabs.find((t) => t.key === activeTab)?.label ?? 'Settings'}
                   </div>
-                  <div className="text-xs text-text-muted">
+                  <div className="text-xs text-muted-foreground">
                     {loading ? 'Loading ¦' : dirty ? 'Unsaved changes' : 'Up to date'}
                   </div>
                 </div>
 
                 <div className="p-6">
                   {!s ? (
-                    <div className="text-text-muted">{loading ? 'Loading ¦' : 'No settings loaded.'}</div>
+                    <div className="text-muted-foreground">{loading ? 'Loading ¦' : 'No settings loaded.'}</div>
                   ) : null}
 
                   {lockedBySubscription ? (
                     <div className="mb-6 p-4 border border-primary/40 rounded-lg bg-primary/10">
-                      <div className="text-white font-extrabold text-sm">Locked</div>
-                      <div className="text-xs text-text-muted mt-1">
+                      <div className="text-foreground font-extrabold text-sm">Locked</div>
+                      <div className="text-xs text-muted-foreground mt-1">
                         This section is visible for transparency, but editing is limited on your current plan. Upgrade to unlock.
                       </div>
                     </div>
@@ -1000,8 +1000,8 @@ export const Settings: React.FC = () => {
                       <div className="flex flex-col gap-6">
                         <div className="flex items-center justify-between gap-4">
                           <div>
-                            <div className="text-white font-bold text-sm">Integration Marketplace</div>
-                            <div className="text-xs text-text-muted mt-1">Install and manage integrations for your tenant.</div>
+                            <div className="text-foreground font-bold text-sm">Integration Marketplace</div>
+                            <div className="text-xs text-muted-foreground mt-1">Install and manage integrations for your tenant.</div>
                           </div>
                           <button
                             type="button"
@@ -1009,7 +1009,9 @@ export const Settings: React.FC = () => {
                             disabled={integrationsLoading}
                             className={cx(
                               'px-4 h-10 rounded-lg border text-sm font-bold transition-colors',
-                              integrationsLoading ? 'border-border text-text-muted opacity-60 cursor-not-allowed' : 'border-border text-text-muted hover:text-white hover:bg-[#2c241b]',
+                              integrationsLoading
+                                ? 'border-border text-muted-foreground opacity-60 cursor-not-allowed'
+                                : 'border-border text-muted-foreground hover:text-foreground hover:bg-accent',
                             )}
                           >
                             Refresh
@@ -1017,27 +1019,29 @@ export const Settings: React.FC = () => {
                         </div>
 
                         {integrationsError ? <div className="text-xs text-danger">{integrationsError}</div> : null}
-                        {integrationsLoading ? <div className="text-xs text-text-muted">Loading ¦</div> : null}
+                        {integrationsLoading ? <div className="text-xs text-muted-foreground">Loading ¦</div> : null}
 
                         <div className="p-4 border border-border rounded-lg">
-                          <div className="text-white font-extrabold text-sm">Installed</div>
+                          <div className="text-foreground font-extrabold text-sm">Installed</div>
                           <div className="mt-3 divide-y divide-border">
                             {installedIntegrations.length === 0 ? (
-                              <div className="py-3 text-xs text-text-muted">No integrations installed yet.</div>
+                              <div className="py-3 text-xs text-muted-foreground">No integrations installed yet.</div>
                             ) : (
                               installedIntegrations.map((x) => {
                                 const enabled = String(x.status || '').toLowerCase() !== 'disabled';
                                 return (
                                   <div key={x.integrationId} className="py-3 flex items-center justify-between gap-4">
                                     <div className="min-w-0">
-                                      <div className="text-white font-bold text-sm truncate">{x.name || x.code}</div>
-                                      <div className="text-xs text-text-muted">{x.category || '—'} • {x.integrationType || '—'} • {x.status || 'installed'}</div>
+                                      <div className="text-foreground font-bold text-sm truncate">{x.name || x.code}</div>
+                                      <div className="text-xs text-muted-foreground">{x.category || '—'} • {x.integrationType || '—'} • {x.status || 'installed'}</div>
                                     </div>
                                     <button
                                       type="button"
                                       className={cx(
                                         'px-3 h-9 rounded-lg text-xs font-extrabold transition-colors',
-                                        enabled ? 'bg-surface-light border border-border text-white hover:bg-surface' : 'bg-primary text-background hover:bg-primary-hover',
+                                        enabled
+                                          ? 'bg-card border border-border text-foreground hover:bg-accent'
+                                          : 'bg-primary text-primary-foreground hover:bg-primary/90',
                                       )}
                                       onClick={() => void toggleIntegrationStatus(x.integrationId, enabled ? 'disabled' : 'installed')}
                                       disabled={integrationsLoading}
@@ -1052,24 +1056,26 @@ export const Settings: React.FC = () => {
                         </div>
 
                         <div className="p-4 border border-border rounded-lg">
-                          <div className="text-white font-extrabold text-sm">Available</div>
+                          <div className="text-foreground font-extrabold text-sm">Available</div>
                           <div className="mt-3 divide-y divide-border">
                             {availableIntegrations.length === 0 ? (
-                              <div className="py-3 text-xs text-text-muted">No integrations available.</div>
+                              <div className="py-3 text-xs text-muted-foreground">No integrations available.</div>
                             ) : (
                               availableIntegrations.map((x) => {
                                 const already = installedIntegrations.some((i) => i.integrationId === x.id);
                                 return (
                                   <div key={x.id} className="py-3 flex items-center justify-between gap-4">
                                     <div className="min-w-0">
-                                      <div className="text-white font-bold text-sm truncate">{x.name || x.code}</div>
-                                      <div className="text-xs text-text-muted">{x.category || '—'} • {x.integrationType || '—'}</div>
+                                      <div className="text-foreground font-bold text-sm truncate">{x.name || x.code}</div>
+                                      <div className="text-xs text-muted-foreground">{x.category || '—'} • {x.integrationType || '—'}</div>
                                     </div>
                                     <button
                                       type="button"
                                       className={cx(
                                         'px-3 h-9 rounded-lg text-xs font-extrabold transition-colors',
-                                        already ? 'bg-border text-text-muted cursor-not-allowed' : 'bg-primary text-background hover:bg-primary-hover',
+                                        already
+                                          ? 'bg-border text-muted-foreground cursor-not-allowed'
+                                          : 'bg-primary text-primary-foreground hover:bg-primary/90',
                                       )}
                                       disabled={already || integrationsLoading}
                                       onClick={() => void installIntegration(x.id)}
@@ -1089,8 +1095,8 @@ export const Settings: React.FC = () => {
                       <div className="flex flex-col gap-6">
                         <div className="flex items-center justify-between gap-4">
                           <div>
-                            <div className="text-white font-bold text-sm">Add-ons</div>
-                            <div className="text-xs text-text-muted mt-1">Subscribe to add-ons that extend modules/limits.</div>
+                            <div className="text-foreground font-bold text-sm">Add-ons</div>
+                            <div className="text-xs text-muted-foreground mt-1">Subscribe to add-ons that extend modules/limits.</div>
                           </div>
                           <button
                             type="button"
@@ -1098,7 +1104,9 @@ export const Settings: React.FC = () => {
                             disabled={addonsLoading}
                             className={cx(
                               'px-4 h-10 rounded-lg border text-sm font-bold transition-colors',
-                              addonsLoading ? 'border-border text-text-muted opacity-60 cursor-not-allowed' : 'border-border text-text-muted hover:text-white hover:bg-[#2c241b]',
+                              addonsLoading
+                                ? 'border-border text-muted-foreground opacity-60 cursor-not-allowed'
+                                : 'border-border text-muted-foreground hover:text-foreground hover:bg-accent',
                             )}
                           >
                             Refresh
@@ -1106,21 +1114,21 @@ export const Settings: React.FC = () => {
                         </div>
 
                         {addonsError ? <div className="text-xs text-danger">{addonsError}</div> : null}
-                        {addonsLoading ? <div className="text-xs text-text-muted">Loading ¦</div> : null}
+                        {addonsLoading ? <div className="text-xs text-muted-foreground">Loading ¦</div> : null}
 
                         <div className="p-4 border border-border rounded-lg">
-                          <div className="text-white font-extrabold text-sm">Active Subscriptions</div>
+                          <div className="text-foreground font-extrabold text-sm">Active Subscriptions</div>
                           <div className="mt-3 divide-y divide-border">
                             {addonSubscriptions.length === 0 ? (
-                              <div className="py-3 text-xs text-text-muted">No add-ons active.</div>
+                              <div className="py-3 text-xs text-muted-foreground">No add-ons active.</div>
                             ) : (
                               addonSubscriptions.map((x) => (
                                 <div key={x.id} className="py-3 flex items-center justify-between gap-4">
                                   <div className="min-w-0">
-                                    <div className="text-white font-bold text-sm truncate">{x.name || x.code}</div>
-                                    <div className="text-xs text-text-muted">{x.category || '—'} • {x.status || '—'} • {x.billingFrequency || '—'}</div>
+                                    <div className="text-foreground font-bold text-sm truncate">{x.name || x.code}</div>
+                                    <div className="text-xs text-muted-foreground">{x.category || '—'} • {x.status || '—'} • {x.billingFrequency || '—'}</div>
                                   </div>
-                                  <div className="text-xs text-text-muted font-mono">ETB {Number(x.pricePaidEtb || 0).toFixed(2)}</div>
+                                  <div className="text-xs text-muted-foreground font-mono">ETB {Number(x.pricePaidEtb || 0).toFixed(2)}</div>
                                 </div>
                               ))
                             )}
@@ -1128,26 +1136,28 @@ export const Settings: React.FC = () => {
                         </div>
 
                         <div className="p-4 border border-border rounded-lg">
-                          <div className="text-white font-extrabold text-sm">Catalog</div>
+                          <div className="text-foreground font-extrabold text-sm">Catalog</div>
                           <div className="mt-3 divide-y divide-border">
                             {addonsCatalog.length === 0 ? (
-                              <div className="py-3 text-xs text-text-muted">No add-ons available.</div>
+                              <div className="py-3 text-xs text-muted-foreground">No add-ons available.</div>
                             ) : (
                               addonsCatalog.map((a) => {
                                 const active = addonSubscriptions.some((s0) => s0.addonId === a.id && String(s0.status || '').toLowerCase() === 'active');
                                 return (
                                   <div key={a.id} className="py-3 flex items-center justify-between gap-4">
                                     <div className="min-w-0">
-                                      <div className="text-white font-bold text-sm truncate">{a.name || a.code}</div>
-                                      <div className="text-xs text-text-muted">{a.category || '—'}</div>
-                                      <div className="text-xs text-text-muted mt-1">Monthly: {Math.round(a.pricing.monthlyEtb)} ETB • Yearly: {Math.round(a.pricing.yearlyEtb)} ETB</div>
+                                      <div className="text-foreground font-bold text-sm truncate">{a.name || a.code}</div>
+                                      <div className="text-xs text-muted-foreground">{a.category || '—'}</div>
+                                      <div className="text-xs text-muted-foreground mt-1">Monthly: {Math.round(a.pricing.monthlyEtb)} ETB • Yearly: {Math.round(a.pricing.yearlyEtb)} ETB</div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                       <button
                                         type="button"
                                         className={cx(
                                           'px-3 h-9 rounded-lg text-xs font-extrabold transition-colors',
-                                          active ? 'bg-border text-text-muted cursor-not-allowed' : 'bg-primary text-background hover:bg-primary-hover',
+                                          active
+                                            ? 'bg-border text-muted-foreground cursor-not-allowed'
+                                            : 'bg-primary text-primary-foreground hover:bg-primary/90',
                                         )}
                                         disabled={active || addonsLoading}
                                         onClick={() => void subscribeAddon(a.id, 'monthly')}
@@ -1158,7 +1168,9 @@ export const Settings: React.FC = () => {
                                         type="button"
                                         className={cx(
                                           'px-3 h-9 rounded-lg text-xs font-extrabold transition-colors',
-                                          active ? 'bg-border text-text-muted cursor-not-allowed' : 'bg-surface-light border border-border text-white hover:bg-surface',
+                                          active
+                                            ? 'bg-border text-muted-foreground cursor-not-allowed'
+                                            : 'bg-card border border-border text-foreground hover:bg-accent',
                                         )}
                                         disabled={active || addonsLoading}
                                         onClick={() => void subscribeAddon(a.id, 'yearly')}
@@ -1177,26 +1189,26 @@ export const Settings: React.FC = () => {
 
                     {activeTab === 'modules' ? (
                       <div className="flex flex-col gap-6">
-                        <div className="p-4 border border-border rounded-lg bg-[#1f1a10]">
+                        <div className="p-4 border border-border rounded-lg bg-card">
                           <div className="flex items-center justify-between gap-4">
                             <div className="flex flex-col">
-                              <div className="text-white font-extrabold text-sm">Your plan modules</div>
+                              <div className="text-foreground font-extrabold text-sm">Your plan modules</div>
 
                             </div>
-                            <div className="text-xs text-text-muted">Tier: <span className="text-white font-bold">{tier}</span></div>
+                            <div className="text-xs text-muted-foreground">Tier: <span className="text-foreground font-bold">{tier}</span></div>
                           </div>
-                          {subLoading ? <div className="text-xs text-text-muted mt-3">Loading ¦</div> : null}
+                          {subLoading ? <div className="text-xs text-muted-foreground mt-3">Loading ¦</div> : null}
                           {subError ? <div className="text-xs text-danger mt-3">{subError}</div> : null}
                           {!subLoading && !subError ? (
                             <div className="mt-4 flex flex-wrap gap-2">
                               {(Array.isArray(moduleOverride) ? moduleOverride : []).length ? (
                                 (moduleOverride as any[]).map((m) => (
-                                  <span key={String(m)} className="px-2 py-1 rounded-md border border-border bg-[#2c241b] text-xs text-white font-bold">
+                                  <span key={String(m)} className="px-2 py-1 rounded-md border border-border bg-muted text-xs text-foreground font-bold">
                                     {String(m)}
                                   </span>
                                 ))
                               ) : (
-                                <div className="text-xs text-text-muted">No modules enabled.</div>
+                                <div className="text-xs text-muted-foreground">No modules enabled.</div>
                               )}
                             </div>
                           ) : null}
@@ -1205,7 +1217,7 @@ export const Settings: React.FC = () => {
                         <div className="p-4 border border-border rounded-lg">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex flex-col">
-                              <div className="text-white font-extrabold text-sm">Available modules</div>
+                              <div className="text-foreground font-extrabold text-sm">Available modules</div>
                             </div>
                             <button
                               type="button"
@@ -1214,8 +1226,8 @@ export const Settings: React.FC = () => {
                               className={cx(
                                 'px-4 h-10 rounded-lg text-sm font-extrabold transition-colors shadow-lg',
                                 modulesSaving || lockedBySubscription
-                                  ? 'bg-border text-text-muted cursor-not-allowed'
-                                  : 'bg-primary text-background hover:bg-primary-hover shadow-primary/20',
+                                  ? 'bg-border text-muted-foreground cursor-not-allowed'
+                                  : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20',
                               )}
                             >
                               {modulesSaving ? 'Saving ¦' : 'Save Modules'}
@@ -1265,21 +1277,21 @@ export const Settings: React.FC = () => {
                                   }}
                                   className={cx(
                                     'p-4 border rounded-lg flex items-start justify-between gap-4 text-left transition-colors',
-                                    'border-border hover:bg-[#2c241b]',
+                                    'border-border hover:bg-accent',
                                     (lockedBySubscription || modulesSaving || !inAnyPlan || requiredAlwaysOn) && 'opacity-60 cursor-not-allowed hover:bg-transparent',
                                   )}
                                 >
                                   <div className="flex items-start gap-3">
-                                    <span className={cx('material-symbols-outlined text-[20px]', enabled ? 'text-success' : 'text-text-muted')}
+                                    <span className={cx('material-symbols-outlined text-[20px]', enabled ? 'text-success' : 'text-muted-foreground')}
                                     >{enabled ? 'check_circle' : 'lock'}</span>
                                     <div className="flex flex-col">
-                                      <div className="text-white font-bold text-sm">{key}</div>
-                                      <div className="text-xs text-text-muted mt-1">
+                                      <div className="text-foreground font-bold text-sm">{key}</div>
+                                      <div className="text-xs text-muted-foreground mt-1">
                                         {enabled ? (requiredAlwaysOn ? 'Required' : 'Enabled') : inAnyPlan ? 'Not enabled on your plan' : 'Not available'}
                                       </div>
                                     </div>
                                   </div>
-                                  <div className={cx('text-xs font-bold px-2 py-1 rounded-md border', enabled ? 'border-success/40 bg-success/10 text-success' : 'border-border bg-[#2c241b] text-text-muted')}>
+                                  <div className={cx('text-xs font-bold px-2 py-1 rounded-md border', enabled ? 'border-success/40 bg-success/10 text-success' : 'border-border bg-muted text-muted-foreground')}>
                                     {enabled ? 'ON' : 'OFF'}
                                   </div>
                                 </button>
@@ -1294,8 +1306,8 @@ export const Settings: React.FC = () => {
                       <div className="flex flex-col gap-6">
                         <div className="flex items-center justify-between gap-4 p-4 border border-border rounded-lg">
                           <div>
-                            <div className="text-white font-bold text-sm">Allow Split Payments</div>
-                            <div className="text-xs text-text-muted mt-1">Enable paying one bill using multiple payment methods.</div>
+                            <div className="text-foreground font-bold text-sm">Allow Split Payments</div>
+                            <div className="text-xs text-muted-foreground mt-1">Enable paying one bill using multiple payment methods.</div>
                           </div>
                           <Toggle
                             checked={!!s.payments?.allowSplitPayments}
@@ -1312,10 +1324,10 @@ export const Settings: React.FC = () => {
                           {paymentMethods.map((m) => (
                             <div key={m.id} className="p-4 border border-border rounded-lg flex items-center justify-between gap-4">
                               <div className="flex items-center gap-3">
-                                <span className="material-symbols-outlined text-text-muted">{m.icon}</span>
+                                <span className="material-symbols-outlined text-muted-foreground">{m.icon}</span>
                                 <div className="flex flex-col">
-                                  <div className="text-white font-bold text-sm">{m.label}</div>
-                                  <div className="text-xs text-text-muted">{m.id}</div>
+                                  <div className="text-foreground font-bold text-sm">{m.label}</div>
+                                  <div className="text-xs text-muted-foreground">{m.id}</div>
                                 </div>
                               </div>
                               <Toggle
@@ -1382,8 +1394,8 @@ export const Settings: React.FC = () => {
                         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="flex items-center justify-between gap-4 p-4 border border-border rounded-lg">
                             <div>
-                              <div className="text-white font-bold text-sm">Default VAT Enabled</div>
-                              <div className="text-xs text-text-muted mt-1">Applied when creating new branches.</div>
+                              <div className="text-foreground font-bold text-sm">Default VAT Enabled</div>
+                              <div className="text-xs text-muted-foreground mt-1">Applied when creating new branches.</div>
                             </div>
                             <Toggle
                               checked={!!s.branchDefaults?.defaultVatEnabled}
@@ -1392,8 +1404,8 @@ export const Settings: React.FC = () => {
                           </div>
                           <div className="flex items-center justify-between gap-4 p-4 border border-border rounded-lg">
                             <div>
-                              <div className="text-white font-bold text-sm">Default Service Charge Enabled</div>
-                              <div className="text-xs text-text-muted mt-1">Applied when creating new branches.</div>
+                              <div className="text-foreground font-bold text-sm">Default Service Charge Enabled</div>
+                              <div className="text-xs text-muted-foreground mt-1">Applied when creating new branches.</div>
                             </div>
                             <Toggle
                               checked={!!s.branchDefaults?.defaultServiceChargeEnabled}
@@ -1436,10 +1448,10 @@ export const Settings: React.FC = () => {
                         <div className="md:col-span-2">
                           <div className="p-4 border border-border rounded-lg flex items-start justify-between gap-4">
                             <div className="flex flex-col">
-                              <div className="text-white font-bold text-sm">Receipt Logo</div>
-                              <div className="text-xs text-text-muted mt-1">Optional. Used on printed receipts. Recommended: small PNG/WebP.</div>
+                              <div className="text-foreground font-bold text-sm">Receipt Logo</div>
+                              <div className="text-xs text-muted-foreground mt-1">Optional. Used on printed receipts. Recommended: small PNG/WebP.</div>
                               <div className="mt-3 flex items-center gap-3">
-                                <label className="px-4 h-10 inline-flex items-center justify-center rounded-lg bg-surface-light border border-border text-sm font-bold text-text-muted hover:text-white hover:bg-surface transition-colors cursor-pointer">
+                                <label className="px-4 h-10 inline-flex items-center justify-center rounded-lg bg-card border border-border text-sm font-bold text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
                                   Upload Logo
                                   <input
                                     type="file"
@@ -1455,7 +1467,7 @@ export const Settings: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => setDraft({ ...s, receipt: { ...s.receipt, logoDataUrl: '' } })}
-                                  className="px-4 h-10 rounded-lg border border-border text-sm font-bold text-text-muted hover:text-white hover:bg-surface-light transition-colors"
+                                  className="px-4 h-10 rounded-lg border border-border text-sm font-bold text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                                 >
                                   Remove
                                 </button>
@@ -1465,7 +1477,7 @@ export const Settings: React.FC = () => {
                               {s.receipt.logoDataUrl ? (
                                 <img src={s.receipt.logoDataUrl} alt="Receipt logo" className="max-w-full max-h-full object-contain" />
                               ) : (
-                                <div className="text-xs text-text-muted">No logo</div>
+                                <div className="text-xs text-muted-foreground">No logo</div>
                               )}
                             </div>
                           </div>
@@ -1481,8 +1493,8 @@ export const Settings: React.FC = () => {
                         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="flex items-center justify-between gap-4 p-4 border border-border rounded-lg">
                             <div>
-                              <div className="text-white font-bold text-sm">Show TIN</div>
-                              <div className="text-xs text-text-muted mt-1">Include tax number on receipts.</div>
+                              <div className="text-foreground font-bold text-sm">Show TIN</div>
+                              <div className="text-xs text-muted-foreground mt-1">Include tax number on receipts.</div>
                             </div>
                             <Toggle checked={s.receipt.showTin} onChange={(v) => setDraft({ ...s, receipt: { ...s.receipt, showTin: v } })} />
                           </div>
@@ -1494,8 +1506,8 @@ export const Settings: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="flex items-center justify-between gap-4 p-4 border border-border rounded-lg md:col-span-2">
                           <div>
-                            <div className="text-white font-bold text-sm">VAT</div>
-                            <div className="text-xs text-text-muted mt-1">Enable VAT calculations for receipts and reports.</div>
+                            <div className="text-foreground font-bold text-sm">VAT</div>
+                            <div className="text-xs text-muted-foreground mt-1">Enable VAT calculations for receipts and reports.</div>
                           </div>
                           <Toggle checked={s.taxes.vatEnabled} onChange={(v) => setDraft({ ...s, taxes: { ...s.taxes, vatEnabled: v } })} />
                         </div>
@@ -1509,8 +1521,8 @@ export const Settings: React.FC = () => {
 
                         <div className="flex items-center justify-between gap-4 p-4 border border-border rounded-lg md:col-span-2">
                           <div>
-                            <div className="text-white font-bold text-sm">Service Charge</div>
-                            <div className="text-xs text-text-muted mt-1">Apply service charge to orders.</div>
+                            <div className="text-foreground font-bold text-sm">Service Charge</div>
+                            <div className="text-xs text-muted-foreground mt-1">Apply service charge to orders.</div>
                           </div>
                           <Toggle
                             checked={s.taxes.serviceChargeEnabled}
@@ -1547,8 +1559,8 @@ export const Settings: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="flex items-center justify-between gap-4 p-4 border border-border rounded-lg md:col-span-2">
                           <div>
-                            <div className="text-white font-bold text-sm">Require PIN for refunds</div>
-                            <div className="text-xs text-text-muted mt-1">Add an extra confirmation step for refunds.</div>
+                            <div className="text-foreground font-bold text-sm">Require PIN for refunds</div>
+                            <div className="text-xs text-muted-foreground mt-1">Add an extra confirmation step for refunds.</div>
                           </div>
                           <Toggle
                             checked={s.security.requirePinForRefunds}
@@ -1558,8 +1570,8 @@ export const Settings: React.FC = () => {
 
                         <div className="flex items-center justify-between gap-4 p-4 border border-border rounded-lg md:col-span-2">
                           <div>
-                            <div className="text-white font-bold text-sm">Require PIN for discounts</div>
-                            <div className="text-xs text-text-muted mt-1">Prevent unauthorized discounts.</div>
+                            <div className="text-foreground font-bold text-sm">Require PIN for discounts</div>
+                            <div className="text-xs text-muted-foreground mt-1">Prevent unauthorized discounts.</div>
                           </div>
                           <Toggle
                             checked={s.security.requirePinForDiscounts}
@@ -1606,8 +1618,8 @@ export const Settings: React.FC = () => {
                         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="flex items-center justify-between gap-4 p-4 border border-border rounded-lg">
                             <div>
-                              <div className="text-white font-bold text-sm">Refunds Require Manager</div>
-                              <div className="text-xs text-text-muted mt-1">Require elevated role to refund payments.</div>
+                              <div className="text-foreground font-bold text-sm">Refunds Require Manager</div>
+                              <div className="text-xs text-muted-foreground mt-1">Require elevated role to refund payments.</div>
                             </div>
                             <Toggle
                               checked={!!s.policies?.refundsRequireManager}
@@ -1616,8 +1628,8 @@ export const Settings: React.FC = () => {
                           </div>
                           <div className="flex items-center justify-between gap-4 p-4 border border-border rounded-lg">
                             <div>
-                              <div className="text-white font-bold text-sm">Voids Require Manager</div>
-                              <div className="text-xs text-text-muted mt-1">Require elevated role to void orders.</div>
+                              <div className="text-foreground font-bold text-sm">Voids Require Manager</div>
+                              <div className="text-xs text-muted-foreground mt-1">Require elevated role to void orders.</div>
                             </div>
                             <Toggle
                               checked={!!s.policies?.voidsRequireManager}
@@ -1633,8 +1645,8 @@ export const Settings: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="p-4 border border-border rounded-lg flex items-center justify-between gap-4">
                             <div>
-                              <div className="text-white font-bold text-sm">In-app Notifications</div>
-                              <div className="text-xs text-text-muted mt-1">Show alerts inside the app.</div>
+                              <div className="text-foreground font-bold text-sm">In-app Notifications</div>
+                              <div className="text-xs text-muted-foreground mt-1">Show alerts inside the app.</div>
                             </div>
                             <Toggle
                               checked={!!s.notifications?.channels.inApp}
@@ -1651,8 +1663,8 @@ export const Settings: React.FC = () => {
                           </div>
                           <div className="p-4 border border-border rounded-lg flex items-center justify-between gap-4">
                             <div>
-                              <div className="text-white font-bold text-sm">Email Notifications</div>
-                              <div className="text-xs text-text-muted mt-1">Send important alerts by email.</div>
+                              <div className="text-foreground font-bold text-sm">Email Notifications</div>
+                              <div className="text-xs text-muted-foreground mt-1">Send important alerts by email.</div>
                             </div>
                             <Toggle
                               checked={!!s.notifications?.channels.email}
@@ -1669,8 +1681,8 @@ export const Settings: React.FC = () => {
                           </div>
                           <div className="p-4 border border-border rounded-lg flex items-center justify-between gap-4">
                             <div>
-                              <div className="text-white font-bold text-sm">SMS Notifications</div>
-                              <div className="text-xs text-text-muted mt-1">Send alerts via SMS (if configured).</div>
+                              <div className="text-foreground font-bold text-sm">SMS Notifications</div>
+                              <div className="text-xs text-muted-foreground mt-1">Send alerts via SMS (if configured).</div>
                             </div>
                             <Toggle
                               checked={!!s.notifications?.channels.sms}
@@ -1696,8 +1708,8 @@ export const Settings: React.FC = () => {
                           ].map((r) => (
                             <div key={r.key} className="p-4 border border-border rounded-lg flex items-center justify-between gap-4">
                               <div>
-                                <div className="text-white font-bold text-sm">{r.title}</div>
-                                <div className="text-xs text-text-muted mt-1">{r.desc}</div>
+                                <div className="text-foreground font-bold text-sm">{r.title}</div>
+                                <div className="text-xs text-muted-foreground mt-1">{r.desc}</div>
                               </div>
                               <Toggle
                                 checked={!!(s.notifications?.rules as any)?.[r.key]}
@@ -1756,13 +1768,13 @@ export const Settings: React.FC = () => {
                   className={cx(
                     'px-4 h-10 rounded-lg border text-sm font-bold transition-colors',
                     loading || saving
-                      ? 'border-border text-text-muted opacity-60 cursor-not-allowed'
-                      : 'border-border text-text-muted hover:text-white hover:bg-surface',
+                      ? 'border-border text-muted-foreground opacity-60 cursor-not-allowed'
+                      : 'border-border text-muted-foreground hover:text-foreground hover:bg-accent',
                   )}
                 >
                   Refresh
                 </button>
-                <div className="text-xs text-text-muted">{saved?.updatedAt ? `Last saved: ${formatDeviceDateTime(saved.updatedAt)}` : ''}</div>
+                <div className="text-xs text-muted-foreground">{saved?.updatedAt ? `Last saved: ${formatDeviceDateTime(saved.updatedAt)}` : ''}</div>
               </div>
             </div>
           </div>

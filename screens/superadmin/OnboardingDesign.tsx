@@ -263,23 +263,23 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
   const stageChip = selected ? stageLabel[normalizeStage(selected?.onboarding?.stage)] : stageLabel[tab];
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
-      <div className="bg-[#221c11] border-b border-[#483c23] pt-6 px-8 shrink-0">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+      <div className="bg-background border-b border-border pt-6 px-8 shrink-0">
         <div className="flex flex-wrap justify-between gap-4 mb-6">
           <div className="flex flex-col gap-2">
-            <h1 className="text-white text-3xl font-black leading-tight tracking-[-0.033em]">Onboarding &amp; Approvals</h1>
-            <p className="text-[#c9b792] text-sm font-normal">Manage cafe onboarding pipeline from request to activation.</p>
+            <h1 className="text-foreground text-3xl font-black leading-tight tracking-[-0.033em]">Onboarding &amp; Approvals</h1>
+            <p className="text-muted-foreground text-sm font-normal">Manage cafe onboarding pipeline from request to activation.</p>
           </div>
           <div className="flex gap-3 items-start">
             <button
               onClick={load}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#483c23] bg-[#2d261a] text-[#c9b792] text-sm font-medium hover:text-white hover:bg-[#362e21] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-muted-foreground text-sm font-medium hover:text-foreground hover:bg-accent transition-colors"
               type="button"
             >
               <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh
             </button>
             <button
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#483c23] bg-[#2d261a] text-[#c9b792] text-sm font-medium hover:text-white hover:bg-[#362e21] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-muted-foreground text-sm font-medium hover:text-foreground hover:bg-accent transition-colors"
               type="button"
               disabled
             >
@@ -297,8 +297,8 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                 onClick={() => setTab(k)}
                 className={
                   active
-                    ? 'flex flex-col items-center justify-center border-b-[3px] border-b-[#eead2b] text-white pb-3'
-                    : 'flex flex-col items-center justify-center border-b-[3px] border-b-transparent text-[#c9b792] pb-3 hover:text-white transition-colors group'
+                    ? 'flex flex-col items-center justify-center border-b-[3px] border-b-primary text-foreground pb-3'
+                    : 'flex flex-col items-center justify-center border-b-[3px] border-b-transparent text-muted-foreground pb-3 hover:text-foreground transition-colors group'
                 }
                 type="button"
               >
@@ -307,8 +307,8 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                   <span
                     className={
                       active
-                        ? 'bg-[#eead2b] text-black text-[10px] px-1.5 py-0.5 rounded-full font-bold'
-                        : 'bg-[#3a301c] text-[#c9b792] text-[10px] px-1.5 py-0.5 rounded-full border border-[#483c23] group-hover:text-white'
+                        ? 'bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-bold'
+                        : 'bg-muted/40 text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-full border border-border group-hover:text-foreground'
                     }
                   >
                     {counts[k] || 0}
@@ -321,30 +321,30 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-[380px] bg-[#262014] border-r border-[#483c23] flex flex-col shrink-0">
-          <div className="p-4 border-b border-[#483c23] flex flex-col gap-3">
+        <div className="w-[380px] bg-card border-r border-border flex flex-col shrink-0">
+          <div className="p-4 border-b border-border flex flex-col gap-3">
             <div className="relative w-full">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#c9b792] text-[20px]">search</span>
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]">search</span>
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                className="w-full bg-[#1e1910] border border-[#483c23] rounded-lg py-2 pl-10 pr-3 text-sm text-white focus:outline-none focus:border-[#eead2b] placeholder:text-[#c9b792]/50"
+                className="w-full bg-background border border-border rounded-lg py-2 pl-10 pr-3 text-sm text-foreground focus:outline-none focus:border-primary placeholder:text-muted-foreground"
                 placeholder="Filter requests..."
                 type="text"
               />
             </div>
-            <div className="flex items-center justify-between text-xs text-[#c9b792]">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
-                Sorted by: <span className="text-white font-medium">Newest</span>
+                Sorted by: <span className="text-foreground font-medium">Newest</span>
               </span>
-              <button className="hover:text-white flex items-center gap-1" type="button" disabled>
+              <button className="hover:text-foreground flex items-center gap-1" type="button" disabled>
                 <span className="material-symbols-outlined text-[16px]">filter_list</span> Filters
               </button>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
-            {loading ? <div className="p-3 text-xs text-[#c9b792]">Loading ¦</div> : null}
+            {loading ? <div className="p-3 text-xs text-muted-foreground">Loading ¦</div> : null}
             {filtered.map((t) => {
               const active = selected ? t.id === selected.id : t.id === selectedId;
               const risk = hasProfileRisk(t);
@@ -354,8 +354,8 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                   onClick={() => setSelectedId(t.id)}
                   className={
                     active
-                      ? 'p-4 rounded-lg bg-[#3a301c] border border-[#eead2b]/50 shadow-sm relative cursor-pointer group'
-                      : 'p-4 rounded-lg border border-[#483c23] bg-[#221c11] hover:bg-[#2a2418] cursor-pointer transition-colors group'
+                      ? 'p-4 rounded-lg bg-accent border border-primary/30 shadow-sm relative cursor-pointer group'
+                      : 'p-4 rounded-lg border border-border bg-background hover:bg-accent cursor-pointer transition-colors group'
                   }
                   role="button"
                   tabIndex={0}
@@ -364,23 +364,23 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                   }}
                 >
                   {active ? (
-                    <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-[#eead2b] shadow-[0_0_8px_rgba(238,173,43,0.6)]"></div>
+                    <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(238,173,43,0.6)]"></div>
                   ) : null}
-                  <h3 className={active ? 'font-bold text-white text-base mb-1' : 'font-bold text-[#c9b792] group-hover:text-white text-base mb-1'}>
+                  <h3 className={active ? 'font-bold text-foreground text-base mb-1' : 'font-bold text-muted-foreground group-hover:text-foreground text-base mb-1'}>
                     {t.name}
                   </h3>
-                  <p className={active ? 'text-xs text-[#c9b792] mb-3 font-mono' : 'text-xs text-[#c9b792]/70 mb-3 font-mono'}>ID: {t.id}</p>
+                  <p className={active ? 'text-xs text-muted-foreground mb-3 font-mono' : 'text-xs text-muted-foreground/70 mb-3 font-mono'}>ID: {t.id}</p>
                   <div className="flex items-center justify-between">
                     {risk ? (
                       <span className="px-2 py-0.5 rounded bg-red-900/20 text-red-400 text-[10px] border border-red-900/30 font-medium uppercase tracking-wide">
                         Risk Flag
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded bg-[#483c23] text-[#c9b792] text-[10px] border border-[#675532] font-medium uppercase tracking-wide">
+                      <span className="px-2 py-0.5 rounded bg-muted/40 text-muted-foreground text-[10px] border border-border font-medium uppercase tracking-wide">
                         {t.status || 'In Review'}
                       </span>
                     )}
-                    <span className={active ? 'text-[10px] text-[#c9b792]' : 'text-[10px] text-[#c9b792]/70'}>{fmtWhen(t.lastActivityAt || t.updatedAt || t.createdAt)}</span>
+                    <span className={active ? 'text-[10px] text-muted-foreground' : 'text-[10px] text-muted-foreground/70'}>{fmtWhen(t.lastActivityAt || t.updatedAt || t.createdAt)}</span>
                   </div>
                 </div>
               );
@@ -388,32 +388,32 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#221c11] p-6 lg:p-8 relative">
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-background p-6 lg:p-8 relative">
           <div className="max-w-[1000px] mx-auto pb-20">
             {error ? (
               <div className="mb-6 rounded-lg border border-red-900/40 bg-red-900/10 p-4 text-sm text-red-200">{error}</div>
             ) : null}
 
             {!selected ? (
-              <div className="text-sm text-[#c9b792]">Select a request from the left.</div>
+              <div className="text-sm text-muted-foreground">Select a request from the left.</div>
             ) : (
               <>
-                <div className="flex justify-between items-start mb-8 pb-6 border-b border-[#483c23]">
+                <div className="flex justify-between items-start mb-8 pb-6 border-b border-border">
                   <div className="flex gap-5">
-                    <div className="w-16 h-16 rounded-xl bg-[#2d261a] border border-[#483c23] flex items-center justify-center shrink-0 shadow-sm">
-                      <span className="material-symbols-outlined text-3xl text-[#c9b792]">storefront</span>
+                    <div className="w-16 h-16 rounded-xl bg-card border border-border flex items-center justify-center shrink-0 shadow-sm">
+                      <span className="material-symbols-outlined text-3xl text-muted-foreground">storefront</span>
                     </div>
                     <div>
                       <div className="flex items-center gap-3 mb-2">
-                        <h2 className="text-2xl font-bold text-white tracking-tight">{selected.name}</h2>
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#eead2b]/10 text-[#eead2b] text-xs font-bold border border-[#eead2b]/30">{stageChip}</span>
+                        <h2 className="text-2xl font-bold text-foreground tracking-tight">{selected.name}</h2>
+                        <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/30">{stageChip}</span>
                       </div>
-                      <div className="flex items-center gap-4 text-[#c9b792] text-sm">
+                      <div className="flex items-center gap-4 text-muted-foreground text-sm">
                         <span className="flex items-center gap-1">
                           <span className="material-symbols-outlined text-[18px]">location_on</span>
                           {(selected.profile?.city || '') + (selected.profile?.country ? `, ${selected.profile?.country}` : '')}
                         </span>
-                        <span className="w-1 h-1 rounded-full bg-[#483c23]"></span>
+                        <span className="w-1 h-1 rounded-full bg-border"></span>
                         <span className="flex items-center gap-1">
                           <span className="material-symbols-outlined text-[18px]">calendar_today</span>
                           Submitted {fmtWhen(selected.createdAt)}
@@ -425,7 +425,7 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                     <button
                       onClick={() => openTenantDetails(selected.id)}
                       disabled={saving}
-                      className="px-4 py-2 text-sm font-bold text-white border border-[#483c23] bg-[#2d261a] rounded-lg hover:bg-[#362e21] transition-colors shadow-sm disabled:opacity-50"
+                      className="px-4 py-2 text-sm font-bold text-foreground border border-border bg-card rounded-lg hover:bg-accent transition-colors shadow-sm disabled:opacity-50"
                       type="button"
                     >
                       Request Info
@@ -433,7 +433,7 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                     <button
                       onClick={approveAndNext}
                       disabled={saving}
-                      className="px-4 py-2 text-sm font-bold text-black bg-[#eead2b] rounded-lg hover:bg-[#ffb936] transition-colors shadow-[0_0_15px_rgba(238,173,43,0.15)] flex items-center gap-2 disabled:opacity-50"
+                      className="px-4 py-2 text-sm font-bold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors shadow-[0_0_15px_rgba(238,173,43,0.15)] flex items-center gap-2 disabled:opacity-50"
                       type="button"
                     >
                       <span className="material-symbols-outlined text-[18px]">check</span> Approve &amp; Next
@@ -458,37 +458,37 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   <div className="lg:col-span-8 space-y-6">
-                    <div className="bg-[#2d261a] border border-[#483c23] rounded-xl overflow-hidden">
-                      <div className="px-5 py-3 border-b border-[#483c23] bg-[#322a1d] flex justify-between items-center">
-                        <h3 className="text-white font-bold text-sm flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#eead2b] text-[18px]">domain</span> Business Details
+                    <div className="bg-card border border-border rounded-xl overflow-hidden">
+                      <div className="px-5 py-3 border-b border-border bg-muted/40 flex justify-between items-center">
+                        <h3 className="text-foreground font-bold text-sm flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary text-[18px]">domain</span> Business Details
                         </h3>
-                        <span className="text-[#c9b792] text-xs">Verified via API</span>
+                        <span className="text-muted-foreground text-xs">Verified via API</span>
                       </div>
                       <div className="p-5 grid grid-cols-2 gap-y-6 gap-x-8 text-sm">
                         <div className="col-span-2">
-                          <p className="text-[#c9b792] text-xs mb-2 uppercase tracking-wide">Registered Address</p>
-                          <p className="text-white font-medium bg-[#221c11] p-3 rounded border border-[#483c23] text-sm leading-relaxed">
+                          <p className="text-muted-foreground text-xs mb-2 uppercase tracking-wide">Registered Address</p>
+                          <p className="text-foreground font-medium bg-background p-3 rounded border border-border text-sm leading-relaxed">
                             {selected.profile?.address1 || ' ”'}
                             <br />
                             {(selected.profile?.city || ' ”') + (selected.profile?.country ? `, ${selected.profile?.country}` : '')}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[#c9b792] text-xs mb-1 uppercase tracking-wide">Store Phone</p>
-                          <p className="text-white font-medium">{selected.profile?.contactPhone || ' ”'}</p>
+                          <p className="text-muted-foreground text-xs mb-1 uppercase tracking-wide">Store Phone</p>
+                          <p className="text-foreground font-medium">{selected.profile?.contactPhone || ' ”'}</p>
                         </div>
                         <div>
-                          <p className="text-[#c9b792] text-xs mb-1 uppercase tracking-wide">Contact Email</p>
-                          <p className="text-white font-medium">{selected.profile?.contactEmail || ' ”'}</p>
+                          <p className="text-muted-foreground text-xs mb-1 uppercase tracking-wide">Contact Email</p>
+                          <p className="text-foreground font-medium">{selected.profile?.contactEmail || ' ”'}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="bg-[#2d261a] border border-[#483c23] rounded-xl overflow-hidden">
-                      <div className="px-5 py-3 border-b border-[#483c23] bg-[#322a1d] flex justify-between items-center">
-                        <h3 className="text-white font-bold text-sm flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#eead2b] text-[18px]">credit_card</span> Plan Assignment
+                    <div className="bg-card border border-border rounded-xl overflow-hidden">
+                      <div className="px-5 py-3 border-b border-border bg-muted/40 flex justify-between items-center">
+                        <h3 className="text-foreground font-bold text-sm flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary text-[18px]">credit_card</span> Plan Assignment
                         </h3>
                       </div>
                       <div className="p-5 flex flex-wrap gap-2">
@@ -500,8 +500,8 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                             className={
                               'px-3 py-2 rounded-lg text-xs font-bold border transition-colors disabled:opacity-50 ' +
                               (selected.plan === tier
-                                ? 'bg-[#eead2b] text-black border-[#eead2b]'
-                                : 'bg-[#221c11] text-[#c9b792] border-[#483c23] hover:bg-[#362e21] hover:text-white')
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background text-muted-foreground border-border hover:bg-accent hover:text-foreground')
                             }
                             type="button"
                           >
@@ -511,17 +511,17 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                       </div>
                     </div>
 
-                    <div className="bg-[#2d261a] border border-[#483c23] rounded-xl overflow-hidden">
-                      <div className="px-5 py-3 border-b border-[#483c23] bg-[#322a1d] flex justify-between items-center">
-                        <h3 className="text-white font-bold text-sm flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#eead2b] text-[18px]">toggle_on</span> Activation
+                    <div className="bg-card border border-border rounded-xl overflow-hidden">
+                      <div className="px-5 py-3 border-b border-border bg-muted/40 flex justify-between items-center">
+                        <h3 className="text-foreground font-bold text-sm flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary text-[18px]">toggle_on</span> Activation
                         </h3>
                       </div>
                       <div className="p-5 flex flex-wrap gap-2">
                         <button
                           onClick={activate}
                           disabled={saving}
-                          className="px-3 py-2 rounded-lg text-xs font-bold bg-[#eead2b] text-black hover:bg-[#ffb936] disabled:opacity-50"
+                          className="px-3 py-2 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                           type="button"
                         >
                           Activate
@@ -529,7 +529,7 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                         <button
                           onClick={suspend}
                           disabled={saving}
-                          className="px-3 py-2 rounded-lg text-xs font-bold border border-[#483c23] bg-[#221c11] text-[#c9b792] hover:bg-[#362e21] hover:text-white disabled:opacity-50"
+                          className="px-3 py-2 rounded-lg text-xs font-bold border border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
                           type="button"
                         >
                           Suspend
@@ -539,18 +539,18 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                   </div>
 
                   <div className="lg:col-span-4 space-y-6">
-                    <div className="bg-[#2d261a] border border-[#483c23] rounded-xl p-5">
-                      <h3 className="text-white font-bold mb-4 text-xs uppercase tracking-wide text-[#c9b792]">Internal Tags</h3>
+                    <div className="bg-card border border-border rounded-xl p-5">
+                      <h3 className="text-muted-foreground font-bold mb-4 text-xs uppercase tracking-wide">Internal Tags</h3>
                       <div className="flex flex-wrap gap-2 mb-4">
                         {(Array.isArray((selected as any).internalTags) ? ((selected as any).internalTags as string[]) : []).map((t) => (
                           <span
                             key={t}
-                            className="px-2.5 py-1 rounded bg-[#1e1910] border border-[#483c23] text-xs text-[#c9b792] font-medium flex items-center gap-1 group"
+                            className="px-2.5 py-1 rounded bg-background border border-border text-xs text-muted-foreground font-medium flex items-center gap-1 group"
                           >
                             {t}
                             <button
                               onClick={() => removeTag(t)}
-                              className="text-[#c9b792]/50 hover:text-white"
+                              className="text-muted-foreground/50 hover:text-foreground"
                               type="button"
                               disabled={saving}
                             >
@@ -566,7 +566,7 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') addTag();
                           }}
-                          className="w-full bg-[#221c11] border border-[#483c23] rounded py-1.5 px-3 text-sm text-white focus:border-[#eead2b] focus:ring-0 placeholder:text-[#c9b792]/50 transition-all"
+                          className="w-full bg-background border border-border rounded py-1.5 px-3 text-sm text-foreground focus:border-primary focus:ring-0 placeholder:text-muted-foreground transition-all"
                           placeholder="+ Add tag"
                           type="text"
                           disabled={saving}
@@ -574,38 +574,38 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                       </div>
                     </div>
 
-                    <div className="bg-[#2d261a] border border-[#483c23] rounded-xl flex flex-col overflow-hidden h-[400px]">
-                      <div className="px-5 py-3 border-b border-[#483c23] bg-[#322a1d]">
-                        <h3 className="text-white font-bold text-sm flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#c9b792] text-[18px]">history_edu</span> Activity Log
+                    <div className="bg-card border border-border rounded-xl flex flex-col overflow-hidden h-[400px]">
+                      <div className="px-5 py-3 border-b border-border bg-muted/40">
+                        <h3 className="text-foreground font-bold text-sm flex items-center gap-2">
+                          <span className="material-symbols-outlined text-muted-foreground text-[18px]">history_edu</span> Activity Log
                         </h3>
                       </div>
                       <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
-                        {activityLoading ? <div className="text-xs text-[#c9b792]">Loading ¦</div> : null}
+                        {activityLoading ? <div className="text-xs text-muted-foreground">Loading ¦</div> : null}
                         {activity.map((a) => (
-                          <div key={a.id} className="relative pl-6 border-l border-[#483c23]">
-                            <div className="absolute -left-[5px] top-0 w-[9px] h-[9px] rounded-full bg-[#483c23] border border-[#2d261a]"></div>
+                          <div key={a.id} className="relative pl-6 border-l border-border">
+                            <div className="absolute -left-[5px] top-0 w-[9px] h-[9px] rounded-full bg-border border border-card"></div>
                             <div className="flex justify-between items-baseline mb-1">
-                              <p className="text-xs font-bold text-white">{a.actor || 'System'}</p>
-                              <p className="text-[10px] text-[#c9b792]">{fmtWhen(a.at)}</p>
+                              <p className="text-xs font-bold text-foreground">{a.actor || 'System'}</p>
+                              <p className="text-[10px] text-muted-foreground">{fmtWhen(a.at)}</p>
                             </div>
-                            <p className="text-xs text-[#c9b792] leading-relaxed">{a.message || a.type}</p>
+                            <p className="text-xs text-muted-foreground leading-relaxed">{a.message || a.type}</p>
                           </div>
                         ))}
-                        {!activityLoading && activity.length === 0 ? <div className="text-xs text-[#c9b792]">No activity yet.</div> : null}
+                        {!activityLoading && activity.length === 0 ? <div className="text-xs text-muted-foreground">No activity yet.</div> : null}
                       </div>
-                      <div className="p-3 border-t border-[#483c23] bg-[#221c11]">
+                      <div className="p-3 border-t border-border bg-muted/40">
                         <div className="relative">
                           <textarea
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
-                            className="w-full bg-[#2d261a] border border-[#483c23] rounded-lg p-3 text-sm text-white focus:border-[#eead2b] focus:ring-0 resize-none h-20 mb-2 placeholder:text-[#c9b792]/50"
+                            className="w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground focus:border-primary focus:ring-0 resize-none h-20 mb-2 placeholder:text-muted-foreground"
                             placeholder="Add internal note..."
                           ></textarea>
                           <div className="flex justify-end">
                             <button
                               onClick={postNote}
-                              className="px-3 py-1 bg-[#483c23] hover:bg-[#5a4d31] text-white text-xs font-bold rounded transition-colors uppercase tracking-wide"
+                              className="px-3 py-1 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold rounded transition-colors uppercase tracking-wide"
                               type="button"
                               disabled={!note.trim() || saving}
                             >

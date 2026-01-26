@@ -491,8 +491,8 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden overflow-x-hidden bg-[#221c10] text-white">
-      <div className="flex-none border-b border-[#483c23] bg-[#221c10]">
+    <div className="flex flex-col h-full overflow-hidden overflow-x-hidden bg-background text-foreground">
+      <div className="flex-none border-b border-border bg-background">
         <Header title="Inventory / Recipes" subtitle="Menu items, recipe usage & analytics" />
       </div>
 
@@ -508,24 +508,24 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
           </div>
         ) : null}
         {loading ? (
-          <div className="mt-2 rounded-xl border border-border bg-surface px-4 py-3 text-xs text-text-muted font-bold">
-            Loading menu data ¦
+          <div className="mt-2 rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground font-bold">
+            Loading menu data
           </div>
         ) : null}
       </div>
 
       <div className="flex-1 overflow-hidden flex overflow-x-hidden min-w-0">
-        <aside className="w-full max-w-[380px] flex flex-col border-r border-[#483c23] bg-[#2d2616]/30">
+        <aside className="w-full max-w-[380px] flex flex-col border-r border-border bg-card/30">
           <div className="p-5 pb-2 flex flex-col gap-4">
             <div className="flex flex-wrap gap-2 text-sm">
               <span className="text-primary/80 font-medium">Inventory</span>
-              <span className="text-white/30">/</span>
-              <span className="text-white font-medium">Recipes</span>
+              <span className="text-muted-foreground">/</span>
+              <span className="text-foreground font-medium">Recipes</span>
             </div>
 
             <div className="flex flex-col gap-1">
-              <h1 className="text-white tracking-tight text-2xl font-bold">Menu Items</h1>
-              <p className="text-text-muted text-xs">Select an item to view recipe & usage</p>
+              <h1 className="text-foreground tracking-tight text-2xl font-bold">Menu Items</h1>
+              <p className="text-muted-foreground text-xs">Select an item to view recipe & usage</p>
             </div>
 
             <div className="relative w-full">
@@ -535,7 +535,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="w-full bg-[#483c23]/50 text-white placeholder:text-white/30 rounded-lg pl-10 pr-4 py-2.5 text-sm border border-transparent focus:border-primary focus:ring-0 focus:bg-[#483c23] transition-all"
+                className="w-full bg-background text-foreground placeholder:text-muted-foreground rounded-lg pl-10 pr-4 py-2.5 text-sm border border-border focus:border-primary focus:ring-0 transition-all"
                 placeholder="Search by name or code..."
               />
             </div>
@@ -546,8 +546,8 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                   key={c}
                   onClick={() => setChip(c)}
                   className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold shadow-sm border transition-all ${chip === c
-                      ? 'bg-primary text-[#221c10] border-primary'
-                      : 'bg-[#483c23] text-white/70 hover:text-white border-transparent hover:border-white/10'
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-secondary text-muted-foreground hover:text-foreground border-transparent hover:border-border'
                     }`}
                 >
                   {c}
@@ -571,20 +571,20 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                 <button
                   key={p.id}
                   onClick={() => setSelectedProductId(p.id)}
-                  className={`group w-full flex items-center gap-3 p-3 rounded-xl border cursor-pointer relative overflow-hidden text-left transition-all ${selected ? 'bg-primary/10 border-primary/30' : 'hover:bg-white/5 border-transparent hover:border-white/10'
+                  className={`group w-full flex items-center gap-3 p-3 rounded-xl border cursor-pointer relative overflow-hidden text-left transition-all ${selected ? 'bg-primary/10 border-primary/30' : 'hover:bg-accent border-transparent hover:border-border'
                     }`}
                 >
                   {selected ? <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" /> : null}
                   <div className="size-12 rounded-lg bg-cover bg-center shrink-0 shadow-inner" style={{ backgroundImage: `url('${p.image}')` }} />
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start">
-                      <h4 className="text-white font-semibold text-sm truncate">{p.name}</h4>
+                      <h4 className="text-foreground font-semibold text-sm truncate">{p.name}</h4>
                       <span className="text-primary font-bold text-sm">{currency} {p.price.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center mt-1">
-                      <p className="text-white/50 text-[11px] leading-tight">
+                      <p className="text-muted-foreground text-[11px] leading-tight">
                         <span className="font-mono">Code: {p.code}</span>
-                        <span className="text-white/30">    </span>
+                        <span className="text-muted-foreground">    </span>
                         <span className="font-mono">SKU: {p.id.slice(0, 8)}</span>
                       </p>
                       <span
@@ -600,10 +600,10 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
             })}
           </div>
 
-          <div className="p-4 border-t border-[#483c23]">
+          <div className="p-4 border-t border-border">
             <button
               onClick={() => setNewOpen(true)}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-white/5 hover:bg-white/10 text-white py-2.5 text-sm font-bold transition-all"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground py-2.5 text-sm font-bold transition-all"
             >
               <span className="material-symbols-outlined text-lg">add</span>
               New Menu Item
@@ -611,24 +611,24 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
           </div>
         </aside>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-[#221c10] relative overflow-x-hidden min-w-0">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-background relative overflow-x-hidden min-w-0">
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[100px] pointer-events-none -translate-y-1/2 translate-x-1/2" />
           {!selectedProduct ? (
-            <div className="max-w-5xl w-full mx-auto rounded-xl border border-[#483c23] bg-[#2d2616] p-5 text-white/60">
+            <div className="max-w-5xl w-full mx-auto rounded-xl border border-border bg-card p-5 text-muted-foreground">
               Select a menu item to view details.
             </div>
           ) : (
             <div className="max-w-5xl w-full mx-auto flex flex-col gap-5 relative z-0 min-w-0">
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-5 border-b border-[#483c23]/50">
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-5 border-b border-border/50">
                 <div className="flex items-start gap-4">
-                  <div className="size-20 md:size-24 rounded-2xl bg-cover bg-center shadow-lg border-2 border-[#483c23]" style={{ backgroundImage: `url('${selectedProduct.image}')` }} />
+                  <div className="size-20 md:size-24 rounded-2xl bg-cover bg-center shadow-lg border-2 border-border" style={{ backgroundImage: `url('${selectedProduct.image}')` }} />
                   <div className="flex flex-col">
                     <div className="flex items-center gap-3">
-                      <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{selectedProduct.name}</h2>
-                      <span className="px-2 py-0.5 rounded border border-white/20 text-white/60 text-xs font-mono">{selectedProduct.code}</span>
+                      <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">{selectedProduct.name}</h2>
+                      <span className="px-2 py-0.5 rounded border border-border text-muted-foreground text-xs font-mono">{selectedProduct.code}</span>
                     </div>
-                    <p className="text-white/60 max-w-md text-sm leading-relaxed">{selectedProduct.description ?? ''}</p>
-                    <div className="mt-2 text-white/40 text-xs font-mono">
+                    <p className="text-muted-foreground max-w-md text-sm leading-relaxed">{selectedProduct.description ?? ''}</p>
+                    <div className="mt-2 text-muted-foreground text-xs font-mono">
                       SKU: {selectedMenuSku.slice(0, 12)}
                     </div>
                     <div className="flex gap-4 mt-3">
@@ -643,25 +643,25 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                 <div className="flex flex-wrap items-center justify-start gap-2 md:gap-3">
                   <button
                     onClick={() => setHistoryOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2d2616] border border-[#483c23] text-white hover:bg-[#483c23] transition-all text-sm font-medium"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border text-foreground hover:bg-accent transition-all text-sm font-medium"
                   >
                     <span className="material-symbols-outlined text-lg">history</span> History
                   </button>
                   <button
                     onClick={() => setEditOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2d2616] border border-[#483c23] text-white hover:bg-[#483c23] transition-all text-sm font-medium"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border text-foreground hover:bg-accent transition-all text-sm font-medium"
                   >
                     <span className="material-symbols-outlined text-lg">edit</span> Edit Menu
                   </button>
                   <button
                     onClick={() => setDeleteOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2d2616] border border-[#483c23] text-red-200 hover:bg-red-500/10 hover:border-red-400/40 transition-all text-sm font-medium"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border text-red-200 hover:bg-red-500/10 hover:border-red-400/40 transition-all text-sm font-medium"
                   >
                     <span className="material-symbols-outlined text-lg">delete</span> Delete
                   </button>
                   <button
                     onClick={() => onNavigate(Screen.MANAGER_RECIPE_BUILDER)}
-                    className="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-[#221c10] font-bold transition-all shadow-lg shadow-primary/20 text-sm"
+                    className="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-all shadow-lg shadow-primary/20 text-sm"
                   >
                     <span className="material-symbols-outlined text-lg">edit_note</span> Edit Recipe
                   </button>
@@ -669,32 +669,32 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="p-4 rounded-xl bg-[#2d2616] border border-[#483c23] relative overflow-hidden group">
+                <div className="p-4 rounded-xl bg-card border border-border relative overflow-hidden group">
                   <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <span className="material-symbols-outlined text-6xl text-white">payments</span>
+                    <span className="material-symbols-outlined text-6xl text-foreground">payments</span>
                   </div>
-                  <p className="text-white/50 text-sm font-medium mb-1">Selling Price</p>
+                  <p className="text-muted-foreground text-sm font-medium mb-1">Selling Price</p>
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-2xl md:text-3xl font-bold text-white">{currency} {selectedProduct.price.toFixed(2)}</h3>
-                    <span className="text-xs text-white/40">per unit</span>
+                    <h3 className="text-2xl md:text-3xl font-bold text-foreground">{currency} {selectedProduct.price.toFixed(2)}</h3>
+                    <span className="text-xs text-muted-foreground">per unit</span>
                   </div>
-                  <div className="h-1 w-full bg-white/10 mt-4 rounded-full overflow-hidden">
-                    <div className="h-full bg-white w-full rounded-full" />
+                  <div className="h-1 w-full bg-muted mt-4 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary w-full rounded-full" />
                   </div>
                 </div>
-                <div className="p-4 rounded-xl bg-[#2d2616] border border-[#483c23] relative overflow-hidden group">
+                <div className="p-4 rounded-xl bg-card border border-border relative overflow-hidden group">
                   <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                     <span className="material-symbols-outlined text-6xl text-red-400">shopping_cart</span>
                   </div>
-                  <p className="text-white/50 text-sm font-medium mb-1">Total COGS</p>
+                  <p className="text-muted-foreground text-sm font-medium mb-1">Total COGS</p>
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-2xl md:text-3xl font-bold text-white">{currency} {computedTotalCost.toFixed(2)}</h3>
+                    <h3 className="text-2xl md:text-3xl font-bold text-foreground">{currency} {computedTotalCost.toFixed(2)}</h3>
                   </div>
-                  <div className="h-1 w-full bg-white/10 mt-4 rounded-full overflow-hidden">
+                  <div className="h-1 w-full bg-muted mt-4 rounded-full overflow-hidden">
                     <div className="h-full bg-red-400 w-[24%] rounded-full" />
                   </div>
                 </div>
-                <div className="p-4 rounded-xl bg-gradient-to-br from-[#2d2616] to-primary/10 border border-primary/30 relative overflow-hidden group">
+                <div className="p-4 rounded-xl bg-card border border-primary/30 relative overflow-hidden group">
                   <div className="absolute right-0 top-0 p-4 opacity-20 group-hover:opacity-30 transition-opacity">
                     <span className="material-symbols-outlined text-6xl text-primary">pie_chart</span>
                   </div>
@@ -703,22 +703,22 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                     <h3 className="text-2xl md:text-3xl font-bold text-primary">{grossMarginPct.toFixed(0)}%</h3>
                     <span className="text-xs text-primary/70">({currency} {(selectedProduct.price - computedTotalCost).toFixed(2)} profit)</span>
                   </div>
-                  <div className="h-1 w-full bg-white/10 mt-4 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary w-[76%] rounded-full shadow-[0_0_10px_rgba(238,173,43,0.5)]" />
+                  <div className="h-1 w-full bg-muted mt-4 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary w-[76%] rounded-full shadow-lg shadow-primary/30" />
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 min-w-0">
-                <div className="xl:col-span-2 flex flex-col bg-[#2d2616] rounded-xl border border-[#483c23] shadow-sm overflow-hidden min-w-0">
-                  <div className="p-5 border-b border-[#483c23] flex justify-between items-center bg-white/5">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                <div className="xl:col-span-2 flex flex-col bg-card rounded-xl border border-border shadow-sm overflow-hidden min-w-0">
+                  <div className="p-5 border-b border-border flex justify-between items-center bg-card/50">
+                    <h3 className="text-foreground font-bold text-lg flex items-center gap-2">
                       <span className="material-symbols-outlined text-primary">kitchen</span>
                       Ingredients List
                     </h3>
                     <button
                       onClick={() => onNavigate(Screen.MANAGER_RECIPE_BUILDER)}
-                      className="text-xs text-primary hover:text-white font-medium flex items-center gap-1 transition-colors"
+                      className="text-xs text-primary hover:text-foreground font-medium flex items-center gap-1 transition-colors"
                     >
                       <span className="material-symbols-outlined text-sm">add</span>
                       Add Ingredient
@@ -728,7 +728,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                   <div className="max-w-full overflow-hidden">
                     <table className="w-full text-left border-collapse table-fixed">
                       <thead>
-                        <tr className="text-xs text-white/40 uppercase tracking-wider border-b border-[#483c23] bg-white/[0.02]">
+                        <tr className="text-xs text-muted-foreground uppercase tracking-wider border-b border-border bg-background/40">
                           <th className="px-5 py-3 font-semibold w-[42%]">Ingredient</th>
                           <th className="px-4 py-3 font-semibold w-[14%]">Qty</th>
                           <th className="px-4 py-3 font-semibold w-[12%] hidden sm:table-cell">Unit</th>
@@ -736,10 +736,10 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                           <th className="px-4 py-3 pr-5 font-semibold w-[14%]">Stock</th>
                         </tr>
                       </thead>
-                      <tbody className="text-sm divide-y divide-[#483c23]">
+                      <tbody className="text-sm divide-y divide-border">
                         {(selectedRecipe?.ingredients?.length ?? 0) === 0 ? (
                           <tr>
-                            <td colSpan={5} className="px-5 py-8 text-white/60">
+                            <td colSpan={5} className="px-5 py-8 text-muted-foreground">
                               No ingredients yet. Click  Å“Edit Recipe  to add ingredients.
                             </td>
                           </tr>
@@ -756,32 +756,32 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                                   ? 'bg-orange-400/10 text-orange-400 border border-orange-400/20'
                                   : stockState === 'zero'
                                     ? 'bg-red-400/10 text-red-400 border border-red-400/20'
-                                    : 'bg-white/10 text-white/60 border border-white/10';
+                                    : 'bg-muted text-muted-foreground border border-border';
                             const stockLabel = !inv ? '  ' : inv.stock < inv.minStock ? 'Low' : 'High';
                             return (
-                              <tr key={ing.ingredientId} className="group hover:bg-white/[0.02] transition-colors">
+                              <tr key={ing.ingredientId} className="group hover:bg-accent transition-colors">
                                 <td className="px-5 py-4 align-top">
                                   <div className="flex items-center gap-3">
-                                    <div className="size-8 rounded bg-white/10 flex items-center justify-center text-white/50">
+                                    <div className="size-8 rounded bg-muted flex items-center justify-center text-muted-foreground">
                                       <span className="material-symbols-outlined text-lg">science</span>
                                     </div>
                                     <div className="flex flex-col min-w-0">
-                                      <span className="font-medium text-white truncate">{ing.name}</span>
-                                      <span className="text-[10px] text-white/40 font-mono truncate">{ing.ingredientId}</span>
+                                      <span className="font-medium text-foreground truncate">{ing.name}</span>
+                                      <span className="text-[10px] text-muted-foreground font-mono truncate">{ing.ingredientId}</span>
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-4 py-4 text-white/80 align-top">
+                                <td className="px-4 py-4 text-foreground align-top">
                                   <div className="flex flex-col">
                                     <span className="tabular-nums">{ing.quantity}</span>
-                                    <span className="text-[10px] text-white/40 sm:hidden truncate">{inv?.unit ?? ''}</span>
+                                    <span className="text-[10px] text-muted-foreground sm:hidden truncate">{inv?.unit ?? ''}</span>
                                   </div>
                                 </td>
-                                <td className="px-4 py-4 text-white/50 hidden sm:table-cell align-top">{inv?.unit ?? ''}</td>
-                                <td className="px-4 py-4 font-medium text-white align-top">
+                                <td className="px-4 py-4 text-muted-foreground hidden sm:table-cell align-top">{inv?.unit ?? ''}</td>
+                                <td className="px-4 py-4 font-medium text-foreground align-top">
                                   <div className="flex flex-col">
                                     <span className="tabular-nums">{currency} {lineCost.toFixed(2)}</span>
-                                    <span className="text-[10px] text-white/40 tabular-nums">{currency} {unitCost.toFixed(2)} / unit</span>
+                                    <span className="text-[10px] text-muted-foreground tabular-nums">{currency} {unitCost.toFixed(2)} / unit</span>
                                   </div>
                                 </td>
                                 <td className="px-4 py-4 pr-5 align-top">
@@ -793,7 +793,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                         )}
 
                         <tr className="bg-primary/5">
-                          <td className="px-5 py-3 font-bold text-white text-right" colSpan={3}>
+                          <td className="px-5 py-3 font-bold text-foreground text-right" colSpan={3}>
                             Recipe Total
                           </td>
                           <td className="px-4 py-3 font-bold text-primary text-base" colSpan={2}>
@@ -806,8 +806,8 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                 </div>
 
                 <div className="flex flex-col gap-6">
-                  <div className="p-6 rounded-xl bg-[#2d2616] border border-[#483c23] flex flex-col gap-4">
-                    <h3 className="text-white font-bold text-sm uppercase tracking-wide opacity-80">Cost Composition</h3>
+                  <div className="p-6 rounded-xl bg-card border border-border flex flex-col gap-4">
+                    <h3 className="text-foreground font-bold text-sm uppercase tracking-wide opacity-80">Cost Composition</h3>
 
                     {(() => {
                       const ings = selectedRecipe?.ingredients ?? [];
@@ -823,7 +823,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                         .slice(0, 3);
 
                       const total = rows.reduce((s, r) => s + r.cost, 0);
-                      const colors = ['#eead2b', '#8a7042', '#483c23'];
+                      const colors = ['hsl(var(--primary))', 'hsl(var(--muted-foreground))', 'hsl(var(--border))'];
                       const parts = rows.map((r, idx) => ({ ...r, pct: total > 0 ? (r.cost / total) * 100 : 0, color: colors[idx] }));
                       const gradientStops = (() => {
                         let acc = 0;
@@ -833,7 +833,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                           acc += p.pct;
                           stops.push(`${p.color} ${start}% ${acc}%`);
                         }
-                        if (acc < 100) stops.push(`#2d2616 ${acc}% 100%`);
+                        if (acc < 100) stops.push(`hsl(var(--card)) ${acc}% 100%`);
                         return stops.join(', ');
                       })();
 
@@ -848,18 +848,18 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                               background: `conic-gradient(${gradientStops})`,
                             }}
                           >
-                            <div style={{ width: 80, height: 80, borderRadius: '50%', backgroundColor: '#2d2616' }} />
+                            <div style={{ width: 80, height: 80, borderRadius: '50%', backgroundColor: 'hsl(var(--card))' }} />
                           </div>
                           <div className="flex flex-col gap-3 flex-1">
                             {parts.length === 0 ? (
-                              <div className="text-white/50 text-sm">No cost data (add ingredients)</div>
+                              <div className="text-muted-foreground text-sm">No cost data (add ingredients)</div>
                             ) : (
                               parts.map((p) => (
                                 <div key={p.id} className="flex items-center justify-between text-xs">
-                                  <span className="flex items-center gap-2 text-white/70">
+                                  <span className="flex items-center gap-2 text-muted-foreground">
                                     <span className="size-2 rounded-full" style={{ backgroundColor: p.color }} /> {p.name}
                                   </span>
-                                  <span className="text-white font-medium">{p.pct.toFixed(0)}%</span>
+                                  <span className="text-foreground font-medium">{p.pct.toFixed(0)}%</span>
                                 </div>
                               ))
                             )}
@@ -869,22 +869,22 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                     })()}
                   </div>
 
-                  <div className="p-6 rounded-xl bg-gradient-to-b from-[#2d2616] to-[#2d2616]/50 border border-[#483c23] flex flex-col gap-4">
+                  <div className="p-6 rounded-xl bg-card border border-border flex flex-col gap-4">
                     <div className="flex justify-between items-center mb-1">
-                      <h3 className="text-white font-bold text-sm uppercase tracking-wide opacity-80 flex items-center gap-2">
+                      <h3 className="text-foreground font-bold text-sm uppercase tracking-wide opacity-80 flex items-center gap-2">
                         <span className="material-symbols-outlined text-primary text-lg">calculate</span>
                         Usage Forecaster
                       </h3>
                       <div className="group relative">
-                        <span className="material-symbols-outlined text-white/30 text-sm cursor-help">info</span>
-                        <div className="absolute right-0 bottom-full mb-2 w-48 p-2 bg-black/90 text-white text-[10px] rounded hidden group-hover:block z-10">
+                        <span className="material-symbols-outlined text-muted-foreground text-sm cursor-help">info</span>
+                        <div className="absolute right-0 bottom-full mb-2 w-48 p-2 bg-popover text-popover-foreground border border-border text-[10px] rounded hidden group-hover:block z-10">
                           Estimate stock usage based on sales volume.
                         </div>
                       </div>
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <label className="text-xs text-white/60">Projected Sales Volume (units)</label>
+                      <label className="text-xs text-muted-foreground">Projected Sales Volume (units)</label>
                       <div className="flex flex-wrap gap-2">
                         <input
                           value={String(forecastUnits)}
@@ -893,13 +893,13 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                             if (!Number.isFinite(n)) return;
                             setForecastUnits(Math.max(0, Math.min(500, Math.floor(n))));
                           }}
-                          className="flex-1 min-w-[140px] bg-[#483c23] text-white rounded-lg px-3 py-2 text-sm border-none focus:ring-1 focus:ring-primary font-bold text-right"
+                          className="flex-1 min-w-[140px] bg-background text-foreground rounded-lg px-3 py-2 text-sm border border-border focus:ring-1 focus:ring-primary font-bold text-right"
                           type="number"
                         />
-                        <span className="shrink-0 flex items-center px-3 rounded-lg bg-white/5 text-white/40 text-xs">Units</span>
+                        <span className="shrink-0 flex items-center px-3 rounded-lg bg-secondary text-muted-foreground text-xs">Units</span>
                       </div>
                       <input
-                        className="w-full h-1.5 bg-[#483c23] rounded-lg appearance-none cursor-pointer accent-primary mt-2"
+                        className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary mt-2"
                         max={500}
                         min={0}
                         type="range"
@@ -918,22 +918,22 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                       const top = totals.sort((a, b) => b.req - a.req).slice(0, 2);
                       const costImpact = totals.reduce((s, t) => s + t.cost, 0);
                       return (
-                        <div className="mt-2 pt-4 border-t border-[#483c23] space-y-3">
+                        <div className="mt-2 pt-4 border-t border-border space-y-3">
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-white/60">Top Ingredient 1</span>
+                            <span className="text-muted-foreground">Top Ingredient 1</span>
                             <span className="text-primary font-bold">
                               {top[0] ? `${top[0].req.toFixed(2)} ${top[0].unit}` : '  '}
                             </span>
                           </div>
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-white/60">Top Ingredient 2</span>
-                            <span className="text-white font-medium">
+                            <span className="text-muted-foreground">Top Ingredient 2</span>
+                            <span className="text-foreground font-medium">
                               {top[1] ? `${top[1].req.toFixed(2)} ${top[1].unit}` : '  '}
                             </span>
                           </div>
                           <div className="flex justify-between items-center text-sm">
-                            <span className="text-white/60">Total Cost Impact</span>
-                            <span className="text-white font-medium">ETB {costImpact.toFixed(2)}</span>
+                            <span className="text-muted-foreground">Total Cost Impact</span>
+                            <span className="text-foreground font-medium">ETB {costImpact.toFixed(2)}</span>
                           </div>
                         </div>
                       );
@@ -941,7 +941,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
 
                     <button
                       onClick={() => setStockCheckOpen(true)}
-                      className="mt-2 w-full py-2 rounded border border-primary/30 text-primary hover:bg-primary hover:text-[#221c10] transition-all text-xs font-bold uppercase tracking-wider"
+                      className="mt-2 w-full py-2 rounded border border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-all text-xs font-bold uppercase tracking-wider"
                     >
                       Check Stock Availability
                     </button>
@@ -959,29 +959,29 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
         onClose={() => setNewOpen(false)}
         footer={
           <div className="flex gap-3">
-            <button onClick={() => setNewOpen(false)} className="flex-1 h-11 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors">
+            <button onClick={() => setNewOpen(false)} className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors">
               Cancel
             </button>
-            <button onClick={createMenuItem} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-[#221c10] font-extrabold transition-colors">
+            <button onClick={createMenuItem} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors">
               Create
             </button>
           </div>
         }
       >
         <div className="flex flex-col gap-3">
-          <label className="text-sm font-bold text-white/70">Name</label>
-          <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+          <label className="text-sm font-bold text-muted-foreground">Name</label>
+          <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
 
-          <label className="text-sm font-bold text-white/70">Category</label>
-          <input value={draftCategory} onChange={(e) => setDraftCategory(e.target.value)} className="w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+          <label className="text-sm font-bold text-muted-foreground">Category</label>
+          <input value={draftCategory} onChange={(e) => setDraftCategory(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
 
-          <label className="text-sm font-bold text-white/70">Selling Price (ETB)</label>
-          <input value={draftPrice} onChange={(e) => setDraftPrice(e.target.value)} className="w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+          <label className="text-sm font-bold text-muted-foreground">Selling Price (ETB)</label>
+          <input value={draftPrice} onChange={(e) => setDraftPrice(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
 
-          <label className="text-sm font-bold text-white/70">Image URL</label>
+          <label className="text-sm font-bold text-muted-foreground">Image URL</label>
           <div className="flex gap-2">
-            <input value={draftImage} onChange={(e) => setDraftImage(e.target.value)} className="flex-1 bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
-            <label className={`shrink-0 px-3 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors cursor-pointer ${draftImageUploading ? 'opacity-50 pointer-events-none' : ''
+            <input value={draftImage} onChange={(e) => setDraftImage(e.target.value)} className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+            <label className={`shrink-0 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors cursor-pointer ${draftImageUploading ? 'opacity-50 pointer-events-none' : ''
               }`}
             >
               <input
@@ -1011,12 +1011,12 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
 
           {draftImage ? (
             <div className="mt-2">
-              <img src={draftImage} alt="" className="h-20 w-20 rounded-lg object-cover border border-[#483c23]" />
+              <img src={draftImage} alt="" className="h-20 w-20 rounded-lg object-cover border border-border" />
             </div>
           ) : null}
 
-          <label className="text-sm font-bold text-white/70">Description</label>
-          <textarea value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} className="min-h-[90px] w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+          <label className="text-sm font-bold text-muted-foreground">Description</label>
+          <textarea value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} className="min-h-[90px] w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
         </div>
       </Modal>
 
@@ -1026,29 +1026,29 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
         onClose={() => setEditOpen(false)}
         footer={
           <div className="flex gap-3">
-            <button onClick={() => setEditOpen(false)} className="flex-1 h-11 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors">
+            <button onClick={() => setEditOpen(false)} className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors">
               Cancel
             </button>
-            <button onClick={saveEdits} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-[#221c10] font-extrabold transition-colors">
+            <button onClick={saveEdits} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors">
               Save
             </button>
           </div>
         }
       >
         <div className="flex flex-col gap-3">
-          <label className="text-sm font-bold text-white/70">Name</label>
-          <input value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+          <label className="text-sm font-bold text-muted-foreground">Name</label>
+          <input value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
 
-          <label className="text-sm font-bold text-white/70">Category</label>
-          <input value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+          <label className="text-sm font-bold text-muted-foreground">Category</label>
+          <input value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
 
-          <label className="text-sm font-bold text-white/70">Selling Price (ETB)</label>
-          <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+          <label className="text-sm font-bold text-muted-foreground">Selling Price (ETB)</label>
+          <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
 
-          <label className="text-sm font-bold text-white/70">Image URL</label>
+          <label className="text-sm font-bold text-muted-foreground">Image URL</label>
           <div className="flex gap-2">
-            <input value={editImage} onChange={(e) => setEditImage(e.target.value)} className="flex-1 bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
-            <label className={`shrink-0 px-3 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors cursor-pointer ${editImageUploading ? 'opacity-50 pointer-events-none' : ''
+            <input value={editImage} onChange={(e) => setEditImage(e.target.value)} className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+            <label className={`shrink-0 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors cursor-pointer ${editImageUploading ? 'opacity-50 pointer-events-none' : ''
               }`}
             >
               <input
@@ -1078,12 +1078,12 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
 
           {editImage ? (
             <div className="mt-2">
-              <img src={editImage} alt="" className="h-20 w-20 rounded-lg object-cover border border-[#483c23]" />
+              <img src={editImage} alt="" className="h-20 w-20 rounded-lg object-cover border border-border" />
             </div>
           ) : null}
 
-          <label className="text-sm font-bold text-white/70">Description</label>
-          <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="min-h-[90px] w-full bg-[#2d2616] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+          <label className="text-sm font-bold text-muted-foreground">Description</label>
+          <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="min-h-[90px] w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
         </div>
       </Modal>
 
@@ -1093,16 +1093,16 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
         onClose={() => setDeleteOpen(false)}
         footer={
           <div className="flex gap-3">
-            <button onClick={() => setDeleteOpen(false)} className="flex-1 h-11 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors">
+            <button onClick={() => setDeleteOpen(false)} className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors">
               Cancel
             </button>
-            <button onClick={confirmDelete} className="flex-1 h-11 rounded-lg bg-red-500/90 hover:bg-red-500 text-white font-extrabold transition-colors">
+            <button onClick={confirmDelete} className="flex-1 h-11 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-extrabold transition-colors">
               Delete
             </button>
           </div>
         }
       >
-        <div className="text-white/70 text-sm">
+        <div className="text-muted-foreground text-sm">
           This will permanently delete the menu item and remove its recipe mapping.
         </div>
       </Modal>
@@ -1113,35 +1113,35 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
         onClose={() => setHistoryOpen(false)}
         footer={
           <div className="flex gap-3">
-            <button onClick={() => setHistoryOpen(false)} className="flex-1 h-11 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors">
+            <button onClick={() => setHistoryOpen(false)} className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors">
               Close
             </button>
           </div>
         }
       >
-        <div className="text-white/70 text-sm space-y-3">
-          <div className="rounded-lg border border-[#483c23] bg-[#2d2616] p-3">
-            <div className="text-white/50 text-xs uppercase tracking-wider">Selected Item</div>
-            <div className="mt-1 text-white font-semibold">{selectedProduct?.name ?? '  '}</div>
-            <div className="text-white/40 text-xs font-mono">Code: {selectedProduct?.code ?? '  '}    SKU: {selectedProduct ? selectedProduct.id.slice(0, 12) : '  '}</div>
+        <div className="text-muted-foreground text-sm space-y-3">
+          <div className="rounded-lg border border-border bg-card p-3">
+            <div className="text-muted-foreground text-xs uppercase tracking-wider">Selected Item</div>
+            <div className="mt-1 text-foreground font-semibold">{selectedProduct?.name ?? '  '}</div>
+            <div className="text-muted-foreground text-xs font-mono">Code: {selectedProduct?.code ?? '  '}    SKU: {selectedProduct ? selectedProduct.id.slice(0, 12) : '  '}</div>
           </div>
-          {historyLoading ? <div className="text-white/50 text-xs">Loading history ¦</div> : null}
+          {historyLoading ? <div className="text-muted-foreground text-xs">Loading history ¦</div> : null}
           {historyErr ? <div className="text-red-300 text-xs">{historyErr}</div> : null}
           {!historyLoading && !historyErr && historyEvents.length === 0 ? (
-            <div className="text-white/50 text-xs">No recent menu/recipe changes for this item.</div>
+            <div className="text-muted-foreground text-xs">No recent menu/recipe changes for this item.</div>
           ) : null}
 
           {historyEvents.length ? (
-            <div className="rounded-lg border border-[#483c23] bg-[#2d2616] overflow-hidden">
-              <div className="px-3 py-2 border-b border-[#483c23] text-white/50 text-xs uppercase tracking-wider">Recent Changes</div>
-              <div className="divide-y divide-[#483c23]">
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <div className="px-3 py-2 border-b border-border text-muted-foreground text-xs uppercase tracking-wider">Recent Changes</div>
+              <div className="divide-y divide-border">
                 {historyEvents.map((e) => (
                   <div key={e.id} className="px-3 py-2">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="text-white font-semibold text-xs">{e.summary || e.type}</div>
-                      <div className="text-white/40 text-[10px] font-mono">{e.at ? (formatDeviceDateTime(e.at) || '') : ''}</div>
+                      <div className="text-foreground font-semibold text-xs">{e.summary || e.type}</div>
+                      <div className="text-muted-foreground text-[10px] font-mono">{e.at ? (formatDeviceDateTime(e.at) || '') : ''}</div>
                     </div>
-                    <div className="mt-1 text-white/50 text-[10px]">{e.actorName ? `${e.actorName} (${e.actorRole || '  '})` : e.actorRole || ''}</div>
+                    <div className="mt-1 text-muted-foreground text-[10px]">{e.actorName ? `${e.actorName} (${e.actorRole || '  '})` : e.actorRole || ''}</div>
                   </div>
                 ))}
               </div>
@@ -1156,7 +1156,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
         onClose={() => setStockCheckOpen(false)}
         footer={
           <div className="flex gap-3">
-            <button onClick={() => setStockCheckOpen(false)} className="flex-1 h-11 rounded-lg bg-[#483c23] hover:bg-[#6b5a36] border border-[#483c23] text-white font-semibold transition-colors">
+            <button onClick={() => setStockCheckOpen(false)} className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors">
               Close
             </button>
           </div>
@@ -1174,37 +1174,37 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
           const missing = rows.filter((r) => !r.ok);
           return (
             <div className="space-y-3">
-              <div className="text-white/70 text-sm">
+              <div className="text-muted-foreground text-sm">
                 Projected units:
-                <span className="text-white font-semibold"> {forecastUnits}</span>
+                <span className="text-foreground font-semibold"> {forecastUnits}</span>
               </div>
 
-              <div className="rounded-lg border border-[#483c23] overflow-hidden">
+              <div className="rounded-lg border border-border overflow-hidden">
                 <div className="max-w-full overflow-x-auto">
                   <table className="min-w-[520px] w-full text-left text-sm">
-                    <thead className="bg-white/[0.03]">
-                      <tr className="text-xs text-white/40 uppercase tracking-wider border-b border-[#483c23]">
+                    <thead className="bg-background/40">
+                      <tr className="text-xs text-muted-foreground uppercase tracking-wider border-b border-border">
                         <th className="px-4 py-2">Ingredient</th>
                         <th className="px-4 py-2">Required</th>
                         <th className="px-4 py-2">Available</th>
                         <th className="px-4 py-2">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#483c23]">
+                    <tbody className="divide-y divide-border">
                       {rows.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="px-4 py-6 text-white/60">
+                          <td colSpan={4} className="px-4 py-6 text-muted-foreground">
                             No recipe ingredients.
                           </td>
                         </tr>
                       ) : (
                         rows.map((r) => (
-                          <tr key={r.id} className="hover:bg-white/[0.02]">
-                            <td className="px-4 py-3 text-white">{r.name}</td>
-                            <td className="px-4 py-3 text-white/70">
+                          <tr key={r.id} className="hover:bg-accent">
+                            <td className="px-4 py-3 text-foreground">{r.name}</td>
+                            <td className="px-4 py-3 text-muted-foreground">
                               {r.required.toFixed(2)} {r.unit}
                             </td>
-                            <td className="px-4 py-3 text-white/70">
+                            <td className="px-4 py-3 text-muted-foreground">
                               {r.available.toFixed(2)} {r.unit}
                             </td>
                             <td className="px-4 py-3">

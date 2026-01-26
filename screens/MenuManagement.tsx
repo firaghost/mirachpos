@@ -108,13 +108,13 @@ const exportCsv = (rows: ApiProduct[], filename: string) => {
 
 const StatCard: React.FC<{ label: string; value: string; meta?: string; icon: string }> = ({ label, value, meta, icon }) => {
   return (
-    <div className="bg-[#221c10] border border-[#393328] rounded-xl p-5 flex items-start justify-between gap-4">
+    <div className="bg-card border border-border rounded-xl p-5 flex items-start justify-between gap-4">
       <div>
-        <div className="text-[#c9b792] text-xs font-bold uppercase tracking-wider">{label}</div>
-        <div className="text-white text-2xl font-extrabold mt-2 tabular-nums">{value}</div>
-        {meta ? <div className="text-[#b9b09d] text-xs mt-2">{meta}</div> : null}
+        <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider">{label}</div>
+        <div className="text-foreground text-2xl font-extrabold mt-2 tabular-nums">{value}</div>
+        {meta ? <div className="text-muted-foreground text-xs mt-2">{meta}</div> : null}
       </div>
-      <div className="w-11 h-11 rounded-xl border border-[#393328] bg-[#2c241b] text-primary flex items-center justify-center">
+      <div className="w-11 h-11 rounded-xl border border-border bg-muted text-primary flex items-center justify-center">
         <span className="material-symbols-outlined">{icon}</span>
       </div>
     </div>
@@ -128,7 +128,7 @@ const TabBtn: React.FC<{ active: boolean; label: string; icon: string; onClick: 
       onClick={onClick}
       className={cx(
         'flex items-center gap-2 px-4 h-10 rounded-lg text-sm font-bold border transition-colors',
-        active ? 'bg-primary text-[#181611] border-primary' : 'bg-[#221c10] border-[#393328] text-[#c9b792] hover:text-white hover:bg-[#2c241b]',
+        active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent',
       )}
     >
       <span className="material-symbols-outlined text-[18px]">{icon}</span>
@@ -268,7 +268,7 @@ export const MenuManagement: React.FC = () => {
       .slice(0, 6);
   }, [products]);
 
-  const pieColors = ['#eead2b', '#5c4d2e', '#34c759', '#ff3b3f', '#3b82f6', '#a855f7'];
+  const pieColors = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--destructive))', 'hsl(var(--muted-foreground))', 'hsl(var(--ring))'];
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -835,35 +835,35 @@ export const MenuManagement: React.FC = () => {
   };
 
   const editPanel = (
-    <div className="w-full lg:w-[420px] bg-surface border border-border rounded-xl lg:sticky lg:top-6 self-start overflow-hidden">
+    <div className="w-full lg:w-[420px] bg-card border border-border rounded-xl lg:sticky lg:top-6 self-start overflow-hidden">
       <div className="p-6 pb-4 border-b border-border">
-        <h3 className="text-white font-bold text-lg">Edit Product</h3>
-        <p className="text-text-muted text-xs">Update product details and pricing.</p>
+        <h3 className="text-foreground font-bold text-lg">Edit Product</h3>
+        <p className="text-muted-foreground text-xs">Update product details and pricing.</p>
       </div>
 
       <div className="p-6 pt-4 flex flex-col gap-4 max-h-[calc(100vh-270px)] overflow-y-auto">
 
-      {!selected ? <div className="text-sm text-text-muted">Select a product to edit.</div> : null}
+      {!selected ? <div className="text-sm text-muted-foreground">Select a product to edit.</div> : null}
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-bold text-text-muted uppercase">Product Name</label>
+        <label className="text-xs font-bold text-muted-foreground uppercase">Product Name</label>
         <input
           type="text"
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
           disabled={!selected}
-          className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none disabled:opacity-50"
+          className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold text-text-muted uppercase">Category</label>
+          <label className="text-xs font-bold text-muted-foreground uppercase">Category</label>
           <select
             value={editCategory}
             onChange={(e) => setEditCategory(e.target.value)}
             disabled={!selected}
-            className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none disabled:opacity-50"
+            className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
           >
             {(data?.categories?.length ? data.categories : ['Coffee', 'Food', 'Drinks', 'Breakfast']).map((c) => (
               <option key={c} value={c}>
@@ -873,42 +873,42 @@ export const MenuManagement: React.FC = () => {
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold text-text-muted uppercase">Price (ETB)</label>
+          <label className="text-xs font-bold text-muted-foreground uppercase">Price (ETB)</label>
           <input
             type="number"
             value={editPrice}
             onChange={(e) => setEditPrice(e.target.value)}
             disabled={!selected}
-            className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none disabled:opacity-50"
+            className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold text-text-muted uppercase">Code</label>
+          <label className="text-xs font-bold text-muted-foreground uppercase">Code</label>
           <input
             type="text"
             value={editCode}
             readOnly
             disabled={!selected}
-            className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none disabled:opacity-50"
+            className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
             placeholder="Auto"
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold text-text-muted uppercase">Cost (ETB)</label>
-          <input type="text" value={fmtEtb(recipeTotalCost)} readOnly disabled className="bg-background border border-border rounded p-2 text-white/60" />
+          <label className="text-xs font-bold text-muted-foreground uppercase">Cost (ETB)</label>
+          <input type="text" value={fmtEtb(recipeTotalCost)} readOnly disabled className="bg-background border border-border rounded p-2 text-muted-foreground" />
         </div>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-bold text-text-muted uppercase">Status</label>
+        <label className="text-xs font-bold text-muted-foreground uppercase">Status</label>
         <select
           value={editStatus}
           onChange={(e) => setEditStatus(e.target.value as any)}
           disabled={!selected}
-          className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none disabled:opacity-50"
+          className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
         >
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
@@ -916,27 +916,27 @@ export const MenuManagement: React.FC = () => {
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-bold text-text-muted uppercase">Description</label>
+        <label className="text-xs font-bold text-muted-foreground uppercase">Description</label>
         <textarea
           value={editDesc}
           onChange={(e) => setEditDesc(e.target.value)}
           disabled={!selected}
-          className="bg-background border border-border rounded p-2 text-white h-24 focus:border-primary focus:outline-none resize-none disabled:opacity-50"
+          className="bg-background border border-border rounded p-2 text-foreground h-24 focus:border-primary focus:outline-none resize-none disabled:opacity-50"
         ></textarea>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-bold text-text-muted uppercase">Image URL</label>
+        <label className="text-xs font-bold text-muted-foreground uppercase">Image URL</label>
         <div className="flex gap-2">
           <input
             type="text"
             value={editImage}
             onChange={(e) => setEditImage(e.target.value)}
             disabled={!selected}
-            className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none flex-1 disabled:opacity-50"
+            className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none flex-1 disabled:opacity-50"
             placeholder="https://..."
           />
-          <label className={cx('p-2 border border-border rounded text-text-muted hover:text-white cursor-pointer', (!selected || imageUploading) ? 'opacity-50 pointer-events-none' : '')}>
+          <label className={cx('p-2 border border-border rounded text-muted-foreground hover:text-foreground cursor-pointer', (!selected || imageUploading) ? 'opacity-50 pointer-events-none' : '')}>
             <input
               type="file"
               accept="image/*"
@@ -971,13 +971,13 @@ export const MenuManagement: React.FC = () => {
 
       </div>
 
-      <div className="p-4 border-t border-border bg-surface-light/30">
+      <div className="p-4 border-t border-border bg-muted/50">
         <div className="flex gap-3">
           <button
             type="button"
             onClick={discardEdits}
             disabled={!selected || saving}
-            className="flex-1 py-3 border border-border rounded-lg text-text-muted font-bold hover:bg-surface-light transition-colors disabled:opacity-50"
+            className="flex-1 py-3 border border-border rounded-lg text-muted-foreground font-bold hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
           >
             Discard
           </button>
@@ -995,15 +995,15 @@ export const MenuManagement: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#181611] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <OwnerPageHeader
         title="Menu Engineering"
-        leftSlot={<div className="text-xs text-[#b9b09d]">Catalog, pricing intelligence, and item performance</div>}
+        leftSlot={<div className="text-xs text-muted-foreground">Catalog, pricing intelligence, and item performance</div>}
         rightSlot={
           <div className="flex items-center gap-2">
             <button
               onClick={refreshAll}
-              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-[#393328] text-white text-sm font-bold hover:bg-[#393328]/80 transition-colors"
+              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-muted text-foreground text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
@@ -1013,7 +1013,7 @@ export const MenuManagement: React.FC = () => {
             </button>
             <button
               onClick={() => exportCsv(products, `menu-products-${new Date().toISOString().slice(0, 10)}.csv`)}
-              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-[#393328] text-white text-sm font-bold hover:bg-[#393328]/80 transition-colors disabled:opacity-60"
+              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-muted text-foreground text-sm font-bold hover:bg-accent transition-colors disabled:opacity-60"
               type="button"
               disabled={loading || !products.length}
             >
@@ -1024,7 +1024,7 @@ export const MenuManagement: React.FC = () => {
             </button>
             <button
               onClick={openAdd}
-              className="flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-[#eead2b] text-[#181611] text-sm font-bold hover:bg-[#d99a20] transition-colors"
+              className="flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary-hover transition-colors"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
@@ -1058,7 +1058,9 @@ export const MenuManagement: React.FC = () => {
             <div
               className={cx(
                 'rounded-xl border p-3 text-sm font-medium',
-                banner.kind === 'success' ? 'border-emerald-500/30 bg-emerald-900/10 text-emerald-200' : 'border-red-500/30 bg-red-900/10 text-red-200',
+                banner.kind === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-destructive/10 border-destructive/20 text-destructive',
               )}
             >
               {banner.message}
@@ -1079,7 +1081,7 @@ export const MenuManagement: React.FC = () => {
                             onClick={() => setActiveCategory(cat === 'All' ? '' : cat)}
                             className={cx(
                               'px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors',
-                              active ? 'bg-primary text-[#181611] border-primary' : 'bg-[#221c10] border-[#393328] text-[#c9b792] hover:text-white hover:bg-[#2c241b]',
+                              active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent',
                             )}
                           >
                             {cat}
@@ -1088,18 +1090,18 @@ export const MenuManagement: React.FC = () => {
                       })}
                     </div>
                     <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#b9b09d] text-[18px]">search</span>
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]">search</span>
                       <input
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
                         placeholder="Search items..."
-                        className="bg-[#221c10] border border-[#393328] rounded-lg pl-10 pr-3 py-2 text-sm text-white placeholder:text-[#b9b09d] focus:border-primary focus:outline-none"
+                        className="bg-background border border-border rounded-lg pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                       />
                     </div>
                     <select
                       value={status}
                       onChange={(e) => setStatus(e.target.value as any)}
-                      className="bg-[#221c10] border border-[#393328] rounded-lg px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                      className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                     >
                       <option value="All">All</option>
                       <option value="Active">Active</option>
@@ -1108,11 +1110,11 @@ export const MenuManagement: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-[#221c10] border border-[#393328] rounded-xl overflow-hidden flex-1">
+                <div className="bg-card border border-border rounded-xl overflow-hidden flex-1">
                   <div className="overflow-y-auto h-full">
                     <table className="w-full text-left">
-                      <thead className="bg-[#2c241b] sticky top-0 z-10">
-                        <tr className="border-b border-[#393328]">
+                      <thead className="bg-muted/50 sticky top-0 z-10">
+                        <tr className="border-b border-border">
                           <th className="p-4 w-[44px]">
                             <input
                               type="checkbox"
@@ -1124,19 +1126,19 @@ export const MenuManagement: React.FC = () => {
                               className="accent-primary"
                             />
                           </th>
-                          <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Image</th>
-                          <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Product Name</th>
-                          <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Category</th>
-                          <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Price</th>
-                          <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Margin</th>
-                          <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Sold</th>
-                          <th className="p-4 text-xs font-bold text-[#c9b792] uppercase text-right">Action</th>
+                          <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Image</th>
+                          <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Product Name</th>
+                          <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Category</th>
+                          <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Price</th>
+                          <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Margin</th>
+                          <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Sold</th>
+                          <th className="p-4 text-xs font-bold text-muted-foreground uppercase text-right">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
                         {loading ? (
                           <tr>
-                            <td colSpan={8} className="p-6 text-sm text-[#b9b09d]">
+                            <td colSpan={8} className="p-6 text-sm text-muted-foreground">
                               Loading ¦
                             </td>
                           </tr>
@@ -1151,8 +1153,8 @@ export const MenuManagement: React.FC = () => {
                             <tr
                               key={prod.id}
                               className={cx(
-                                'hover:bg-[#2c241b]/60 group cursor-pointer transition-colors',
-                                selectedId === prod.id ? 'bg-[#2c241b]/50' : '',
+                                'hover:bg-accent/50 group cursor-pointer transition-colors',
+                                selectedId === prod.id ? 'bg-accent/30' : '',
                               )}
                               onClick={() => {
                                 setSelectedId(prod.id);
@@ -1171,27 +1173,27 @@ export const MenuManagement: React.FC = () => {
                                 {prod.image ? (
                                   <img src={prod.image} className="w-10 h-10 rounded-md object-cover border border-border" alt="" />
                                 ) : (
-                                  <div className="w-10 h-10 rounded-md border border-[#393328] bg-[#181611] flex items-center justify-center text-[#b9b09d]">
+                                  <div className="w-10 h-10 rounded-md border border-border bg-muted flex items-center justify-center text-muted-foreground">
                                     <span className="material-symbols-outlined text-[18px]">photo</span>
                                   </div>
                                 )}
                               </td>
                               <td className="p-3">
-                                <div className="text-sm font-bold text-white">{prod.name}</div>
-                                <div className="text-xs text-[#b9b09d] font-mono">{prod.code}</div>
+                                <div className="text-sm font-bold text-foreground">{prod.name}</div>
+                                <div className="text-xs text-muted-foreground font-mono">{prod.code}</div>
                               </td>
-                              <td className="p-3 text-sm text-[#c9b792]">{prod.category}</td>
+                              <td className="p-3 text-sm text-muted-foreground">{prod.category}</td>
                               <td className="p-3 text-sm font-mono text-primary font-bold">{fmtEtb(prod.price)}</td>
-                              <td className="p-3 text-sm text-[#c9b792]">
+                              <td className="p-3 text-sm text-muted-foreground">
                                 <span className={cx('font-bold', prod.marginPct >= 60 ? 'text-emerald-400' : prod.marginPct >= 30 ? 'text-primary' : 'text-red-400')}>{prod.marginPct}%</span>
                               </td>
-                              <td className="p-3 text-sm text-[#c9b792]">
-                                <div className="font-bold text-white">{prod.soldUnits}</div>
+                              <td className="p-3 text-sm text-muted-foreground">
+                                <div className="font-bold text-foreground">{prod.soldUnits}</div>
                                 <div className="text-xs">{fmtEtb(prod.soldRevenue)}</div>
                               </td>
                               <td className="p-3 text-right">
                                 <button
-                                  className="text-[#c9b792] hover:text-white"
+                                  className="text-muted-foreground hover:text-foreground"
                                   type="button"
                                   onClick={(ev) => {
                                     ev.stopPropagation();
@@ -1229,7 +1231,7 @@ export const MenuManagement: React.FC = () => {
                                 >
                                   <button
                                     type="button"
-                                    className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b]"
+                                    className="w-full px-4 py-3 text-left text-sm hover:bg-accent"
                                     onClick={() => {
                                       setSelectedId(prod.id);
                                       setTab('catalog');
@@ -1241,7 +1243,7 @@ export const MenuManagement: React.FC = () => {
                                   </button>
                                   <button
                                     type="button"
-                                    className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b]"
+                                    className="w-full px-4 py-3 text-left text-sm hover:bg-accent"
                                     onClick={() => {
                                       setSelectedId(prod.id);
                                       setTab('recipes');
@@ -1251,10 +1253,10 @@ export const MenuManagement: React.FC = () => {
                                   >
                                     Manage recipe
                                   </button>
-                                  <div className="h-px bg-[#675532]/40" />
+                                  <div className="h-px bg-border" />
                                   <button
                                     type="button"
-                                    className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b] text-red-300"
+                                    className="w-full px-4 py-3 text-left text-sm hover:bg-accent text-red-300"
                                     onClick={async () => {
                                       setRowMenuId(null);
                                       setRowMenuAnchor(null);
@@ -1269,7 +1271,7 @@ export const MenuManagement: React.FC = () => {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={8} className="p-6 text-sm text-text-muted">
+                            <td colSpan={8} className="p-6 text-sm text-muted-foreground">
                               No products found.
                             </td>
                           </tr>
@@ -1280,8 +1282,8 @@ export const MenuManagement: React.FC = () => {
                 </div>
 
                 {selectedCount ? (
-                  <div className="bg-surface border border-border rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div className="text-sm text-white font-bold">{selectedCount} selected</div>
+                  <div className="bg-card border border-border rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="text-sm text-foreground font-bold">{selectedCount} selected</div>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
@@ -1291,40 +1293,40 @@ export const MenuManagement: React.FC = () => {
                           setBulkStatus('Active');
                           setBulkValue('');
                         }}
-                        className="px-3 h-9 rounded-lg border border-border bg-background text-text-muted hover:text-white"
+                        className="px-3 h-9 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent"
                       >
                         Bulk Actions
                       </button>
-                      <button type="button" onClick={() => setSelectedIds(new Set())} className="px-3 h-9 rounded-lg border border-border bg-background text-text-muted hover:text-white">
+                      <button type="button" onClick={() => setSelectedIds(new Set())} className="px-3 h-9 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent">
                         Clear
                       </button>
                     </div>
                   </div>
                 ) : null}
 
-                <div className="flex items-center justify-between text-sm text-text-muted">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <div>
                     Showing{' '}
-                    <span className="font-bold text-white">
+                    <span className="font-bold text-foreground">
                       {total ? (page - 1) * pageSize + 1 : 0}-{total ? Math.min(total, page * pageSize) : 0}
                     </span>{' '}
-                    of <span className="font-bold text-white">{total}</span>
+                    of <span className="font-bold text-foreground">{total}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page <= 1 || loading}
-                      className="w-9 h-9 rounded-lg border border-border bg-surface text-text-muted hover:text-white hover:bg-surface-light transition-colors disabled:opacity-50"
+                      className="w-9 h-9 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-[18px]">chevron_left</span>
                     </button>
-                    <div className="px-3 py-2 rounded-lg bg-surface-light border border-border text-white font-bold">{page}</div>
+                    <div className="px-3 py-2 rounded-lg bg-muted border border-border text-foreground font-bold">{page}</div>
                     <button
                       type="button"
                       onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
                       disabled={page >= pageCount || loading}
-                      className="w-9 h-9 rounded-lg border border-border bg-surface text-text-muted hover:text-white hover:bg-surface-light transition-colors disabled:opacity-50"
+                      className="w-9 h-9 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                     </button>
@@ -1336,11 +1338,11 @@ export const MenuManagement: React.FC = () => {
             </div>
           ) : tab === 'pricing' ? (
             <div className="flex flex-col lg:flex-row gap-6">
-              <div className="flex-1 bg-[#221c10] border border-[#393328] rounded-xl p-6">
+              <div className="flex-1 bg-card border border-border rounded-xl p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-white text-lg font-extrabold">Pricing Intelligence</div>
-                    <div className="text-[#b9b09d] text-sm mt-1">Review margin and adjust price/cost for better profitability.</div>
+                    <div className="text-foreground text-lg font-extrabold">Pricing Intelligence</div>
+                    <div className="text-muted-foreground text-sm mt-1">Review margin and adjust price/cost for better profitability.</div>
                   </div>
                 </div>
 
@@ -1350,27 +1352,27 @@ export const MenuManagement: React.FC = () => {
                   <StatCard label="Active Items" value={String(kpis.activeItems)} meta="Current page" icon="check_circle" />
                 </div>
 
-                <div className="mt-6 bg-[#2c241b] border border-[#393328] rounded-xl p-4">
-                  <div className="text-sm font-bold text-white">Tip</div>
-                  <div className="text-xs text-[#b9b09d] mt-1">Items with low margin are shown in red on the Catalog tab. Increase price or reduce cost to improve margin.</div>
+                <div className="mt-6 bg-muted border border-border rounded-xl p-4">
+                  <div className="text-sm font-bold text-foreground">Tip</div>
+                  <div className="text-xs text-muted-foreground mt-1">Items with low margin are shown in red on the Catalog tab. Increase price or reduce cost to improve margin.</div>
                 </div>
 
                 <div className="mt-6">
-                  <div className="text-sm font-bold text-white">Top items by revenue</div>
-                  <div className="text-xs text-[#b9b09d] mt-1">(from current filters)</div>
+                  <div className="text-sm font-bold text-foreground">Top items by revenue</div>
+                  <div className="text-xs text-muted-foreground mt-1">(from current filters)</div>
                   <div className="mt-3 h-[260px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={perfTop} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                        <XAxis dataKey="name" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.12)' }} />
-                        <YAxis tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.12)' }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                        <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} />
                         <Tooltip
-                          contentStyle={{ background: '#151107', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
-                          labelStyle={{ color: '#fff' }}
-                          itemStyle={{ color: '#fff' }}
+                          contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }}
+                          labelStyle={{ color: 'hsl(var(--foreground))' }}
+                          itemStyle={{ color: 'hsl(var(--foreground))' }}
                           formatter={(v: any) => fmtEtb(Number(v) || 0)}
                         />
-                        <Bar dataKey="revenue" fill="#eead2b" radius={[8, 8, 0, 0]} />
+                        <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1381,45 +1383,45 @@ export const MenuManagement: React.FC = () => {
             </div>
           ) : tab === 'recipes' ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 bg-[#221c10] border border-[#393328] rounded-xl p-6">
+              <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-white text-lg font-extrabold">Recipe Builder</div>
-                    <div className="text-[#b9b09d] text-sm mt-1">Attach ingredients to a menu item to compute cost and standardize preparation.</div>
+                    <div className="text-foreground text-lg font-extrabold">Recipe Builder</div>
+                    <div className="text-muted-foreground text-sm mt-1">Attach ingredients to a menu item to compute cost and standardize preparation.</div>
                   </div>
                   <button
                     type="button"
                     onClick={saveRecipe}
                     disabled={!selected || recipeSaving}
-                    className="h-10 px-4 rounded-lg bg-primary text-[#181611] font-bold hover:bg-[#d99a20] disabled:opacity-60"
+                    className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary-hover disabled:opacity-60"
                   >
                     {recipeSaving ? 'Saving ¦' : 'Save Recipe'}
                   </button>
                 </div>
 
                 <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-[#2c241b] border border-[#393328] rounded-xl p-4">
-                    <div className="text-xs text-[#c9b792] font-bold uppercase">Total Ingredients</div>
-                    <div className="text-white text-2xl font-extrabold mt-2">{recipeItems.length}</div>
+                  <div className="bg-muted border border-border rounded-xl p-4">
+                    <div className="text-xs text-muted-foreground font-bold uppercase">Total Ingredients</div>
+                    <div className="text-foreground text-2xl font-extrabold mt-2">{recipeItems.length}</div>
                   </div>
-                  <div className="bg-[#2c241b] border border-[#393328] rounded-xl p-4">
-                    <div className="text-xs text-[#c9b792] font-bold uppercase">Estimated Cost</div>
-                    <div className="text-white text-2xl font-extrabold mt-2">{fmtEtb(recipeTotalCost)}</div>
+                  <div className="bg-muted border border-border rounded-xl p-4">
+                    <div className="text-xs text-muted-foreground font-bold uppercase">Estimated Cost</div>
+                    <div className="text-foreground text-2xl font-extrabold mt-2">{fmtEtb(recipeTotalCost)}</div>
                   </div>
-                  <div className="bg-[#2c241b] border border-[#393328] rounded-xl p-4">
-                    <div className="text-xs text-[#c9b792] font-bold uppercase">Selected Item</div>
-                    <div className="text-white font-extrabold mt-2 truncate">{selected?.name || '—'}</div>
-                    <div className="text-[#b9b09d] text-xs font-mono mt-1">{selected?.code || ''}</div>
+                  <div className="bg-muted border border-border rounded-xl p-4">
+                    <div className="text-xs text-muted-foreground font-bold uppercase">Selected Item</div>
+                    <div className="text-foreground font-extrabold mt-2 truncate">{selected?.name || '—'}</div>
+                    <div className="text-muted-foreground text-xs font-mono mt-1">{selected?.code || ''}</div>
                   </div>
                 </div>
 
-                <div className="mt-6 bg-[#2c241b] border border-[#393328] rounded-xl p-4">
-                  <div className="text-sm font-bold text-white">Add Ingredient</div>
+                <div className="mt-6 bg-muted border border-border rounded-xl p-4">
+                  <div className="text-sm font-bold text-foreground">Add Ingredient</div>
                   <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                     <select
                       value={recipeAddIngredientId}
                       onChange={(e) => setRecipeAddIngredientId(e.target.value)}
-                      className="bg-[#221c10] border border-[#393328] rounded-lg px-3 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                      className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                       disabled={invLoading}
                     >
                       {invItems.map((it) => (
@@ -1434,7 +1436,7 @@ export const MenuManagement: React.FC = () => {
                       type="number"
                       min={0}
                       step="0.01"
-                      className="bg-[#221c10] border border-[#393328] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#b9b09d] focus:border-primary focus:outline-none"
+                      className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                       placeholder="Qty"
                     />
                     <button
@@ -1458,30 +1460,30 @@ export const MenuManagement: React.FC = () => {
                           return [...prev, { ingredientId: id, name: nm, quantity: String(qty) }];
                         });
                       }}
-                      className="h-10 rounded-lg bg-[#393328] text-white text-sm font-bold hover:bg-[#393328]/80"
+                      className="h-10 rounded-lg bg-muted text-foreground text-sm font-bold hover:bg-accent"
                       disabled={invLoading || !invItems.length}
                     >
                       Add
                     </button>
                   </div>
-                  {invLoading ? <div className="mt-3 text-xs text-[#b9b09d]">Loading inventory items ¦</div> : null}
+                  {invLoading ? <div className="mt-3 text-xs text-muted-foreground">Loading inventory items ¦</div> : null}
                   {!invLoading && !invItems.length ? (
                     <div className="mt-3 text-xs text-red-300">
                       No inventory items found for this branch.
                     </div>
                   ) : null}
-                  {!invLoading ? <div className="mt-2 text-[11px] text-[#b9b09d]">Branch: {getSelectedBranchId() || 'auto'}</div> : null}
-                  <div className="mt-3 rounded-lg border border-[#393328] bg-[#181611] p-3 text-[11px] text-[#b9b09d]">
-                    <div className="text-[#c9b792] font-bold">Debug</div>
+                  {!invLoading ? <div className="mt-2 text-[11px] text-muted-foreground">Branch: {getSelectedBranchId() || 'auto'}</div> : null}
+                  <div className="mt-3 rounded-lg border border-border bg-muted p-3 text-[11px] text-muted-foreground">
+                    <div className="text-foreground font-bold">Debug</div>
                     <div className="mt-2">
-                      <div className="text-[#c9b792] font-bold">Inventory</div>
+                      <div className="text-foreground font-bold">Inventory</div>
                       <div className="mt-1 break-all">{invDebug.url || '—'}</div>
                       <div className="mt-1">Status: {invDebug.status || '—'}</div>
                       <div className="mt-1">Items: {invItems.length}</div>
                       {invDebug.error ? <div className="mt-1 text-red-300">Error: {invDebug.error}</div> : null}
                     </div>
                     <div className="mt-3">
-                      <div className="text-[#c9b792] font-bold">Recipe</div>
+                      <div className="text-foreground font-bold">Recipe</div>
                       <div className="mt-1 break-all">{recipeDebug.url || '—'}</div>
                       <div className="mt-1">Status: {recipeDebug.status || '—'}</div>
                       <div className="mt-1">Ingredients: {recipeItems.length}</div>
@@ -1490,22 +1492,22 @@ export const MenuManagement: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="mt-6 bg-[#221c10] border border-[#393328] rounded-xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-[#393328] bg-[#2c241b]">
-                    <div className="text-sm font-bold text-white">Ingredients</div>
+                <div className="mt-6 bg-card border border-border rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border bg-muted/50">
+                    <div className="text-sm font-bold text-foreground">Ingredients</div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                      <thead className="bg-[#2c241b]">
-                        <tr className="border-b border-[#393328]">
-                          <th className="p-3 text-xs font-bold text-[#c9b792] uppercase">Ingredient</th>
-                          <th className="p-3 text-xs font-bold text-[#c9b792] uppercase">Unit Cost</th>
-                          <th className="p-3 text-xs font-bold text-[#c9b792] uppercase">Qty</th>
-                          <th className="p-3 text-xs font-bold text-[#c9b792] uppercase">Line Cost</th>
-                          <th className="p-3 text-xs font-bold text-[#c9b792] uppercase text-right">Action</th>
+                      <thead className="bg-muted/50">
+                        <tr className="border-b border-border">
+                          <th className="p-3 text-xs font-bold text-muted-foreground uppercase">Ingredient</th>
+                          <th className="p-3 text-xs font-bold text-muted-foreground uppercase">Unit Cost</th>
+                          <th className="p-3 text-xs font-bold text-muted-foreground uppercase">Qty</th>
+                          <th className="p-3 text-xs font-bold text-muted-foreground uppercase">Line Cost</th>
+                          <th className="p-3 text-xs font-bold text-muted-foreground uppercase text-right">Action</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#393328]">
+                      <tbody className="divide-y divide-border">
                         {recipeItems.length ? (
                           recipeItems.map((r) => {
                             const it = invItems.find((x) => x.id === r.ingredientId);
@@ -1513,12 +1515,12 @@ export const MenuManagement: React.FC = () => {
                             const qty = Number(r.quantity) || 0;
                             const lineCost = unitCost * qty;
                             return (
-                              <tr key={r.ingredientId} className="hover:bg-[#2c241b]/60">
+                              <tr key={r.ingredientId} className="hover:bg-accent/50">
                                 <td className="p-3">
-                                  <div className="text-sm font-bold text-white">{it?.name || r.name || r.ingredientId}</div>
-                                  <div className="text-xs text-[#b9b09d]">{it?.unit || ''}</div>
+                                  <div className="text-sm font-bold text-foreground">{it?.name || r.name || r.ingredientId}</div>
+                                  <div className="text-xs text-muted-foreground">{it?.unit || ''}</div>
                                 </td>
-                                <td className="p-3 text-sm text-[#b9b09d] font-mono">{fmtEtb(unitCost)}</td>
+                                <td className="p-3 text-sm text-muted-foreground font-mono">{fmtEtb(unitCost)}</td>
                                 <td className="p-3">
                                   <input
                                     value={r.quantity}
@@ -1529,14 +1531,14 @@ export const MenuManagement: React.FC = () => {
                                     type="number"
                                     min={0}
                                     step="0.01"
-                                    className="bg-[#181611] border border-[#393328] rounded-lg px-3 py-2 text-sm text-white focus:border-primary focus:outline-none w-28"
+                                    className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none w-28"
                                   />
                                 </td>
-                                <td className="p-3 text-sm text-[#b9b09d] font-mono">{fmtEtb(lineCost)}</td>
+                                <td className="p-3 text-sm text-muted-foreground font-mono">{fmtEtb(lineCost)}</td>
                                 <td className="p-3 text-right">
                                   <button
                                     type="button"
-                                    className="px-3 py-2 rounded-lg text-red-300 hover:bg-[#2c241b]"
+                                    className="px-3 py-2 rounded-lg text-red-300 hover:bg-accent"
                                     onClick={() => setRecipeItems((prev) => prev.filter((x) => x.ingredientId !== r.ingredientId))}
                                   >
                                     Remove
@@ -1547,7 +1549,7 @@ export const MenuManagement: React.FC = () => {
                           })
                         ) : (
                           <tr>
-                            <td colSpan={5} className="p-6 text-sm text-[#b9b09d]">
+                            <td colSpan={5} className="p-6 text-sm text-muted-foreground">
                               No ingredients yet.
                             </td>
                           </tr>
@@ -1562,35 +1564,35 @@ export const MenuManagement: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 bg-[#221c10] border border-[#393328] rounded-xl p-6">
+              <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-white text-lg font-extrabold">Performance Overview</div>
-                    <div className="text-[#b9b09d] text-sm mt-1">Revenue and category mix based on recorded sales events.</div>
+                    <div className="text-foreground text-lg font-extrabold">Performance Overview</div>
+                    <div className="text-muted-foreground text-sm mt-1">Revenue and category mix based on recorded sales events.</div>
                   </div>
                 </div>
 
                 <div className="mt-6 h-[320px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={perfTop} margin={{ top: 12, right: 12, bottom: 12, left: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                      <XAxis dataKey="name" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.12)' }} />
-                      <YAxis tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.12)' }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                      <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} />
                       <Tooltip
-                        contentStyle={{ background: '#151107', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
-                        labelStyle={{ color: '#fff' }}
-                        itemStyle={{ color: '#fff' }}
+                        contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }}
+                        labelStyle={{ color: 'hsl(var(--foreground))' }}
+                        itemStyle={{ color: 'hsl(var(--foreground))' }}
                         formatter={(v: any) => fmtEtb(Number(v) || 0)}
                       />
-                      <Bar dataKey="revenue" fill="#eead2b" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              <div className="bg-[#221c10] border border-[#393328] rounded-xl p-6">
-                <div className="text-white font-extrabold">Revenue by Category</div>
-                <div className="text-[#b9b09d] text-xs mt-1">Current filters</div>
+              <div className="bg-card border border-border rounded-xl p-6">
+                <div className="text-foreground font-extrabold">Revenue by Category</div>
+                <div className="text-muted-foreground text-xs mt-1">Current filters</div>
                 <div className="mt-4 h-[320px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -1600,9 +1602,9 @@ export const MenuManagement: React.FC = () => {
                         ))}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ background: '#151107', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
-                        labelStyle={{ color: '#fff' }}
-                        itemStyle={{ color: '#fff' }}
+                        contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }}
+                        labelStyle={{ color: 'hsl(var(--foreground))' }}
+                        itemStyle={{ color: 'hsl(var(--foreground))' }}
                         formatter={(v: any) => fmtEtb(Number(v) || 0)}
                       />
                     </PieChart>
@@ -1614,9 +1616,9 @@ export const MenuManagement: React.FC = () => {
                     <div key={x.name} className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full" style={{ background: pieColors[i % pieColors.length] }}></span>
-                        <span className="text-white font-bold">{x.name}</span>
+                        <span className="text-foreground font-bold">{x.name}</span>
                       </div>
-                      <span className="text-[#b9b09d] font-mono">{fmtEtb(x.value)}</span>
+                      <span className="text-muted-foreground font-mono">{fmtEtb(x.value)}</span>
                     </div>
                   ))}
                 </div>
@@ -1628,55 +1630,55 @@ export const MenuManagement: React.FC = () => {
 
       {addOpen ? (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 p-4"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeAdd();
           }}
         >
-          <div className="w-full max-w-[640px] bg-surface border border-border rounded-xl shadow-2xl p-6">
+          <div className="w-full max-w-[640px] bg-card border border-border rounded-xl shadow-2xl p-6">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h3 className="text-white font-bold text-lg">Add Product</h3>
-                <p className="text-text-muted text-xs">Create a new menu item.</p>
+                <h3 className="text-foreground font-bold text-lg">Add Product</h3>
+                <p className="text-muted-foreground text-xs">Create a new menu item.</p>
               </div>
-              <button type="button" onClick={closeAdd} className="text-text-muted hover:text-white">
+              <button type="button" onClick={closeAdd} className="text-muted-foreground hover:text-foreground">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1 md:col-span-2">
-                <label className="text-xs font-bold text-text-muted uppercase">Product Name</label>
-                <input value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none" />
+                <label className="text-xs font-bold text-muted-foreground uppercase">Product Name</label>
+                <input value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none" />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-text-muted uppercase">Code</label>
-                <input value={newCode} readOnly className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none" placeholder="Auto" />
+                <label className="text-xs font-bold text-muted-foreground uppercase">Code</label>
+                <input value={newCode} readOnly className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none" placeholder="Auto" />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-text-muted uppercase">Category</label>
-                <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none" />
+                <label className="text-xs font-bold text-muted-foreground uppercase">Category</label>
+                <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none" />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-text-muted uppercase">Price (ETB)</label>
-                <input value={newPrice} onChange={(e) => setNewPrice(e.target.value)} type="number" className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none" />
+                <label className="text-xs font-bold text-muted-foreground uppercase">Price (ETB)</label>
+                <input value={newPrice} onChange={(e) => setNewPrice(e.target.value)} type="number" className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none" />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-text-muted uppercase">Cost (ETB)</label>
-                <input value={fmtEtb(0)} readOnly disabled className="bg-background border border-border rounded p-2 text-white/60 focus:border-primary focus:outline-none" />
+                <label className="text-xs font-bold text-muted-foreground uppercase">Cost (ETB)</label>
+                <input value={fmtEtb(0)} readOnly disabled className="bg-background border border-border rounded p-2 text-muted-foreground focus:border-primary focus:outline-none" />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-text-muted uppercase">Status</label>
-                <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as any)} className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none">
+                <label className="text-xs font-bold text-muted-foreground uppercase">Status</label>
+                <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as any)} className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none">
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
               <div className="flex flex-col gap-1 md:col-span-2">
-                <label className="text-xs font-bold text-text-muted uppercase">Image URL</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase">Image URL</label>
                 <div className="flex gap-2">
-                  <input value={newImage} onChange={(e) => setNewImage(e.target.value)} className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none flex-1" placeholder="https://..." />
-                  <label className={cx('p-2 border border-border rounded text-text-muted hover:text-white cursor-pointer', newImageUploading ? 'opacity-50 pointer-events-none' : '')}>
+                  <input value={newImage} onChange={(e) => setNewImage(e.target.value)} className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none flex-1" placeholder="https://..." />
+                  <label className={cx('p-2 border border-border rounded text-muted-foreground hover:text-foreground cursor-pointer', newImageUploading ? 'opacity-50 pointer-events-none' : '')}>
                     <input
                       type="file"
                       accept="image/*"
@@ -1709,13 +1711,13 @@ export const MenuManagement: React.FC = () => {
                 ) : null}
               </div>
               <div className="flex flex-col gap-1 md:col-span-2">
-                <label className="text-xs font-bold text-text-muted uppercase">Description</label>
-                <textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} className="bg-background border border-border rounded p-2 text-white h-24 focus:border-primary focus:outline-none resize-none"></textarea>
+                <label className="text-xs font-bold text-muted-foreground uppercase">Description</label>
+                <textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} className="bg-background border border-border rounded p-2 text-foreground h-24 focus:border-primary focus:outline-none resize-none"></textarea>
               </div>
             </div>
 
             <div className="mt-6 flex gap-3 justify-end">
-              <button type="button" onClick={closeAdd} className="px-4 py-2 rounded-lg border border-border text-text-muted font-bold hover:bg-surface-light" disabled={addSaving}>
+              <button type="button" onClick={closeAdd} className="px-4 py-2 rounded-lg border border-border text-muted-foreground font-bold hover:bg-accent hover:text-foreground" disabled={addSaving}>
                 Cancel
               </button>
               <button type="button" onClick={submitAdd} className="px-4 py-2 rounded-lg bg-primary text-background font-bold hover:bg-primary-hover disabled:opacity-60" disabled={addSaving}>
@@ -1728,32 +1730,32 @@ export const MenuManagement: React.FC = () => {
 
       {bulkOpen ? (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 p-4"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setBulkOpen(false);
           }}
         >
-          <div className="w-full max-w-[560px] bg-surface border border-border rounded-xl shadow-2xl p-6">
+          <div className="w-full max-w-[560px] bg-card border border-border rounded-xl shadow-2xl p-6">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h3 className="text-white font-bold text-lg">Bulk Actions</h3>
-                <p className="text-text-muted text-xs">Apply changes to {selectedCount} selected items.</p>
+                <h3 className="text-foreground font-bold text-lg">Bulk Actions</h3>
+                <p className="text-muted-foreground text-xs">Apply changes to {selectedCount} selected items.</p>
               </div>
-              <button type="button" onClick={() => setBulkOpen(false)} className="text-text-muted hover:text-white">
+              <button type="button" onClick={() => setBulkOpen(false)} className="text-muted-foreground hover:text-foreground">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1 md:col-span-2">
-                <label className="text-xs font-bold text-text-muted uppercase">Action</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase">Action</label>
                 <select
                   value={bulkAction}
                   onChange={(e) => {
                     setBulkAction(e.target.value as any);
                     setBulkValue('');
                   }}
-                  className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none"
+                  className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none"
                 >
                   <option value="set_status">Set availability</option>
                   <option value="set_price">Set price (ETB)</option>
@@ -1763,11 +1765,11 @@ export const MenuManagement: React.FC = () => {
 
               {bulkAction === 'set_status' ? (
                 <div className="flex flex-col gap-1 md:col-span-2">
-                  <label className="text-xs font-bold text-text-muted uppercase">Availability</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Availability</label>
                   <select
                     value={bulkStatus}
                     onChange={(e) => setBulkStatus(e.target.value as any)}
-                    className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none"
+                    className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none"
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -1775,15 +1777,15 @@ export const MenuManagement: React.FC = () => {
                 </div>
               ) : (
                 <div className="flex flex-col gap-1 md:col-span-2">
-                  <label className="text-xs font-bold text-text-muted uppercase">Value</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Value</label>
                   <input
                     value={bulkValue}
                     onChange={(e) => setBulkValue(e.target.value)}
                     type="number"
-                    className="bg-background border border-border rounded p-2 text-white focus:border-primary focus:outline-none"
+                    className="bg-background border border-border rounded p-2 text-foreground focus:border-primary focus:outline-none"
                     placeholder={bulkAction.includes('pct') ? 'e.g. 5 or -10' : 'e.g. 250'}
                   />
-                  <div className="text-[11px] text-text-muted mt-1">
+                  <div className="text-[11px] text-muted-foreground mt-1">
                     {bulkAction === 'adjust_price_pct' ? 'Percent supports negative values. Example: -10 reduces by 10%.' : null}
                   </div>
                 </div>
@@ -1791,7 +1793,7 @@ export const MenuManagement: React.FC = () => {
             </div>
 
             <div className="mt-6 flex gap-3 justify-end">
-              <button type="button" onClick={() => setBulkOpen(false)} className="px-4 py-2 rounded-lg border border-border text-text-muted font-bold hover:bg-surface-light" disabled={bulkSaving}>
+              <button type="button" onClick={() => setBulkOpen(false)} className="px-4 py-2 rounded-lg border border-border text-muted-foreground font-bold hover:bg-accent hover:text-foreground" disabled={bulkSaving}>
                 Cancel
               </button>
               <button type="button" onClick={submitBulk} className="px-4 py-2 rounded-lg bg-primary text-background font-bold hover:bg-primary-hover disabled:opacity-60" disabled={bulkSaving || !selectedCount}>
@@ -1804,18 +1806,18 @@ export const MenuManagement: React.FC = () => {
 
       {deleteConfirmOpen ? (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-background/80 p-4"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeDeleteConfirm();
           }}
         >
-          <div className="w-full max-w-[520px] bg-surface border border-border rounded-xl shadow-2xl p-6">
+          <div className="w-full max-w-[520px] bg-card border border-border rounded-xl shadow-2xl p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-white text-lg font-extrabold">Delete Product</div>
-                <div className="text-text-muted text-sm mt-1">This cannot be undone.</div>
+                <div className="text-foreground text-lg font-extrabold">Delete Product</div>
+                <div className="text-muted-foreground text-sm mt-1">This cannot be undone.</div>
               </div>
-              <button type="button" onClick={closeDeleteConfirm} className="text-text-muted hover:text-white">
+              <button type="button" onClick={closeDeleteConfirm} className="text-muted-foreground hover:text-foreground">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
@@ -1824,14 +1826,14 @@ export const MenuManagement: React.FC = () => {
               <button
                 type="button"
                 onClick={closeDeleteConfirm}
-                className="px-4 py-2 rounded-lg border border-border text-text-muted font-bold hover:bg-surface-light"
+                className="px-4 py-2 rounded-lg border border-border text-muted-foreground font-bold hover:bg-accent hover:text-foreground"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmDeleteProduct}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-500"
+                className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground font-bold hover:bg-destructive/90"
               >
                 Delete
               </button>

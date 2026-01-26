@@ -174,11 +174,11 @@ export const SA_Addons: React.FC = () => {
     <div className="p-6 space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="text-2xl font-black text-white">Add-ons</div>
-          <div className="text-[#c9b792] text-sm mt-1">Add-on packages that extend tenant modules/limits.</div>
+          <div className="text-2xl font-black text-foreground">Add-ons</div>
+          <div className="text-muted-foreground text-sm mt-1">Add-on packages that extend tenant modules/limits.</div>
         </div>
         <button
-          className="px-4 py-2 rounded-lg bg-[#eead2b] text-[#221c11] font-black hover:bg-[#d49a26] disabled:opacity-60"
+          className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 disabled:opacity-60"
           onClick={() => setCreateOpen(true)}
           disabled={saving}
         >
@@ -190,7 +190,7 @@ export const SA_Addons: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <input
-          className="h-11 rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white"
+          className="h-11 rounded-lg border border-border bg-card px-3 text-foreground placeholder:text-muted-foreground"
           placeholder="Search code/name/category"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -199,7 +199,7 @@ export const SA_Addons: React.FC = () => {
           }}
         />
         <select
-          className="h-11 rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white"
+          className="h-11 rounded-lg border border-border bg-card px-3 text-foreground"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         >
@@ -211,7 +211,7 @@ export const SA_Addons: React.FC = () => {
           ))}
         </select>
         <select
-          className="h-11 rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white"
+          className="h-11 rounded-lg border border-border bg-card px-3 text-foreground"
           value={available}
           onChange={(e) => setAvailable(e.target.value as any)}
         >
@@ -220,7 +220,7 @@ export const SA_Addons: React.FC = () => {
           <option value="false">Hidden</option>
         </select>
         <button
-          className="h-11 rounded-lg border border-[#483c23] bg-[#2c241b] text-white font-black hover:bg-[#3a2e22] disabled:opacity-60"
+          className="h-11 rounded-lg border border-border bg-card text-foreground font-black hover:bg-accent disabled:opacity-60"
           onClick={load}
           disabled={loading || saving}
         >
@@ -228,38 +228,38 @@ export const SA_Addons: React.FC = () => {
         </button>
       </div>
 
-      <div className="rounded-xl border border-[#483c23] overflow-hidden">
-        <div className="grid grid-cols-12 bg-[#1a150c] text-[#c9b792] text-xs font-black uppercase tracking-widest px-4 py-3">
+      <div className="rounded-xl border border-border overflow-hidden bg-card">
+        <div className="grid grid-cols-12 bg-muted/40 text-muted-foreground text-xs font-black uppercase tracking-widest px-4 py-3">
           <div className="col-span-3">Code</div>
           <div className="col-span-3">Name</div>
           <div className="col-span-2">Category</div>
           <div className="col-span-2">Pricing</div>
           <div className="col-span-2 text-right">Actions</div>
         </div>
-        <div className="divide-y divide-[#483c23] bg-[#221c11]">
+        <div className="divide-y divide-border">
           {loading ? (
-            <div className="px-4 py-6 text-[#c9b792]">Loading…</div>
+            <div className="px-4 py-6 text-muted-foreground">Loading…</div>
           ) : items.length === 0 ? (
-            <div className="px-4 py-6 text-[#c9b792]">No add-ons found.</div>
+            <div className="px-4 py-6 text-muted-foreground">No add-ons found.</div>
           ) : (
             items.map((x) => (
               <div key={x.id} className="grid grid-cols-12 px-4 py-3 items-center">
                 <div className="col-span-3">
-                  <div className="text-white font-black">{x.code}</div>
-                  <div className="text-[#c9b792] text-xs">{x.isAvailable ? 'Available' : 'Hidden'}</div>
+                  <div className="text-foreground font-black">{x.code}</div>
+                  <div className="text-muted-foreground text-xs">{x.isAvailable ? 'Available' : 'Hidden'}</div>
                 </div>
                 <div className="col-span-3">
-                  <div className="text-white font-bold">{x.name}</div>
-                  <div className="text-[#c9b792] text-xs line-clamp-1">{x.description}</div>
+                  <div className="text-foreground font-bold">{x.name}</div>
+                  <div className="text-muted-foreground text-xs line-clamp-1">{x.description}</div>
                 </div>
-                <div className="col-span-2 text-[#c9b792]">{x.category || '—'}</div>
-                <div className="col-span-2 text-[#c9b792]">
+                <div className="col-span-2 text-muted-foreground">{x.category || '—'}</div>
+                <div className="col-span-2 text-muted-foreground">
                   <div className="text-xs">M: {Math.round(x.pricing.monthlyEtb)} ETB</div>
                   <div className="text-xs">Y: {Math.round(x.pricing.yearlyEtb)} ETB</div>
                 </div>
                 <div className="col-span-2 flex justify-end gap-2">
                   <button
-                    className="px-3 py-1.5 rounded-lg border border-[#483c23] bg-[#2c241b] text-white font-black hover:bg-[#3a2e22] disabled:opacity-60"
+                    className="px-3 py-1.5 rounded-lg border border-border bg-card text-foreground font-black hover:bg-accent disabled:opacity-60"
                     onClick={() => toggleAvailable(x.id, !x.isAvailable)}
                     disabled={saving}
                   >
@@ -281,45 +281,45 @@ export const SA_Addons: React.FC = () => {
 
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-xl rounded-xl border border-[#483c23] bg-[#1a150c] p-5">
-            <div className="text-white font-black text-lg">New Add-on</div>
+          <div className="w-full max-w-xl rounded-xl border border-border bg-card p-5">
+            <div className="text-foreground font-black text-lg">New Add-on</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
               <div>
-                <div className="text-xs font-black uppercase tracking-widest text-[#c9b792] mb-1">Code</div>
-                <input className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white" value={draftCode} onChange={(e) => setDraftCode(e.target.value)} placeholder="e.g. advanced_analytics" />
+                <div className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-1">Code</div>
+                <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-foreground placeholder:text-muted-foreground" value={draftCode} onChange={(e) => setDraftCode(e.target.value)} placeholder="e.g. advanced_analytics" />
               </div>
               <div>
-                <div className="text-xs font-black uppercase tracking-widest text-[#c9b792] mb-1">Name</div>
-                <input className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white" value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Advanced Analytics" />
+                <div className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-1">Name</div>
+                <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-foreground placeholder:text-muted-foreground" value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Advanced Analytics" />
               </div>
               <div>
-                <div className="text-xs font-black uppercase tracking-widest text-[#c9b792] mb-1">Category</div>
-                <input className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white" value={draftCategory} onChange={(e) => setDraftCategory(e.target.value)} placeholder="analytics" />
+                <div className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-1">Category</div>
+                <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-foreground placeholder:text-muted-foreground" value={draftCategory} onChange={(e) => setDraftCategory(e.target.value)} placeholder="analytics" />
               </div>
               <div>
-                <div className="text-xs font-black uppercase tracking-widest text-[#c9b792] mb-1">Monthly ETB</div>
-                <input className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white" value={draftMonthly} onChange={(e) => setDraftMonthly(e.target.value)} />
+                <div className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-1">Monthly ETB</div>
+                <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-foreground" value={draftMonthly} onChange={(e) => setDraftMonthly(e.target.value)} />
               </div>
               <div>
-                <div className="text-xs font-black uppercase tracking-widest text-[#c9b792] mb-1">Yearly ETB</div>
-                <input className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white" value={draftYearly} onChange={(e) => setDraftYearly(e.target.value)} />
+                <div className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-1">Yearly ETB</div>
+                <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-foreground" value={draftYearly} onChange={(e) => setDraftYearly(e.target.value)} />
               </div>
               <div>
-                <div className="text-xs font-black uppercase tracking-widest text-[#c9b792] mb-1">Setup Fee ETB</div>
-                <input className="h-11 w-full rounded-lg border border-[#483c23] bg-[#221c11] px-3 text-white" value={draftSetup} onChange={(e) => setDraftSetup(e.target.value)} />
+                <div className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-1">Setup Fee ETB</div>
+                <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-foreground" value={draftSetup} onChange={(e) => setDraftSetup(e.target.value)} />
               </div>
             </div>
 
-            <label className="flex items-center gap-2 mt-4 text-[#c9b792] text-sm font-bold">
+            <label className="flex items-center gap-2 mt-4 text-muted-foreground text-sm font-bold">
               <input type="checkbox" checked={draftAvailable} onChange={(e) => setDraftAvailable(e.target.checked)} />
               Available to tenants
             </label>
 
             <div className="flex justify-end gap-2 mt-5">
-              <button className="px-4 py-2 rounded-lg border border-[#483c23] bg-[#221c11] text-white font-black hover:bg-[#2c241b]" onClick={() => setCreateOpen(false)} disabled={saving}>
+              <button className="px-4 py-2 rounded-lg border border-border bg-card text-foreground font-black hover:bg-accent" onClick={() => setCreateOpen(false)} disabled={saving}>
                 Cancel
               </button>
-              <button className="px-4 py-2 rounded-lg bg-[#eead2b] text-[#221c11] font-black hover:bg-[#d49a26] disabled:opacity-60" onClick={create} disabled={saving}>
+              <button className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 disabled:opacity-60" onClick={create} disabled={saving}>
                 Create
               </button>
             </div>

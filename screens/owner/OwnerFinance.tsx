@@ -110,13 +110,13 @@ const badge = (kind: 'up' | 'down' | 'flat', pct: number) => {
       </span>
     );
   }
-  return <span className="text-xs font-bold text-[#c9b792] flex items-center gap-1 bg-[#483c23] px-2 py-1 rounded">0.0%</span>;
+  return <span className="text-xs font-bold text-muted-foreground flex items-center gap-1 bg-muted px-2 py-1 rounded">0.0%</span>;
 };
 
 const statusBadgeClass = (s: LedgerRow['status']) => {
   if (s === 'Paid') return 'bg-primary/20 text-primary border border-primary/20';
-  if (s === 'Overdue') return 'bg-red-500/10 text-red-400 border border-red-500/20';
-  return 'bg-[#483c23] text-[#c9b792] border border-white/5';
+  if (s === 'Overdue') return 'bg-destructive/10 text-destructive border border-destructive/20';
+  return 'bg-muted text-muted-foreground border border-border';
 };
 
 export const OwnerFinance: React.FC = () => {
@@ -510,29 +510,29 @@ export const OwnerFinance: React.FC = () => {
   }, [ledger?.total, pageSize]);
 
   return (
-    <div className="bg-gray-50 dark:bg-[#221c10] font-display text-white overflow-hidden h-full flex flex-col">
+    <div className="bg-background font-display text-foreground overflow-hidden h-full flex flex-col">
       <OwnerPageHeader
         title="Finance"
         rightSlot={
           <div className="flex items-center gap-3">
             <div className="hidden md:block relative w-96">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c9b792] material-symbols-outlined text-[20px]">search</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground material-symbols-outlined text-[20px]">search</span>
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-[#393328] border-none rounded-lg py-2 pl-10 pr-4 text-sm text-white placeholder:text-[#b9b09d] focus:ring-0"
+                className="w-full bg-muted border-none rounded-lg py-2 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:ring-0"
                 placeholder="Search invoices, transactions, branches..."
                 type="text"
               />
             </div>
-            <button className="size-10 flex items-center justify-center rounded-lg hover:bg-[#483c23] text-[#c9b792] hover:text-white transition-colors relative" type="button">
-              <span className="absolute top-2.5 right-2.5 size-2 bg-red-500 rounded-full border border-[#221c10]"></span>
+            <button className="size-10 flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors relative" type="button">
+              <span className="absolute top-2.5 right-2.5 size-2 bg-destructive rounded-full border border-background"></span>
               <span className="material-symbols-outlined">notifications</span>
             </button>
-            <button className="size-10 flex items-center justify-center rounded-lg hover:bg-[#483c23] text-[#c9b792] hover:text-white transition-colors" type="button">
+            <button className="size-10 flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" type="button">
               <span className="material-symbols-outlined">help</span>
             </button>
-            <button className="size-10 flex items-center justify-center rounded-lg hover:bg-[#483c23] text-[#c9b792] hover:text-white transition-colors" type="button">
+            <button className="size-10 flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" type="button">
               <span className="material-symbols-outlined">settings</span>
             </button>
           </div>
@@ -542,59 +542,59 @@ export const OwnerFinance: React.FC = () => {
       <main className="flex-1 overflow-y-auto p-6 pb-20 scroll-smooth">
         <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <nav className="flex items-center gap-2 text-sm text-[#c9b792]">
+            <nav className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="hover:text-primary transition-colors">Dashboard</span>
               <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-              <span className="text-white font-medium">Finance &amp; Accounting</span>
+              <span className="text-foreground font-medium">Finance &amp; Accounting</span>
             </nav>
 
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center bg-[#483c23] rounded-lg p-1 border border-white/5">
+              <div className="flex items-center bg-muted rounded-lg p-1 border border-border">
                 <button
                   type="button"
                   onClick={() => setGranularity('monthly')}
-                  className={cx('px-3 py-1.5 text-xs rounded transition-colors', granularity === 'monthly' ? 'font-bold bg-primary text-[#221c10] shadow-sm' : 'font-medium text-[#c9b792] hover:text-white hover:bg-white/5')}
+                  className={cx('px-3 py-1.5 text-xs rounded transition-colors', granularity === 'monthly' ? 'font-bold bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:text-foreground hover:bg-accent')}
                 >
                   Monthly
                 </button>
                 <button
                   type="button"
                   onClick={() => setGranularity('quarterly')}
-                  className={cx('px-3 py-1.5 text-xs rounded transition-colors', granularity === 'quarterly' ? 'font-bold bg-primary text-[#221c10] shadow-sm' : 'font-medium text-[#c9b792] hover:text-white hover:bg-white/5')}
+                  className={cx('px-3 py-1.5 text-xs rounded transition-colors', granularity === 'quarterly' ? 'font-bold bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:text-foreground hover:bg-accent')}
                 >
                   Quarterly
                 </button>
                 <button
                   type="button"
                   onClick={() => setGranularity('yearly')}
-                  className={cx('px-3 py-1.5 text-xs rounded transition-colors', granularity === 'yearly' ? 'font-bold bg-primary text-[#221c10] shadow-sm' : 'font-medium text-[#c9b792] hover:text-white hover:bg-white/5')}
+                  className={cx('px-3 py-1.5 text-xs rounded transition-colors', granularity === 'yearly' ? 'font-bold bg-primary text-primary-foreground shadow-sm' : 'font-medium text-muted-foreground hover:text-foreground hover:bg-accent')}
                 >
                   Yearly
                 </button>
               </div>
 
               <div className="relative">
-                <div className="flex items-center gap-2 bg-[#483c23] border border-white/5 hover:border-primary/50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                <div className="flex items-center gap-2 bg-muted border border-border hover:border-primary/50 text-foreground px-4 py-2 rounded-lg text-sm font-medium transition-all">
                   <span className="material-symbols-outlined text-[18px] text-primary">calendar_month</span>
                   <select
                     value={period}
                     onChange={(e) => setPeriod(e.target.value)}
-                    className="bg-transparent border-none text-sm text-white focus:ring-0 cursor-pointer appearance-none pr-2"
+                    className="bg-transparent border-none text-sm text-foreground focus:ring-0 cursor-pointer appearance-none pr-2"
                   >
                     {periods.map((p) => (
-                      <option key={p.value} value={p.value} className="text-black">
+                      <option key={p.value} value={p.value} className="text-foreground">
                         {p.label}
                       </option>
                     ))}
                   </select>
-                  <span className="material-symbols-outlined text-[18px] text-[#c9b792]">expand_more</span>
+                  <span className="material-symbols-outlined text-[18px] text-muted-foreground">expand_more</span>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={exportReport}
-                className="flex items-center gap-2 bg-primary hover:bg-[#d49a26] text-[#221c10] px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-primary/10 transition-all disabled:opacity-60"
+                className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-primary/10 transition-all disabled:opacity-60"
                 disabled={!data || loading}
               >
                 <span className="material-symbols-outlined text-[18px]">download</span>
@@ -604,7 +604,7 @@ export const OwnerFinance: React.FC = () => {
               <button
                 type="button"
                 onClick={exportProfitPdf}
-                className="flex items-center gap-2 bg-[#221c10] hover:bg-[#2c241b] border border-[#483c23] text-[#eead2b] px-4 py-2 rounded-lg text-sm font-bold transition-all disabled:opacity-60"
+                className="flex items-center gap-2 bg-card hover:bg-accent border border-border text-primary px-4 py-2 rounded-lg text-sm font-bold transition-all disabled:opacity-60"
                 disabled={!data || loading}
               >
                 <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
@@ -614,73 +614,73 @@ export const OwnerFinance: React.FC = () => {
           </div>
 
           {error ? (
-            <div className="bg-[#2c241b] border border-red-500/30 rounded-xl p-4 text-sm text-red-200 flex items-center justify-between gap-3">
+            <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-sm text-destructive flex items-center justify-between gap-3">
               <div>Failed to load finance: {error}</div>
-              <button onClick={fetchFinance} className="px-4 h-10 rounded-lg bg-primary hover:bg-[#d49a26] text-[#221c10] font-bold">
+              <button onClick={fetchFinance} className="px-4 h-10 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
                 Retry
               </button>
             </div>
           ) : null}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-[#2c241b] border border-[#483c23] p-5 rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-colors group">
+            <div className="bg-card border border-border p-5 rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-colors group">
               <div className="flex items-center justify-between">
-                <div className="p-2 bg-[#483c23] rounded-lg text-[#c9b792] group-hover:text-primary transition-colors">
+                <div className="p-2 bg-muted rounded-lg text-muted-foreground group-hover:text-primary transition-colors">
                   <span className="material-symbols-outlined">account_balance_wallet</span>
                 </div>
                 {badge((kpis?.revenueDeltaPct ?? 0) > 0 ? 'up' : (kpis?.revenueDeltaPct ?? 0) < 0 ? 'down' : 'flat', kpis?.revenueDeltaPct ?? 0)}
               </div>
               <div>
-                <p className="text-[#c9b792] text-sm font-medium mb-1">Total Revenue</p>
-                <h3 className="text-2xl font-bold text-white tracking-tight tabular-nums">{fmtMoney(kpis?.revenue ?? 0)}</h3>
+                <p className="text-muted-foreground text-sm font-medium mb-1">Total Revenue</p>
+                <h3 className="text-2xl font-bold text-foreground tracking-tight tabular-nums">{fmtMoney(kpis?.revenue ?? 0)}</h3>
               </div>
             </div>
 
-            <div className="bg-[#2c241b] border border-[#483c23] p-5 rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-colors group">
+            <div className="bg-card border border-border p-5 rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-colors group">
               <div className="flex items-center justify-between">
-                <div className="p-2 bg-[#483c23] rounded-lg text-[#c9b792] group-hover:text-primary transition-colors">
+                <div className="p-2 bg-muted rounded-lg text-muted-foreground group-hover:text-primary transition-colors">
                   <span className="material-symbols-outlined">savings</span>
                 </div>
                 {badge((kpis?.netProfitDeltaPct ?? 0) > 0 ? 'up' : (kpis?.netProfitDeltaPct ?? 0) < 0 ? 'down' : 'flat', kpis?.netProfitDeltaPct ?? 0)}
               </div>
               <div>
-                <p className="text-[#c9b792] text-sm font-medium mb-1">Net Profit</p>
+                <p className="text-muted-foreground text-sm font-medium mb-1">Net Profit</p>
                 <h3 className="text-2xl font-bold text-primary tracking-tight tabular-nums">{fmtMoney(kpis?.netProfit ?? 0)}</h3>
               </div>
             </div>
 
-            <div className="bg-[#2c241b] border border-[#483c23] p-5 rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-colors group">
+            <div className="bg-card border border-border p-5 rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-colors group">
               <div className="flex items-center justify-between">
-                <div className="p-2 bg-[#483c23] rounded-lg text-[#c9b792] group-hover:text-primary transition-colors">
+                <div className="p-2 bg-muted rounded-lg text-muted-foreground group-hover:text-primary transition-colors">
                   <span className="material-symbols-outlined">inventory</span>
                 </div>
                 {badge((kpis?.cogsDeltaPct ?? 0) > 0 ? 'down' : (kpis?.cogsDeltaPct ?? 0) < 0 ? 'up' : 'flat', kpis?.cogsDeltaPct ?? 0)}
               </div>
               <div>
-                <p className="text-[#c9b792] text-sm font-medium mb-1">Total COGS</p>
-                <h3 className="text-2xl font-bold text-white tracking-tight tabular-nums">{fmtMoney(kpis?.cogs ?? 0)}</h3>
+                <p className="text-muted-foreground text-sm font-medium mb-1">Total COGS</p>
+                <h3 className="text-2xl font-bold text-foreground tracking-tight tabular-nums">{fmtMoney(kpis?.cogs ?? 0)}</h3>
               </div>
             </div>
 
-            <div className="bg-[#2c241b] border border-[#483c23] p-5 rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-colors group">
+            <div className="bg-card border border-border p-5 rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-colors group">
               <div className="flex items-center justify-between">
-                <div className="p-2 bg-[#483c23] rounded-lg text-[#c9b792] group-hover:text-primary transition-colors">
+                <div className="p-2 bg-muted rounded-lg text-muted-foreground group-hover:text-primary transition-colors">
                   <span className="material-symbols-outlined">shopping_cart</span>
                 </div>
                 {badge((kpis?.opexDeltaPct ?? 0) > 0 ? 'down' : (kpis?.opexDeltaPct ?? 0) < 0 ? 'up' : 'flat', kpis?.opexDeltaPct ?? 0)}
               </div>
               <div>
-                <p className="text-[#c9b792] text-sm font-medium mb-1">Operating Expenses</p>
-                <h3 className="text-2xl font-bold text-white tracking-tight tabular-nums">{fmtMoney(kpis?.opex ?? 0)}</h3>
+                <p className="text-muted-foreground text-sm font-medium mb-1">Operating Expenses</p>
+                <h3 className="text-2xl font-bold text-foreground tracking-tight tabular-nums">{fmtMoney(kpis?.opex ?? 0)}</h3>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <div className="xl:col-span-2 bg-[#2c241b] border border-[#483c23] rounded-xl p-6 flex flex-col">
+            <div className="xl:col-span-2 bg-card border border-border rounded-xl p-6 flex flex-col">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-bold text-white">Profit &amp; Loss Overview</h3>
-                <button className="text-[#c9b792] hover:text-white" type="button" onClick={fetchFinance}>
+                <h3 className="text-lg font-bold text-foreground">Profit &amp; Loss Overview</h3>
+                <button className="text-muted-foreground hover:text-foreground" type="button" onClick={fetchFinance}>
                   <span className="material-symbols-outlined">refresh</span>
                 </button>
               </div>
@@ -688,52 +688,52 @@ export const OwnerFinance: React.FC = () => {
               <div className="min-h-[320px]">
                 <ResponsiveContainer width="100%" height={320}>
                   <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid stroke="#483c23" strokeDasharray="4 4" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fill: '#c9b792', fontSize: 12 }} axisLine={{ stroke: '#483c23' }} tickLine={{ stroke: '#483c23' }} />
+                    <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="4 4" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} tickLine={{ stroke: 'hsl(var(--border))' }} />
                     <YAxis
-                      tick={{ fill: '#c9b792', fontSize: 12 }}
-                      axisLine={{ stroke: '#483c23' }}
-                      tickLine={{ stroke: '#483c23' }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                      tickLine={{ stroke: 'hsl(var(--border))' }}
                       width={60}
                       tickFormatter={(v) => fmtMoneyCompact(Number(v))}
                     />
                     <Tooltip
-                      cursor={{ fill: 'rgba(72,60,35,0.25)' }}
-                      contentStyle={{ background: '#ffffff', border: '1px solid #e6e2db', borderRadius: 10, color: '#221c10' }}
-                      labelStyle={{ color: '#221c10', fontWeight: 800 }}
+                      cursor={{ fill: 'hsl(var(--muted) / 0.6)' }}
+                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 10, color: 'hsl(var(--foreground))' }}
+                      labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 800 }}
                       formatter={(v: any) => fmtMoney(Number(v))}
                     />
                     <Legend
-                      wrapperStyle={{ color: '#c9b792' }}
+                      wrapperStyle={{ color: 'hsl(var(--muted-foreground))' }}
                       iconType="circle"
-                      formatter={(value) => <span style={{ color: '#c9b792', fontWeight: 600 }}>{String(value)}</span>}
+                      formatter={(value) => <span style={{ color: 'hsl(var(--muted-foreground))', fontWeight: 600 }}>{String(value)}</span>}
                     />
-                    <Bar dataKey="revenue" name="Revenue" fill="#eead2b" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="expenses" name="Expenses" fill="#483c23" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="revenue" name="Revenue" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="expenses" name="Expenses" fill="hsl(var(--muted))" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
-            <div className="bg-[#2c241b] border border-[#483c23] rounded-xl p-6 flex flex-col">
-              <h3 className="text-lg font-bold text-white mb-6">Branch Performance</h3>
+            <div className="bg-card border border-border rounded-xl p-6 flex flex-col">
+              <h3 className="text-lg font-bold text-foreground mb-6">Branch Performance</h3>
               <div className="flex flex-col gap-4 flex-1 overflow-y-auto pr-2">
                 {(loading && !data ? [] : branchPerf).map((b) => (
                   <div
                     key={b.id}
-                    className="flex items-center justify-between p-3 rounded-lg hover:bg-[#483c23]/30 transition-colors border border-transparent hover:border-[#483c23]"
+                    className="flex items-center justify-between p-3 rounded-lg hover:bg-accent/50 transition-colors border border-transparent hover:border-border"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="size-10 rounded-lg bg-[#221c11] border border-[#483c23] flex items-center justify-center text-[#c9b792]">
+                      <div className="size-10 rounded-lg bg-muted border border-border flex items-center justify-center text-muted-foreground">
                         <span className="material-symbols-outlined">store</span>
                       </div>
                       <div>
-                        <p className="text-white text-sm font-bold">{b.name}</p>
-                        <p className="text-[#c9b792] text-xs">{b.city}</p>
+                        <p className="text-foreground text-sm font-bold">{b.name}</p>
+                        <p className="text-muted-foreground text-xs">{b.city}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[#c9b792] text-sm font-bold tabular-nums">{fmtMoney(b.profit)}</p>
-                      <p className={cx('text-xs font-medium tabular-nums', b.deltaPct >= 0 ? 'text-[#34c759]' : 'text-[#ff3b3f]')}>
+                      <p className="text-foreground text-sm font-bold tabular-nums">{fmtMoney(b.profit)}</p>
+                      <p className={cx('text-xs font-medium tabular-nums', b.deltaPct >= 0 ? 'text-emerald-600 dark:text-emerald-500' : 'text-destructive')}>
                         {b.deltaPct.toFixed(0)}%
                       </p>
                     </div>
@@ -741,13 +741,13 @@ export const OwnerFinance: React.FC = () => {
                 ))}
 
                 {!loading && (!branchPerf || branchPerf.length === 0) ? (
-                  <div className="text-sm text-[#c9b792]">No branches found.</div>
+                  <div className="text-sm text-muted-foreground">No branches found.</div>
                 ) : null}
 
                 <button
                   type="button"
                   onClick={goToBranches}
-                  className="mt-auto w-full py-2 text-sm text-primary font-bold hover:bg-[#483c23] rounded-lg transition-colors"
+                  className="mt-auto w-full py-2 text-sm text-primary font-bold hover:bg-accent rounded-lg transition-colors"
                 >
                   View All Branches
                 </button>
@@ -755,23 +755,23 @@ export const OwnerFinance: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-[#2c241b] border border-[#483c23] rounded-xl overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-[#483c23] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <h3 className="text-lg font-bold text-white">Expense Ledger</h3>
+          <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h3 className="text-lg font-bold text-foreground">Expense Ledger</h3>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={openAddExpense}
-                  className="h-10 px-4 rounded-lg bg-primary hover:bg-[#d49a26] text-[#221c10] text-sm font-bold"
+                  className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold"
                 >
                   <span className="material-symbols-outlined text-[18px]">add</span>
                 </button>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#c9b792] material-symbols-outlined text-[18px]">filter_list</span>
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground material-symbols-outlined text-[18px]">filter_list</span>
                   <select
                     value={ledgerCategory}
                     onChange={(e) => setLedgerCategory(e.target.value)}
-                    className="bg-[#483c23] border-none text-sm text-white rounded-lg pl-9 pr-8 py-2 focus:ring-1 focus:ring-primary cursor-pointer appearance-none"
+                    className="bg-muted border border-border text-sm text-foreground rounded-lg pl-9 pr-8 py-2 focus:ring-1 focus:ring-primary cursor-pointer appearance-none"
                   >
                     <option value="">All Categories</option>
                     {(ledger?.categories || []).map((c) => (
@@ -783,11 +783,11 @@ export const OwnerFinance: React.FC = () => {
                 </div>
 
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#c9b792] material-symbols-outlined text-[18px]">sort</span>
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground material-symbols-outlined text-[18px]">sort</span>
                   <select
                     value={ledgerSort}
                     onChange={(e) => setLedgerSort(e.target.value as any)}
-                    className="bg-[#483c23] border-none text-sm text-white rounded-lg pl-9 pr-8 py-2 focus:ring-1 focus:ring-primary cursor-pointer appearance-none"
+                    className="bg-muted border border-border text-sm text-foreground rounded-lg pl-9 pr-8 py-2 focus:ring-1 focus:ring-primary cursor-pointer appearance-none"
                   >
                     <option value="newest">Newest First</option>
                     <option value="oldest">Oldest First</option>
@@ -800,43 +800,43 @@ export const OwnerFinance: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-[#483c23]/30 border-b border-[#483c23]">
-                    <th className="p-4 pl-6 text-xs font-bold text-[#c9b792] uppercase tracking-wider">Date</th>
-                    <th className="p-4 text-xs font-bold text-[#c9b792] uppercase tracking-wider">Transaction ID</th>
-                    <th className="p-4 text-xs font-bold text-[#c9b792] uppercase tracking-wider">Vendor / Payee</th>
-                    <th className="p-4 text-xs font-bold text-[#c9b792] uppercase tracking-wider">Category</th>
-                    <th className="p-4 text-xs font-bold text-[#c9b792] uppercase tracking-wider">Branch</th>
-                    <th className="p-4 text-xs font-bold text-[#c9b792] uppercase tracking-wider text-right">Amount</th>
-                    <th className="p-4 pr-6 text-xs font-bold text-[#c9b792] uppercase tracking-wider text-center">Status</th>
-                    <th className="p-4 pr-6 text-xs font-bold text-[#c9b792] uppercase tracking-wider text-right"></th>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="p-4 pl-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Date</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Transaction ID</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Vendor / Payee</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Category</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Branch</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Amount</th>
+                    <th className="p-4 pr-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">Status</th>
+                    <th className="p-4 pr-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#483c23]">
+                <tbody className="divide-y divide-border">
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="p-6 text-sm text-[#c9b792]">
+                      <td colSpan={8} className="p-6 text-sm text-muted-foreground">
                         Loading ¦
                       </td>
                     </tr>
                   ) : ledger?.items?.length ? (
                     ledger.items.map((r) => (
-                      <tr key={r.id} className="hover:bg-[#483c23]/20 transition-colors group cursor-pointer">
-                        <td className="p-4 pl-6 text-sm text-white font-medium">{r.date}</td>
-                        <td className="p-4 text-sm text-[#c9b792] font-mono">{r.transactionId}</td>
-                        <td className="p-4 text-sm text-white font-bold flex items-center gap-2">
-                          <div className="size-6 rounded bg-white-500/20 text-white-400 flex items-center justify-center text-[10px] font-bold">{r.vendorInitial}</div>
+                      <tr key={r.id} className="hover:bg-accent/50 transition-colors group cursor-pointer">
+                        <td className="p-4 pl-6 text-sm text-foreground font-medium">{r.date}</td>
+                        <td className="p-4 text-sm text-muted-foreground font-mono">{r.transactionId}</td>
+                        <td className="p-4 text-sm text-foreground font-bold flex items-center gap-2">
+                          <div className="size-6 rounded bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold">{r.vendorInitial}</div>
                           {r.vendor}
                         </td>
-                        <td className="p-4 text-sm text-[#c9b792]">{r.category}</td>
-                        <td className="p-4 text-sm text-[#c9b792]">{r.branchName}</td>
-                        <td className="p-4 text-sm text-white font-bold text-right tabular-nums">{fmtMoney(r.amount)}</td>
+                        <td className="p-4 text-sm text-muted-foreground">{r.category}</td>
+                        <td className="p-4 text-sm text-muted-foreground">{r.branchName}</td>
+                        <td className="p-4 text-sm text-foreground font-bold text-right tabular-nums">{fmtMoney(r.amount)}</td>
                         <td className="p-4 pr-6 text-center">
                           <span className={cx('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold', statusBadgeClass(r.status))}>{r.status}</span>
                         </td>
                         <td className="p-4 pr-6 text-right" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
-                            className="text-[#c9b792] hover:text-white transition-colors"
+                            className="text-muted-foreground hover:text-foreground transition-colors"
                             onMouseDown={(ev) => {
                               ev.stopPropagation();
                             }}
@@ -876,7 +876,7 @@ export const OwnerFinance: React.FC = () => {
                           >
                             <button
                               type="button"
-                              className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b]"
+                              className="w-full px-4 py-3 text-left text-sm hover:bg-accent"
                               onClick={() => {
                                 openEditExpense(r);
                                 setRowMenuId(null);
@@ -885,10 +885,10 @@ export const OwnerFinance: React.FC = () => {
                             >
                               Edit
                             </button>
-                            <div className="h-px bg-[#675532]/40" />
+                            <div className="h-px bg-border" />
                             <button
                               type="button"
-                              className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b] text-red-300"
+                              className="w-full px-4 py-3 text-left text-sm hover:bg-accent text-destructive"
                               onClick={async () => {
                                 setRowMenuId(null);
                                 setRowMenuAnchor(null);
@@ -903,7 +903,7 @@ export const OwnerFinance: React.FC = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} className="p-6 text-sm text-[#c9b792]">
+                      <td colSpan={8} className="p-6 text-sm text-muted-foreground">
                         No transactions.
                       </td>
                     </tr>
@@ -912,25 +912,25 @@ export const OwnerFinance: React.FC = () => {
               </table>
             </div>
 
-            <div className="p-4 border-t border-[#483c23] flex items-center justify-between text-sm text-[#c9b792]">
+            <div className="p-4 border-t border-border flex items-center justify-between text-sm text-muted-foreground">
               <span>
                 Showing {(ledger?.total ?? 0) ? (page - 1) * pageSize + 1 : 0}-{(ledger?.total ?? 0) ? Math.min(ledger!.total, page * pageSize) : 0} of {ledger?.total ?? 0} transactions
               </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="size-8 flex items-center justify-center rounded hover:bg-[#483c23] text-white disabled:opacity-50"
+                  className="size-8 flex items-center justify-center rounded hover:bg-accent text-foreground disabled:opacity-50"
                   disabled={page <= 1 || loading}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
                   <span className="material-symbols-outlined text-[18px]">chevron_left</span>
                 </button>
-                <button type="button" className="size-8 flex items-center justify-center rounded bg-primary text-[#221c10] font-bold">
+                <button type="button" className="size-8 flex items-center justify-center rounded bg-primary text-primary-foreground font-bold">
                   {page}
                 </button>
                 <button
                   type="button"
-                  className="size-8 flex items-center justify-center rounded hover:bg-[#483c23] text-white hover:text-primary disabled:opacity-50"
+                  className="size-8 flex items-center justify-center rounded hover:bg-accent text-foreground hover:text-primary disabled:opacity-50"
                   disabled={page >= pageCount || loading}
                   onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
                 >
@@ -940,7 +940,7 @@ export const OwnerFinance: React.FC = () => {
             </div>
           </div>
 
-          <div className="text-xs text-[#c9b792] opacity-70">Period: {periodLabel}</div>
+          <div className="text-xs text-muted-foreground opacity-70">Period: {periodLabel}</div>
         </div>
       </main>
 
@@ -951,34 +951,34 @@ export const OwnerFinance: React.FC = () => {
             if (e.target === e.currentTarget) closeExpenseModal();
           }}
         >
-          <div className="w-full max-w-xl rounded-2xl bg-[#2c241b] border border-[#483c23] overflow-hidden">
-            <div className="p-5 border-b border-[#483c23] flex items-center justify-between">
+          <div className="w-full max-w-xl rounded-2xl bg-card border border-border overflow-hidden">
+            <div className="p-5 border-b border-border flex items-center justify-between">
               <div>
-                <div className="text-white font-extrabold">{expenseDraft.id ? 'Edit Expense' : 'Add Expense'}</div>
-                <div className="text-xs text-[#c9b792] mt-1">Saved to MySQL finance ledger</div>
+                <div className="text-foreground font-extrabold">{expenseDraft.id ? 'Edit Expense' : 'Add Expense'}</div>
+                <div className="text-xs text-muted-foreground mt-1">Saved to MySQL finance ledger</div>
               </div>
-              <button type="button" className="text-[#c9b792] hover:text-white" onClick={closeExpenseModal}>
+              <button type="button" className="text-muted-foreground hover:text-foreground" onClick={closeExpenseModal}>
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Date</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Date</span>
                 <input
                   value={expenseDraft.at}
                   onChange={(e) => setExpenseDraft((d) => ({ ...d, at: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#483c23] border border-white/5 px-3 text-sm text-white"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground"
                   type="date"
                 />
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Status</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Status</span>
                 <select
                   value={expenseDraft.status}
                   onChange={(e) => setExpenseDraft((d) => ({ ...d, status: e.target.value as any }))}
-                  className="h-11 rounded-lg bg-[#483c23] border border-white/5 px-3 text-sm text-white"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground"
                 >
                   <option value="Pending">Pending</option>
                   <option value="Paid">Paid</option>
@@ -987,33 +987,33 @@ export const OwnerFinance: React.FC = () => {
               </label>
 
               <label className="flex flex-col gap-1.5 md:col-span-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Vendor / Payee</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Vendor / Payee</span>
                 <input
                   value={expenseDraft.vendor}
                   onChange={(e) => setExpenseDraft((d) => ({ ...d, vendor: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#483c23] border border-white/5 px-3 text-sm text-white"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground"
                   type="text"
                   placeholder="e.g., DailyFresh"
                 />
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Category</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Category</span>
                 <input
                   value={expenseDraft.category}
                   onChange={(e) => setExpenseDraft((d) => ({ ...d, category: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#483c23] border border-white/5 px-3 text-sm text-white"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground"
                   type="text"
                   placeholder="e.g., Utilities"
                 />
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Amount (ETB)</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Amount (ETB)</span>
                 <input
                   value={expenseDraft.amount}
                   onChange={(e) => setExpenseDraft((d) => ({ ...d, amount: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#483c23] border border-white/5 px-3 text-sm text-white"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground"
                   type="number"
                   min={0}
                   step="0.01"
@@ -1022,32 +1022,32 @@ export const OwnerFinance: React.FC = () => {
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Transaction ID</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Transaction ID</span>
                 <input
                   value={expenseDraft.transactionId}
                   onChange={(e) => setExpenseDraft((d) => ({ ...d, transactionId: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#483c23] border border-white/5 px-3 text-sm text-white"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground"
                   type="text"
                   placeholder="Auto"
                 />
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Due Date</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Due Date</span>
                 <input
                   value={expenseDraft.dueAt}
                   onChange={(e) => setExpenseDraft((d) => ({ ...d, dueAt: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#483c23] border border-white/5 px-3 text-sm text-white"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground"
                   type="date"
                 />
               </label>
 
               <label className="flex flex-col gap-1.5 md:col-span-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Branch</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Branch</span>
                 <select
                   value={expenseDraft.branchId}
                   onChange={(e) => setExpenseDraft((d) => ({ ...d, branchId: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#483c23] border border-white/5 px-3 text-sm text-white"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground"
                 >
                   <option value="">All / Not specific</option>
                   {branches.map((b) => (
@@ -1059,10 +1059,10 @@ export const OwnerFinance: React.FC = () => {
               </label>
             </div>
 
-            <div className="p-5 border-t border-[#483c23] flex items-center justify-end gap-3">
+            <div className="p-5 border-t border-border flex items-center justify-end gap-3">
               <button
                 type="button"
-                className="h-11 px-4 rounded-lg border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/40"
+                className="h-11 px-4 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                 onClick={closeExpenseModal}
                 disabled={expenseSaving}
               >
@@ -1070,7 +1070,7 @@ export const OwnerFinance: React.FC = () => {
               </button>
               <button
                 type="button"
-                className="h-11 px-5 rounded-lg bg-primary hover:bg-[#d49a26] text-[#221c10] font-bold disabled:opacity-60"
+                className="h-11 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold disabled:opacity-60"
                 onClick={submitExpense}
                 disabled={expenseSaving}
               >
@@ -1088,27 +1088,27 @@ export const OwnerFinance: React.FC = () => {
             if (e.target === e.currentTarget) closeDeleteConfirm();
           }}
         >
-          <div className="w-full max-w-[520px] rounded-2xl border border-[#483c23] bg-[#221c10] shadow-2xl">
-            <div className="p-5 border-b border-[#483c23] flex items-start justify-between gap-4">
+          <div className="w-full max-w-[520px] rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="p-5 border-b border-border flex items-start justify-between gap-4">
               <div>
-                <div className="text-white text-lg font-black">Delete Expense</div>
-                <div className="text-[#c9b792] text-sm mt-1">This cannot be undone.</div>
+                <div className="text-foreground text-lg font-black">Delete Expense</div>
+                <div className="text-muted-foreground text-sm mt-1">This cannot be undone.</div>
               </div>
-              <button type="button" onClick={closeDeleteConfirm} className="p-1.5 rounded-md hover:bg-[#483c23] text-[#c9b792] hover:text-white">
+              <button type="button" onClick={closeDeleteConfirm} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground">
                 <span className="material-symbols-outlined text-[22px]">close</span>
               </button>
             </div>
             <div className="p-5 flex items-center justify-end gap-3">
               <button
                 type="button"
-                className="h-11 px-4 rounded-lg border border-[#483c23] text-[#c9b792] hover:text-white hover:bg-[#483c23]/40"
+                className="h-11 px-4 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                 onClick={closeDeleteConfirm}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="h-11 px-5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold"
+                className="h-11 px-5 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
                 onClick={confirmDeleteExpense}
               >
                 Delete

@@ -335,15 +335,15 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#181611] text-white flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-[#3d3226] bg-[#221c10] shadow-2xl overflow-hidden">
-        <div className="p-6 border-b border-[#3d3226]">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+        <div className="p-6 border-b border-border">
           <div className="text-2xl font-black tracking-tight">MirachPOS</div>
-          <div className="text-sm text-[#c9b792] mt-1">Sign in to your workspace</div>
+          <div className="text-sm text-muted-foreground mt-1">Sign in to your workspace</div>
         </div>
 
         <div className="p-6 flex flex-col gap-4">
-          {error ? <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</div> : null}
+          {error ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
 
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -354,7 +354,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               }}
               className={cx(
                 'h-10 rounded-lg border text-sm font-black',
-                mode === 'email' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-[#181611] text-white border-[#3d3226] hover:border-[#eead2b]',
+                mode === 'email' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-foreground border-border hover:border-primary',
               )}
             >
               Email Login
@@ -367,7 +367,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               }}
               className={cx(
                 'h-10 rounded-lg border text-sm font-black',
-                mode === 'pin' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-[#181611] text-white border-[#3d3226] hover:border-[#eead2b]',
+                mode === 'pin' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-foreground border-border hover:border-primary',
               )}
             >
               PIN Login
@@ -375,11 +375,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Workspace (Tenant)</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Workspace (Tenant)</span>
             <input
               value={workspace}
               onChange={(e) => setWorkspace(e.target.value)}
-              className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+              className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:border-primary"
               placeholder="cafe1"
               autoComplete="organization"
             />
@@ -388,21 +388,21 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {mode === 'pin' ? (
             <>
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Staff Code</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Staff Code</span>
                 <input
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                  className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:border-primary"
                   placeholder="ABC-W-001"
                   autoComplete="username"
                 />
               </label>
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">PIN</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">PIN</span>
                 <input
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                  className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:border-primary"
                   type="password"
                   autoComplete="current-password"
                 />
@@ -411,41 +411,41 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           ) : (
             <>
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Email</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email</span>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                  className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:border-primary"
                   placeholder="name@company.com"
                   autoComplete="email"
                 />
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Password</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Password</span>
                 <input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                  className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:border-primary"
                   type="password"
                   autoComplete="current-password"
                 />
               </label>
 
               <div className="flex items-center justify-between gap-3">
-                <label className="flex items-center gap-2 text-xs text-[#c9b792] font-black select-none">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground font-black select-none">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="h-4 w-4 accent-[#eead2b]"
+                    className="h-4 w-4 accent-primary"
                   />
                   Remember me
                 </label>
                 <button
                   type="button"
                   onClick={openForgot}
-                  className="text-xs font-black text-[#c9b792] hover:text-white underline decoration-[#483c23] hover:decoration-[#eead2b] underline-offset-4"
+                  className="text-xs font-black text-muted-foreground hover:text-foreground underline decoration-border hover:decoration-primary underline-offset-4"
                 >
                   Forgot password?
                 </button>
@@ -459,35 +459,35 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             onClick={submit}
             className={cx(
               'h-11 rounded-lg font-black text-sm transition-colors',
-              !canSubmit || loading ? 'bg-[#3d3226] text-[#b9b09d] cursor-not-allowed' : 'bg-[#eead2b] hover:bg-[#d49a26] text-[#181611]',
+              !canSubmit || loading ? 'bg-secondary text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 text-primary-foreground',
             )}
           >
             {loading ? 'Signing in ¦' : 'Sign In'}
           </button>
 
           {showForgot ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-              <div className="w-full max-w-md rounded-2xl border border-[#3d3226] bg-[#221c10] shadow-2xl overflow-hidden">
-                <div className="p-4 border-b border-[#3d3226] flex items-center justify-between">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+              <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+                <div className="p-4 border-b border-border flex items-center justify-between">
                   <div className="font-black">Reset Password</div>
                   <button
                     type="button"
                     onClick={() => setShowForgot(false)}
-                    className="text-[#c9b792] hover:text-white"
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     ✕
                   </button>
                 </div>
                 <div className="p-4 flex flex-col gap-3">
-                  {fpErr ? <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{fpErr}</div> : null}
-                  {fpMsg ? <div className="rounded-lg border border-[#eead2b]/30 bg-[#eead2b]/10 p-3 text-sm text-[#f3e2b8]">{fpMsg}</div> : null}
+                  {fpErr ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{fpErr}</div> : null}
+                  {fpMsg ? <div className="rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-foreground">{fpMsg}</div> : null}
 
                   <label className="flex flex-col gap-1.5">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Email</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email</span>
                     <input
                       value={fpEmail}
                       onChange={(e) => setFpEmail(e.target.value)}
-                      className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                      className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:border-primary"
                       placeholder="name@company.com"
                       autoComplete="email"
                     />
@@ -496,31 +496,31 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   {fpStep === 'confirm' ? (
                     <>
                       <label className="flex flex-col gap-1.5">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">OTP Code</span>
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">OTP Code</span>
                         <input
                           value={fpOtp}
                           onChange={(e) => setFpOtp(e.target.value)}
-                          className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                          className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:border-primary"
                           placeholder="123456"
                           autoComplete="one-time-code"
                         />
                       </label>
                       <label className="flex flex-col gap-1.5">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">New Password</span>
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">New Password</span>
                         <input
                           value={fpPw1}
                           onChange={(e) => setFpPw1(e.target.value)}
-                          className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                          className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:border-primary"
                           type="password"
                           autoComplete="new-password"
                         />
                       </label>
                       <label className="flex flex-col gap-1.5">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#c9b792]">Confirm Password</span>
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Confirm Password</span>
                         <input
                           value={fpPw2}
                           onChange={(e) => setFpPw2(e.target.value)}
-                          className="h-11 rounded-lg border border-[#3d3226] bg-[#181611] px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                          className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:border-primary"
                           type="password"
                           autoComplete="new-password"
                         />
@@ -536,7 +536,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         disabled={fpBusy}
                         className={cx(
                           'h-11 flex-1 rounded-lg font-black text-sm transition-colors',
-                          fpBusy ? 'bg-[#3d3226] text-[#b9b09d] cursor-not-allowed' : 'bg-[#eead2b] hover:bg-[#d49a26] text-[#181611]',
+                          fpBusy ? 'bg-secondary text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 text-primary-foreground',
                         )}
                       >
                         {fpBusy ? 'Sending ¦' : 'Send OTP'}
@@ -548,7 +548,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         disabled={fpBusy}
                         className={cx(
                           'h-11 flex-1 rounded-lg font-black text-sm transition-colors',
-                          fpBusy ? 'bg-[#3d3226] text-[#b9b09d] cursor-not-allowed' : 'bg-[#eead2b] hover:bg-[#d49a26] text-[#181611]',
+                          fpBusy ? 'bg-secondary text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 text-primary-foreground',
                         )}
                       >
                         {fpBusy ? 'Saving ¦' : 'Set New Password'}
@@ -557,7 +557,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <button
                       type="button"
                       onClick={() => setShowForgot(false)}
-                      className="h-11 px-4 rounded-lg border border-[#3d3226] bg-[#181611] text-white font-black text-sm hover:border-[#eead2b]"
+                      className="h-11 px-4 rounded-lg border border-border bg-background text-foreground font-black text-sm hover:border-primary"
                     >
                       Cancel
                     </button>
@@ -574,7 +574,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         setFpPw1('');
                         setFpPw2('');
                       }}
-                      className="text-xs font-black text-[#c9b792] hover:text-white self-start"
+                      className="text-xs font-black text-muted-foreground hover:text-foreground self-start"
                     >
                       Resend OTP
                     </button>

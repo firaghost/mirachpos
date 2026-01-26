@@ -228,16 +228,16 @@ export const ManagerCustomers: React.FC = () => {
   }, [customers, deleteId]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">
-      <header className="h-16 shrink-0 border-b border-[#362b18] bg-[#221c10]/95 backdrop-blur flex items-center justify-between px-8 z-10">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+      <header className="h-16 shrink-0 border-b border-border bg-background/95 backdrop-blur flex items-center justify-between px-8 z-10">
         <div>
-          <h2 className="text-white text-xl font-bold">Customers</h2>
-          <p className="text-[#c9b792] text-xs">Customer contacts and loyalty</p>
+          <h2 className="text-foreground text-xl font-bold">Customers</h2>
+          <p className="text-muted-foreground text-xs">Customer contacts and loyalty</p>
         </div>
         <button
           onClick={openNew}
           disabled={busy || loading}
-          className="h-10 px-4 bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] rounded-lg font-bold text-sm flex items-center gap-2 transition-colors disabled:opacity-60"
+          className="h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-bold text-sm flex items-center gap-2 transition-colors disabled:opacity-60"
         >
           <span className="material-symbols-outlined text-[18px]">add</span>
           Add Customer
@@ -261,19 +261,19 @@ export const ManagerCustomers: React.FC = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-2 w-full md:max-w-xl">
               <div className="relative w-full">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#c9b792] text-lg">search</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-muted-foreground text-lg">search</span>
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   disabled={busy}
-                  className="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-[#483c23] bg-[#2c241b] focus:ring-2 focus:ring-[#eead2b]/40 focus:outline-none placeholder:text-[#c9b792]/60 text-white disabled:opacity-60"
+                  className="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/40 focus:outline-none placeholder:text-muted-foreground/60 text-foreground disabled:opacity-60"
                   placeholder="Search by name, phone, or ID"
                   type="text"
                 />
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="text-xs text-[#c9b792]">{loading ? 'Loading...' : `${total.toLocaleString()} customers`}</div>
+              <div className="text-xs text-muted-foreground">{loading ? 'Loading...' : `${total.toLocaleString()} customers`}</div>
               <select
                 value={pageSize}
                 onChange={(e) => {
@@ -281,7 +281,7 @@ export const ManagerCustomers: React.FC = () => {
                   setPageSize(Number(e.target.value) || 50);
                 }}
                 disabled={busy || loading}
-                className="h-9 px-2 rounded-lg border border-[#483c23] bg-[#2c241b] text-xs text-[#c9b792] disabled:opacity-60"
+                className="h-9 px-2 rounded-lg border border-border bg-background text-xs text-foreground disabled:opacity-60"
               >
                 <option value={25}>25</option>
                 <option value={50}>50</option>
@@ -292,62 +292,62 @@ export const ManagerCustomers: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="text-xs text-[#c9b792]">Page {page} / {totalPages}</div>
+            <div className="text-xs text-muted-foreground">Page {page} / {totalPages}</div>
             <div className="flex items-center gap-2">
               <button
                 disabled={busy || loading || page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="h-9 px-3 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white text-xs font-bold disabled:opacity-60"
+                className="h-9 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground text-xs font-bold disabled:opacity-60"
               >
                 Prev
               </button>
               <button
                 disabled={busy || loading || page >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="h-9 px-3 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white text-xs font-bold disabled:opacity-60"
+                className="h-9 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground text-xs font-bold disabled:opacity-60"
               >
                 Next
               </button>
             </div>
           </div>
 
-          <div className="bg-[#362b18] rounded-xl border border-[#483c23] overflow-hidden">
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-[#221c10] border-b border-[#483c23]">
-                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Name</th>
-                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Phone</th>
-                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase text-right">Points</th>
-                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase text-right">Balance</th>
-                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Status</th>
-                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase text-right">Action</th>
+                <tr className="bg-background border-b border-border">
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Name</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Phone</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase text-right">Points</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase text-right">Balance</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Status</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#483c23]">
+              <tbody className="divide-y divide-border">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="p-6 text-[#c9b792] text-sm">
+                    <td colSpan={6} className="p-6 text-muted-foreground text-sm">
                       Loading customers...
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-6 text-[#c9b792] text-sm">
+                    <td colSpan={6} className="p-6 text-muted-foreground text-sm">
                       No customers.
                     </td>
                   </tr>
                 ) : (
                   filtered.map((c) => (
-                    <tr key={c.id} className="hover:bg-[#42351f] transition-colors">
+                    <tr key={c.id} className="hover:bg-accent transition-colors">
                       <td className="p-4">
                         <div className="flex flex-col">
-                          <span className="text-sm font-bold text-white">{c.name}</span>
-                          <span className="text-xs text-[#c9b792]">{c.id}</span>
+                          <span className="text-sm font-bold text-foreground">{c.name}</span>
+                          <span className="text-xs text-muted-foreground">{c.id}</span>
                         </div>
                       </td>
-                      <td className="p-4 text-sm text-[#c9b792]">{c.phone}</td>
-                      <td className="p-4 text-sm font-mono text-white text-right">{c.loyaltyPoints.toLocaleString()}</td>
-                      <td className="p-4 text-sm font-mono text-white text-right">{formatMoney(c.loyaltyBalance)}</td>
+                      <td className="p-4 text-sm text-muted-foreground">{c.phone}</td>
+                      <td className="p-4 text-sm font-mono text-foreground text-right">{c.loyaltyPoints.toLocaleString()}</td>
+                      <td className="p-4 text-sm font-mono text-foreground text-right">{formatMoney(c.loyaltyBalance)}</td>
                       <td className="p-4">
                         <span
                           className={`text-xs px-2 py-1 rounded-full font-bold border ${
@@ -361,7 +361,7 @@ export const ManagerCustomers: React.FC = () => {
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-3">
-                          <button disabled={busy || loading} onClick={() => openEdit(c)} className="text-[#eead2b] hover:opacity-90 text-sm font-bold disabled:opacity-60">
+                          <button disabled={busy || loading} onClick={() => openEdit(c)} className="text-primary hover:opacity-90 text-sm font-bold disabled:opacity-60">
                             Edit
                           </button>
                           <button
@@ -390,14 +390,14 @@ export const ManagerCustomers: React.FC = () => {
           <div className="flex gap-3">
             <button
               onClick={closeModal}
-              className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
               disabled={busy}
             >
               Cancel
             </button>
             <button
               onClick={submit}
-              className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-extrabold transition-colors disabled:opacity-60"
+              className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors disabled:opacity-60"
               disabled={busy}
             >
               {busy ? 'Saving ¦' : 'Save'}
@@ -406,28 +406,28 @@ export const ManagerCustomers: React.FC = () => {
         }
       >
         <div className="flex flex-col gap-3">
-          <label className="text-sm font-bold text-[#c9b792]">Name</label>
-          <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+          <label className="text-sm font-bold text-muted-foreground">Name</label>
+          <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
 
-          <label className="text-sm font-bold text-[#c9b792]">Phone</label>
-          <input value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+          <label className="text-sm font-bold text-muted-foreground">Phone</label>
+          <input value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-bold text-[#c9b792]">Loyalty Points</label>
-              <input value={draftPoints} onChange={(e) => setDraftPoints(e.target.value)} className="mt-2 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+              <label className="text-sm font-bold text-muted-foreground">Loyalty Points</label>
+              <input value={draftPoints} onChange={(e) => setDraftPoints(e.target.value)} className="mt-2 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
             </div>
             <div>
-              <label className="text-sm font-bold text-[#c9b792]">Loyalty Balance (ETB)</label>
-              <input value={draftBalance} onChange={(e) => setDraftBalance(e.target.value)} className="mt-2 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white" />
+              <label className="text-sm font-bold text-muted-foreground">Loyalty Balance (ETB)</label>
+              <input value={draftBalance} onChange={(e) => setDraftBalance(e.target.value)} className="mt-2 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
             </div>
           </div>
 
-          <label className="text-sm font-bold text-[#c9b792]">Status</label>
+          <label className="text-sm font-bold text-muted-foreground">Status</label>
           <select
             value={draftStatus}
             onChange={(e) => setDraftStatus(e.target.value as any)}
-            className="w-full h-10 px-2 rounded-lg border border-[#483c23] bg-[#221c10] text-sm text-[#c9b792] focus:outline-none"
+            className="w-full h-10 px-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none"
           >
             <option value="Active">Active</option>
             <option value="Suspended">Suspended</option>
@@ -443,7 +443,7 @@ export const ManagerCustomers: React.FC = () => {
           <div className="flex gap-3">
             <button
               onClick={() => setDeleteId(null)}
-              className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
               disabled={busy}
             >
               Cancel
@@ -472,7 +472,7 @@ export const ManagerCustomers: React.FC = () => {
                   }
                 })();
               }}
-              className="flex-1 h-11 rounded-lg bg-red-600 hover:bg-red-500 text-white font-extrabold transition-colors disabled:opacity-60"
+              className="flex-1 h-11 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-extrabold transition-colors disabled:opacity-60"
               disabled={busy}
             >
               {busy ? 'Deleting ¦' : 'Delete'}
@@ -480,9 +480,9 @@ export const ManagerCustomers: React.FC = () => {
           </div>
         }
       >
-        <div className="text-sm text-[#c9b792]">
-          <div className="font-bold text-white">{deleteTarget?.name || 'This customer'}</div>
-          {deleteTarget?.phone ? <div className="mt-1">Phone: <span className="text-white font-mono">{deleteTarget.phone}</span></div> : null}
+        <div className="text-sm text-muted-foreground">
+          <div className="font-bold text-foreground">{deleteTarget?.name || 'This customer'}</div>
+          {deleteTarget?.phone ? <div className="mt-1">Phone: <span className="text-foreground font-mono">{deleteTarget.phone}</span></div> : null}
           <div className="mt-3">This will permanently remove the customer.</div>
         </div>
       </Modal>

@@ -609,21 +609,21 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
   if (!order) {
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[#0f0c07] text-white">
-        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#2f281c] bg-[#17130b] px-6 py-3">
-          <div className="flex items-center gap-4 text-white">
-            <div className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] text-[#221c11]">
+      <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-border bg-card px-6 py-3">
+          <div className="flex items-center gap-4 text-foreground">
+            <div className="size-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <span className="material-symbols-outlined">payments</span>
             </div>
-            <h2 className="text-white text-xl font-bold leading-tight tracking-tight">Payment</h2>
+            <h2 className="text-foreground text-xl font-bold leading-tight tracking-tight">Payment</h2>
           </div>
-          <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#2f281c] hover:bg-[#221c11] transition-colors text-[#c9b792] text-sm font-medium">
+          <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-card transition-colors text-muted-foreground text-sm font-medium">
             <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
           </button>
         </header>
 
         {actionErr ? (
-          <div className="px-6 py-2 text-xs text-red-300 font-semibold bg-red-900/10 border-b border-red-900/30">
+          <div className="px-6 py-2 text-xs text-destructive font-semibold bg-destructive/10 border-b border-destructive/30">
             {actionErr}
           </div>
         ) : null}
@@ -651,33 +651,33 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   if (isTerminal || !isPaymentPhase) {
     const isPaid = order.status === 'Paid';
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[#0f0c07] text-white">
-        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#2f281c] bg-[#17130b] px-6 py-3">
-          <div className="flex items-center gap-4 text-white">
-            <div className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] text-[#221c11]">
+      <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-border bg-card px-6 py-3">
+          <div className="flex items-center gap-4 text-foreground">
+            <div className="size-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <span className="material-symbols-outlined">payments</span>
             </div>
-            <h2 className="text-white text-xl font-bold leading-tight tracking-tight">Payment</h2>
+            <h2 className="text-foreground text-xl font-bold leading-tight tracking-tight">Payment</h2>
           </div>
-          <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#2f281c] hover:bg-[#221c11] transition-colors text-[#c9b792] text-sm font-medium">
+          <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-card transition-colors text-muted-foreground text-sm font-medium">
             <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
           </button>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="max-w-lg w-full bg-[#17130b] border border-[#2f281c] rounded-xl p-6">
-            <div className="text-white font-bold text-lg mb-2">
+          <div className="max-w-lg w-full bg-card border border-border rounded-xl p-6">
+            <div className="text-foreground font-bold text-lg mb-2">
               {isPaid ? 'Order is already Paid' : 'Payment is not available yet'}
             </div>
-            <div className="text-[#c9b792] text-sm">
+            <div className="text-muted-foreground text-sm">
               {isPaid ? 'This order has been fully paid.' : 'Orders can be paid only after they are marked Served.'}
             </div>
             <div className="mt-4 flex gap-3">
               {isPaid ? (
-                <button onClick={() => onNavigate(Screen.WAITER_RECEIPT)} className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-colors">View Receipt</button>
+                <button onClick={() => onNavigate(Screen.WAITER_RECEIPT)} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-bold transition-colors">View Receipt</button>
               ) : (
-                <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex-1 h-11 rounded-lg bg-[#221c11] hover:bg-[#2c241b] border border-[#2f281c] text-white font-semibold transition-colors">Go to Kitchen</button>
+                <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex-1 h-11 rounded-lg bg-card hover:bg-card border border-border text-foreground font-semibold transition-colors">Go to Kitchen</button>
               )}
-              <button onClick={() => onNavigate(Screen.WAITER_ACTIVE_ORDERS)} className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-colors">Active Orders</button>
+              <button onClick={() => onNavigate(Screen.WAITER_ACTIVE_ORDERS)} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-bold transition-colors">Active Orders</button>
             </div>
           </div>
         </div>
@@ -862,21 +862,21 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const qrImage = assetUrl(paymentDetails.image || qrSrc);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#0f0c07] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       {/* Top Navigation */}
-      <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#2f281c] bg-[#17130b] px-6 py-3">
-        <div className="flex items-center gap-4 text-white">
-          <div className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] text-[#221c11]">
+      <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-border bg-card px-6 py-3">
+        <div className="flex items-center gap-4 text-foreground">
+          <div className="size-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <span className="material-symbols-outlined">payments</span>
           </div>
-          <h2 className="text-white text-xl font-bold leading-tight tracking-tight">Payment</h2>
-          <div className="h-6 w-px bg-[#2f281c] mx-2"></div>
+          <h2 className="text-foreground text-xl font-bold leading-tight tracking-tight">Payment</h2>
+          <div className="h-6 w-px bg-border mx-2"></div>
           <div className="flex flex-col">
             <span className="text-sm font-bold leading-none">{order.tableName}</span>
-            <span className="text-xs text-[#c9b792] leading-none mt-1">{order.number}</span>
+            <span className="text-xs text-muted-foreground leading-none mt-1">{order.number}</span>
           </div>
         </div>
-        <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#2f281c] hover:bg-[#221c11] transition-colors text-[#c9b792] text-sm font-medium">
+        <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-card transition-colors text-muted-foreground text-sm font-medium">
           <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
         </button>
       </header>
@@ -884,16 +884,16 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       {/* Main Content Grid */}
       <main className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Column: Order Summary */}
-        <section className={`w-full ${billCollapsed ? 'lg:w-[92px]' : 'lg:w-[240px]'} min-h-0 flex flex-col lg:border-r border-b lg:border-b-0 border-[#2f281c] bg-[#17130b] shrink-0`}>
-          <div className={`px-4 py-3 border-b border-[#2f281c] flex justify-between items-center ${billCollapsed ? 'lg:px-3' : ''}`}>
+        <section className={`w-full ${billCollapsed ? 'lg:w-[92px]' : 'lg:w-[240px]'} min-h-0 flex flex-col lg:border-r border-b lg:border-b-0 border-border bg-card shrink-0`}>
+          <div className={`px-4 py-3 border-b border-border flex justify-between items-center ${billCollapsed ? 'lg:px-3' : ''}`}>
             <h3 className={`text-base font-bold ${billCollapsed ? 'lg:hidden' : ''}`}>Bill Summary</h3>
-            <div className={`text-[10px] font-black uppercase tracking-widest text-[#c9b792] ${billCollapsed ? 'hidden lg:block' : 'hidden'}`}>Bill</div>
+            <div className={`text-[10px] font-black uppercase tracking-widest text-muted-foreground ${billCollapsed ? 'hidden lg:block' : 'hidden'}`}>Bill</div>
             <div className="flex items-center gap-2">
-              <span className={`text-[11px] bg-[#3a2e22] px-2 py-1 rounded text-[#c9b792] ${billCollapsed ? 'lg:hidden' : ''}`}>{itemCount} Items</span>
+              <span className={`text-[11px] bg-secondary px-2 py-1 rounded text-muted-foreground ${billCollapsed ? 'lg:hidden' : ''}`}>{itemCount} Items</span>
               <button
                 type="button"
                 onClick={() => setBillCollapsed((v) => !v)}
-                className="size-9 rounded-lg border border-[#2f281c] bg-[#0f0c07] hover:bg-[#221c11] text-[#c9b792] transition-colors flex items-center justify-center"
+                className="size-9 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground transition-colors flex items-center justify-center"
                 title={billCollapsed ? 'Expand bill' : 'Collapse bill'}
               >
                 <span className="material-symbols-outlined text-[20px]">{billCollapsed ? 'chevron_right' : 'chevron_left'}</span>
@@ -903,49 +903,49 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
           <div className={`flex-1 min-h-0 flex flex-col ${billCollapsed ? 'lg:hidden' : ''}`}>
             {order.customer ? (
-              <div className="px-4 py-2 border-b border-[#2f281c]">
-                <div className="text-[11px] text-[#c9b792]">Customer</div>
-                <div className="text-sm font-bold text-white truncate">{order.customer.name}</div>
-                <div className="text-[11px] text-[#c9b792] truncate">{order.customer.phone}    Points {order.customer.loyaltyPoints}    Balance {settingsUi.currency} {order.customer.loyaltyBalance.toFixed(2)}</div>
+              <div className="px-4 py-2 border-b border-border">
+                <div className="text-[11px] text-muted-foreground">Customer</div>
+                <div className="text-sm font-bold text-foreground truncate">{order.customer.name}</div>
+                <div className="text-[11px] text-muted-foreground truncate">{order.customer.phone}    Points {order.customer.loyaltyPoints}    Balance {settingsUi.currency} {order.customer.loyaltyBalance.toFixed(2)}</div>
               </div>
             ) : null}
 
             {/* Order List */}
             <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
               {order.items.map((item) => (
-                <div key={item.productId} className="flex items-center gap-3 bg-[#0f0c07] p-2 rounded-lg border border-transparent hover:border-[#2f281c] transition-colors">
+                <div key={item.productId} className="flex items-center gap-3 bg-background p-2 rounded-lg border border-transparent hover:border-border transition-colors">
                   <div
-                    className="rounded-md size-10 shrink-0 border border-[#2f281c] bg-[#1a1612] bg-cover bg-center"
+                    className="rounded-md size-10 shrink-0 border border-border bg-secondary bg-cover bg-center"
                     style={{ backgroundImage: `url('${String(products.find((p) => p.id === item.productId)?.image || '')}')` }}
                   />
                   <div className="flex flex-col flex-1 min-w-0">
                     <div className="flex justify-between items-start">
-                      <p className="text-white text-sm font-semibold truncate">{item.name} x{item.qty}</p>
-                      <p className="text-white text-sm font-semibold">{settingsUi.currency} {(item.unitPrice * item.qty).toFixed(2)}</p>
+                      <p className="text-foreground text-sm font-semibold truncate">{item.name} x{item.qty}</p>
+                      <p className="text-foreground text-sm font-semibold">{settingsUi.currency} {(item.unitPrice * item.qty).toFixed(2)}</p>
                     </div>
-                    {item.note?.trim() ? <p className="text-[#c9b792] text-xs truncate">{item.note.trim()}</p> : null}
+                    {item.note?.trim() ? <p className="text-muted-foreground text-xs truncate">{item.note.trim()}</p> : null}
                   </div>
                 </div>
               ))}
             </div>
             {/* Totals */}
-            <div className="shrink-0 p-4 border-t border-[#2f281c] bg-[#221c11]/40">
+            <div className="shrink-0 p-4 border-t border-border bg-card/40">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-[#c9b792] text-[12px]">Subtotal</span>
-                <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {order.subtotal.toFixed(2)}</span>
+                <span className="text-muted-foreground text-[12px]">Subtotal</span>
+                <span className="text-foreground font-semibold text-[12px]">{settingsUi.currency} {order.subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-[#c9b792] text-[12px]">Tax ({Math.round((order.tax / Math.max(1, order.subtotal)) * 100)}%)</span>
-                <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {order.tax.toFixed(2)}</span>
+                <span className="text-muted-foreground text-[12px]">Tax ({Math.round((order.tax / Math.max(1, order.subtotal)) * 100)}%)</span>
+                <span className="text-foreground font-semibold text-[12px]">{settingsUi.currency} {order.tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-[#c9b792] text-[12px]">Service ({Math.round((order.serviceCharge / Math.max(1, order.subtotal)) * 100)}%)</span>
-                <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {order.serviceCharge.toFixed(2)}</span>
+                <span className="text-muted-foreground text-[12px]">Service ({Math.round((order.serviceCharge / Math.max(1, order.subtotal)) * 100)}%)</span>
+                <span className="text-foreground font-semibold text-[12px]">{settingsUi.currency} {order.serviceCharge.toFixed(2)}</span>
               </div>
               {Number((order as any)?.takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0) > 0 ? (
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-[#c9b792] text-[12px]">Takeaway Fee</span>
-                  <span className="text-white font-semibold text-[12px]">{settingsUi.currency} {Number((order as any)?.takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0).toFixed(2)}</span>
+                  <span className="text-muted-foreground text-[12px]">Takeaway Fee</span>
+                  <span className="text-foreground font-semibold text-[12px]">{settingsUi.currency} {Number((order as any)?.takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0).toFixed(2)}</span>
                 </div>
               ) : null}
 
@@ -956,24 +956,24 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                   setDiscountValue('');
                   setDiscountOpen(true);
                 }}
-                className="w-full h-10 rounded-xl border border-[#2f281c] bg-[#0f0c07] hover:bg-[#221c11] text-[#c9b792] font-bold transition-colors text-sm"
+                className="w-full h-10 rounded-xl border border-border bg-background hover:bg-card text-muted-foreground font-bold transition-colors text-sm"
                 type="button"
               >
                 Discount
               </button>
 
-              <div className="mt-3 pt-3 border-t border-[#2f281c] flex justify-between items-center">
-                <span className="text-white text-base font-extrabold">Total</span>
-                <span className="text-[#eead2b] text-2xl font-black">{settingsUi.currency} {order.total.toFixed(2)}</span>
+              <div className="mt-3 pt-3 border-t border-border flex justify-between items-center">
+                <span className="text-foreground text-base font-extrabold">Total</span>
+                <span className="text-primary text-2xl font-black">{settingsUi.currency} {order.total.toFixed(2)}</span>
               </div>
             </div>
           </div>
 
           <div className={`hidden lg:flex flex-1 min-h-0 flex-col items-center justify-between py-4 ${billCollapsed ? '' : 'lg:hidden'}`}>
-            <div className="text-[11px] bg-[#3a2e22] px-2 py-1 rounded text-[#c9b792]">{itemCount}</div>
+            <div className="text-[11px] bg-secondary px-2 py-1 rounded text-muted-foreground">{itemCount}</div>
             <div className="flex flex-col items-center">
-              <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792]">Total</div>
-              <div className="mt-1 text-[#eead2b] text-xl font-black text-center px-1">{settingsUi.currency} {order.total.toFixed(2)}</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total</div>
+              <div className="mt-1 text-primary text-xl font-black text-center px-1">{settingsUi.currency} {order.total.toFixed(2)}</div>
             </div>
             <button
               onClick={() => {
@@ -982,7 +982,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 setDiscountValue('');
                 setDiscountOpen(true);
               }}
-              className="size-10 rounded-xl border border-[#2f281c] bg-[#0f0c07] hover:bg-[#221c11] text-[#c9b792] transition-colors flex items-center justify-center"
+              className="size-10 rounded-xl border border-border bg-background hover:bg-card text-muted-foreground transition-colors flex items-center justify-center"
               type="button"
               title="Discount"
             >
@@ -992,14 +992,14 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
         </section>
 
         {/* Right Column: Payment Interface */}
-        <section className="flex-1 min-h-0 flex flex-col bg-[#0f0c07] overflow-hidden">
-          <div className="shrink-0 px-6 py-5 bg-[#17130b] border-b border-[#2f281c]">
+        <section className="flex-1 min-h-0 flex flex-col bg-background overflow-hidden">
+          <div className="shrink-0 px-6 py-5 bg-card border-b border-border">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
               <div>
-                <p className="text-[#c9b792] uppercase tracking-widest text-[11px] font-semibold">Total Amount Due</p>
-                <div className="text-3xl md:text-4xl font-black text-white tracking-tight">{settingsUi.currency} {totalDue.toFixed(2)}</div>
+                <p className="text-muted-foreground uppercase tracking-widest text-[11px] font-semibold">Total Amount Due</p>
+                <div className="text-3xl md:text-4xl font-black text-foreground tracking-tight">{settingsUi.currency} {totalDue.toFixed(2)}</div>
               </div>
-              <div className="text-xs text-[#c9b792]">
+              <div className="text-xs text-muted-foreground">
                 {split ? 'Paying: selected split' : Array.isArray(order.splits) && order.splits.length > 0 ? 'Paying: full bill' : ''}
               </div>
             </div>
@@ -1014,7 +1014,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
               <div className="flex flex-col gap-6 order-1">
                 {Array.isArray(order.splits) && order.splits.length > 0 ? (
                   <div>
-                    <h4 className="text-sm font-bold text-[#c9b792] mb-3 uppercase tracking-wider">Split Bills</h4>
+                    <h4 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Split Bills</h4>
                     <div className="space-y-2">
                       {order.splits.map((sp, idx) => {
                         const selected = selectedSplitId === sp.id;
@@ -1025,14 +1025,14 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                             disabled={disabled}
                             onClick={() => setSelectedSplitId(sp.id)}
                             className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${disabled
-                              ? 'border-[#483c23] bg-[#2c241b]/40 text-[#c9b792]/60 cursor-not-allowed'
+                              ? 'border-border bg-card/40 text-muted-foreground/60 cursor-not-allowed'
                               : selected
-                                ? 'border-[#eead2b] bg-[#eead2b]/10 text-white'
-                                : 'border-[#483c23] bg-[#2c241b] hover:bg-[#3a2e22] text-white'
+                                ? 'border-primary bg-primary/10 text-foreground'
+                                : 'border-border bg-card hover:bg-secondary text-foreground'
                               }`}
                           >
                             <div className="flex items-center gap-3">
-                              <div className={`text-xs font-black px-2 py-1 rounded ${selected ? 'bg-[#eead2b] text-[#221c11]' : 'bg-[#3a2e22] text-[#c9b792]'}`}>Split {idx + 1}</div>
+                              <div className={`text-xs font-black px-2 py-1 rounded ${selected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>Split {idx + 1}</div>
                               <div className="text-xs">{sp.status}</div>
                             </div>
                             <div className="text-sm font-extrabold">{settingsUi.currency} {sp.total.toFixed(2)}</div>
@@ -1041,7 +1041,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                       })}
                       <button
                         onClick={() => setSelectedSplitId('')}
-                        className={`w-full px-4 py-3 rounded-xl border border-[#483c23] ${selectedSplitId ? 'bg-[#2c241b] hover:bg-[#3a2e22] text-[#c9b792]' : 'bg-[#eead2b]/10 border-[#eead2b]/40 text-[#eead2b]'} transition-colors text-sm font-bold`}
+                        className={`w-full px-4 py-3 rounded-xl border border-border ${selectedSplitId ? 'bg-card hover:bg-secondary text-muted-foreground' : 'bg-primary/10 border-primary/40 text-primary'} transition-colors text-sm font-bold`}
                       >
                         Pay Full Bill
                       </button>
@@ -1049,7 +1049,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                   </div>
                 ) : null}
                 <div>
-                  <h4 className="text-sm font-bold text-[#c9b792] mb-3 uppercase tracking-wider">Payment Method</h4>
+                  <h4 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Payment Method</h4>
                   <div
                     className="grid gap-3 grid-cols-2 sm:grid-cols-4"
                   >
@@ -1063,10 +1063,10 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                           title={disabled && b.reason ? b.reason : undefined}
                           onClick={() => setMethod(b.value)}
                           className={`flex flex-col items-center justify-center p-4 min-h-[96px] rounded-2xl transition-all ${disabled
-                            ? 'border border-[#483c23] bg-[#2c241b]/40 text-[#c9b792]/60 cursor-not-allowed'
+                            ? 'border border-border bg-card/40 text-muted-foreground/60 cursor-not-allowed'
                             : selected
-                              ? 'border-2 border-[#eead2b] bg-[#eead2b]/10 text-[#eead2b] shadow-lg ring-2 ring-[#eead2b]/20'
-                              : 'border border-[#483c23] bg-[#2c241b] hover:bg-[#3a2e22] text-[#c9b792] hover:text-white'
+                              ? 'border-2 border-primary bg-primary/10 text-primary shadow-lg ring-2 ring-primary/20'
+                              : 'border border-border bg-card hover:bg-secondary text-muted-foreground hover:text-foreground'
                             }`}
                         >
                           <span className="material-symbols-outlined text-4xl mb-1">{b.icon}</span>
@@ -1077,20 +1077,20 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                   </div>
                 </div>
                 <div className="mt-2">
-                  <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
-                    <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">TIP (ETB)</div>
+                  <div className="bg-card p-4 rounded-xl border border-border">
+                    <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">TIP (ETB)</div>
                     {method !== 'Mobile Pay' && method !== 'Loyalty' && !selectedSplitId ? (
                       <div className="mt-2">
                         <input
                           value={manualTip}
                           onChange={(e) => setManualTip(String(e.target.value || '').replace(/[^0-9.]/g, ''))}
                           placeholder="0.00"
-                          className="w-full h-11 bg-[#221c11] border border-[#483c23] rounded-lg px-4 text-white font-mono focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b]"
+                          className="w-full h-11 bg-card border border-border rounded-lg px-4 text-foreground font-mono focus:ring-1 focus:ring-primary focus:border-primary"
                         />
-                        <div className="text-[#c9b792] text-xs mt-2">Added to total so it appears on the receipt.</div>
+                        <div className="text-muted-foreground text-xs mt-2">Added to total so it appears on the receipt.</div>
                       </div>
                     ) : (
-                      <div className="mt-2 text-sm text-[#c9b792]">Tip is not available for this method.</div>
+                      <div className="mt-2 text-sm text-muted-foreground">Tip is not available for this method.</div>
                     )}
                   </div>
                 </div>
@@ -1103,7 +1103,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                       setDiscountValue('');
                       setDiscountOpen(true);
                     }}
-                    className="w-full h-12 rounded-xl border border-[#483c23] bg-[#2c241b] hover:bg-[#3a2e22] text-[#c9b792] font-extrabold transition-colors"
+                    className="w-full h-12 rounded-xl border border-border bg-card hover:bg-secondary text-muted-foreground font-extrabold transition-colors"
                     type="button"
                   >
                     Discount
@@ -1115,34 +1115,34 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
               <div className="w-full flex flex-col gap-3 order-2 lg:max-h-[720px] lg:overflow-y-auto lg:pr-1">
                 {isCash ? (
                   <>
-                    <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                    <div className="bg-card p-4 rounded-xl border border-border">
                       <div className="flex justify-between items-center">
-                        <span className="text-[#c9b792] font-medium">Tendered Amount</span>
-                        <div className="text-2xl font-bold text-white border-b-2 border-[#eead2b] px-2 pb-1 min-w-[140px] text-right">{tendered.length ? tendered : '0.00'}</div>
+                        <span className="text-muted-foreground font-medium">Tendered Amount</span>
+                        <div className="text-2xl font-bold text-foreground border-b-2 border-primary px-2 pb-1 min-w-[140px] text-right">{tendered.length ? tendered : '0.00'}</div>
                       </div>
                       <div className="mt-3 flex justify-between items-center opacity-75">
-                        <span className="text-[#c9b792] font-medium">Change Due</span>
-                        <span className="text-2xl font-bold text-green-400">{settingsUi.currency} {changeDue.toFixed(2)}</span>
+                        <span className="text-muted-foreground font-medium">Change Due</span>
+                        <span className="text-2xl font-bold text-emerald-500">{settingsUi.currency} {changeDue.toFixed(2)}</span>
                       </div>
                     </div>
-                    <h4 className="text-sm font-bold text-[#c9b792] mb-0 uppercase tracking-wider">Quick Entry</h4>
+                    <h4 className="text-sm font-bold text-muted-foreground mb-0 uppercase tracking-wider">Quick Entry</h4>
                     <div className="grid grid-cols-4 gap-2">
-                      <button onClick={() => setQuickTendered(100)} className="h-12 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">100</button>
-                      <button onClick={() => setQuickTendered(200)} className="h-12 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">200</button>
-                      <button onClick={() => setQuickTendered(500)} className="h-12 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-white transition-colors">500</button>
-                      <button onClick={() => setQuickTendered(totalDueWithTip)} className="h-12 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-sm font-bold text-[#eead2b] transition-colors">Exact</button>
+                      <button onClick={() => setQuickTendered(100)} className="h-12 bg-card hover:bg-secondary border border-border rounded-lg text-sm font-bold text-foreground transition-colors">100</button>
+                      <button onClick={() => setQuickTendered(200)} className="h-12 bg-card hover:bg-secondary border border-border rounded-lg text-sm font-bold text-foreground transition-colors">200</button>
+                      <button onClick={() => setQuickTendered(500)} className="h-12 bg-card hover:bg-secondary border border-border rounded-lg text-sm font-bold text-foreground transition-colors">500</button>
+                      <button onClick={() => setQuickTendered(totalDueWithTip)} className="h-12 bg-card hover:bg-secondary border border-border rounded-lg text-sm font-bold text-primary transition-colors">Exact</button>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9, '.', 0].map((n) => (
                         <button
                           key={n}
                           onClick={() => appendTendered(String(n))}
-                          className="h-16 bg-[#3a2e22] hover:bg-[#4a3b2b] rounded-xl text-2xl font-semibold text-white transition-colors shadow-sm"
+                          className="h-16 bg-secondary hover:bg-secondary/80 rounded-xl text-2xl font-semibold text-foreground transition-colors shadow-sm"
                         >
                           {n}
                         </button>
                       ))}
-                      <button onClick={backspaceTendered} className="h-16 bg-[#3a2e22] hover:bg-[#4a3b2b] rounded-xl text-xl font-semibold text-white transition-colors shadow-sm flex items-center justify-center">
+                      <button onClick={backspaceTendered} className="h-16 bg-secondary hover:bg-secondary/80 rounded-xl text-xl font-semibold text-foreground transition-colors shadow-sm flex items-center justify-center">
                         <span className="material-symbols-outlined">backspace</span>
                       </button>
                     </div>
@@ -1150,24 +1150,24 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 ) : (
                   <div className="flex flex-col gap-4">
                     {qrImage ? (
-                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
-                        <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Scan to Pay</div>
+                      <div className="bg-card p-4 rounded-xl border border-border">
+                        <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Scan to Pay</div>
                         <div className="mt-3 flex items-center justify-center">
-                          <img src={qrImage} alt="QR" className="w-full max-w-[300px] max-h-[260px] object-contain rounded-lg border border-[#483c23] bg-white p-2" />
+                          <img src={qrImage} alt="QR" className="w-full max-w-[300px] max-h-[260px] object-contain rounded-lg border border-border bg-white p-2" />
                         </div>
                       </div>
                     ) : method === 'Mobile Pay' ? (
-                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
+                      <div className="bg-card p-4 rounded-xl border border-border">
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Mobile Pay (Chapa)</div>
-                            <div className="mt-1 text-sm text-[#c9b792]">Generate a QR for this order and wait for confirmation.</div>
+                            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Mobile Pay (Chapa)</div>
+                            <div className="mt-1 text-sm text-muted-foreground">Generate a QR for this order and wait for confirmation.</div>
                           </div>
                           <button
                             type="button"
                             disabled={chapaOnlineLoading || chapaOnlineActive}
                             onClick={() => void initiateChapaOnline()}
-                            className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] disabled:bg-[#3a2e22] disabled:text-[#c9b792] text-[#221c11] font-extrabold transition-colors"
+                            className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/80 disabled:bg-secondary disabled:text-muted-foreground text-primary-foreground font-extrabold transition-colors"
                           >
                             {chapaOnlineLoading ? 'Generating...' : chapaOnlineActive ? 'Waiting…' : 'Generate QR'}
                           </button>
@@ -1182,7 +1182,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                                 className="w-52 h-52"
                               />
                             </div>
-                            <div className="text-center text-xs text-[#c9b792]">
+                            <div className="text-center text-xs text-muted-foreground">
                               Keep this screen open. Once the customer pays, the receipt will open automatically.
                             </div>
                             <button
@@ -1197,7 +1197,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                                   }
                                 }
                               }}
-                              className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-extrabold transition-colors"
+                              className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-extrabold transition-colors"
                             >
                               Open payment page
                             </button>
@@ -1207,7 +1207,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                                 setChapaOnlineActive(false);
                                 setChapaCheckoutUrl(null);
                               }}
-                              className="h-10 px-4 rounded-lg border border-[#483c23] bg-[#221c11] hover:bg-[#2c241b] text-[#c9b792] font-bold transition-colors"
+                              className="h-10 px-4 rounded-lg border border-border bg-card hover:bg-card text-muted-foreground font-bold transition-colors"
                             >
                               Cancel Mobile Pay
                             </button>
@@ -1215,25 +1215,25 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                         ) : null}
                       </div>
                     ) : method === 'Telebirr' ? (
-                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
-                        <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Scan to Pay</div>
-                        <div className="mt-2 text-sm text-[#c9b792]">QR code not configured in Branch Settings.</div>
+                      <div className="bg-card p-4 rounded-xl border border-border">
+                        <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Scan to Pay</div>
+                        <div className="mt-2 text-sm text-muted-foreground">QR code not configured in Branch Settings.</div>
                       </div>
                     ) : (
-                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
-                        <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Payment Details</div>
-                        <div className="mt-2 text-sm text-[#c9b792]">Select a payment method to continue.</div>
+                      <div className="bg-card p-4 rounded-xl border border-border">
+                        <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Payment Details</div>
+                        <div className="mt-2 text-sm text-muted-foreground">Select a payment method to continue.</div>
                       </div>
                     )}
 
                     {paymentDetails.rows.length > 0 ? (
-                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
-                        <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">{paymentDetails.title} Details</div>
+                      <div className="bg-card p-4 rounded-xl border border-border">
+                        <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">{paymentDetails.title} Details</div>
                         <div className="mt-3 space-y-2">
                           {paymentDetails.rows.map((r) => (
                             <div key={`${r.k}:${r.v}`} className="flex items-start justify-between gap-3">
-                              <div className="text-xs text-[#c9b792] font-semibold">{r.k}</div>
-                              <div className="text-xs text-white font-bold text-right break-words max-w-[65%]">{r.v}</div>
+                              <div className="text-xs text-muted-foreground font-semibold">{r.k}</div>
+                              <div className="text-xs text-foreground font-bold text-right break-words max-w-[65%]">{r.v}</div>
                             </div>
                           ))}
                         </div>
@@ -1241,13 +1241,13 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                     ) : null}
 
                     {telebirrOnlineActive && telebirrCheckoutUrl && (
-                      <div className="bg-[#1a150d] p-5 rounded-xl border-2 border-[#eead2b] shadow-[0_0_15px_rgba(238,173,43,0.3)] animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      <div className="bg-card p-5 rounded-xl border-2 border-primary shadow-lg shadow-primary/20 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <div className="flex items-center justify-between mb-4">
-                          <div className="text-xs text-[#eead2b] font-black uppercase tracking-widest flex items-center gap-2">
-                            <span className="size-2 rounded-full bg-[#eead2b] animate-pulse"></span>
+                          <div className="text-xs text-primary font-black uppercase tracking-widest flex items-center gap-2">
+                            <span className="size-2 rounded-full bg-primary animate-pulse"></span>
                             Waiting for Payment
                           </div>
-                          <button onClick={() => setTelebirrOnlineActive(false)} className="text-[#c9b792] hover:text-white transition-colors">
+                          <button onClick={() => setTelebirrOnlineActive(false)} className="text-muted-foreground hover:text-foreground transition-colors">
                             <span className="material-symbols-outlined text-lg">close</span>
                           </button>
                         </div>
@@ -1259,35 +1259,35 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                               className="w-48 h-48"
                             />
                           </div>
-                          <p className="text-center text-xs text-[#c9b792] px-4">
+                          <p className="text-center text-xs text-muted-foreground px-4">
                             Ask the customer to scan this QR with their Telebirr app. The system will automatically confirm once paid.
                           </p>
-                          <div className="w-full h-1 bg-[#2c241b] rounded-full overflow-hidden">
-                            <div className="h-full bg-[#eead2b] animate-pulse" style={{ width: '100%' }}></div>
+                          <div className="w-full h-1 bg-card rounded-full overflow-hidden">
+                            <div className="h-full bg-primary animate-pulse" style={{ width: '100%' }}></div>
                           </div>
                         </div>
                       </div>
                     )}
 
                     {requireReference ? (
-                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23]">
-                        <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">PAYMENT REFERENCE</div>
+                      <div className="bg-card p-4 rounded-xl border border-border">
+                        <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">PAYMENT REFERENCE</div>
                         <div className="mt-2">
                           <input
                             value={paymentReference}
                             onChange={(e) => setPaymentReference(String(e.target.value || '').toUpperCase())}
                             placeholder="ENTER REFERENCE"
-                            className="w-full h-11 bg-[#221c11] border border-[#483c23] rounded-lg px-4 text-white font-mono focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b]"
+                            className="w-full h-11 bg-card border border-border rounded-lg px-4 text-foreground font-mono focus:ring-1 focus:ring-primary focus:border-primary"
                           />
-                          <div className="text-[#c9b792] text-xs mt-2">Reference is required.</div>
+                          <div className="text-muted-foreground text-xs mt-2">Reference is required.</div>
                         </div>
                       </div>
                     ) : null}
 
                     {method === 'Loyalty' ? (
-                      <div className="bg-[#2c241b] p-4 rounded-xl border border-[#483c23] flex justify-between items-center">
-                        <span className="text-[#c9b792] font-medium">Loyalty Balance</span>
-                        <div className={`text-xl font-bold ${loyaltyBalance + 1e-9 >= totalDue ? 'text-green-400' : 'text-red-400'}`}>{settingsUi.currency} {loyaltyBalance.toFixed(2)}</div>
+                      <div className="bg-card p-4 rounded-xl border border-border flex justify-between items-center">
+                        <span className="text-muted-foreground font-medium">Loyalty Balance</span>
+                        <div className={`text-xl font-bold ${loyaltyBalance + 1e-9 >= totalDue ? 'text-emerald-500' : 'text-destructive'}`}>{settingsUi.currency} {loyaltyBalance.toFixed(2)}</div>
                       </div>
                     ) : null}
                   </div>
@@ -1296,19 +1296,19 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-[#2f281c] bg-[#17130b] px-4 md:px-6 py-4">
+          <div className="shrink-0 border-t border-border bg-card px-4 md:px-6 py-4">
             <div className="flex flex-col sm:flex-row gap-3">
-              <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="w-full sm:w-1/3 h-12 rounded-xl border border-[#2f281c] bg-transparent hover:bg-[#221c11] text-white font-bold transition-colors flex items-center justify-center gap-2">Cancel</button>
+              <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="w-full sm:w-1/3 h-12 rounded-xl border border-border bg-transparent hover:bg-card text-foreground font-bold transition-colors flex items-center justify-center gap-2">Cancel</button>
               {method === 'Mobile Pay' ? (
                 <button
                   disabled={chapaOnlineLoading || chapaOnlineActive}
                   onClick={handleConfirm}
-                  className="w-full sm:flex-1 h-12 rounded-xl bg-[#eead2b] hover:bg-[#d49619] disabled:bg-[#3a2e22] disabled:text-[#c9b792] text-[#221c11] font-extrabold shadow-lg shadow-black/20 transition-all transform active:scale-[0.99] flex items-center justify-center gap-3 disabled:cursor-not-allowed"
+                  className="w-full sm:flex-1 h-12 rounded-xl bg-primary hover:bg-primary/80 disabled:bg-secondary disabled:text-muted-foreground text-primary-foreground font-extrabold shadow-lg shadow-black/20 transition-all transform active:scale-[0.99] flex items-center justify-center gap-3 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined icon-filled">qr_code_2</span> {chapaOnlineLoading ? 'Generating…' : chapaOnlineActive ? 'Waiting…' : 'Generate QR'}
                 </button>
               ) : (
-                <button disabled={!canConfirm} onClick={handleConfirm} className="w-full sm:flex-1 h-12 rounded-xl bg-[#eead2b] hover:bg-[#d49619] disabled:bg-[#3a2e22] disabled:text-[#c9b792] text-[#221c11] font-extrabold shadow-lg shadow-black/20 transition-all transform active:scale-[0.99] flex items-center justify-center gap-3 disabled:cursor-not-allowed">
+                <button disabled={!canConfirm} onClick={handleConfirm} className="w-full sm:flex-1 h-12 rounded-xl bg-primary hover:bg-primary/80 disabled:bg-secondary disabled:text-muted-foreground text-primary-foreground font-extrabold shadow-lg shadow-black/20 transition-all transform active:scale-[0.99] flex items-center justify-center gap-3 disabled:cursor-not-allowed">
                   <span className="material-symbols-outlined icon-filled">check_circle</span> Charge {settingsUi.currency} {totalDueWithTip.toFixed(2)}
                 </button>
               )}
@@ -1338,7 +1338,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 setDiscountPin('');
                 setDiscountValue('');
               }}
-              className="h-11 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] border border-[#544b3b] text-white font-semibold transition-colors"
+              className="h-11 px-4 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
             >
               Cancel
             </button>
@@ -1407,42 +1407,42 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                   setDiscountSaving(false);
                 }
               }}
-              className="h-11 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-extrabold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-11 px-4 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-extrabold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {discountSaving ? 'Saving...' : 'Apply'}
             </button>
           </div>
         }
       >
-        <div className="text-sm text-[#c9b792]">
+        <div className="text-sm text-muted-foreground">
           Enter discount percentage. Up to {settingsUi.maxDiscountPctWithoutApproval.toFixed(0)}% can be applied without approval.
         </div>
 
-        {discountErr ? <div className="mt-3 text-sm text-red-300">{discountErr}</div> : null}
+        {discountErr ? <div className="mt-3 text-sm text-destructive">{discountErr}</div> : null}
 
         <div className="mt-4">
-          <label className="text-xs font-bold text-[#c9b792]">Discount (%)</label>
+          <label className="text-xs font-bold text-muted-foreground">Discount (%)</label>
           <input
             value={discountValue}
             onChange={(e) => setDiscountValue(e.target.value)}
             onFocus={(e) => e.currentTarget.select()}
             inputMode="decimal"
             placeholder=""
-            className="mt-2 w-full h-11 bg-[#221c10] border border-[#483c23] rounded-lg px-4 text-white focus:ring-1 focus:ring-[#eead2b]/50 focus:border-[#eead2b]/50"
+            className="mt-2 w-full h-11 bg-card border border-border rounded-lg px-4 text-foreground focus:ring-1 focus:ring-primary/50 focus:border-primary/50"
           />
-          <div className="mt-2 text-xs text-[#c9b792]">
+          <div className="mt-2 text-xs text-muted-foreground">
             Preview: -{settingsUi.currency} {Number.isFinite(previewDiscountAmount) ? previewDiscountAmount.toFixed(2) : '0.00'} (Subtotal {settingsUi.currency} {subtotal.toFixed(2)})
           </div>
         </div>
 
         {discountNeedsApproval ? (
           <div className="mt-4">
-            <label className="text-xs font-bold text-[#c9b792]">Manager PIN</label>
+            <label className="text-xs font-bold text-muted-foreground">Manager PIN</label>
             <input
               value={discountPin}
               onChange={(e) => setDiscountPin(e.target.value)}
               placeholder="Enter PIN"
-              className="mt-2 w-full h-11 bg-[#221c10] border border-[#483c23] rounded-lg px-4 text-white focus:ring-1 focus:ring-[#eead2b]/50 focus:border-[#eead2b]/50"
+              className="mt-2 w-full h-11 bg-card border border-border rounded-lg px-4 text-foreground focus:ring-1 focus:ring-primary/50 focus:border-primary/50"
             />
           </div>
         ) : null}

@@ -110,22 +110,22 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
 
   if (!tableId || !selectedTable) {
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">
-        <header className="flex-none flex items-center justify-between whitespace-nowrap bg-[#2c241b] px-6 py-4 z-20 shadow-sm border-b border-[#483c23]/50">
-          <div className="flex items-center gap-3 text-white">
-            <div className="w-10 h-10 flex items-center justify-center bg-[#eead2b] text-[#221c11] rounded-xl shadow-md">
+      <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+        <header className="flex-none flex items-center justify-between whitespace-nowrap bg-card px-6 py-4 z-20 shadow-sm border-b border-border/50">
+          <div className="flex items-center gap-3 text-foreground">
+            <div className="w-10 h-10 flex items-center justify-center bg-primary text-primary-foreground rounded-xl shadow-md">
               <span className="material-symbols-outlined text-2xl">menu_book</span>
             </div>
-            <h2 className="text-white text-2xl font-bold tracking-tight">Order<span className="font-light text-[#eead2b]">Builder</span></h2>
+            <h2 className="text-foreground text-2xl font-bold tracking-tight">Order<span className="font-light text-primary">Builder</span></h2>
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="max-w-md w-full rounded-xl border border-[#483c23] bg-[#2c241b] p-6">
+          <div className="max-w-md w-full rounded-xl border border-border bg-card p-6">
             <div className="text-lg font-bold">No table selected</div>
-            <div className="mt-2 text-sm text-[#c9b792]">Go back to the floor and choose a table to start an order.</div>
+            <div className="mt-2 text-sm text-muted-foreground">Go back to the floor and choose a table to start an order.</div>
             <button
               onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}
-              className="mt-5 h-11 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-extrabold"
+              className="mt-5 h-11 px-4 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-extrabold"
             >
               Back to Floor
             </button>
@@ -136,26 +136,26 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-full overflow-hidden bg-[#221c10] text-white">
+    <div className="flex flex-col md:flex-row h-full overflow-hidden bg-background text-foreground">
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Top Header */}
-        <header className="flex-none flex items-center justify-between whitespace-nowrap bg-[#2c241b] px-6 py-4 z-20 shadow-sm border-b border-[#483c23]/50">
+        <header className="flex-none flex items-center justify-between whitespace-nowrap bg-card px-6 py-4 z-20 shadow-sm border-b border-border/50">
           <div className="flex items-center gap-8">
-            <div className="flex items-center gap-3 text-white group cursor-pointer" onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}>
-              <div className="w-10 h-10 flex items-center justify-center bg-[#eead2b] text-[#221c11] rounded-xl shadow-md group-hover:bg-[#d49619] transition-colors">
+            <div className="flex items-center gap-3 text-foreground group cursor-pointer" onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}>
+              <div className="w-10 h-10 flex items-center justify-center bg-primary text-primary-foreground rounded-xl shadow-md group-hover:bg-primary/80 transition-colors">
                 <span className="material-symbols-outlined text-2xl">arrow_back</span>
               </div>
-              <h2 className="text-white text-2xl font-bold tracking-tight">Order<span className="font-light text-[#eead2b]">Builder</span></h2>
+              <h2 className="text-foreground text-2xl font-bold tracking-tight">Order<span className="font-light text-primary">Builder</span></h2>
             </div>
             <label className="flex flex-col min-w-80 h-11 hidden md:flex">
-              <div className="flex w-full flex-1 items-center rounded-2xl h-full bg-[#1a1612] border border-transparent focus-within:border-[#eead2b]/50 focus-within:shadow-sm transition-all duration-300">
-                <div className="text-[#c9b792] flex items-center justify-center pl-4">
+              <div className="flex w-full flex-1 items-center rounded-2xl h-full bg-secondary border border-transparent focus-within:border-primary/50 focus-within:shadow-sm transition-all duration-300">
+                <div className="text-muted-foreground flex items-center justify-center pl-4">
                   <span className="material-symbols-outlined text-[22px]">search</span>
                 </div>
                 <input
                   value={menuQuery}
                   onChange={(e) => setMenuQuery(e.target.value)}
-                  className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-2xl bg-transparent border-none focus:ring-0 placeholder:text-[#c9b792]/70 px-3 text-base font-medium text-white"
+                  className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-2xl bg-transparent border-none focus:ring-0 placeholder:text-muted-foreground/70 px-3 text-base font-medium text-foreground"
                   placeholder="Search menu..."
                 />
               </div>
@@ -164,8 +164,8 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
         </header>
 
         <main className="flex flex-1 overflow-hidden relative">
-          <section className="flex-1 flex overflow-hidden relative bg-[#1a1612]">
-            <div className="flex-1 flex flex-col min-w-0 bg-[#1a1612] overflow-hidden">
+          <section className="flex-1 flex overflow-hidden relative bg-secondary">
+            <div className="flex-1 flex flex-col min-w-0 bg-secondary overflow-hidden">
             <div className="px-6 pt-5 pb-4 shrink-0">
               <div className="min-w-0">
               </div>
@@ -179,11 +179,11 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                       type="button"
                       className={`flex-none inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors ${
                         active
-                          ? 'bg-[#eead2b] border-[#eead2b] text-[#221c11]'
-                          : 'bg-[#2c241b] border-[#483c23] text-[#c9b792] hover:text-white hover:border-[#eead2b]'
+                          ? 'bg-primary border-primary text-primary-foreground'
+                          : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary'
                       }`}
                     >
-                      <span className={`material-symbols-outlined text-[16px] ${active ? 'text-[#221c11]' : 'text-[#c9b792]'}`}>{categoryIcon(cat)}</span>
+                      <span className={`material-symbols-outlined text-[16px] ${active ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{categoryIcon(cat)}</span>
                       <span className="truncate max-w-[9rem]">{cat}</span>
                     </button>
                   );
@@ -208,7 +208,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                       key={p.id}
                       type="button"
                       disabled={isSoldOut}
-                      className={`group bg-[#2c241b] rounded-xl overflow-hidden border border-[#483c23] hover:border-[#eead2b] transition-all duration-200 text-left flex flex-col relative ${
+                      className={`group bg-card rounded-xl overflow-hidden border border-border hover:border-primary transition-all duration-200 text-left flex flex-col relative ${
                         isSoldOut ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
                       }`}
                       onClick={() => {
@@ -220,7 +220,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusClass}`}>{statusLabel}</span>
                       </div>
 
-                      <div className="h-32 w-full bg-cover bg-center group-hover:opacity-90 transition-opacity bg-[#1a1612] relative">
+                      <div className="h-32 w-full bg-cover bg-center group-hover:opacity-90 transition-opacity bg-secondary relative">
                         <img
                           src={resolveImageSrc(p.image)}
                           alt={p.name}
@@ -234,13 +234,13 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                       </div>
 
                       <div className="p-3 flex flex-col">
-                        <h3 className="font-bold text-white text-base leading-snug mb-1 line-clamp-1">{p.name}</h3>
-                        <p className="text-[#c9b792] text-xs line-clamp-2 mb-3">{(p.description || p.category || '').trim() || ' '}</p>
+                        <h3 className="font-bold text-foreground text-base leading-snug mb-1 line-clamp-1">{p.name}</h3>
+                        <p className="text-muted-foreground text-xs line-clamp-2 mb-3">{(p.description || p.category || '').trim() || ' '}</p>
                         <div className="mt-auto flex items-center justify-between">
-                          <span className="text-lg font-bold text-[#eead2b]">ETB {p.price.toFixed(2)}</span>
+                          <span className="text-lg font-bold text-primary">ETB {p.price.toFixed(2)}</span>
                           <div
                             className={`size-8 rounded-lg flex items-center justify-center shadow-lg transition-transform ${
-                              isSoldOut ? 'bg-[#3a2e22] text-[#c9b792]' : 'bg-[#eead2b] text-[#221c11] shadow-[#eead2b]/20 group-hover:scale-105'
+                              isSoldOut ? 'bg-secondary text-muted-foreground' : 'bg-primary text-primary-foreground shadow-primary/20 group-hover:scale-105'
                             }`}
                           >
                             <span className="material-symbols-outlined text-xl">add</span>
@@ -258,23 +258,23 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
       </div>
 
       {/* Right Sidebar (Cart) */}
-      <aside className="w-full md:w-[320px] lg:w-[340px] bg-[#2c241b] border-t md:border-t-0 md:border-l border-[#483c23] shadow-xl z-20 flex flex-col h-full flex-none">
-        <div className="px-4 py-5 border-b border-[#483c23] bg-[#221c11]/50 backdrop-blur-sm">
+      <aside className="w-full md:w-[320px] lg:w-[340px] bg-card border-t md:border-t-0 md:border-l border-border shadow-xl z-20 flex flex-col h-full flex-none">
+        <div className="px-4 py-5 border-b border-border bg-card/50 backdrop-blur-sm">
             <div className="flex justify-between items-center mb-3">
               <div className="flex items-center gap-3">
-                <div className="bg-[#eead2b]/10 text-[#eead2b] p-2.5 rounded-xl">
+                <div className="bg-primary/10 text-primary p-2.5 rounded-xl">
                   <span className="material-symbols-outlined">table_restaurant</span>
                 </div>
                 <div>
-                  <h2 className="font-bold text-xl text-white">{selectedTable.name}</h2>
-                  <div className="flex items-center gap-2 text-xs text-[#c9b792] mt-0.5 font-medium">
+                  <h2 className="font-bold text-xl text-foreground">{selectedTable.name}</h2>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 font-medium">
                     <span>Order #{selectedTable.openOrderId ? String(selectedTable.openOrderId) : 'New'}</span>
-                    <span className="size-1 rounded-full bg-[#c9b792]/50"></span>
+                    <span className="size-1 rounded-full bg-muted-foreground/50"></span>
                     <span>{selectedTable.openOrderId ? 'Active' : 'Draft'}</span>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-sm text-white bg-[#1a1612] border border-[#483c23] shadow-sm px-4 py-1.5 rounded-full font-semibold">
+              <div className="flex items-center gap-2 text-sm text-foreground bg-secondary border border-border shadow-sm px-4 py-1.5 rounded-full font-semibold">
                 <span className="material-symbols-outlined text-[18px]">group</span>
                 <span>{selectedTable.seats}</span>
               </div>
@@ -285,14 +285,14 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
             {actionErr ? <div className="text-sm text-red-300 font-semibold">{actionErr}</div> : null}
 
             {!selectedTable?.openOrderId ? (
-              <div className="bg-[#1a1612] p-4 rounded-2xl border border-[#483c23]">
-                <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Order Type</div>
+              <div className="bg-secondary p-4 rounded-2xl border border-border">
+                <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Order Type</div>
                 <div className="mt-3 flex gap-2">
                   <button
                     type="button"
                     onClick={() => setDraftOrderMeta(tableId, { orderType: 'dine_in', takeawayFee: 0 })}
                     className={`flex-1 h-10 rounded-xl border text-sm font-bold ${
-                      draftOrderType === 'dine_in' ? 'bg-[#eead2b] border-[#eead2b] text-[#221c11]' : 'bg-[#2c241b] border-[#483c23] text-[#c9b792] hover:text-white'
+                      draftOrderType === 'dine_in' ? 'bg-primary border-primary text-primary-foreground' : 'bg-card border-border text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     Dine-in
@@ -301,7 +301,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                     type="button"
                     onClick={() => setDraftOrderMeta(tableId, { orderType: 'takeaway' })}
                     className={`flex-1 h-10 rounded-xl border text-sm font-bold ${
-                      draftOrderType === 'takeaway' ? 'bg-[#eead2b] border-[#eead2b] text-[#221c11]' : 'bg-[#2c241b] border-[#483c23] text-[#c9b792] hover:text-white'
+                      draftOrderType === 'takeaway' ? 'bg-primary border-primary text-primary-foreground' : 'bg-card border-border text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     Takeaway
@@ -310,9 +310,9 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
 
                 {draftOrderType === 'takeaway' ? (
                   <div className="mt-3">
-                    <div className="flex items-center justify-between text-sm text-[#c9b792] font-medium">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground font-medium">
                       <span>Takeaway Fee</span>
-                      <span className="text-white font-bold">ETB {takeawayFee.toFixed(2)}</span>
+                      <span className="text-foreground font-bold">ETB {takeawayFee.toFixed(2)}</span>
                     </div>
                     <input
                       type="number"
@@ -320,10 +320,10 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                       step={0.01}
                       value={String(takeawayFee)}
                       onChange={(e) => setDraftOrderMeta(tableId, { takeawayFee: Number(e.target.value || 0) || 0 })}
-                      className="mt-2 w-full h-10 bg-[#2c241b] border border-[#483c23] rounded-xl px-3 text-sm text-white"
+                      className="mt-2 w-full h-10 bg-card border border-border rounded-xl px-3 text-sm text-foreground"
                       placeholder="0.00"
                     />
-                    <div className="mt-2 text-[11px] text-[#c9b792]">
+                    <div className="mt-2 text-[11px] text-muted-foreground">
                       This fee is added to the total and shown on the receipt.
                     </div>
                   </div>
@@ -332,10 +332,10 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
             ) : null}
             {/* Cart Item 1 */}
             {cartItems.length === 0 ? (
-              <div className="text-[#c9b792] text-sm">No items in cart</div>
+              <div className="text-muted-foreground text-sm">No items in cart</div>
             ) : (
               cartItems.map((item) => (
-                <div key={item.productId} className="bg-[#1a1612] p-2.5 rounded-xl shadow-sm border border-[#483c23] group relative">
+                <div key={item.productId} className="bg-secondary p-2.5 rounded-xl shadow-sm border border-border group relative">
                   <div className="flex gap-3 items-start">
                     <div
                       className="w-12 h-12 rounded-lg bg-cover bg-center flex-none shadow-inner"
@@ -343,12 +343,12 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                     ></div>
                     <div className="flex-1 min-w-0 pt-0.5">
                       <div className="flex justify-between items-start mb-0.5">
-                        <p className="font-bold text-white truncate text-[15px]">{item.name}</p>
-                        <p className="font-bold text-white text-[14px]">ETB {(item.unitPrice * item.qty).toFixed(2)}</p>
+                        <p className="font-bold text-foreground truncate text-[15px]">{item.name}</p>
+                        <p className="font-bold text-foreground text-[14px]">ETB {(item.unitPrice * item.qty).toFixed(2)}</p>
                       </div>
-                      <div className="text-[12px] text-[#c9b792] space-y-0.5">
+                      <div className="text-[12px] text-muted-foreground space-y-0.5">
                         <p className="leading-none">{`x${item.qty}`}</p>
-                        {item.note?.trim() ? <p className="text-[11px] text-[#c9b792] truncate">{item.note.trim()}</p> : null}
+                        {item.note?.trim() ? <p className="text-[11px] text-muted-foreground truncate">{item.note.trim()}</p> : null}
                       </div>
                     </div>
                   </div>
@@ -358,29 +358,29 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                         setEditItemId(item.productId);
                         setEditNote(item.note ?? '');
                       }}
-                      className="text-[#eead2b] hover:text-[#d49619] font-semibold text-xs uppercase tracking-wide flex items-center gap-1"
+                      className="text-primary hover:text-[#d49619] font-semibold text-xs uppercase tracking-wide flex items-center gap-1"
                     >
                       <span className="material-symbols-outlined text-[16px]">edit_note</span> Edit
                     </button>
                     <button
                       onClick={() => setCartQty(tableId, item.productId, 0)}
-                      className="h-8 w-8 rounded-lg border border-[#483c23] bg-[#2c241b] text-red-300 hover:text-white hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
+                      className="h-8 w-8 rounded-lg border border-border bg-card text-red-300 hover:text-foreground hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
                       title="Remove"
                       type="button"
                     >
                       <span className="material-symbols-outlined text-[18px]">delete</span>
                     </button>
-                    <div className="flex items-center bg-[#2c241b] rounded-lg border border-[#483c23] h-8 overflow-hidden">
+                    <div className="flex items-center bg-card rounded-lg border border-border h-8 overflow-hidden">
                       <button
                         onClick={() => setCartQty(tableId, item.productId, Math.max(0, item.qty - 1))}
-                        className="w-8 h-full flex items-center justify-center text-[#c9b792] hover:text-white hover:bg-[#3a2e22] transition-colors"
+                        className="w-8 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                       >
                         <span className="material-symbols-outlined text-[18px]">remove</span>
                       </button>
-                      <span className="w-7 text-center font-bold text-[13px] text-white bg-[#1a1612] h-full flex items-center justify-center border-x border-[#483c23]">{item.qty}</span>
+                      <span className="w-7 text-center font-bold text-[13px] text-foreground bg-secondary h-full flex items-center justify-center border-x border-border">{item.qty}</span>
                       <button
                         onClick={() => setCartQty(tableId, item.productId, item.qty + 1)}
-                        className="w-8 h-full flex items-center justify-center text-[#eead2b] hover:bg-[#eead2b] hover:text-[#221c11] transition-colors"
+                        className="w-8 h-full flex items-center justify-center text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
                       >
                         <span className="material-symbols-outlined text-[18px]">add</span>
                       </button>
@@ -391,34 +391,34 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
             )}
           </div>
 
-        <div className="p-4 bg-[#221c11] border-t border-[#483c23] z-30">
+        <div className="p-4 bg-card border-t border-border z-30">
             <div className="space-y-3 mb-6">
-              <div className="flex justify-between text-sm text-[#c9b792] font-medium">
+              <div className="flex justify-between text-sm text-muted-foreground font-medium">
                 <span>Subtotal</span>
-                <span className="text-white">ETB {subtotal.toFixed(2)}</span>
+                <span className="text-foreground">ETB {subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm text-[#c9b792] font-medium">
+              <div className="flex justify-between text-sm text-muted-foreground font-medium">
                 <span>Tax/Service</span>
-                <span className="text-white">ETB {taxAndService.toFixed(2)}</span>
+                <span className="text-foreground">ETB {taxAndService.toFixed(2)}</span>
               </div>
               {takeawayFee > 0.0001 ? (
-                <div className="flex justify-between text-sm text-[#c9b792] font-medium">
+                <div className="flex justify-between text-sm text-muted-foreground font-medium">
                   <span>Takeaway Fee</span>
-                  <span className="text-white">ETB {takeawayFee.toFixed(2)}</span>
+                  <span className="text-foreground">ETB {takeawayFee.toFixed(2)}</span>
                 </div>
               ) : null}
-              <div className="flex justify-between items-end pt-4 border-t border-dashed border-[#483c23] mt-3">
+              <div className="flex justify-between items-end pt-4 border-t border-dashed border-border mt-3">
                 <div className="flex flex-col">
-                  <span className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Total Due</span>
-                  <span className="font-bold text-3xl text-white">ETB {total.toFixed(2)}</span>
+                  <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Due</span>
+                  <span className="font-bold text-3xl text-foreground">ETB {total.toFixed(2)}</span>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex flex-col items-center justify-center py-4 rounded-xl border border-[#483c23] bg-[#2c241b] text-white hover:border-[#eead2b] hover:text-[#eead2b] transition-all font-bold shadow-sm">
+              <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex flex-col items-center justify-center py-4 rounded-xl border border-border bg-card text-foreground hover:border-primary hover:text-primary transition-all font-bold shadow-sm">
                 <span className="material-symbols-outlined mb-1">arrow_back</span> Back
               </button>
-              <button onClick={handleSendOrder} disabled={cartItems.length === 0} className="flex flex-col items-center justify-center py-4 rounded-xl bg-[#eead2b] text-[#221c11] hover:bg-[#d49619] shadow-lg shadow-[#eead2b]/20 transition-all font-bold transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+              <button onClick={handleSendOrder} disabled={cartItems.length === 0} className="flex flex-col items-center justify-center py-4 rounded-xl bg-primary text-primary-foreground hover:bg-primary/80 shadow-lg shadow-primary/20 transition-all font-bold transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                 <span className="material-symbols-outlined mb-1">room_service</span> Send Order
               </button>
             </div>
@@ -439,7 +439,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                 setEditItemId(null);
                 setEditNote('');
               }}
-              className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
             >
               Cancel
             </button>
@@ -450,18 +450,18 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                 setEditItemId(null);
                 setEditNote('');
               }}
-              className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-bold transition-colors"
             >
               Save
             </button>
           </div>
         }
       >
-        <label className="block text-sm font-semibold text-[#c9b792] mb-2">Item modifier / note</label>
+        <label className="block text-sm font-semibold text-muted-foreground mb-2">Item modifier / note</label>
         <textarea
           value={editNote}
           onChange={(e) => setEditNote(e.target.value)}
-          className="w-full bg-[#3a2e22] border border-[#483c23] rounded-lg p-3 text-sm text-white placeholder-[#c9b792] focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b] transition-all resize-none h-28"
+          className="w-full bg-secondary border border-border rounded-lg p-3 text-sm text-foreground placeholder-muted-foreground focus:ring-1 focus:ring-primary focus:border-primary transition-all resize-none h-28"
           placeholder="e.g. No sugar, extra spicy, well-done, allergy notes..."
         />
       </Modal>

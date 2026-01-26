@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Screen, UserRole } from '../types';
 import { useTheme } from '../ThemeContext';
 import { usePos } from '../PosContext';
@@ -22,6 +22,8 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role, logout }) => {
   const { theme, toggleTheme } = useTheme();
   const { orders, notifications } = usePos();
+
+  const [poBadgeCount, setPoBadgeCount] = useState(0);
 
   const [collapsed, setCollapsed] = usePersistedState<boolean>('mirachpos.sidebar.collapsed.v1', false, {
     validate: (v): v is boolean => typeof v === 'boolean',
@@ -227,12 +229,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
           'group relative flex items-center gap-3 rounded-lg transition-all w-full text-left',
           collapsed ? 'px-3 py-3 justify-center' : 'px-4 py-2.5',
           active
-            ? 'bg-[#eead2b] text-[#221c10]'
-            : 'text-[#c9b792] hover:bg-[#2c241b] hover:text-white',
+            ? 'bg-primary text-primary-foreground'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
           'cursor-pointer select-none'
         )}
       >
-        <span className={cn('material-symbols-outlined text-[20px]', active ? 'text-[#221c10]' : 'text-[#c9b792] group-hover:text-white')}>
+        <span className={cn('material-symbols-outlined text-[20px]', active ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground')}>
           {icon}
         </span>
         {!collapsed ? (
@@ -241,13 +243,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
           </span>
         ) : null}
         {badge && !collapsed && (
-          <Badge className={cn('ml-auto h-5 px-1.5 min-w-[20px] justify-center text-[10px] font-black', active ? 'bg-[#221c10] text-[#eead2b]' : 'bg-[#eead2b] text-[#221c10]')}>
+          <Badge className={cn('ml-auto h-5 px-1.5 min-w-[20px] justify-center text-[10px] font-black', active ? 'bg-primary-foreground text-primary' : 'bg-primary text-primary-foreground')}>
             {badge}
           </Badge>
         )}
         {badge && collapsed ? (
           <div className="absolute -top-1 -right-1">
-            <div className="h-4 min-w-4 px-1 rounded-full bg-[#eead2b] text-[#221c10] text-[10px] font-black flex items-center justify-center">
+            <div className="h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-black flex items-center justify-center">
               {badge}
             </div>
           </div>
@@ -258,24 +260,113 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
 
   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <div className={cn('space-y-1 mb-6', collapsed ? 'mb-4' : 'mb-6')}>
-      {!collapsed ? <p className="px-4 text-[10px] font-black uppercase text-[#8e826f] tracking-[0.22em] opacity-90 mb-2">{title}</p> : null}
+      {!collapsed ? <p className="px-4 text-[10px] font-black uppercase text-muted-foreground tracking-[0.22em] opacity-90 mb-2">{title}</p> : null}
       <div className={cn('space-y-1', collapsed ? 'px-0' : '')}>{children}</div>
     </div>
   );
 
   const ownerActsAsManager = role === UserRole.CAFE_OWNER && !(Array.isArray(subscription?.modules) ? subscription.modules : []).includes('owner_dashboard');
 
+  const managerBranchId = (() => {
+    try {
+      const parsed = readSession<any>();
+      const bid = typeof parsed?.branchId === 'string' ? parsed.branchId.trim() : '';
+      return bid && bid !== 'global' ? bid : '';
+    } catch {
+      return '';
+    }
+  })();
+
+  const poLastSeenKey = useMemo(() => {
+    if (!managerBranchId) return '';
+    return `mirachpos.manager.po.lastSeen.${managerBranchId}.v1`;
+  }, [managerBranchId]);
+
+  const readPoLastSeen = useCallback((): number => {
+    try {
+      if (!poLastSeenKey) return 0;
+      const raw = localStorage.getItem(poLastSeenKey);
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : 0;
+    } catch {
+      return 0;
+    }
+  }, [poLastSeenKey]);
+
+  const writePoLastSeen = useCallback((ts: number) => {
+    try {
+      if (!poLastSeenKey) return;
+      localStorage.setItem(poLastSeenKey, String(ts));
+    } catch {
+      // ignore
+    }
+  }, [poLastSeenKey]);
+
+  const refreshPoBadge = useCallback(async () => {
+    const isManagerContext = role === UserRole.BRANCH_MANAGER || ownerActsAsManager;
+    if (!isManagerContext) {
+      setPoBadgeCount(0);
+      return;
+    }
+    if (!managerBranchId) {
+      setPoBadgeCount(0);
+      return;
+    }
+
+    // If manager is already on inventory, mark as seen.
+    if (currentScreen === Screen.MANAGER_INVENTORY) {
+      writePoLastSeen(Date.now());
+      setPoBadgeCount(0);
+      return;
+    }
+
+    try {
+      const qs = new URLSearchParams({ limit: '200', branchId: managerBranchId });
+      const res = await apiFetch(`/api/manager/purchase-orders?${qs.toString()}`);
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) {
+        setPoBadgeCount(0);
+        return;
+      }
+      const rows = Array.isArray(json?.purchaseOrders) ? (json.purchaseOrders as any[]) : [];
+      const lastSeen = readPoLastSeen();
+      const count = rows.filter((p) => {
+        const status = String(p?.status || '');
+        if (status !== 'Sent' && status !== 'Partially Received') return false;
+        const t = p?.sentAt || p?.updatedAt || p?.createdAt;
+        const ts = t ? new Date(String(t)).getTime() : 0;
+        return Number.isFinite(ts) && ts > lastSeen;
+      }).length;
+      setPoBadgeCount(count);
+    } catch {
+      setPoBadgeCount(0);
+    }
+  }, [currentScreen, managerBranchId, ownerActsAsManager, readPoLastSeen, role, writePoLastSeen]);
+
+  useEffect(() => {
+    void refreshPoBadge();
+  }, [refreshPoBadge]);
+
+  useEffect(() => {
+    const isManagerContext = role === UserRole.BRANCH_MANAGER || ownerActsAsManager;
+    if (!isManagerContext) return;
+    const t = window.setInterval(() => {
+      void refreshPoBadge();
+    }, 20000);
+    return () => window.clearInterval(t);
+  }, [ownerActsAsManager, refreshPoBadge, role]);
+
   return (
-    <aside className={cn('h-full bg-[#1e1910] border-r border-[#483c23] flex flex-col shrink-0 relative z-[200] pointer-events-auto transition-[width] duration-200', collapsed ? 'w-[76px]' : 'w-64')}>
+    <aside className={cn('h-full bg-card border-r border-border flex flex-col shrink-0 relative z-[200] pointer-events-auto transition-[width] duration-200', collapsed ? 'w-[76px]' : 'w-64')}>
       <div className={cn('pb-4 relative', collapsed ? 'p-3' : 'p-6')}>
         <div className={cn('flex items-center gap-3', collapsed ? 'justify-center' : 'justify-start')}>
           <div className={cn('flex items-center gap-3 min-w-0', collapsed ? 'justify-center' : '')}>
           {!collapsed ? (
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2 min-w-0">
-                <h1 className="text-white text-sm font-black leading-tight tracking-tight truncate uppercase">{headerName}</h1>
+                <h1 className="text-foreground text-sm font-black leading-tight tracking-tight truncate uppercase">{headerName}</h1>
               </div>
-              <p className="text-[10px] font-bold text-[#c9b792] uppercase tracking-widest mt-1 opacity-70">{getRoleLabel()}</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1 opacity-70">{getRoleLabel()}</p>
             </div>
           ) : null}
           </div>
@@ -286,7 +377,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
           onClick={() => setCollapsed((v) => !v)}
           title={collapsed ? 'Expand' : 'Collapse'}
           className={cn(
-            'absolute top-6 right-0 translate-x-1/2 size-9 rounded-lg border border-[#483c23] bg-[#2c241b] text-[#c9b792] hover:bg-[#3a2e22] hover:text-white transition-colors flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.25)] z-[500] pointer-events-auto'
+            'absolute top-6 right-0 translate-x-1/2 size-9 rounded-lg border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.25)] z-[500] pointer-events-auto'
           )}
         >
           <span className="material-symbols-outlined text-[20px]">{collapsed ? 'chevron_right' : 'chevron_left'}</span>
@@ -330,7 +421,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
             <Section title="Resources">
               <NavItem screen={Screen.GUESTS} icon="contacts" label="Guests" />
               <NavItem screen={Screen.MANAGER_CUSTOMERS} icon="person" label="Customers" />
-              <NavItem screen={Screen.MANAGER_INVENTORY} icon="inventory" label="Inventory" />
+              <NavItem screen={Screen.MANAGER_INVENTORY} icon="inventory" label="Inventory" badge={poBadgeCount > 0 ? String(poBadgeCount) : undefined} />
               {showItem(Screen.MANAGER_MENU_BUILDER) && <NavItem screen={Screen.MANAGER_MENU_BUILDER} icon="restaurant_menu" label="Menu Management" />}
               <NavItem screen={Screen.MANAGER_STAFF} icon="badge" label="Staff" />
               <NavItem screen={Screen.STAFF_SCHEDULE} icon="schedule" label="Staff Schedule" />
@@ -346,6 +437,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
 
             {ownerActsAsManager && (
               <Section title="Ownership">
+                <NavItem screen={Screen.OWNER_INVENTORY} icon="inventory_2" label="Inventory" />
                 <NavItem screen={Screen.OWNER_SETTINGS} icon="settings" label="Settings" />
                 <NavItem screen={Screen.OWNER_BILLING} icon="credit_card" label="Billing" />
                 <NavItem screen={Screen.OWNER_AUDIT} icon="fact_check" label="Audit Log" />
@@ -403,14 +495,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
         )}
       </ScrollArea>
 
-      <div className={cn('border-t border-[#483c23] space-y-1', collapsed ? 'p-2' : 'p-4')}>
+      <div className={cn('border-t border-border space-y-1', collapsed ? 'p-2' : 'p-4')}>
         {canReturnToSuperadmin && (
-          <Button variant="ghost" onClick={returnToSuperadmin} title={collapsed ? 'Back to Admin' : undefined} className={cn('w-full h-10 rounded-lg hover:bg-[#2c241b] hover:text-[#eead2b]', collapsed ? 'justify-center px-0 text-[#eead2b]' : 'justify-start gap-3 px-4 text-[#eead2b]')}>
+          <Button variant="ghost" onClick={returnToSuperadmin} title={collapsed ? 'Back to Admin' : undefined} className={cn('w-full h-10 rounded-lg hover:bg-accent hover:text-primary', collapsed ? 'justify-center px-0 text-primary' : 'justify-start gap-3 px-4 text-primary')}>
             <span className="material-symbols-outlined text-[20px]">shield</span>
             {!collapsed ? <span className="text-[11px] font-black uppercase tracking-widest">Back to Admin</span> : null}
           </Button>
         )}
-        <Button variant="ghost" onClick={toggleTheme} title={collapsed ? (theme === 'dark' ? 'Light Mode' : 'Dark Mode') : undefined} className={cn('w-full h-10 rounded-lg text-[#c9b792] hover:bg-[#2c241b] hover:text-white', collapsed ? 'justify-center px-0' : 'justify-start gap-3 px-4')}>
+        <Button variant="ghost" onClick={toggleTheme} title={collapsed ? (theme === 'dark' ? 'Light Mode' : 'Dark Mode') : undefined} className={cn('w-full h-10 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground', collapsed ? 'justify-center px-0' : 'justify-start gap-3 px-4')}>
           <span className="material-symbols-outlined text-[20px]">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
           {!collapsed ? <span className="text-[11px] font-black uppercase tracking-widest">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span> : null}
         </Button>

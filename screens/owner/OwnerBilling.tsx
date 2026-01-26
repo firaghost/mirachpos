@@ -65,7 +65,7 @@ type PlanCycle = 'Monthly' | 'Yearly';
 const gatewayInfo: Record<string, { icon: string; gradient: string; name: string }> = {
     bank_transfer: { icon: 'account_balance', gradient: 'from-indigo-600 to-indigo-800', name: 'Bank Transfer' },
     chapa: { icon: 'credit_card', gradient: 'from-green-500 to-green-700', name: 'Chapa' },
-    telebirr: { icon: 'phone_android', gradient: 'from-white-500 to-white-700', name: 'Telebirr' },
+    telebirr: { icon: 'phone_android', gradient: 'from-sky-500 to-sky-700', name: 'Telebirr' },
     cbe_birr: { icon: 'account_balance_wallet', gradient: 'from-purple-500 to-purple-700', name: 'CBE Birr' }
 };
 
@@ -633,7 +633,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                                     , !isEnabled && "opacity-50 cursor-not-allowed")}
                                 >
                                     <div className={cn("size-10 rounded-xl bg-gradient-to-br flex items-center justify-center mb-3 transition-transform group-hover:scale-110", info.gradient)}>
-                                        <span className="material-symbols-outlined text-white">{info.icon}</span>
+                                        <span className="material-symbols-outlined text-primary-foreground">{info.icon}</span>
                                     </div>
                                     <h4 className="text-sm font-bold">{info.name}</h4>
                                     {selectedGateway === id && (

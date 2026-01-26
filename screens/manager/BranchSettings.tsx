@@ -420,31 +420,31 @@ const kitchenSampleHtml = (params: {
 const Toggle: React.FC<{ checked: boolean; onChange: (next: boolean) => void; label?: string }> = ({ checked, onChange, label }) => (
   <label className="relative inline-flex items-center cursor-pointer" aria-label={label ?? 'toggle'}>
     <input checked={checked} onChange={(e) => onChange(e.target.checked)} className="sr-only peer" type="checkbox" />
-    <div className="w-11 h-6 bg-[#393328] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#eead2b]/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#eead2b]"></div>
+    <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-background after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-background after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
   </label>
 );
 
 const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => (
   <input
     {...props}
-    className={`w-full h-11 bg-[#181611] border border-[#393328] text-white text-sm rounded-lg focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b] px-4 placeholder-[#555] ${props.className ?? ''}`}
+    className={`w-full h-11 bg-background border border-border text-foreground text-sm rounded-lg focus:ring-1 focus:ring-primary focus:border-primary px-4 placeholder:text-muted-foreground ${props.className ?? ''}`}
   />
 );
 
 const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = (props) => (
   <select
     {...props}
-    className={`w-full h-11 bg-[#181611] border border-[#393328] text-white text-sm rounded-lg focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b] px-4 ${props.className ?? ''}`}
+    className={`w-full h-11 bg-background border border-border text-foreground text-sm rounded-lg focus:ring-1 focus:ring-primary focus:border-primary px-4 ${props.className ?? ''}`}
   />
 );
 
 const CheckboxRow: React.FC<{ checked: boolean; onChange: (next: boolean) => void; title: string; subtitle: string }> = ({ checked, onChange, title, subtitle }) => (
   <div className="p-4 flex items-center justify-between gap-4">
     <div>
-      <p className="text-white font-bold text-sm">{title}</p>
-      <p className="text-[#b9b09d] text-xs mt-1">{subtitle}</p>
+      <p className="text-foreground font-bold text-sm">{title}</p>
+      <p className="text-muted-foreground text-xs mt-1">{subtitle}</p>
     </div>
-    <input checked={checked} onChange={(e) => onChange(e.target.checked)} type="checkbox" className="h-5 w-5 accent-[#eead2b]" />
+    <input checked={checked} onChange={(e) => onChange(e.target.checked)} type="checkbox" className="h-5 w-5 accent-primary" />
   </div>
 );
 
@@ -1045,33 +1045,33 @@ export const BranchSettings: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full max-h-screen overflow-y-auto bg-[#181611]">
+    <div className="flex flex-col h-full max-h-screen overflow-y-auto bg-background">
       <div className="flex flex-col min-h-0">
         {/* Page Header */}
-        <div className="px-6 py-6 md:px-10 md:py-8 border-b border-[#393328] bg-[#181611]">
+        <div className="px-6 py-6 md:px-10 md:py-8 border-b border-border bg-background">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-[#b9b09d] text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
                   <span>Settings</span>
                   <span className="material-symbols-outlined text-sm">chevron_right</span>
-                  <span className="text-[#eead2b]">{currentTabMeta.crumb}</span>
+                  <span className="text-primary">{currentTabMeta.crumb}</span>
                 </div>
-                <h1 className="text-white text-3xl md:text-4xl font-extrabold leading-tight tracking-[-0.033em]">{currentTabMeta.title}</h1>
-                <p className="text-[#b9b09d] text-base font-normal leading-normal max-w-3xl">{currentTabMeta.subtitle}</p>
+                <h1 className="text-foreground text-3xl md:text-4xl font-extrabold leading-tight tracking-[-0.033em]">{currentTabMeta.title}</h1>
+                <p className="text-muted-foreground text-base font-normal leading-normal max-w-3xl">{currentTabMeta.subtitle}</p>
               </div>
               <div className="flex items-center gap-3">
                 <button
                   disabled={!dirty}
                   onClick={discard}
-                  className="h-10 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] border border-[#544b3b] text-white text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-10 px-4 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Discard
                 </button>
                 <button
                   disabled={!dirty}
                   onClick={saveAll}
-                  className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] text-sm font-extrabold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-extrabold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Save Settings
                 </button>
@@ -1081,7 +1081,7 @@ export const BranchSettings: React.FC = () => {
             <div className="flex items-center gap-2 overflow-x-auto pt-2">
               <button
                 onClick={() => setActiveTab('hardware')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'hardware' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'hardware' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
                 <span className="material-symbols-outlined text-lg">print</span>
@@ -1089,7 +1089,7 @@ export const BranchSettings: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab('general')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'general' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'general' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
                 <span className="material-symbols-outlined text-lg">tune</span>
@@ -1097,7 +1097,7 @@ export const BranchSettings: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab('branch')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'branch' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'branch' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
                 <span className="material-symbols-outlined text-lg">store</span>
@@ -1105,7 +1105,7 @@ export const BranchSettings: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab('hours')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'hours' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'hours' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
                 <span className="material-symbols-outlined text-lg">schedule</span>
@@ -1113,7 +1113,7 @@ export const BranchSettings: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab('taxes')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'taxes' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'taxes' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
                 <span className="material-symbols-outlined text-lg">percent</span>
@@ -1122,7 +1122,7 @@ export const BranchSettings: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('integrations')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'integrations' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'integrations' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
                 <span className="material-symbols-outlined text-lg">extension</span>
@@ -1131,7 +1131,7 @@ export const BranchSettings: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('addons')}
-                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'addons' ? 'bg-[#eead2b] text-[#181611] border-[#eead2b]' : 'bg-transparent border-[#393328] text-[#b9b09d] hover:bg-[#221c10]'
+                className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'addons' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
                 <span className="material-symbols-outlined text-lg">widgets</span>
@@ -1141,18 +1141,18 @@ export const BranchSettings: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-6 md:p-10 space-y-10 bg-[#181611]">
+        <div className="p-6 md:p-10 space-y-10 bg-background">
           {activeTab === 'hardware' && (
             <>
               {/* Connected Printers Section */}
               <section>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <h2 className="text-white text-xl font-bold leading-tight">Connected Devices</h2>
+                  <h2 className="text-foreground text-xl font-bold leading-tight">Connected Devices</h2>
                   <button
                     onClick={() => {
                       openAddDevice();
                     }}
-                    className="flex cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-5 bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] gap-2 text-sm font-bold leading-normal tracking-[0.015em] transition-colors shadow-lg shadow-[#eead2b]/20"
+                    className="flex cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-5 bg-primary hover:bg-primary/90 text-primary-foreground gap-2 text-sm font-bold leading-normal tracking-[0.015em] transition-colors shadow-lg shadow-primary/20"
                   >
                     <span className="material-symbols-outlined text-xl">add</span>
                     <span>Add New Device</span>
@@ -1162,10 +1162,10 @@ export const BranchSettings: React.FC = () => {
                   {draft.devices.map((d) => {
                     const online = d.status === 'Online';
                     return (
-                      <div key={d.id} className="group relative flex flex-col bg-[#221c10] rounded-xl border border-[#393328] hover:border-[#eead2b]/50 transition-all duration-300 overflow-hidden">
+                      <div key={d.id} className="group relative flex flex-col bg-card rounded-xl border border-border hover:border-primary/50 transition-all duration-300 overflow-hidden">
                         <div className="p-5 flex flex-col h-full">
                           <div className="flex justify-between items-start mb-4">
-                            <div className="size-12 rounded-lg bg-[#393328] flex items-center justify-center text-white">
+                            <div className="size-12 rounded-lg bg-secondary flex items-center justify-center text-foreground">
                               <span className="material-symbols-outlined text-2xl">{d.kind === 'KDS' ? 'tv' : d.kind === 'CashDrawer' ? 'point_of_sale' : d.usage.toLowerCase().includes('kitchen') ? 'restaurant' : 'print'}</span>
                             </div>
                             <span
@@ -1179,54 +1179,54 @@ export const BranchSettings: React.FC = () => {
                             </span>
                           </div>
                           <div className="mb-4">
-                            <h3 className="text-white font-bold text-lg">{d.name}</h3>
-                            <p className="text-[#b9b09d] text-sm">{d.model || ' ”'}</p>
+                            <h3 className="text-foreground font-bold text-lg">{d.name}</h3>
+                            <p className="text-muted-foreground text-sm">{d.model || ' ”'}</p>
                           </div>
                           <div className="space-y-2 mb-6">
                             <div className="flex justify-between text-sm">
-                              <span className="text-[#b9b09d]">Connection</span>
-                              <span className="text-white">{d.connection}</span>
+                              <span className="text-muted-foreground">Connection</span>
+                              <span className="text-foreground">{d.connection}</span>
                             </div>
                             {d.connection === 'LAN' && (
                               <>
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-[#b9b09d]">IP Address</span>
-                                  <span className="text-white font-mono">{d.ip}</span>
+                                  <span className="text-muted-foreground">IP Address</span>
+                                  <span className="text-foreground font-mono">{d.ip}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-[#b9b09d]">Port</span>
-                                  <span className="text-white font-mono">{d.port}</span>
+                                  <span className="text-muted-foreground">Port</span>
+                                  <span className="text-foreground font-mono">{d.port}</span>
                                 </div>
                               </>
                             )}
                             {d.connection === 'whitetooth' && (
                               <div className="flex justify-between text-sm">
-                                <span className="text-[#b9b09d]">whitetooth</span>
-                                <span className="text-white">{d.whitetoothName || ' ”'}</span>
+                                <span className="text-muted-foreground">whitetooth</span>
+                                <span className="text-foreground">{d.whitetoothName || ' ”'}</span>
                               </div>
                             )}
                             {d.connection === 'Cloud' && (
                               <div className="flex justify-between text-sm">
-                                <span className="text-[#b9b09d]">Cloud ID</span>
-                                <span className="text-white font-mono">{d.cloudId || ' ”'}</span>
+                                <span className="text-muted-foreground">Cloud ID</span>
+                                <span className="text-foreground font-mono">{d.cloudId || ' ”'}</span>
                               </div>
                             )}
                             <div className="flex justify-between text-sm">
-                              <span className="text-[#b9b09d]">Usage</span>
-                              <span className="text-white">{d.usage || ' ”'}</span>
+                              <span className="text-muted-foreground">Usage</span>
+                              <span className="text-foreground">{d.usage || ' ”'}</span>
                             </div>
                           </div>
-                          <div className="mt-auto flex gap-3 border-t border-[#393328] pt-4">
+                          <div className="mt-auto flex gap-3 border-t border-border pt-4">
                             <button
                               onClick={() => setTestPrintDevice(d)}
-                              className="flex-1 h-9 rounded bg-[#393328] hover:bg-[#4a4234] text-white text-xs font-bold transition-colors"
+                              className="flex-1 h-9 rounded bg-secondary hover:bg-secondary/80 text-foreground text-xs font-bold transition-colors"
                             >
                               Test Print
                             </button>
                             {!online ? (
                               <button
                                 onClick={() => reconnectDevice(d.id)}
-                                className="size-9 rounded bg-[#393328] hover:bg-[#4a4234] text-white flex items-center justify-center transition-colors"
+                                className="size-9 rounded bg-secondary hover:bg-secondary/80 text-foreground flex items-center justify-center transition-colors"
                                 title="Reconnect"
                               >
                                 <span className="material-symbols-outlined text-sm">sync</span>
@@ -1236,7 +1236,7 @@ export const BranchSettings: React.FC = () => {
                                 onClick={() => {
                                   setSettingsDevice(d);
                                 }}
-                                className="size-9 rounded bg-[#393328] hover:bg-[#4a4234] text-white flex items-center justify-center transition-colors"
+                                className="size-9 rounded bg-secondary hover:bg-secondary/80 text-foreground flex items-center justify-center transition-colors"
                                 title="Settings"
                               >
                                 <span className="material-symbols-outlined text-sm">settings</span>
@@ -1246,14 +1246,14 @@ export const BranchSettings: React.FC = () => {
                               onClick={() => {
                                 openEditDevice(d);
                               }}
-                              className="size-9 rounded bg-[#393328] hover:bg-[#4a4234] text-white flex items-center justify-center transition-colors"
+                              className="size-9 rounded bg-secondary hover:bg-secondary/80 text-foreground flex items-center justify-center transition-colors"
                               title="Edit"
                             >
                               <span className="material-symbols-outlined text-sm">edit</span>
                             </button>
                           </div>
                         </div>
-                        <div className="absolute top-0 left-0 w-1 h-full bg-[#eead2b] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="absolute top-0 left-0 w-1 h-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       </div>
                     );
                   })}
@@ -1261,10 +1261,10 @@ export const BranchSettings: React.FC = () => {
               </section>
 
               <section className="max-w-4xl">
-                <h2 className="text-white text-xl font-bold leading-tight mb-6">Printer Routing</h2>
-                <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <h2 className="text-foreground text-xl font-bold leading-tight mb-6">Printer Routing</h2>
+                <div className="rounded-xl border border-border bg-card p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="text-sm font-bold text-[#b9b09d]">Receipt Printer</label>
+                    <label className="text-sm font-bold text-muted-foreground">Receipt Printer</label>
                     <Select
                       value={draft.defaultReceiptPrinterId ?? ''}
                       onChange={(e) => setDraft((p) => ({ ...p, defaultReceiptPrinterId: e.target.value || null }))}
@@ -1279,11 +1279,11 @@ export const BranchSettings: React.FC = () => {
                           </option>
                         ))}
                     </Select>
-                    <p className="text-[#b9b09d] text-xs mt-2">For payment receipts.</p>
+                    <p className="text-muted-foreground text-xs mt-2">For payment receipts.</p>
                   </div>
 
                   <div>
-                    <label className="text-sm font-bold text-[#b9b09d]">Kitchen Printer</label>
+                    <label className="text-sm font-bold text-muted-foreground">Kitchen Printer</label>
                     <Select
                       value={draft.defaultKitchenPrinterId ?? ''}
                       onChange={(e) => setDraft((p) => ({ ...p, defaultKitchenPrinterId: e.target.value || null }))}
@@ -1298,11 +1298,11 @@ export const BranchSettings: React.FC = () => {
                           </option>
                         ))}
                     </Select>
-                    <p className="text-[#b9b09d] text-xs mt-2">For kitchen order tickets.</p>
+                    <p className="text-muted-foreground text-xs mt-2">For kitchen order tickets.</p>
                   </div>
 
                   <div>
-                    <label className="text-sm font-bold text-[#b9b09d]">Bar/Drinks Printer</label>
+                    <label className="text-sm font-bold text-muted-foreground">Bar/Drinks Printer</label>
                     <Select
                       value={draft.defaultBarPrinterId ?? ''}
                       onChange={(e) => setDraft((p) => ({ ...p, defaultBarPrinterId: e.target.value || null }))}
@@ -1317,23 +1317,23 @@ export const BranchSettings: React.FC = () => {
                           </option>
                         ))}
                     </Select>
-                    <p className="text-[#b9b09d] text-xs mt-2">Used when drink tickets are separated.</p>
+                    <p className="text-muted-foreground text-xs mt-2">Used when drink tickets are separated.</p>
                   </div>
                 </div>
               </section>
 
               {/* Fiscal Printer Configuration */}
               <section className="max-w-4xl">
-                <h2 className="text-white text-xl font-bold leading-tight mb-6">Fiscal Printer Integration (ERCA)</h2>
-                <div className="rounded-xl border border-[#393328] bg-[#221c10] divide-y divide-[#393328]">
+                <h2 className="text-foreground text-xl font-bold leading-tight mb-6">Fiscal Printer Integration (ERCA)</h2>
+                <div className="rounded-xl border border-border bg-card divide-y divide-border">
                   <div className="p-5 flex items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div className="p-2 rounded-lg bg-[#393328] text-white hidden sm:block">
+                      <div className="p-2 rounded-lg bg-secondary text-foreground hidden sm:block">
                         <span className="material-symbols-outlined">gavel</span>
                       </div>
                       <div>
-                        <p className="text-white font-bold text-base">Enable Fiscal Printer</p>
-                        <p className="text-[#b9b09d] text-sm mt-0.5">Connect to an ERCA-compliant fiscal device for tax reporting.</p>
+                        <p className="text-foreground font-bold text-base">Enable Fiscal Printer</p>
+                        <p className="text-muted-foreground text-sm mt-0.5">Connect to an ERCA-compliant fiscal device for tax reporting.</p>
                       </div>
                     </div>
                     <Toggle
@@ -1346,7 +1346,7 @@ export const BranchSettings: React.FC = () => {
                   {draft.fiscal.enabled && (
                     <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-sm font-bold text-[#b9b09d]">Fiscal Driver / Provider</label>
+                        <label className="text-sm font-bold text-muted-foreground">Fiscal Driver / Provider</label>
                         <Select
                           value={draft.fiscal.provider}
                           onChange={(e) => setDraft((p) => ({ ...p, fiscal: { ...p.fiscal, provider: e.target.value as any } }))}
@@ -1358,7 +1358,7 @@ export const BranchSettings: React.FC = () => {
                         </Select>
                       </div>
                       <div>
-                        <label className="text-sm font-bold text-[#b9b09d]">Connection Type</label>
+                        <label className="text-sm font-bold text-muted-foreground">Connection Type</label>
                         <Select
                           value={draft.fiscal.connectionType}
                           onChange={(e) => setDraft((p) => ({ ...p, fiscal: { ...p.fiscal, connectionType: e.target.value as any } }))}
@@ -1369,7 +1369,7 @@ export const BranchSettings: React.FC = () => {
                         </Select>
                       </div>
                       <div>
-                        <label className="text-sm font-bold text-[#b9b09d]">Device IP / Proxy URL</label>
+                        <label className="text-sm font-bold text-muted-foreground">Device IP / Proxy URL</label>
                         <Input
                           value={draft.fiscal.ip}
                           onChange={(e) => setDraft((p) => ({ ...p, fiscal: { ...p.fiscal, ip: e.target.value } }))}
@@ -1378,7 +1378,7 @@ export const BranchSettings: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-bold text-[#b9b09d]">{draft.fiscal.connectionType === 'Network' ? 'Port' : 'Port (Optional)'}</label>
+                        <label className="text-sm font-bold text-muted-foreground">{draft.fiscal.connectionType === 'Network' ? 'Port' : 'Port (Optional)'}</label>
                         <Input
                           value={draft.fiscal.port}
                           onChange={(e) => setDraft((p) => ({ ...p, fiscal: { ...p.fiscal, port: e.target.value } }))}
@@ -1387,20 +1387,20 @@ export const BranchSettings: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-bold text-[#b9b09d]">Machine Registration No.</label>
+                        <label className="text-sm font-bold text-muted-foreground">Machine Registration No.</label>
                         <Input
                           value={draft.fiscal.machineNumber}
                           onChange={(e) => setDraft((p) => ({ ...p, fiscal: { ...p.fiscal, machineNumber: e.target.value } }))}
                           placeholder="FS No..."
                           className="mt-2"
                         />
-                        <p className="text-[#b9b09d] text-xs mt-1">Printed on receipts as FS No.</p>
+                        <p className="text-muted-foreground text-xs mt-1">Printed on receipts as FS No.</p>
                       </div>
                       <div className="md:col-span-2 mt-2">
-                        <div className="p-4 rounded-lg bg-[#181611] border border-[#393328] flex items-center justify-between">
+                        <div className="p-4 rounded-lg bg-card border border-border flex items-center justify-between">
                           <div>
-                            <p className="text-white text-sm font-bold">Connection Status</p>
-                            <p className="text-[#b9b09d] text-xs">Test connectivity to the fiscal device.</p>
+                            <p className="text-foreground text-sm font-bold">Connection Status</p>
+                            <p className="text-muted-foreground text-xs">Test connectivity to the fiscal device.</p>
                           </div>
                           <button
                             onClick={async () => {
@@ -1430,7 +1430,7 @@ export const BranchSettings: React.FC = () => {
                                 alert('ERROR: ' + (e instanceof Error ? e.message : 'Network error'));
                               }
                             }}
-                            className="h-9 px-4 rounded bg-[#393328] hover:bg-[#4a4234] text-white text-xs font-bold transition-colors"
+                            className="h-9 px-4 rounded bg-secondary hover:bg-secondary/80 border border-border text-foreground text-xs font-bold transition-colors"
                           >
                             Test Connection
                           </button>
@@ -1443,16 +1443,16 @@ export const BranchSettings: React.FC = () => {
 
               {/* Configuration Options */}
               <section className="max-w-4xl">
-                <h2 className="text-white text-xl font-bold leading-tight mb-6">Printer Preferences</h2>
-                <div className="rounded-xl border border-[#393328] bg-[#221c10] divide-y divide-[#393328]">
+                <h2 className="text-foreground text-xl font-bold leading-tight mb-6">Printer Preferences</h2>
+                <div className="rounded-xl border border-border bg-card divide-y divide-border">
                   <div className="p-5 flex items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div className="p-2 rounded-lg bg-[#393328] text-white hidden sm:block">
+                      <div className="p-2 rounded-lg bg-secondary text-foreground hidden sm:block">
                         <span className="material-symbols-outlined">receipt</span>
                       </div>
                       <div>
-                        <p className="text-white font-bold text-base">Auto-print Receipts</p>
-                        <p className="text-[#b9b09d] text-sm mt-0.5">Automatically print customer receipt after payment is successful.</p>
+                        <p className="text-foreground font-bold text-base">Auto-print Receipts</p>
+                        <p className="text-muted-foreground text-sm mt-0.5">Automatically print customer receipt after payment is successful.</p>
                       </div>
                     </div>
                     <Toggle
@@ -1463,12 +1463,12 @@ export const BranchSettings: React.FC = () => {
                   </div>
                   <div className="p-5 flex items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div className="p-2 rounded-lg bg-[#393328] text-white hidden sm:block">
+                      <div className="p-2 rounded-lg bg-secondary text-foreground hidden sm:block">
                         <span className="material-symbols-outlined">print</span>
                       </div>
                       <div>
-                        <p className="text-white font-bold text-base">Auto-print Kitchen Tickets</p>
-                        <p className="text-[#b9b09d] text-sm mt-0.5">Automatically open print dialog when an order is sent to kitchen.</p>
+                        <p className="text-foreground font-bold text-base">Auto-print Kitchen Tickets</p>
+                        <p className="text-muted-foreground text-sm mt-0.5">Automatically open print dialog when an order is sent to kitchen.</p>
                       </div>
                     </div>
                     <Toggle
@@ -1479,12 +1479,12 @@ export const BranchSettings: React.FC = () => {
                   </div>
                   <div className="p-5 flex items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div className="p-2 rounded-lg bg-[#393328] text-white hidden sm:block">
+                      <div className="p-2 rounded-lg bg-secondary text-foreground hidden sm:block">
                         <span className="material-symbols-outlined">soup_kitchen</span>
                       </div>
                       <div>
-                        <p className="text-white font-bold text-base">Kitchen Ticket Beep</p>
-                        <p className="text-[#b9b09d] text-sm mt-0.5">Sound an alarm on kitchen printers when a new order arrives.</p>
+                        <p className="text-foreground font-bold text-base">Kitchen Ticket Beep</p>
+                        <p className="text-muted-foreground text-sm mt-0.5">Sound an alarm on kitchen printers when a new order arrives.</p>
                       </div>
                     </div>
                     <Toggle
@@ -1495,12 +1495,12 @@ export const BranchSettings: React.FC = () => {
                   </div>
                   <div className="p-5 flex items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div className="p-2 rounded-lg bg-[#393328] text-white hidden sm:block">
+                      <div className="p-2 rounded-lg bg-secondary text-foreground hidden sm:block">
                         <span className="material-symbols-outlined">local_bar</span>
                       </div>
                       <div>
-                        <p className="text-white font-bold text-base">Separate Drink Tickets</p>
-                        <p className="text-[#b9b09d] text-sm mt-0.5">Print drink tickets to the bar printer separately from kitchen tickets.</p>
+                        <p className="text-foreground font-bold text-base">Separate Drink Tickets</p>
+                        <p className="text-muted-foreground text-sm mt-0.5">Print drink tickets to the bar printer separately from kitchen tickets.</p>
                       </div>
                     </div>
                     <Toggle
@@ -1514,25 +1514,25 @@ export const BranchSettings: React.FC = () => {
 
               <section className="max-w-4xl">
                 <div className="flex items-center justify-between gap-4 mb-6">
-                  <h2 className="text-white text-xl font-bold leading-tight">Receipt Customization</h2>
+                  <h2 className="text-foreground text-xl font-bold leading-tight">Receipt Customization</h2>
                   <button
                     onClick={() => setPreviewOpen(true)}
-                    className="h-10 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] border border-[#544b3b] text-white text-sm font-bold"
+                    className="h-10 px-4 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground text-sm font-bold"
                   >
                     Preview Receipt
                   </button>
                 </div>
-                <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-xl border border-border bg-card p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
-                    <label className="text-sm font-bold text-[#b9b09d]">Header</label>
+                    <label className="text-sm font-bold text-muted-foreground">Header</label>
                     <Input value={draft.receipt.header} onChange={(e) => setDraft((p) => ({ ...p, receipt: { ...p.receipt, header: e.target.value } }))} placeholder="Store name, address ¦" className="mt-2" />
                   </div>
                   <div>
-                    <label className="text-sm font-bold text-[#b9b09d]">Footer Line 1</label>
+                    <label className="text-sm font-bold text-muted-foreground">Footer Line 1</label>
                     <Input value={draft.receipt.footer1} onChange={(e) => setDraft((p) => ({ ...p, receipt: { ...p.receipt, footer1: e.target.value } }))} placeholder="Thank you message ¦" className="mt-2" />
                   </div>
                   <div>
-                    <label className="text-sm font-bold text-[#b9b09d]">Footer Line 2</label>
+                    <label className="text-sm font-bold text-muted-foreground">Footer Line 2</label>
                     <Input value={draft.receipt.footer2} onChange={(e) => setDraft((p) => ({ ...p, receipt: { ...p.receipt, footer2: e.target.value } }))} placeholder="Wifi, social, etc ¦" className="mt-2" />
                   </div>
                 </div>
@@ -1542,18 +1542,18 @@ export const BranchSettings: React.FC = () => {
 
           {activeTab === 'general' && (
             <section className="max-w-4xl">
-              <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5 space-y-5">
+              <div className="rounded-xl border border-border bg-card p-5 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-bold text-[#b9b09d]">Currency</label>
+                    <label className="text-sm font-bold text-muted-foreground">Currency</label>
                     <div className="mt-2 flex items-center">
-                      <span className="text-white font-bold bg-[#393328] px-3 py-2 rounded-lg text-sm border border-[#544b3b]">
+                      <span className="text-foreground font-bold bg-secondary px-3 py-2 rounded-lg text-sm border border-border">
                         ETB
                       </span>
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm font-bold text-[#b9b09d]">Language</label>
+                    <label className="text-sm font-bold text-muted-foreground">Language</label>
                     <Select value={draft.general.language} onChange={(e) => setDraft((p) => ({ ...p, general: { ...p.general, language: e.target.value } }))} className="mt-2">
                       <option value="en">English</option>
                       <option value="am">Amharic</option>
@@ -1561,13 +1561,13 @@ export const BranchSettings: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[#393328] bg-[#181611] p-5">
-                  <div className="text-white font-extrabold text-base">Branch Payment QR Codes</div>
-                  <div className="text-[#b9b09d] text-xs mt-1">Paste a QR data URL, QR image URL, or a short payment string for the branch (Telebirr, Bank Transfer, or Card).</div>
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <div className="text-foreground font-extrabold text-base">Branch Payment QR Codes</div>
+                  <div className="text-muted-foreground text-xs mt-1">Paste a QR data URL, QR image URL, or a short payment string for the branch (Telebirr, Bank Transfer, or Card).</div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                     <div>
-                      <label className="text-sm font-bold text-[#b9b09d]">Telebirr QR</label>
+                      <label className="text-sm font-bold text-muted-foreground">Telebirr QR</label>
                       <Input
                         value={draft.payments.qrCodes.telebirr}
                         onChange={(e) =>
@@ -1579,8 +1579,8 @@ export const BranchSettings: React.FC = () => {
                         placeholder="data:image/png;base64,... or URL"
                         className="mt-2"
                       />
-                      <div className="mt-3 rounded-lg border border-[#393328] bg-[#221c10] p-3">
-                        <div className="text-xs text-[#b9b09d] font-bold uppercase tracking-wider">Telebirr Details</div>
+                      <div className="mt-3 rounded-lg border border-border bg-background p-3">
+                        <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Telebirr Details</div>
                         <div className="mt-3">
                           <input
                             type="file"
@@ -1604,7 +1604,7 @@ export const BranchSettings: React.FC = () => {
                                 setRemoteError(err instanceof Error ? err.message : 'Upload failed');
                               }
                             }}
-                            className="block w-full text-xs text-[#b9b09d] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#393328] file:text-white hover:file:bg-[#4a4234]"
+                            className="block w-full text-xs text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-secondary file:text-foreground hover:file:bg-secondary/80"
                           />
                         </div>
                         {draft.payments.qrDetails.telebirr.image ? (
@@ -1612,13 +1612,13 @@ export const BranchSettings: React.FC = () => {
                             <img
                               src={resolveAssetUrl(draft.payments.qrDetails.telebirr.image)}
                               alt="Telebirr QR"
-                              className="max-h-44 max-w-full rounded-lg border border-[#393328] bg-white p-2"
+                              className="max-h-44 max-w-full rounded-lg border border-border bg-background p-2"
                             />
                           </div>
                         ) : null}
                         <div className="grid grid-cols-1 gap-3 mt-3">
                           <div>
-                            <label className="text-xs font-bold text-[#b9b09d]">Account Name</label>
+                            <label className="text-xs font-bold text-muted-foreground">Account Name</label>
                             <Input
                               value={draft.payments.qrDetails.telebirr.accountName}
                               onChange={(e) =>
@@ -1638,7 +1638,7 @@ export const BranchSettings: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-[#b9b09d]">Phone</label>
+                            <label className="text-xs font-bold text-muted-foreground">Phone</label>
                             <Input
                               value={draft.payments.qrDetails.telebirr.phone}
                               onChange={(e) =>
@@ -1658,7 +1658,7 @@ export const BranchSettings: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-[#b9b09d]">Merchant ID</label>
+                            <label className="text-xs font-bold text-muted-foreground">Merchant ID</label>
                             <Input
                               value={draft.payments.qrDetails.telebirr.merchantId}
                               onChange={(e) =>
@@ -1678,7 +1678,7 @@ export const BranchSettings: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-[#b9b09d]">Note</label>
+                            <label className="text-xs font-bold text-muted-foreground">Note</label>
                             <Input
                               value={draft.payments.qrDetails.telebirr.note}
                               onChange={(e) =>
@@ -1701,7 +1701,7 @@ export const BranchSettings: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      <label className="text-sm font-bold text-[#b9b09d]">Bank Transfer QR</label>
+                      <label className="text-sm font-bold text-muted-foreground">Bank Transfer QR</label>
                       <Input
                         value={draft.payments.qrCodes.bank_transfer}
                         onChange={(e) =>
@@ -1713,8 +1713,8 @@ export const BranchSettings: React.FC = () => {
                         placeholder="data:image/png;base64,... or URL"
                         className="mt-2"
                       />
-                      <div className="mt-3 rounded-lg border border-[#393328] bg-[#221c10] p-3">
-                        <div className="text-xs text-[#b9b09d] font-bold uppercase tracking-wider">Bank Transfer Details</div>
+                      <div className="mt-3 rounded-lg border border-border bg-background p-3">
+                        <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Bank Transfer Details</div>
                         <div className="mt-3">
                           <input
                             type="file"
@@ -1738,7 +1738,7 @@ export const BranchSettings: React.FC = () => {
                                 setRemoteError(err instanceof Error ? err.message : 'Upload failed');
                               }
                             }}
-                            className="block w-full text-xs text-[#b9b09d] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#393328] file:text-white hover:file:bg-[#4a4234]"
+                            className="block w-full text-xs text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-secondary file:text-foreground hover:file:bg-secondary/80"
                           />
                         </div>
                         {draft.payments.qrDetails.bank_transfer.image ? (
@@ -1746,13 +1746,13 @@ export const BranchSettings: React.FC = () => {
                             <img
                               src={draft.payments.qrDetails.bank_transfer.image}
                               alt="Bank Transfer QR"
-                              className="max-h-44 max-w-full rounded-lg border border-[#393328] bg-white p-2"
+                              className="max-h-44 max-w-full rounded-lg border border-border bg-background p-2"
                             />
                           </div>
                         ) : null}
                         <div className="grid grid-cols-1 gap-3 mt-3">
                           <div>
-                            <label className="text-xs font-bold text-[#b9b09d]">Bank Name</label>
+                            <label className="text-xs font-bold text-muted-foreground">Bank Name</label>
                             <Input
                               value={draft.payments.qrDetails.bank_transfer.bankName}
                               onChange={(e) =>
@@ -1772,7 +1772,7 @@ export const BranchSettings: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-[#b9b09d]">Account Name</label>
+                            <label className="text-xs font-bold text-muted-foreground">Account Name</label>
                             <Input
                               value={draft.payments.qrDetails.bank_transfer.accountName}
                               onChange={(e) =>
@@ -1792,7 +1792,7 @@ export const BranchSettings: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-[#b9b09d]">Account Number</label>
+                            <label className="text-xs font-bold text-muted-foreground">Account Number</label>
                             <Input
                               value={draft.payments.qrDetails.bank_transfer.accountNumber}
                               onChange={(e) =>
@@ -1812,7 +1812,7 @@ export const BranchSettings: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-[#b9b09d]">Phone</label>
+                            <label className="text-xs font-bold text-muted-foreground">Phone</label>
                             <Input
                               value={draft.payments.qrDetails.bank_transfer.phone}
                               onChange={(e) =>
@@ -1832,7 +1832,7 @@ export const BranchSettings: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-[#b9b09d]">Note</label>
+                            <label className="text-xs font-bold text-muted-foreground">Note</label>
                             <Input
                               value={draft.payments.qrDetails.bank_transfer.note}
                               onChange={(e) =>
@@ -1855,7 +1855,7 @@ export const BranchSettings: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      <label className="text-sm font-bold text-[#b9b09d]">Card QR (optional)</label>
+                      <label className="text-sm font-bold text-muted-foreground">Card QR (optional)</label>
                       <Input
                         value={draft.payments.qrCodes.card}
                         onChange={(e) =>
@@ -1867,8 +1867,8 @@ export const BranchSettings: React.FC = () => {
                         placeholder="data:image/png;base64,... or URL"
                         className="mt-2"
                       />
-                      <div className="mt-3 rounded-lg border border-[#393328] bg-[#221c10] p-3">
-                        <div className="text-xs text-[#b9b09d] font-bold uppercase tracking-wider">Card Details</div>
+                      <div className="mt-3 rounded-lg border border-border bg-background p-3">
+                        <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Card Details</div>
                         <div className="mt-3">
                           <input
                             type="file"
@@ -1892,7 +1892,7 @@ export const BranchSettings: React.FC = () => {
                                 setRemoteError(err instanceof Error ? err.message : 'Upload failed');
                               }
                             }}
-                            className="block w-full text-xs text-[#b9b09d] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#393328] file:text-white hover:file:bg-[#4a4234]"
+                            className="block w-full text-xs text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-secondary file:text-foreground hover:file:bg-secondary/80"
                           />
                         </div>
                         {draft.payments.qrDetails.card.image ? (
@@ -1900,13 +1900,13 @@ export const BranchSettings: React.FC = () => {
                             <img
                               src={draft.payments.qrDetails.card.image}
                               alt="Card QR"
-                              className="max-h-44 max-w-full rounded-lg border border-[#393328] bg-white p-2"
+                              className="max-h-44 max-w-full rounded-lg border border-border bg-background p-2"
                             />
                           </div>
                         ) : null}
                         <div className="grid grid-cols-1 gap-3 mt-3">
                           <div>
-                            <label className="text-xs font-bold text-[#b9b09d]">Merchant ID</label>
+                            <label className="text-xs font-bold text-muted-foreground">Merchant ID</label>
                             <Input
                               value={draft.payments.qrDetails.card.merchantId}
                               onChange={(e) =>
@@ -1926,7 +1926,7 @@ export const BranchSettings: React.FC = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-xs font-bold text-[#b9b09d]">Note</label>
+                            <label className="text-xs font-bold text-muted-foreground">Note</label>
                             <Input
                               value={draft.payments.qrDetails.card.note}
                               onChange={(e) =>
@@ -1951,7 +1951,7 @@ export const BranchSettings: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-[#393328] divide-y divide-[#393328]">
+                <div className="rounded-lg border border-border divide-y divide-border">
                   <CheckboxRow
                     checked={draft.payments.requireReferenceForMethods.includes('mobile_money')}
                     onChange={(next) =>
@@ -1993,21 +1993,21 @@ export const BranchSettings: React.FC = () => {
                   />
                 </div>
 
-                <div className="rounded-lg border border-[#393328] divide-y divide-[#393328]">
+                <div className="rounded-lg border border-border divide-y divide-border">
                   <div className="p-4 flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-white font-bold text-sm">Enable Sounds</p>
-                      <p className="text-[#b9b09d] text-xs mt-1">Play UI sounds for new orders and important actions.</p>
+                      <p className="text-foreground font-bold text-sm">Enable Sounds</p>
+                      <p className="text-muted-foreground text-xs mt-1">Play UI sounds for new orders and important actions.</p>
                     </div>
                     <Toggle checked={draft.general.enableSounds} onChange={(next) => setDraft((p) => ({ ...p, general: { ...p.general, enableSounds: next } }))} label="Enable Sounds" />
                   </div>
                   <div className="p-4 flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-white font-bold text-sm">Currency</p>
-                      <p className="text-[#b9b09d] text-xs mt-1">Currency code displayed on receipts and reports.</p>
+                      <p className="text-foreground font-bold text-sm">Currency</p>
+                      <p className="text-muted-foreground text-xs mt-1">Currency code displayed on receipts and reports.</p>
                     </div>
                     <div className="w-32 flex items-center justify-end">
-                      <span className="text-white font-bold bg-[#393328] px-3 py-2 rounded-lg text-sm border border-[#544b3b]">
+                      <span className="text-foreground font-bold bg-secondary px-3 py-2 rounded-lg text-sm border border-border">
                         ETB
                       </span>
                     </div>
@@ -2015,8 +2015,8 @@ export const BranchSettings: React.FC = () => {
 
                   <div className="p-4 flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-white font-bold text-sm">Offline Mode</p>
-                      <p className="text-[#b9b09d] text-xs mt-1">Allow POS operations when the network is unstable.</p>
+                      <p className="text-foreground font-bold text-sm">Offline Mode</p>
+                      <p className="text-muted-foreground text-xs mt-1">Allow POS operations when the network is unstable.</p>
                     </div>
                     <Toggle checked={draft.general.enableOfflineMode} onChange={(next) => setDraft((p) => ({ ...p, general: { ...p.general, enableOfflineMode: next } }))} label="Offline Mode" />
                   </div>
@@ -2027,21 +2027,21 @@ export const BranchSettings: React.FC = () => {
 
           {activeTab === 'branch' && (
             <section className="max-w-4xl">
-              <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-xl border border-border bg-card p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <label className="text-sm font-bold text-[#b9b09d]">Business Name</label>
+                  <label className="text-sm font-bold text-muted-foreground">Business Name</label>
                   <Input value={draft.branchInfo.businessName} onChange={(e) => setDraft((p) => ({ ...p, branchInfo: { ...p.branchInfo, businessName: e.target.value } }))} className="mt-2" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-sm font-bold text-[#b9b09d]">Address</label>
+                  <label className="text-sm font-bold text-muted-foreground">Address</label>
                   <Input value={draft.branchInfo.address} onChange={(e) => setDraft((p) => ({ ...p, branchInfo: { ...p.branchInfo, address: e.target.value } }))} className="mt-2" />
                 </div>
                 <div>
-                  <label className="text-sm font-bold text-[#b9b09d]">Phone</label>
+                  <label className="text-sm font-bold text-muted-foreground">Phone</label>
                   <Input value={draft.branchInfo.phone} onChange={(e) => setDraft((p) => ({ ...p, branchInfo: { ...p.branchInfo, phone: e.target.value } }))} className="mt-2" />
                 </div>
                 <div>
-                  <label className="text-sm font-bold text-[#b9b09d]">TIN</label>
+                  <label className="text-sm font-bold text-muted-foreground">TIN</label>
                   <Input value={draft.branchInfo.tin} onChange={(e) => setDraft((p) => ({ ...p, branchInfo: { ...p.branchInfo, tin: e.target.value } }))} className="mt-2" />
                 </div>
               </div>
@@ -2050,7 +2050,7 @@ export const BranchSettings: React.FC = () => {
 
           {activeTab === 'hours' && (
             <section className="max-w-4xl">
-              <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5 space-y-4">
+              <div className="rounded-xl border border-border bg-card p-5 space-y-4">
                 {([
                   ['mon', 'Monday'],
                   ['tue', 'Tuesday'],
@@ -2061,7 +2061,7 @@ export const BranchSettings: React.FC = () => {
                   ['sun', 'Sunday'],
                 ] as Array<[keyof BranchSettingsState['operatingHours'], string]>).map(([key, label]) => (
                   <div key={key} className="flex flex-col md:flex-row md:items-center gap-3">
-                    <div className="w-28 text-sm font-bold text-[#b9b09d]">{label}</div>
+                    <div className="w-28 text-sm font-bold text-muted-foreground">{label}</div>
                     <Input
                       value={draft.operatingHours[key]}
                       onChange={(e) => setDraft((p) => ({ ...p, operatingHours: { ...p.operatingHours, [key]: e.target.value } }))}
@@ -2075,18 +2075,18 @@ export const BranchSettings: React.FC = () => {
 
           {activeTab === 'taxes' && (
             <section className="max-w-4xl">
-              <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5 space-y-6">
-                <div className="rounded-lg border border-[#393328] divide-y divide-[#393328]">
+              <div className="rounded-xl border border-border bg-card p-5 space-y-6">
+                <div className="rounded-lg border border-border divide-y divide-border">
                   <div className="p-4 flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-white font-bold text-sm">VAT</p>
-                      <p className="text-[#b9b09d] text-xs mt-1">Apply VAT to sales and show it on receipts.</p>
+                      <p className="text-foreground font-bold text-sm">VAT</p>
+                      <p className="text-muted-foreground text-xs mt-1">Apply VAT to sales and show it on receipts.</p>
                     </div>
                     <Toggle checked={draft.taxes.vatEnabled} onChange={(next) => setDraft((p) => ({ ...p, taxes: { ...p.taxes, vatEnabled: next } }))} label="VAT enabled" />
                   </div>
                   <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-bold text-[#b9b09d]">VAT Rate (%)</label>
+                      <label className="text-sm font-bold text-muted-foreground">VAT Rate (%)</label>
                       <Input
                         type="number"
                         value={draft.taxes.vatRate}
@@ -2097,11 +2097,11 @@ export const BranchSettings: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-[#393328] divide-y divide-[#393328]">
+                <div className="rounded-lg border border-border divide-y divide-border">
                   <div className="p-4 flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-white font-bold text-sm">Service Charge</p>
-                      <p className="text-[#b9b09d] text-xs mt-1">Optional service charge added during checkout.</p>
+                      <p className="text-foreground font-bold text-sm">Service Charge</p>
+                      <p className="text-muted-foreground text-xs mt-1">Optional service charge added during checkout.</p>
                     </div>
                     <Toggle
                       checked={draft.taxes.serviceChargeEnabled}
@@ -2111,7 +2111,7 @@ export const BranchSettings: React.FC = () => {
                   </div>
                   <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-bold text-[#b9b09d]">Service Charge Rate (%)</label>
+                      <label className="text-sm font-bold text-muted-foreground">Service Charge Rate (%)</label>
                       <Input
                         type="number"
                         value={draft.taxes.serviceChargeRate}
@@ -2127,15 +2127,15 @@ export const BranchSettings: React.FC = () => {
 
           {activeTab === 'integrations' && (
             <section className="max-w-4xl">
-              <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5 space-y-4">
+              <div className="rounded-xl border border-border bg-card p-5 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-white font-extrabold">Installed Integrations</div>
-                    <div className="text-xs text-[#b9b09d] mt-1">Read-only view for managers. Owners install integrations.</div>
+                    <div className="text-foreground font-extrabold">Installed Integrations</div>
+                    <div className="text-xs text-muted-foreground mt-1">Read-only view for managers. Owners install integrations.</div>
                   </div>
                   <button
                     onClick={() => void loadInstalledIntegrations()}
-                    className="h-10 px-4 rounded-lg border border-[#393328] bg-[#181611] text-white text-sm font-bold hover:bg-[#2c241b] disabled:opacity-60"
+                    className="h-10 px-4 rounded-lg border border-border bg-secondary text-foreground text-sm font-bold hover:bg-secondary/80 disabled:opacity-60"
                     disabled={integrationsLoading}
                     type="button"
                   >
@@ -2144,22 +2144,22 @@ export const BranchSettings: React.FC = () => {
                 </div>
 
                 {integrationsError ? <div className="text-sm text-red-300">{integrationsError}</div> : null}
-                {integrationsLoading ? <div className="text-sm text-[#b9b09d]">Loading…</div> : null}
+                {integrationsLoading ? <div className="text-sm text-muted-foreground">Loading…</div> : null}
 
                 {!integrationsLoading && installedIntegrations.length === 0 ? (
-                  <div className="text-sm text-[#b9b09d]">No integrations installed.</div>
+                  <div className="text-sm text-muted-foreground">No integrations installed.</div>
                 ) : null}
 
-                <div className="divide-y divide-[#393328] rounded-lg border border-[#393328]">
+                <div className="divide-y divide-border rounded-lg border border-border">
                   {installedIntegrations.map((x) => (
                     <div key={x.id} className="p-4 flex items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <div className="text-white font-bold truncate">{x.name || x.code}</div>
-                        <div className="text-xs text-[#b9b09d] mt-1">
+                        <div className="text-foreground font-bold truncate">{x.name || x.code}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
                           {x.category || '—'} • {x.integrationType || '—'} • {x.status || 'installed'}
                         </div>
                       </div>
-                      <div className="text-xs font-mono text-[#b9b09d]">{x.code}</div>
+                      <div className="text-xs font-mono text-muted-foreground">{x.code}</div>
                     </div>
                   ))}
                 </div>
@@ -2169,15 +2169,15 @@ export const BranchSettings: React.FC = () => {
 
           {activeTab === 'addons' && (
             <section className="max-w-4xl">
-              <div className="rounded-xl border border-[#393328] bg-[#221c10] p-5 space-y-4">
+              <div className="rounded-xl border border-border bg-card p-5 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-white font-extrabold">Active Add-ons</div>
-                    <div className="text-xs text-[#b9b09d] mt-1">Read-only view for managers. Owners subscribe to add-ons.</div>
+                    <div className="text-foreground font-extrabold">Active Add-ons</div>
+                    <div className="text-xs text-muted-foreground mt-1">Read-only view for managers. Owners subscribe to add-ons.</div>
                   </div>
                   <button
                     onClick={() => void loadAddonSubscriptions()}
-                    className="h-10 px-4 rounded-lg border border-[#393328] bg-[#181611] text-white text-sm font-bold hover:bg-[#2c241b] disabled:opacity-60"
+                    className="h-10 px-4 rounded-lg border border-border bg-secondary text-foreground text-sm font-bold hover:bg-secondary/80 disabled:opacity-60"
                     disabled={addonsLoading}
                     type="button"
                   >
@@ -2186,22 +2186,22 @@ export const BranchSettings: React.FC = () => {
                 </div>
 
                 {addonsError ? <div className="text-sm text-red-300">{addonsError}</div> : null}
-                {addonsLoading ? <div className="text-sm text-[#b9b09d]">Loading…</div> : null}
+                {addonsLoading ? <div className="text-sm text-muted-foreground">Loading…</div> : null}
 
                 {!addonsLoading && addonSubscriptions.length === 0 ? (
-                  <div className="text-sm text-[#b9b09d]">No add-ons active for this tenant.</div>
+                  <div className="text-sm text-muted-foreground">No add-ons active for this tenant.</div>
                 ) : null}
 
-                <div className="divide-y divide-[#393328] rounded-lg border border-[#393328]">
+                <div className="divide-y divide-border rounded-lg border border-border">
                   {addonSubscriptions.map((x) => (
                     <div key={x.id} className="p-4 flex items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <div className="text-white font-bold truncate">{x.name || x.code}</div>
-                        <div className="text-xs text-[#b9b09d] mt-1">
+                        <div className="text-foreground font-bold truncate">{x.name || x.code}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
                           {x.category || '—'} • {x.status || '—'} • {x.billingFrequency || '—'}
                         </div>
                       </div>
-                      <div className="text-xs font-mono text-[#b9b09d]">{x.code}</div>
+                      <div className="text-xs font-mono text-muted-foreground">{x.code}</div>
                     </div>
                   ))}
                 </div>
@@ -2257,7 +2257,7 @@ export const BranchSettings: React.FC = () => {
                   setEditDeviceId(null);
                   setDeviceFormState(null);
                 }}
-                className="h-11 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] border border-[#544b3b] text-white font-semibold transition-colors"
+                className="h-11 px-4 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
                 type="button"
               >
                 Cancel
@@ -2286,7 +2286,7 @@ export const BranchSettings: React.FC = () => {
                   setEditDeviceId(null);
                   setDeviceFormState(null);
                 }}
-                className="h-11 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] font-extrabold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-11 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 type="button"
               >
                 {editDeviceId && editDeviceId !== 'NEW' ? 'Save Changes' : 'Add Device'}
@@ -2297,7 +2297,7 @@ export const BranchSettings: React.FC = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-bold text-[#b9b09d]">Device Name</label>
+                <label className="text-sm font-bold text-muted-foreground">Device Name</label>
                 <Input
                   value={deviceFormState?.name ?? ''}
                   onChange={(e) => setDeviceFormState((p) => (p ? { ...p, name: e.target.value } : p))}
@@ -2306,7 +2306,7 @@ export const BranchSettings: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-sm font-bold text-[#b9b09d]">Device Type</label>
+                <label className="text-sm font-bold text-muted-foreground">Device Type</label>
                 <Select
                   value={deviceFormState?.kind ?? 'Printer'}
                   onChange={(e) => setDeviceFormState((p) => (p ? { ...p, kind: e.target.value as ConnectedDevice['kind'] } : p))}
@@ -2319,7 +2319,7 @@ export const BranchSettings: React.FC = () => {
               </div>
             </div>
             <div>
-              <label className="text-sm font-bold text-[#b9b09d]">Model</label>
+              <label className="text-sm font-bold text-muted-foreground">Model</label>
               <Input
                 value={deviceFormState?.model ?? ''}
                 onChange={(e) => setDeviceFormState((p) => (p ? { ...p, model: e.target.value } : p))}
@@ -2330,7 +2330,7 @@ export const BranchSettings: React.FC = () => {
             {deviceFormState?.connection === 'LAN' && (
               <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-2">
-                  <label className="text-sm font-bold text-[#b9b09d]">IP Address</label>
+                  <label className="text-sm font-bold text-muted-foreground">IP Address</label>
                   <Input
                     value={deviceFormState?.ip ?? ''}
                     onChange={(e) => setDeviceFormState((p) => (p ? { ...p, ip: e.target.value } : p))}
@@ -2339,7 +2339,7 @@ export const BranchSettings: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-bold text-[#b9b09d]">Port</label>
+                  <label className="text-sm font-bold text-muted-foreground">Port</label>
                   <Input
                     value={deviceFormState?.port ?? '9100'}
                     onChange={(e) => setDeviceFormState((p) => (p ? { ...p, port: e.target.value } : p))}
@@ -2352,7 +2352,7 @@ export const BranchSettings: React.FC = () => {
 
             {deviceFormState?.connection === 'whitetooth' && (
               <div>
-                <label className="text-sm font-bold text-[#b9b09d]">whitetooth Printer</label>
+                <label className="text-sm font-bold text-muted-foreground">whitetooth Printer</label>
                 <Input
                   value={deviceFormState?.whitetoothName ?? ''}
                   onChange={(e) => setDeviceFormState((p) => (p ? { ...p, whitetoothName: e.target.value } : p))}
@@ -2364,7 +2364,7 @@ export const BranchSettings: React.FC = () => {
 
             {deviceFormState?.connection === 'Cloud' && (
               <div>
-                <label className="text-sm font-bold text-[#b9b09d]">Cloud Printer ID</label>
+                <label className="text-sm font-bold text-muted-foreground">Cloud Printer ID</label>
                 <Input
                   value={deviceFormState?.cloudId ?? ''}
                   onChange={(e) => setDeviceFormState((p) => (p ? { ...p, cloudId: e.target.value } : p))}
@@ -2374,7 +2374,7 @@ export const BranchSettings: React.FC = () => {
               </div>
             )}
             <div>
-              <label className="text-sm font-bold text-[#b9b09d]">Usage</label>
+              <label className="text-sm font-bold text-muted-foreground">Usage</label>
               <Input
                 value={deviceFormState?.usage ?? ''}
                 onChange={(e) => setDeviceFormState((p) => (p ? { ...p, usage: e.target.value } : p))}
@@ -2399,7 +2399,7 @@ export const BranchSettings: React.FC = () => {
                   setSettingsDevice(null);
                   setSettingsDeviceDraft(null);
                 }}
-                className="flex-1 h-11 rounded-lg bg-[#393328] hover:bg-[#4a4234] border border-[#544b3b] text-white font-semibold transition-colors"
+                className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
               >
                 Cancel
               </button>
@@ -2421,7 +2421,7 @@ export const BranchSettings: React.FC = () => {
                     setRemoteError(e instanceof Error ? e.message : 'Save failed');
                   }
                 }}
-                className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] font-extrabold transition-colors disabled:opacity-60"
+                className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors disabled:opacity-60"
               >
                 Save Changes
               </button>
@@ -2432,7 +2432,7 @@ export const BranchSettings: React.FC = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-bold text-[#b9b09d]">Device Name</label>
+                  <label className="text-sm font-bold text-muted-foreground">Device Name</label>
                   <Input
                     value={settingsDeviceDraft.name}
                     onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, name: e.target.value } : p))}
@@ -2441,7 +2441,7 @@ export const BranchSettings: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-bold text-[#b9b09d]">Model</label>
+                  <label className="text-sm font-bold text-muted-foreground">Model</label>
                   <Input
                     value={settingsDeviceDraft.model}
                     onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, model: e.target.value } : p))}
@@ -2453,7 +2453,7 @@ export const BranchSettings: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm font-bold text-[#b9b09d]">Connection</label>
+                  <label className="text-sm font-bold text-muted-foreground">Connection</label>
                   <Select
                     value={settingsDeviceDraft.connection}
                     onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, connection: e.target.value as any } : p))}
@@ -2465,7 +2465,7 @@ export const BranchSettings: React.FC = () => {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-bold text-[#b9b09d]">Profile</label>
+                  <label className="text-sm font-bold text-muted-foreground">Profile</label>
                   <Select
                     value={settingsDeviceDraft.profile}
                     onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, profile: e.target.value as any } : p))}
@@ -2477,7 +2477,7 @@ export const BranchSettings: React.FC = () => {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-bold text-[#b9b09d]">Status</label>
+                  <label className="text-sm font-bold text-muted-foreground">Status</label>
                   <Select
                     value={settingsDeviceDraft.status}
                     onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, status: e.target.value as any } : p))}
@@ -2492,7 +2492,7 @@ export const BranchSettings: React.FC = () => {
               {settingsDeviceDraft.connection === 'LAN' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-bold text-[#b9b09d]">IP Address</label>
+                    <label className="text-sm font-bold text-muted-foreground">IP Address</label>
                     <Input
                       value={settingsDeviceDraft.ip}
                       onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, ip: e.target.value } : p))}
@@ -2501,7 +2501,7 @@ export const BranchSettings: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-bold text-[#b9b09d]">Port</label>
+                    <label className="text-sm font-bold text-muted-foreground">Port</label>
                     <Input
                       value={settingsDeviceDraft.port}
                       onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, port: e.target.value } : p))}
@@ -2514,7 +2514,7 @@ export const BranchSettings: React.FC = () => {
 
               {settingsDeviceDraft.connection === 'whitetooth' ? (
                 <div>
-                  <label className="text-sm font-bold text-[#b9b09d]">whitetooth Printer</label>
+                  <label className="text-sm font-bold text-muted-foreground">whitetooth Printer</label>
                   <Input
                     value={settingsDeviceDraft.whitetoothName ?? ''}
                     onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, whitetoothName: e.target.value } : p))}
@@ -2526,7 +2526,7 @@ export const BranchSettings: React.FC = () => {
 
               {settingsDeviceDraft.connection === 'Cloud' ? (
                 <div>
-                  <label className="text-sm font-bold text-[#b9b09d]">Cloud Printer ID</label>
+                  <label className="text-sm font-bold text-muted-foreground">Cloud Printer ID</label>
                   <Input
                     value={settingsDeviceDraft.cloudId ?? ''}
                     onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, cloudId: e.target.value } : p))}
@@ -2537,7 +2537,7 @@ export const BranchSettings: React.FC = () => {
               ) : null}
 
               <div>
-                <label className="text-sm font-bold text-[#b9b09d]">Usage</label>
+                <label className="text-sm font-bold text-muted-foreground">Usage</label>
                 <Input
                   value={settingsDeviceDraft.usage}
                   onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, usage: e.target.value } : p))}
@@ -2547,7 +2547,7 @@ export const BranchSettings: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="text-sm text-[#b9b09d]">Select a device to edit.</div>
+            <div className="text-sm text-muted-foreground">Select a device to edit.</div>
           )}
         </Modal>
 
@@ -2560,7 +2560,7 @@ export const BranchSettings: React.FC = () => {
           }}
           footer={
             <div className="flex gap-3">
-              <button onClick={() => setTestPrintDevice(null)} className="flex-1 h-11 rounded-lg bg-[#393328] hover:bg-[#4a4234] border border-[#544b3b] text-white font-semibold transition-colors">Close</button>
+              <button onClick={() => setTestPrintDevice(null)} className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors">Close</button>
               <button
                 onClick={async () => {
                   const device = testPrintDevice;
@@ -2648,19 +2648,19 @@ export const BranchSettings: React.FC = () => {
                     }),
                   );
                 }}
-                className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] font-extrabold transition-colors"
+                className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors"
               >
                 Print Sample
               </button>
             </div>
           }
         >
-          <div className="text-sm text-[#b9b09d]">
+          <div className="text-sm text-muted-foreground">
             {testPrintDevice?.connection === 'LAN'
               ? 'This will send ESC/POS data to the configured LAN printer.'
               : 'A sample print will open your system print dialog.'}
           </div>
-          {testPrintStatus ? <div className="mt-3 text-sm text-white">{testPrintStatus}</div> : null}
+          {testPrintStatus ? <div className="mt-3 text-sm text-foreground">{testPrintStatus}</div> : null}
         </Modal>
 
         <Modal
@@ -2669,7 +2669,7 @@ export const BranchSettings: React.FC = () => {
           onClose={() => setPreviewOpen(false)}
           footer={
             <div className="flex gap-3">
-              <button onClick={() => setPreviewOpen(false)} className="flex-1 h-11 rounded-lg bg-[#393328] hover:bg-[#4a4234] border border-[#544b3b] text-white font-semibold transition-colors">Close</button>
+              <button onClick={() => setPreviewOpen(false)} className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors">Close</button>
               <button
                 onClick={() => {
                   const html = receiptHtml({
@@ -2697,29 +2697,29 @@ export const BranchSettings: React.FC = () => {
                   });
                   openPrintWindow(html);
                 }}
-                className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] font-extrabold transition-colors"
+                className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors"
               >
                 Print Preview
               </button>
             </div>
           }
         >
-          <div className="rounded-xl border border-[#393328] bg-[#181611] p-5">
-            <div className="text-center text-white font-bold">{ownerBusinessName || '-'}</div>
-            <div className="mt-1 text-center text-xs text-[#b9b09d]">{draft.branchInfo.address || '-'}</div>
-            <div className="mt-1 text-center text-xs text-[#b9b09d]">{draft.branchInfo.phone || '-'}</div>
-            <div className="mt-1 text-center text-xs text-[#b9b09d]">TIN: {draft.branchInfo.tin || '-'}</div>
-            <div className="mt-3 border-t border-dashed border-[#393328]" />
-            <div className="mt-3 flex justify-between text-xs text-[#b9b09d]"><span>Item</span><span>Amount</span></div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="text-center text-foreground font-bold">{ownerBusinessName || '-'}</div>
+            <div className="mt-1 text-center text-xs text-muted-foreground">{draft.branchInfo.address || '-'}</div>
+            <div className="mt-1 text-center text-xs text-muted-foreground">{draft.branchInfo.phone || '-'}</div>
+            <div className="mt-1 text-center text-xs text-muted-foreground">TIN: {draft.branchInfo.tin || '-'}</div>
+            <div className="mt-3 border-t border-dashed border-border" />
+            <div className="mt-3 flex justify-between text-xs text-muted-foreground"><span>Item</span><span>Amount</span></div>
             <div className="mt-2 space-y-2">
-              <div className="flex justify-between text-sm text-white"><span>Cappuccino</span><span>120</span></div>
-              <div className="flex justify-between text-sm text-white"><span>Sandwich</span><span>180</span></div>
+              <div className="flex justify-between text-sm text-foreground"><span>Cappuccino</span><span>120</span></div>
+              <div className="flex justify-between text-sm text-foreground"><span>Sandwich</span><span>180</span></div>
             </div>
-            <div className="mt-3 border-t border-dashed border-[#393328]" />
-            <div className="mt-3 flex justify-between text-sm text-white font-bold"><span>Total</span><span>300</span></div>
-            <div className="mt-4 text-center text-xs text-[#b9b09d]">{draft.receipt.footer1}</div>
-            <div className="mt-1 text-center text-xs text-[#b9b09d]">{draft.receipt.footer2}</div>
-            <div className="mt-2 text-center text-xs text-[#b9b09d]">Powered by Mirach POS</div>
+            <div className="mt-3 border-t border-dashed border-border" />
+            <div className="mt-3 flex justify-between text-sm text-foreground font-bold"><span>Total</span><span>300</span></div>
+            <div className="mt-4 text-center text-xs text-muted-foreground">{draft.receipt.footer1}</div>
+            <div className="mt-1 text-center text-xs text-muted-foreground">{draft.receipt.footer2}</div>
+            <div className="mt-2 text-center text-xs text-muted-foreground">Powered by Mirach POS</div>
           </div>
         </Modal>
       </div>

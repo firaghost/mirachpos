@@ -60,8 +60,8 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
       onClick={() => setFilter(value)}
       className={`flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-lg px-4 text-sm transition-colors border ${
         filter === value
-          ? 'bg-[#cf7317] text-white border-[#cf7317]/40'
-          : 'bg-[#2c241b] border-[#3d3226] text-[#c8ad93] hover:text-white hover:border-[#cf7317]/30'
+          ? 'bg-primary text-foreground border-primary/40'
+          : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/30'
       }`}
     >
       <span className="material-symbols-outlined text-[18px]">{icon}</span>
@@ -71,22 +71,22 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
 
   const iconFor = (type: string) => (type === 'Kitchen' ? 'soup_kitchen' : type === 'Payments' ? 'payments' : 'wifi');
   const iconBgFor = (type: string) =>
-    type === 'Kitchen' ? 'bg-[#cf7317]/20 text-[#cf7317]' : type === 'Payments' ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400';
+    type === 'Kitchen' ? 'bg-primary/20 text-primary' : type === 'Payments' ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400';
   const accentFor = (type: string) =>
     type === 'Kitchen' ? 'border-[#cf7317]' : type === 'Payments' ? 'border-green-500' : 'border-orange-500';
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#211911] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-5xl px-6 py-8">
-          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#3d3226] pb-6">
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
             <div>
-              <h1 className="text-white text-3xl font-bold tracking-tight">Notifications</h1>
-              <p className="text-[#c8ad93] text-sm mt-1">Stay updated on orders, payments, and kitchen alerts.</p>
+              <h1 className="text-foreground text-3xl font-bold tracking-tight">Notifications</h1>
+              <p className="text-muted-foreground text-sm mt-1">Stay updated on orders, payments, and kitchen alerts.</p>
             </div>
             <button
               onClick={markAllNotificationsRead}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2c241b] text-white text-sm font-semibold hover:bg-[#3a3024] border border-[#3d3226]"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card text-foreground text-sm font-semibold hover:bg-card/80 border border-border"
             >
               <span className="material-symbols-outlined text-[18px]">done_all</span>
               Mark all as read
@@ -102,16 +102,16 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
 
           <div className="flex flex-col gap-8">
             <div>
-              <div className="text-[#c8ad93] text-xs font-bold uppercase tracking-wider mb-4">Today</div>
+              <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-4">Today</div>
               <div className="flex flex-col gap-3">
                 {today.length === 0 ? (
-                  <div className="text-[#c8ad93] text-sm">No notifications today.</div>
+                  <div className="text-muted-foreground text-sm">No notifications today.</div>
                 ) : (
                   today.map((n) => (
                     <div
                       key={n.id}
                       onClick={() => markNotificationRead(n.id, true)}
-                      className={`group relative flex items-start gap-4 bg-[#2c241b] p-4 rounded-xl border-l-4 shadow-sm transition-all cursor-pointer hover:bg-[#3a3024] ${accentFor(n.type)} ${
+                      className={`group relative flex items-start gap-4 bg-card p-4 rounded-xl border-l-4 shadow-sm transition-all cursor-pointer hover:bg-card/80 ${accentFor(n.type)} ${
                         n.read ? 'opacity-70' : ''
                       }`}
                     >
@@ -121,17 +121,17 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
 
                       <div className="flex flex-col flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-3">
-                          <p className="text-white text-base font-semibold leading-tight truncate">{n.title}</p>
+                          <p className="text-foreground text-base font-semibold leading-tight truncate">{n.title}</p>
                           <div className="flex items-center gap-3 shrink-0">
                             {!n.read ? (
-                              <span className="inline-flex items-center rounded-full bg-[#cf7317]/20 px-2 py-0.5 text-xs font-bold text-[#cf7317] border border-[#cf7317]/30">
+                              <span className="inline-flex items-center rounded-full bg-primary/20 px-2 py-0.5 text-xs font-bold text-primary border border-primary/30">
                                 New
                               </span>
                             ) : null}
-                            <span className="text-xs text-[#c8ad93] whitespace-nowrap">{formatRelative(n.createdAt)}</span>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">{formatRelative(n.createdAt)}</span>
                           </div>
                         </div>
-                        <p className="text-[#c8ad93] text-sm mt-1 leading-normal">{n.message}</p>
+                        <p className="text-muted-foreground text-sm mt-1 leading-normal">{n.message}</p>
 
                         <div className="mt-3 flex items-center gap-4">
                           {n.type === 'Kitchen' ? (
@@ -144,7 +144,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
                                   onNavigate(Screen.WAITER_REVIEW);
                                 }
                               }}
-                              className="text-xs font-bold text-[#cf7317] hover:text-white uppercase tracking-wide"
+                              className="text-xs font-bold text-primary hover:text-foreground uppercase tracking-wide"
                             >
                               View order
                             </button>
@@ -160,7 +160,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
                                   onNavigate(Screen.WAITER_RECEIPT);
                                 }
                               }}
-                              className="text-xs font-bold text-green-400 hover:text-white uppercase tracking-wide"
+                              className="text-xs font-bold text-green-400 hover:text-foreground uppercase tracking-wide"
                             >
                               View receipt
                             </button>
@@ -173,7 +173,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
                                 markNotificationRead(n.id, true);
                                 onNavigate(Screen.WAITER_SYSTEM);
                               }}
-                              className="text-xs font-bold text-orange-300 hover:text-white uppercase tracking-wide"
+                              className="text-xs font-bold text-orange-300 hover:text-foreground uppercase tracking-wide"
                             >
                               View system
                             </button>
@@ -185,7 +185,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
                                 e.stopPropagation();
                                 markNotificationRead(n.id, false);
                               }}
-                              className="text-xs font-bold text-[#c8ad93] hover:text-white"
+                              className="text-xs font-bold text-muted-foreground hover:text-foreground"
                             >
                               Mark unread
                             </button>
@@ -200,23 +200,23 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
 
             {yesterday.length > 0 ? (
               <div>
-                <div className="text-[#c8ad93] text-xs font-bold uppercase tracking-wider mb-4">Yesterday</div>
+                <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-4">Yesterday</div>
                 <div className="flex flex-col gap-3">
                   {yesterday.map((n) => (
                     <div
                       key={n.id}
                       onClick={() => markNotificationRead(n.id, true)}
-                      className={`group relative flex items-start gap-4 bg-[#2c241b] p-4 rounded-xl border-l-4 shadow-sm transition-all cursor-pointer hover:bg-[#3a3024] ${accentFor(n.type)} opacity-70`}
+                      className={`group relative flex items-start gap-4 bg-card p-4 rounded-xl border-l-4 shadow-sm transition-all cursor-pointer hover:bg-card/80 ${accentFor(n.type)} opacity-70`}
                     >
                       <div className={`mt-1 flex items-center justify-center rounded-full shrink-0 size-10 ${iconBgFor(n.type)}`}>
                         <span className="material-symbols-outlined icon-filled">{iconFor(n.type)}</span>
                       </div>
                       <div className="flex flex-col flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-3">
-                          <p className="text-white text-base font-semibold leading-tight truncate">{n.title}</p>
-                          <span className="text-xs text-[#c8ad93] whitespace-nowrap">{formatRelative(n.createdAt)}</span>
+                          <p className="text-foreground text-base font-semibold leading-tight truncate">{n.title}</p>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">{formatRelative(n.createdAt)}</span>
                         </div>
-                        <p className="text-[#c8ad93] text-sm mt-1 leading-normal">{n.message}</p>
+                        <p className="text-muted-foreground text-sm mt-1 leading-normal">{n.message}</p>
                       </div>
                     </div>
                   ))}
@@ -226,23 +226,23 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
 
             {older.length > 0 ? (
               <div>
-                <div className="text-[#c8ad93] text-xs font-bold uppercase tracking-wider mb-4">Earlier</div>
+                <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-4">Earlier</div>
                 <div className="flex flex-col gap-3">
                   {older.map((n) => (
                     <div
                       key={n.id}
                       onClick={() => markNotificationRead(n.id, true)}
-                      className={`group relative flex items-start gap-4 bg-[#2c241b] p-4 rounded-xl border-l-4 shadow-sm transition-all cursor-pointer hover:bg-[#3a3024] ${accentFor(n.type)} opacity-70`}
+                      className={`group relative flex items-start gap-4 bg-card p-4 rounded-xl border-l-4 shadow-sm transition-all cursor-pointer hover:bg-card/80 ${accentFor(n.type)} opacity-70`}
                     >
                       <div className={`mt-1 flex items-center justify-center rounded-full shrink-0 size-10 ${iconBgFor(n.type)}`}>
                         <span className="material-symbols-outlined icon-filled">{iconFor(n.type)}</span>
                       </div>
                       <div className="flex flex-col flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-3">
-                          <p className="text-white text-base font-semibold leading-tight truncate">{n.title}</p>
-                          <span className="text-xs text-[#c8ad93] whitespace-nowrap">{formatRelative(n.createdAt)}</span>
+                          <p className="text-foreground text-base font-semibold leading-tight truncate">{n.title}</p>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">{formatRelative(n.createdAt)}</span>
                         </div>
-                        <p className="text-[#c8ad93] text-sm mt-1 leading-normal">{n.message}</p>
+                        <p className="text-muted-foreground text-sm mt-1 leading-normal">{n.message}</p>
                       </div>
                     </div>
                   ))}
@@ -251,7 +251,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
             ) : null}
 
             {today.length === 0 && yesterday.length === 0 && older.length === 0 ? (
-              <div className="text-center text-[#c8ad93] text-sm mt-12">You're all caught up!</div>
+              <div className="text-center text-muted-foreground text-sm mt-12">You're all caught up!</div>
             ) : null}
           </div>
         </div>

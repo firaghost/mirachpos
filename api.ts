@@ -147,7 +147,16 @@ export const apiFetch = async (input: RequestInfo | URL, init: ApiFetchOptions =
   const { auth = true, headers, ...rest } = init;
   const mergedHeaders: Record<string, string> = { ...(headers || {}) };
   const isSuperadminRoute = typeof input === 'string' && input.startsWith('/api/superadmin/');
-  if (auth) Object.assign(mergedHeaders, isSuperadminRoute ? superadminAuthHeader() : authHeader());
+  const isSuperadminContext = (() => {
+    try {
+      initTabSession();
+      const sess = readSession<any>();
+      return String(sess?.role || '').trim() === 'Super Admin';
+    } catch {
+      return false;
+    }
+  })();
+  if (auth) Object.assign(mergedHeaders, isSuperadminRoute || isSuperadminContext ? superadminAuthHeader() : authHeader());
 
   if (!isSuperadminRoute) {
     const tenant = tenantSlug();
@@ -272,7 +281,7 @@ export const apiFetch = async (input: RequestInfo | URL, init: ApiFetchOptions =
       const cloned = res.clone();
       const json = (await cloned.json().catch(() => null)) as any;
       const err = String(json?.error || json?.message || '').trim().toLowerCase();
-      if (err === 'unauthorized' || err === 'invalid_token' || err === 'token_expired' || err === 'jwt_expired') {
+      if (err === 'invalid_token' || err === 'token_expired' || err === 'jwt_expired') {
         logoutAndReload();
         return res;
       }

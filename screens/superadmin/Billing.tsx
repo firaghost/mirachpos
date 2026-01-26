@@ -379,7 +379,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
       }
       if (s === 'verification needed' || s === 'verification_needed') {
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[#eead2b]/30 bg-[#eead2b]/10 text-[#eead2b] text-xs font-bold uppercase tracking-wide">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-bold uppercase tracking-wide">
             <span className="material-symbols-outlined text-[14px]">pending</span>
             Pending
           </span>
@@ -402,7 +402,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
         );
       }
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-white/10 bg-white/5 text-[#c9b792] text-xs font-bold uppercase tracking-wide">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-muted/40 text-muted-foreground text-xs font-bold uppercase tracking-wide">
           {r.status || 'Unknown'}
         </span>
       );
@@ -438,42 +438,42 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
     return (
     <div className="flex flex-col gap-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-[#2c2415] border border-[#675532]/40 rounded-lg p-4 flex flex-col gap-2 relative overflow-hidden group hover:border-[#675532] transition-colors">
+            <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-2 relative overflow-hidden group hover:border-accent transition-colors">
                 <div className="flex justify-between items-start z-10">
-                    <span className="text-xs font-bold uppercase text-[#c9b792] tracking-wider">Monthly Revenue (MRR)</span>
-                    <span className="material-symbols-outlined text-[#eead2b]/80">payments</span>
+                    <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Monthly Revenue (MRR)</span>
+                    <span className="material-symbols-outlined text-primary/80">payments</span>
                 </div>
                 <div className="flex items-baseline gap-1 z-10">
-                    <span className="text-[#c9b792] text-sm font-medium">ETB</span>
-                    <span className="text-2xl font-bold text-white">{fmtEtb(overview.monthlyRevenueEtb || 0)}</span>
+                    <span className="text-muted-foreground text-sm font-medium">ETB</span>
+                    <span className="text-2xl font-bold text-foreground">{fmtEtb(overview.monthlyRevenueEtb || 0)}</span>
                 </div>
                 <div className="flex items-center gap-1 text-xs text-green-400 z-10">
                     <span className="material-symbols-outlined text-[14px]">trending_up</span>
                     <span>+0.0% vs last month</span>
                 </div>
-                <div className="absolute -right-6 -top-6 w-20 h-20 bg-[#eead2b]/5 rounded-full group-hover:bg-[#eead2b]/10 transition-colors"></div>
+                <div className="absolute -right-6 -top-6 w-20 h-20 bg-primary/5 rounded-full group-hover:bg-primary/10 transition-colors"></div>
             </div>
 
-            <div className="bg-[#2c2415] border border-[#675532]/40 rounded-lg p-4 flex flex-col gap-2 relative overflow-hidden hover:border-[#675532] transition-colors">
+            <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-2 relative overflow-hidden hover:border-accent transition-colors">
                 <div className="flex justify-between items-start z-10">
-                    <span className="text-xs font-bold uppercase text-[#c9b792] tracking-wider">Pending Validations</span>
+                    <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Pending Validations</span>
                     <span className="material-symbols-outlined text-warning">pending</span>
                 </div>
                 <div className="flex items-center gap-2 z-10">
-                    <span className="text-2xl font-bold text-white">{overview.pendingVerify || 0}</span>
+                    <span className="text-2xl font-bold text-foreground">{overview.pendingVerify || 0}</span>
                     <span className="px-2 py-0.5 rounded-full bg-warning/20 border border-warning/30 text-warning text-[10px] font-bold uppercase">Action Required</span>
                 </div>
-                <div className="text-xs text-[#c9b792] z-10">Total Value: ETB {fmtEtb(overview.monthlyRevenueEtb || 0)}</div>
+                <div className="text-xs text-muted-foreground z-10">Total Value: ETB {fmtEtb(overview.monthlyRevenueEtb || 0)}</div>
             </div>
 
-            <div className="bg-[#2c2415] border border-[#675532]/40 rounded-lg p-4 flex flex-col gap-2 relative overflow-hidden hover:border-[#675532] transition-colors">
+            <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-2 relative overflow-hidden hover:border-accent transition-colors">
                 <div className="flex justify-between items-start z-10">
-                    <span className="text-xs font-bold uppercase text-[#c9b792] tracking-wider">At Risk (Grace Period)</span>
+                    <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">At Risk (Grace Period)</span>
                     <span className="material-symbols-outlined text-red-400">warning</span>
                 </div>
                 <div className="flex items-center gap-2 z-10">
-                    <span className="text-2xl font-bold text-white">{overview.atRisk || 0}</span>
-                    <span className="text-xs text-[#c9b792]">Accounts</span>
+                    <span className="text-2xl font-bold text-foreground">{overview.atRisk || 0}</span>
+                    <span className="text-xs text-muted-foreground">Accounts</span>
                 </div>
                 <div className="text-xs text-red-300 z-10 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
@@ -481,16 +481,16 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                 </div>
             </div>
 
-            <div className="bg-[#2c2415] border border-[#675532]/40 rounded-lg p-4 flex flex-col gap-2 relative overflow-hidden hover:border-[#675532] transition-colors">
+            <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-2 relative overflow-hidden hover:border-accent transition-colors">
                 <div className="flex justify-between items-start z-10">
-                    <span className="text-xs font-bold uppercase text-[#c9b792] tracking-wider">Active Subscriptions</span>
-                    <span className="material-symbols-outlined text-[#c9b792]">groups</span>
+                    <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Active Subscriptions</span>
+                    <span className="material-symbols-outlined text-muted-foreground">groups</span>
                 </div>
-                <span className="text-2xl font-bold text-white z-10">{overview.totalActive || 0}</span>
+                <span className="text-2xl font-bold text-foreground z-10">{overview.totalActive || 0}</span>
                 <div className="w-full bg-black/30 h-1.5 rounded-full mt-auto z-10">
-                    <div className="bg-[#eead2b] h-full rounded-full" style={{ width: '88%' }} />
+                    <div className="bg-primary h-full rounded-full" style={{ width: '88%' }} />
                 </div>
-                <span className="text-[10px] text-[#c9b792] mt-0.5 z-10">88% Paid on time</span>
+                <span className="text-[10px] text-muted-foreground mt-0.5 z-10">88% Paid on time</span>
             </div>
         </div>
 
@@ -502,7 +502,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
               <div className="flex flex-col md:flex-row md:items-center justify-between w-full gap-4">
                   <div>
                       <h3 className="text-red-200 text-sm font-bold uppercase tracking-wider">Suspension Warning</h3>
-                      <p className="text-[#c9b792] text-sm mt-1">
+                      <p className="text-muted-foreground text-sm mt-1">
                         {atRiskRows.length} Cafes have exceeded their grace period limit. Platform access may be revoked soon.
                       </p>
                   </div>
@@ -520,14 +520,14 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
         <section className="flex flex-col gap-4">
             <div className="flex items-end justify-between">
                 <div className="flex flex-col gap-1">
-                    <h2 className="text-white text-lg font-bold">Manual Payment Verification Queue</h2>
-                    <p className="text-[#c9b792] text-sm">Review bank transfers (CBE) and manual cash payments requiring admin approval.</p>
+                    <h2 className="text-foreground text-lg font-bold">Manual Payment Verification Queue</h2>
+                    <p className="text-muted-foreground text-sm">Review bank transfers (CBE) and manual cash payments requiring admin approval.</p>
                 </div>
             </div>
-            <div className="bg-[#2c2415] border border-[#675532] rounded-lg overflow-hidden">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-[#1a150c] border-b border-[#675532] text-xs uppercase text-[#c9b792] font-bold tracking-wider">
+                        <tr className="bg-muted/40 border-b border-border text-xs uppercase text-muted-foreground font-bold tracking-wider">
                             <th className="p-4 w-1/4">Originating Cafe</th>
                             <th className="p-4">Reference / Transaction ID</th>
                             <th className="p-4">Amount</th>
@@ -536,10 +536,10 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                             <th className="p-4 text-right">Decision</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#675532]/20 text-sm">
+                    <tbody className="divide-y divide-border text-sm">
                         {pendingQueue.length === 0 ? (
                           <tr>
-                            <td className="p-4 text-[#c9b792]" colSpan={6}>No pending payments.</td>
+                            <td className="p-4 text-muted-foreground" colSpan={6}>No pending payments.</td>
                           </tr>
                         ) : null}
                         {pendingQueue.map((r) => {
@@ -547,28 +547,28 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                           const ref = String(r.reference || '').trim();
                           const proofName = String(r.proofFilename || '').trim() || (String(r.proofUrl || '').trim() ? 'Attachment' : '');
                           return (
-                            <tr key={r.paymentId} className="hover:bg-[#362d1d] transition-colors group">
+                            <tr key={r.paymentId} className="hover:bg-muted/40 transition-colors group">
                               <td className="p-4">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded bg-[#eead2b]/10 flex items-center justify-center text-[#eead2b] font-bold text-xs border border-[#eead2b]/20">{initials}</div>
+                                  <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-primary font-bold text-xs border border-primary/20">{initials}</div>
                                   <div>
-                                    <p className="text-white font-semibold">{r.tenantName}</p>
-                                    <p className="text-[#c9b792] text-xs">ID: {r.tenantId}</p>
+                                    <p className="text-foreground font-semibold">{r.tenantName}</p>
+                                    <p className="text-muted-foreground text-xs">ID: {r.tenantId}</p>
                                   </div>
                                 </div>
                               </td>
                               <td className="p-4">
                                 <div className="flex flex-col">
-                                  <span className="text-white font-mono">{ref || r.invoiceNumber || r.invoiceId || '-'}</span>
-                                  <span className="text-[#c9b792] text-xs">{r.method || 'Manual'}</span>
+                                  <span className="text-foreground font-mono">{ref || r.invoiceNumber || r.invoiceId || '-'}</span>
+                                  <span className="text-muted-foreground text-xs">{r.method || 'Manual'}</span>
                                 </div>
                               </td>
-                              <td className="p-4 text-white font-bold font-mono">ETB {(Number(r.amountEtb || 0) || 0).toFixed(2)}</td>
-                              <td className="p-4 text-[#c9b792]">{r.submittedAt ? fmtDateTime(r.submittedAt) : '—'}</td>
+                              <td className="p-4 text-foreground font-bold font-mono">ETB {(Number(r.amountEtb || 0) || 0).toFixed(2)}</td>
+                              <td className="p-4 text-muted-foreground">{r.submittedAt ? fmtDateTime(r.submittedAt) : '—'}</td>
                               <td className="p-4">
                                 {r.proofUrl ? (
                                   <a
-                                    className="flex items-center gap-1 text-[#eead2b] hover:underline text-xs font-medium"
+                                    className="flex items-center gap-1 text-primary hover:underline text-xs font-medium"
                                     href={resolveProofUrl(r.proofUrl)}
                                     target="_blank"
                                     rel="noreferrer"
@@ -577,13 +577,13 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                                     {proofName || 'Attachment'}
                                   </a>
                                 ) : (
-                                  <span className="text-[#c9b792] text-xs italic">No attachment</span>
+                                  <span className="text-muted-foreground text-xs italic">No attachment</span>
                                 )}
                               </td>
                               <td className="p-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
                                   <button
-                                    className="p-2 rounded hover:bg-red-500/10 text-[#c9b792] hover:text-red-400 transition-colors"
+                                    className="p-2 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
                                     title="Reject"
                                     type="button"
                                     onClick={() => rejectPendingPayment(r)}
@@ -592,7 +592,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                                     <span className="material-symbols-outlined text-[20px]">close</span>
                                   </button>
                                   <button
-                                    className="px-3 py-1.5 rounded bg-[#eead2b]/10 border border-[#eead2b]/40 text-[#eead2b] hover:bg-[#eead2b] hover:text-[#1a150c] font-bold text-xs transition-colors uppercase tracking-wide disabled:opacity-60"
+                                    className="px-3 py-1.5 rounded bg-primary/10 border border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground font-bold text-xs transition-colors uppercase tracking-wide disabled:opacity-60"
                                     type="button"
                                     disabled={saving === r.paymentId}
                                     onClick={() => verifyPendingPayment(r)}
@@ -606,9 +606,9 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                         })}
                     </tbody>
                 </table>
-                <div className="bg-[#1a150c] p-2 border-t border-[#675532] text-center">
+                <div className="bg-muted/40 p-2 border-t border-border text-center">
                     <button
-                      className="text-xs text-[#c9b792] hover:text-[#eead2b] font-medium flex items-center justify-center gap-1 w-full py-1"
+                      className="text-xs text-muted-foreground hover:text-primary font-medium flex items-center justify-center gap-1 w-full py-1"
                       type="button"
                     >
                       View all pending ({pendingQueue.length})
@@ -621,25 +621,25 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
         <section className="flex flex-col gap-4">
             <div className="flex flex-col lg:flex-row justify-between items-end lg:items-center gap-4">
                 <div className="flex flex-col gap-1">
-                    <h2 className="text-white text-lg font-bold">Subscription Management</h2>
-                    <p className="text-[#c9b792] text-sm">Detailed billing status for all tenant cafes.</p>
+                    <h2 className="text-foreground text-lg font-bold">Subscription Management</h2>
+                    <p className="text-muted-foreground text-sm">Detailed billing status for all tenant cafes.</p>
                 </div>
                 <div className="flex flex-wrap gap-2 w-full lg:w-auto">
                     <div className="relative group grow lg:grow-0">
-                        <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#c9b792]">search</span>
+                        <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground">search</span>
                         <input
                           value={q}
                           onChange={(e) => setQ(e.target.value)}
-                          className="pl-10 pr-4 py-2 bg-[#2c2415] border border-[#675532] rounded text-sm text-white focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b] placeholder-[#c9b792]/50 w-full lg:w-64"
+                          className="pl-10 pr-4 py-2 bg-card border border-border rounded text-sm text-foreground focus:ring-2 focus:ring-primary/30 focus:border-border placeholder:text-muted-foreground w-full lg:w-64"
                           placeholder="Search Tenant ID or Name..."
                           type="text"
                         />
                     </div>
-                    <div className="h-9 w-px bg-[#675532] mx-2 hidden lg:block" />
+                    <div className="h-9 w-px bg-border mx-2 hidden lg:block" />
                     <select
                       value={statusFilter || 'all'}
                       onChange={(e) => setStatusFilter(e.target.value === 'all' ? '' : e.target.value)}
-                      className="bg-[#2c2415] border border-[#675532] text-white text-sm rounded px-3 py-2 outline-none focus:border-[#eead2b] cursor-pointer hover:bg-[#1a150c]"
+                      className="bg-card border border-border text-foreground text-sm rounded px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer hover:bg-accent"
                     >
                       <option value="all">Status: All</option>
                       <option value="Active">Active</option>
@@ -650,7 +650,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                     <select
                       value={planFilter || 'all'}
                       onChange={(e) => setPlanFilter(e.target.value === 'all' ? '' : e.target.value)}
-                      className="bg-[#2c2415] border border-[#675532] text-white text-sm rounded px-3 py-2 outline-none focus:border-[#eead2b] cursor-pointer hover:bg-[#1a150c]"
+                      className="bg-card border border-border text-foreground text-sm rounded px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer hover:bg-accent"
                     >
                       <option value="all">Plan: All</option>
                       <option value="monthly">Monthly</option>
@@ -659,11 +659,11 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                 </div>
             </div>
 
-            <div className="bg-[#2c2415] border border-[#675532] rounded-lg overflow-hidden shadow-xl shadow-black/20">
+            <div className="bg-card border border-border rounded-lg overflow-hidden shadow-xl shadow-black/20">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-[#1a150c] border-b border-[#675532] text-xs uppercase text-[#c9b792] font-bold tracking-wider">
+                            <tr className="bg-muted/40 border-b border-border text-xs uppercase text-muted-foreground font-bold tracking-wider">
                                 <th className="p-5">Cafe &amp; Tenant Info</th>
                                 <th className="p-5">Current Plan</th>
                                 <th className="p-5">Lifecycle Status</th>
@@ -673,10 +673,10 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                                 <th className="p-5 text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#675532]/20 text-sm">
+                        <tbody className="divide-y divide-border text-sm">
                             {pagedRows.length === 0 && !loading ? (
                                 <tr>
-                                    <td className="p-5 text-[#c9b792]" colSpan={7}>No subscription records yet.</td>
+                                    <td className="p-5 text-muted-foreground" colSpan={7}>No subscription records yet.</td>
                                 </tr>
                             ) : null}
 
@@ -687,30 +687,30 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                                     <tr key={r.tenantId} className={
                                       verifyNeeded
                                         ? 'bg-warning/5 border-l-2 border-l-warning hover:bg-warning/10 transition-colors'
-                                        : 'hover:bg-[#362d1d] transition-colors'
+                                        : 'hover:bg-muted/40 transition-colors'
                                     }>
                                         <td className="p-5">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-lg bg-[#3e321e] flex items-center justify-center text-[#c9b792] font-bold border border-[#675532]/30">{initials}</div>
+                                                <div className="w-10 h-10 rounded-lg bg-muted/40 flex items-center justify-center text-muted-foreground font-bold border border-border">{initials}</div>
                                                 <div>
-                                                    <p className="text-white font-bold text-base">{r.tenantName}</p>
-                                                    <p className="text-[#c9b792] text-xs">ID: {r.tenantId}</p>
+                                                    <p className="text-foreground font-bold text-base">{r.tenantName}</p>
+                                                    <p className="text-muted-foreground text-xs">ID: {r.tenantId}</p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="p-5">
                                             <div className="flex flex-col gap-1">
-                                                <span className="text-white font-medium">{r.plan || 'Trial'}</span>
-                                                <span className="text-[#c9b792] text-xs">{r.cycle || 'Monthly'} Cycle</span>
+                                                <span className="text-foreground font-medium">{r.plan || 'Trial'}</span>
+                                                <span className="text-muted-foreground text-xs">{r.cycle || 'Monthly'} Cycle</span>
                                             </div>
                                         </td>
                                         <td className="p-5">{badgeForLifecycle(r)}</td>
-                                        <td className="p-5 text-right font-mono text-white">{(Number(r.amountEtb || 0) || 0).toFixed(2)}</td>
-                                        <td className={"p-5 " + (verifyNeeded ? 'text-red-300 font-bold' : 'text-white')}>
+                                        <td className="p-5 text-right font-mono text-foreground">{(Number(r.amountEtb || 0) || 0).toFixed(2)}</td>
+                                        <td className={"p-5 " + (verifyNeeded ? 'text-red-300 font-bold' : 'text-foreground')}>
                                             {r.nextBillAt ? fmtDate(r.nextBillAt) : '--'}
-                                            <div className="text-[#c9b792] text-xs mt-0.5">{verifyNeeded ? 'Payment Failed' : 'Autopay On'}</div>
+                                            <div className="text-muted-foreground text-xs mt-0.5">{verifyNeeded ? 'Payment Failed' : 'Autopay On'}</div>
                                         </td>
-                                        <td className="p-5 text-[#c9b792] text-xs">
+                                        <td className="p-5 text-muted-foreground text-xs">
                                             <div className="flex items-center gap-2">
                                                 <span className="material-symbols-outlined text-[18px]">payments</span>
                                                 {r.method || 'Manual'}
@@ -720,7 +720,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                                             {verifyNeeded ? (
                                               <div className="flex justify-end gap-2">
                                                 <button
-                                                  className="px-3 py-1 text-xs font-bold text-[#c9b792] hover:text-white border border-transparent hover:border-[#675532] rounded transition-colors"
+                                                  className="px-3 py-1 text-xs font-bold text-muted-foreground hover:text-foreground border border-transparent hover:border-border rounded transition-colors"
                                                   type="button"
                                                   onClick={() => openEdit('grace', r.tenantId, r.graceEndsAt || '')}
                                                 >
@@ -737,7 +737,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                                               </div>
                                             ) : (
                                               <button
-                                                className="p-2 text-[#c9b792] hover:text-white hover:bg-white/5 rounded transition-colors"
+                                                className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
                                                 type="button"
                                                 onClick={(ev) => toggleActions(r.tenantId, ev)}
                                               >
@@ -752,23 +752,23 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                     </table>
                 </div>
 
-                <div className="flex items-center justify-between p-4 border-t border-[#675532] bg-[#1a150c]">
+                <div className="flex items-center justify-between p-4 border-t border-border bg-muted/40">
                     <div className="flex items-center gap-2">
-                        <span className="text-xs text-[#c9b792]">Rows per page:</span>
+                        <span className="text-xs text-muted-foreground">Rows per page:</span>
                         <select
                           value={String(pageSize)}
                           onChange={(e) => setPageSize(Math.max(1, Number(e.target.value) || 10))}
-                          className="bg-[#2c2415] border-none text-xs text-white rounded px-2 py-1 outline-none cursor-pointer"
+                          className="bg-card border border-border text-xs text-foreground rounded px-2 py-1 outline-none cursor-pointer"
                         >
                           <option value="10">10</option>
                           <option value="20">20</option>
                           <option value="50">50</option>
                         </select>
-                        <span className="text-xs text-[#c9b792] ml-2">Showing {showingFrom}-{showingTo} of {visibleRows.length}</span>
+                        <span className="text-xs text-muted-foreground ml-2">Showing {showingFrom}-{showingTo} of {visibleRows.length}</span>
                     </div>
                     <div className="flex gap-2">
                         <button
-                          className="px-3 py-1 rounded border border-[#675532] text-xs text-[#c9b792] hover:text-white hover:bg-[#2c2415] disabled:opacity-50"
+                          className="px-3 py-1 rounded border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
                           disabled={safePage <= 1}
                           type="button"
                           onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -776,7 +776,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                           Previous
                         </button>
                         <button
-                          className="px-3 py-1 rounded border border-[#675532] text-xs text-[#c9b792] hover:text-white hover:bg-[#2c2415] disabled:opacity-50"
+                          className="px-3 py-1 rounded border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
                           disabled={safePage >= totalPages}
                           type="button"
                           onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -790,12 +790,12 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
 
         {invoiceOpen ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                <div className="w-full max-w-[520px] rounded-xl border border-[#675532] bg-[#2c2415] overflow-hidden shadow-2xl">
-                    <div className="p-5 border-b border-[#675532] bg-[#1a150c] flex items-center justify-between">
-                        <div className="text-white font-bold">Manual Invoice</div>
+                <div className="w-full max-w-[520px] rounded-xl border border-border bg-card overflow-hidden shadow-2xl">
+                    <div className="p-5 border-b border-border bg-muted/40 flex items-center justify-between">
+                        <div className="text-foreground font-bold">Manual Invoice</div>
                         <button
                             onClick={() => setInvoiceOpen(false)}
-                            className="text-[#c9b792] hover:text-white"
+                            className="text-muted-foreground hover:text-foreground"
                             type="button"
                         >
                             <span className="material-symbols-outlined">close</span>
@@ -803,11 +803,11 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                     </div>
                     <div className="p-5 space-y-4">
                         <div className="flex flex-col gap-2">
-                            <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Tenant</div>
+                            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Tenant</div>
                             <select
                                 value={invoiceTenantId}
                                 onChange={(e) => setInvoiceTenantId(e.target.value)}
-                                className="w-full bg-[#221c11] border border-[#483c23] rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                                className="w-full bg-card border border-border rounded-lg py-2 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                             >
                                 <option value="">Select tenant ¦</option>
                                 {rows.map((r) => (
@@ -817,53 +817,53 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="flex flex-col gap-2">
-                                <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Amount (ETB)</div>
+                                <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Amount (ETB)</div>
                                 <input
                                     value={invoiceAmountEtb}
                                     onChange={(e) => setInvoiceAmountEtb(e.target.value)}
-                                    className="w-full bg-[#221c11] border border-[#483c23] rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                                    className="w-full bg-card border border-border rounded-lg py-2 px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                                     placeholder="e.g. 1500"
                                 />
                             </div>
                             <div className="flex flex-col gap-2">
-                                <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Method</div>
+                                <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Method</div>
                                 <input
                                     value={invoiceMethod}
                                     onChange={(e) => setInvoiceMethod(e.target.value)}
-                                    className="w-full bg-[#221c11] border border-[#483c23] rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                                    className="w-full bg-card border border-border rounded-lg py-2 px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                                     placeholder="Cash / Bank Transfer"
                                 />
                             </div>
                         </div>
                         <div className="flex flex-col gap-2">
-                            <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Due At (ISO, optional)</div>
+                            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Due At (ISO, optional)</div>
                             <input
                                 value={invoiceDueAt}
                                 onChange={(e) => setInvoiceDueAt(e.target.value)}
-                                className="w-full bg-[#221c11] border border-[#483c23] rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                                className="w-full bg-card border border-border rounded-lg py-2 px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                                 placeholder="2025-01-01T00:00:00.000Z"
                             />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <div className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Notes (optional)</div>
+                            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Notes (optional)</div>
                             <textarea
                                 value={invoiceNotes}
                                 onChange={(e) => setInvoiceNotes(e.target.value)}
-                                className="w-full bg-[#221c11] border border-[#483c23] rounded-lg p-3 text-sm text-white focus:outline-none focus:border-[#eead2b] resize-none h-20"
+                                className="w-full bg-card border border-border rounded-lg p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none h-20"
                                 placeholder="Internal note for this invoice"
                             />
                         </div>
                         <div className="flex justify-end gap-3 pt-2">
                             <button
                                 onClick={() => setInvoiceOpen(false)}
-                                className="px-4 py-2 rounded-lg border border-[#483c23] bg-[#2d261a] text-[#c9b792] text-sm font-bold hover:text-white hover:bg-[#362e21]"
+                                className="px-4 py-2 rounded-lg border border-border bg-card text-muted-foreground text-sm font-bold hover:text-foreground hover:bg-accent"
                                 type="button"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={submitManualInvoice}
-                                className="px-4 py-2 rounded-lg bg-[#eead2b] text-[#221c11] text-sm font-bold hover:bg-[#d6961b]"
+                                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90"
                                 type="button"
                                 disabled={saving === 'manual'}
                             >
@@ -877,36 +877,36 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
 
         {editOpen ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                <div className="w-full max-w-[520px] rounded-xl border border-[#675532] bg-[#2c2415] overflow-hidden shadow-2xl">
-                    <div className="p-5 border-b border-[#675532] bg-[#1a150c] flex items-center justify-between">
-                        <div className="text-white font-bold">{editKind === 'nextbill' ? 'Set Next Bill' : 'Set Grace Ends'}</div>
+                <div className="w-full max-w-[520px] rounded-xl border border-border bg-card overflow-hidden shadow-2xl">
+                    <div className="p-5 border-b border-border bg-muted/40 flex items-center justify-between">
+                        <div className="text-foreground font-bold">{editKind === 'nextbill' ? 'Set Next Bill' : 'Set Grace Ends'}</div>
                         <button
                             onClick={() => setEditOpen(false)}
-                            className="text-[#c9b792] hover:text-white"
+                            className="text-muted-foreground hover:text-foreground"
                             type="button"
                         >
                             <span className="material-symbols-outlined">close</span>
                         </button>
                     </div>
                     <div className="p-5 space-y-4">
-                        <div className="text-xs text-[#c9b792]">Tenant: <span className="text-white font-mono">{editTenantId}</span></div>
+                        <div className="text-xs text-muted-foreground">Tenant: <span className="text-foreground font-mono">{editTenantId}</span></div>
                         <input
                             value={editValue}
                             onChange={(e) => setEditValue(e.target.value)}
-                            className="w-full bg-[#221c11] border border-[#483c23] rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-[#eead2b]"
+                            className="w-full bg-card border border-border rounded-lg py-2 px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                             placeholder={editKind === 'nextbill' ? '2025-01-01T00:00:00.000Z' : '2025-01-01T00:00:00.000Z'}
                         />
                         <div className="flex justify-end gap-3 pt-2">
                             <button
                                 onClick={() => setEditOpen(false)}
-                                className="px-4 py-2 rounded-lg border border-[#483c23] bg-[#2d261a] text-[#c9b792] text-sm font-bold hover:text-white hover:bg-[#362e21]"
+                                className="px-4 py-2 rounded-lg border border-border bg-card text-muted-foreground text-sm font-bold hover:text-foreground hover:bg-accent"
                                 type="button"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={submitEdit}
-                                className="px-4 py-2 rounded-lg bg-[#eead2b] text-[#221c11] text-sm font-bold hover:bg-[#d6961b]"
+                                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90"
                                 type="button"
                             >
                                 Save
@@ -942,19 +942,19 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                     setOpenActionsFor(null);
                     setActionsAnchor(null);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#2d261a]"
+                  className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent"
                   type="button"
                 >
                   Manual Invoice
                 </button>
-                <div className="h-px bg-[#675532]/40" />
+                <div className="h-px bg-border" />
                 <button
                   onClick={() => {
                     postSet('/api/superadmin/billing/set-status', { tenantId: r.tenantId, status: 'Verification Needed' });
                     setOpenActionsFor(null);
                     setActionsAnchor(null);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-[#c9b792] hover:text-white hover:bg-[#2d261a]"
+                  className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent"
                   type="button"
                 >
                   Mark Verification Needed
@@ -965,19 +965,19 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                     setOpenActionsFor(null);
                     setActionsAnchor(null);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-[#c9b792] hover:text-white hover:bg-[#2d261a]"
+                  className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent"
                   type="button"
                 >
                   Mark Active
                 </button>
-                <div className="h-px bg-[#675532]/40" />
+                <div className="h-px bg-border" />
                 <button
                   onClick={() => {
                     postSet('/api/superadmin/billing/set-cycle', { tenantId: r.tenantId, cycle: 'Monthly' });
                     setOpenActionsFor(null);
                     setActionsAnchor(null);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-[#c9b792] hover:text-white hover:bg-[#2d261a]"
+                  className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent"
                   type="button"
                 >
                   Set Cycle: Monthly
@@ -988,19 +988,19 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                     setOpenActionsFor(null);
                     setActionsAnchor(null);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-[#c9b792] hover:text-white hover:bg-[#2d261a]"
+                  className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent"
                   type="button"
                 >
                   Set Cycle: Yearly
                 </button>
-                <div className="h-px bg-[#675532]/40" />
+                <div className="h-px bg-border" />
                 <button
                   onClick={() => {
                     postSet('/api/superadmin/billing/set-method', { tenantId: r.tenantId, method: 'Cash' });
                     setOpenActionsFor(null);
                     setActionsAnchor(null);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-[#c9b792] hover:text-white hover:bg-[#2d261a]"
+                  className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent"
                   type="button"
                 >
                   Set Method: Cash
@@ -1011,19 +1011,19 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                     setOpenActionsFor(null);
                     setActionsAnchor(null);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-[#c9b792] hover:text-white hover:bg-[#2d261a]"
+                  className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent"
                   type="button"
                 >
                   Set Method: Bank Transfer
                 </button>
-                <div className="h-px bg-[#675532]/40" />
+                <div className="h-px bg-border" />
                 <button
                   onClick={() => {
                     openEdit('nextbill', r.tenantId, r.nextBillAt);
                     setOpenActionsFor(null);
                     setActionsAnchor(null);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-[#c9b792] hover:text-white hover:bg-[#2d261a]"
+                  className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent"
                   type="button"
                 >
                   Set Next Bill
@@ -1034,7 +1034,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                     setOpenActionsFor(null);
                     setActionsAnchor(null);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-[#c9b792] hover:text-white hover:bg-[#2d261a]"
+                  className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent"
                   type="button"
                 >
                   Set Grace Ends
@@ -1285,35 +1285,35 @@ const PlansMatrixView = () => {
         const isDash = v === ' ”' || v === '';
         if (icon && v === 'Unlimited') {
             return (
-                <span className="text-white font-bold text-lg flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#eead2b] text-[20px]">{icon}</span> {v}
+                <span className="text-foreground font-bold text-lg flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-[20px]">{icon}</span> {v}
                 </span>
             );
         }
         if (icon && (v === 'Included' || v === 'Limited')) {
             return (
-                <span className={'inline-flex items-center gap-2 ' + (highlight ? 'text-[#eead2b] font-bold' : 'text-white font-bold')}>
-                    <span className={'material-symbols-outlined text-[18px] ' + (highlight ? 'text-[#eead2b]' : 'text-[#c9b792]')}>{icon}</span>
+                <span className={'inline-flex items-center gap-2 ' + (highlight ? 'text-primary font-bold' : 'text-foreground font-bold')}>
+                    <span className={'material-symbols-outlined text-[18px] ' + (highlight ? 'text-primary' : 'text-muted-foreground')}>{icon}</span>
                     {v}
                 </span>
             );
         }
-        if (isDash) return <span className="text-[#c9b792]"> ”</span>;
-        return <span className={highlight ? 'text-[#eead2b] font-bold text-lg' : 'text-white font-bold text-lg'}>{v}</span>;
+        if (isDash) return <span className="text-muted-foreground"> ”</span>;
+        return <span className={highlight ? 'text-primary font-bold text-lg' : 'text-foreground font-bold text-lg'}>{v}</span>;
     };
     return (
     <div className="flex flex-col">
         {editOpen ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/60" onClick={() => (editSaving ? null : setEditOpen(false))} />
-                <div className="relative w-full max-w-[720px] rounded-xl border border-[#675532] bg-[#221c11] shadow-2xl">
-                    <div className="px-6 py-4 border-b border-[#483c23] flex items-center justify-between">
-                        <div className="text-white font-black text-lg">Edit Plan: {editTier || ' ”'}</div>
+                <div className="relative w-full max-w-[720px] rounded-xl border border-border bg-card shadow-2xl">
+                    <div className="px-6 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
+                        <div className="text-foreground font-black text-lg">Edit Plan: {editTier || ' ”'}</div>
                         <button
                             type="button"
                             disabled={editSaving}
                             onClick={() => setEditOpen(false)}
-                            className="text-[#c9b792] hover:text-white disabled:opacity-50"
+                            className="text-muted-foreground hover:text-foreground disabled:opacity-50"
                         >
                             Close
                         </button>
@@ -1321,59 +1321,59 @@ const PlansMatrixView = () => {
 
                     <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="flex flex-col gap-2">
-                            <label className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Monthly Price (ETB)</label>
+                            <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Monthly Price (ETB)</label>
                             <input
                                 value={editMonthly}
                                 onChange={(e) => setEditMonthly(e.target.value)}
-                                className="h-11 rounded-lg border border-[#483c23] bg-[#332b19] px-3 text-white text-sm"
+                                className="h-11 rounded-lg border border-border bg-card px-3 text-foreground text-sm"
                                 disabled={editSaving}
                             />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <label className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Yearly Price (ETB)</label>
+                            <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Yearly Price (ETB)</label>
                             <input
                                 value={editYearly}
                                 onChange={(e) => setEditYearly(e.target.value)}
-                                className="h-11 rounded-lg border border-[#483c23] bg-[#332b19] px-3 text-white text-sm"
+                                className="h-11 rounded-lg border border-border bg-card px-3 text-foreground text-sm"
                                 disabled={editSaving}
                             />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <label className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Branch Limit</label>
+                            <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Branch Limit</label>
                             <input
                                 value={editBranchLimit}
                                 onChange={(e) => setEditBranchLimit(e.target.value)}
-                                className="h-11 rounded-lg border border-[#483c23] bg-[#332b19] px-3 text-white text-sm"
+                                className="h-11 rounded-lg border border-border bg-card px-3 text-foreground text-sm"
                                 disabled={editSaving}
                             />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <label className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Staff Limit</label>
+                            <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Staff Limit</label>
                             <input
                                 value={editStaffLimit}
                                 onChange={(e) => setEditStaffLimit(e.target.value)}
-                                className="h-11 rounded-lg border border-[#483c23] bg-[#332b19] px-3 text-white text-sm"
+                                className="h-11 rounded-lg border border-border bg-card px-3 text-foreground text-sm"
                                 disabled={editSaving}
                             />
                         </div>
                         <div className="flex flex-col gap-2 md:col-span-2">
-                            <label className="text-xs text-[#c9b792] font-bold uppercase tracking-wider">Modules (comma-separated)</label>
+                            <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Modules (comma-separated)</label>
                             <textarea
                                 value={editModules}
                                 onChange={(e) => setEditModules(e.target.value)}
-                                className="min-h-[92px] rounded-lg border border-[#483c23] bg-[#332b19] px-3 py-2 text-white text-sm"
+                                className="min-h-[92px] rounded-lg border border-border bg-card px-3 py-2 text-foreground text-sm"
                                 disabled={editSaving}
                             />
-                            <div className="text-xs text-[#c9b792]">Example: pos, orders, tables, inventory, menu, staff, branches, settings</div>
+                            <div className="text-xs text-muted-foreground">Example: pos, orders, tables, inventory, menu, staff, branches, settings</div>
                         </div>
                     </div>
 
-                    <div className="px-6 py-4 border-t border-[#483c23] flex items-center justify-end gap-3">
+                    <div className="px-6 py-4 border-t border-border bg-muted/40 flex items-center justify-end gap-3">
                         <button
                             type="button"
                             onClick={() => setEditOpen(false)}
                             disabled={editSaving}
-                            className="px-4 py-2 rounded-lg border border-[#675532] bg-[#332b19] text-[#c9b792] hover:text-white disabled:opacity-50"
+                            className="px-4 py-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
                         >
                             Cancel
                         </button>
@@ -1381,7 +1381,7 @@ const PlansMatrixView = () => {
                             type="button"
                             onClick={saveEdit}
                             disabled={editSaving}
-                            className="px-4 py-2 rounded-lg bg-[#eead2b] text-[#221c11] font-bold hover:bg-[#d6961b] disabled:opacity-50"
+                            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-50"
                         >
                             {editSaving ? 'Saving ¦' : 'Save'}
                         </button>
@@ -1391,13 +1391,13 @@ const PlansMatrixView = () => {
         ) : null}
 
         <div className="flex items-center justify-between mb-4">
-            <div className="text-xs text-[#c9b792]">
+            <div className="text-xs text-muted-foreground">
                 {plansLoading ? 'Loading plans ¦' : planRow ? `Plan source: MySQL (${String(planRow.tier)})` : 'Plan source: MySQL'}
             </div>
             <button
                 onClick={openEdit}
                 disabled={!planRow || editSaving}
-                className="px-3 py-2 rounded-lg border border-[#675532] bg-[#332b19] text-sm font-bold text-white hover:bg-[#3a2f1c] disabled:opacity-50"
+                className="px-3 py-2 rounded-lg border border-border bg-card text-sm font-bold text-foreground hover:bg-accent disabled:opacity-50"
                 type="button"
             >
                 Edit Selected Plan
@@ -1405,12 +1405,12 @@ const PlansMatrixView = () => {
         </div>
 
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <div className="flex bg-[#332b19] rounded-lg p-1 border border-[#675532]">
+            <div className="flex bg-card rounded-lg p-1 border border-border">
                 <button
                     onClick={() => setPeriod('monthly')}
                     className={
                         'px-6 py-2 rounded-md text-sm font-bold shadow-sm transition-all ' +
-                        (period === 'monthly' ? 'bg-[#483c23] text-white' : 'text-[#c9b792] hover:text-white')
+                        (period === 'monthly' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground')
                     }
                     type="button"
                 >
@@ -1420,7 +1420,7 @@ const PlansMatrixView = () => {
                     onClick={() => setPeriod('yearly')}
                     className={
                         'px-6 py-2 rounded-md text-sm font-bold transition-all ' +
-                        (period === 'yearly' ? 'bg-[#483c23] text-white' : 'text-[#c9b792] hover:text-white')
+                        (period === 'yearly' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground')
                     }
                     type="button"
                 >
@@ -1428,14 +1428,14 @@ const PlansMatrixView = () => {
                 </button>
             </div>
             <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
-                <div className="flex items-center gap-2 text-xs text-[#c9b792]">
-                    <span className="material-symbols-outlined text-[18px] text-[#eead2b]">storefront</span>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="material-symbols-outlined text-[18px] text-primary">storefront</span>
                     <span className="uppercase tracking-wider font-bold">Cafe</span>
                 </div>
                 <select
                     value={selectedTenantId}
                     onChange={(e) => setSelectedTenantId(e.target.value)}
-                    className="bg-[#332b19] rounded-lg p-2 border border-[#675532] text-sm text-white min-w-[280px]"
+                    className="bg-card rounded-lg p-2 border border-border text-sm text-foreground min-w-[280px]"
                     disabled={loading}
                 >
                     <option value="">Select cafe ¦</option>
@@ -1446,8 +1446,8 @@ const PlansMatrixView = () => {
                     ))}
                 </select>
             </div>
-            <div className="flex gap-4 text-xs text-[#c9b792] items-center">
-                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#eead2b]"></span><span>Warning Threshold</span></div>
+            <div className="flex gap-4 text-xs text-muted-foreground items-center">
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary"></span><span>Warning Threshold</span></div>
                 <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500"></span><span>Limit Reached</span></div>
             </div>
         </div>
@@ -1456,31 +1456,31 @@ const PlansMatrixView = () => {
             <div className="mb-4 rounded-lg border border-red-900/40 bg-red-900/10 p-4 text-sm text-red-200">{error}</div>
         ) : null}
 
-        <div className="w-full overflow-hidden rounded-xl border border-[#675532] bg-[#332b19] shadow-2xl">
+        <div className="w-full overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[900px]">
                     <thead>
-                        <tr className="border-b border-[#675532] bg-[#2a2415]">
-                            <th className="sticky left-0 z-20 bg-[#2a2415] p-6 min-w-[200px] border-r border-[#675532]"><span className="text-[#c9b792] text-xs font-bold uppercase tracking-wider">Feature / Limit</span></th>
-                            <th className={"p-6 min-w-[260px] " + 'bg-[#2d261a]'}>
+                        <tr className="border-b border-border bg-muted/40">
+                            <th className="sticky left-0 z-20 bg-muted/40 p-6 min-w-[200px] border-r border-border"><span className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Feature / Limit</span></th>
+                            <th className={"p-6 min-w-[260px] " + 'bg-muted/40'}>
                                 <div className="flex flex-col gap-1">
                                     <span className={
-                                        'text-white text-sm font-bold uppercase tracking-wide ' +
-                                        (selectedHeader.accent ? 'text-[#eead2b]' : '')
+                                        'text-foreground text-sm font-bold uppercase tracking-wide ' +
+                                        (selectedHeader.accent ? 'text-primary' : '')
                                     }>
                                         {selectedHeader.title}
                                     </span>
                                     <div className="flex items-baseline gap-1 mt-1">
                                         {selectedHeader.price === null ? (
-                                            <span className="text-white text-2xl font-black">Custom</span>
+                                            <span className="text-foreground text-2xl font-black">Custom</span>
                                         ) : (
                                             <>
-                                                <span className="text-white text-2xl font-black">ETB {selectedHeader.price}</span>
-                                                <span className="text-[#c9b792] text-xs font-medium">{suffix}</span>
+                                                <span className="text-foreground text-2xl font-black">ETB {selectedHeader.price}</span>
+                                                <span className="text-muted-foreground text-xs font-medium">{suffix}</span>
                                             </>
                                         )}
                                     </div>
-                                    <div className="text-[11px] text-[#c9b792] mt-2">
+                                    <div className="text-[11px] text-muted-foreground mt-2">
                                         Limits: {limitValue.branchLimit ? `Branches ${limitValue.branchLimit}` : 'Branches  ”'}    {limitValue.staffLimit ? `Staff ${limitValue.staffLimit}` : 'Staff  ”'}
                                     </div>
                                 </div>
@@ -1490,18 +1490,18 @@ const PlansMatrixView = () => {
                     <tbody className="text-sm">
                         {sections.map((s) => (
                             <React.Fragment key={s.title}>
-                                <tr className="bg-[#262013]">
-                                    <td className="px-6 py-3 border-b border-[#675532] sticky left-0 z-10 bg-[#262013]" colSpan={2}>
+                                <tr className="bg-muted/40">
+                                    <td className="px-6 py-3 border-b border-border sticky left-0 z-10 bg-muted/40" colSpan={2}>
                                         <div className="flex items-center gap-2">
-                                            <span className="material-symbols-outlined text-[#eead2b] text-[18px]">{s.icon}</span>
-                                            <span className="text-white font-bold text-sm uppercase tracking-wide">{s.title}</span>
+                                            <span className="material-symbols-outlined text-primary text-[18px]">{s.icon}</span>
+                                            <span className="text-foreground font-bold text-sm uppercase tracking-wide">{s.title}</span>
                                         </div>
                                     </td>
                                 </tr>
                                 {s.rows.map((r) => (
-                                    <tr key={r.label} className="group hover:bg-[#3d3320] transition-colors border-b border-[#675532]/30">
-                                        <td className="p-6 font-medium text-white sticky left-0 z-10 bg-[#332b19] group-hover:bg-[#3d3320] border-r border-[#675532]">{r.label}</td>
-                                        <td className={"p-6 align-top bg-[#2d261a]/40"}>
+                                    <tr key={r.label} className="group hover:bg-accent transition-colors border-b border-border/60">
+                                        <td className="p-6 font-medium text-foreground sticky left-0 z-10 bg-card group-hover:bg-accent border-r border-border">{r.label}</td>
+                                        <td className={"p-6 align-top bg-muted/40"}>
                                             {selectedKey === 'trial'
                                                 ? renderCell(r.trial, false, r.trial === 'Included' ? 'check_circle' : r.trial === 'Limited' ? 'error' : undefined)
                                                 : selectedKey === 'basic'
@@ -1557,23 +1557,23 @@ export const SA_Billing: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#15110a] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="max-w-[1600px] mx-auto flex flex-col">
-          <div className="bg-[#1a150c] border-b border-[#3e321e] px-8 py-5 flex flex-col gap-6 shrink-0">
+          <div className="bg-muted/40 border-b border-border px-8 py-5 flex flex-col gap-6 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-[#c9b792]/60">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   <span>Platform</span>
-                  <span className="text-[#eead2b]">•</span>
+                  <span className="text-primary">•</span>
                   <span>Financials</span>
                 </div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">Billing &amp; Subscriptions</h1>
+                <h1 className="text-2xl font-bold text-foreground tracking-tight">Billing &amp; Subscriptions</h1>
               </div>
               <div className="flex items-center gap-3">
                 <button
                   onClick={exportLedger}
-                  className="flex items-center gap-2 px-4 py-2 rounded border border-[#675532] bg-transparent text-[#c9b792] text-sm font-medium hover:text-white hover:bg-[#675532]/20 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 rounded border border-border bg-transparent text-muted-foreground text-sm font-medium hover:text-foreground hover:bg-accent transition-colors"
                   type="button"
                 >
                   <span className="material-symbols-outlined text-[18px]">download</span>
@@ -1581,7 +1581,7 @@ export const SA_Billing: React.FC = () => {
                 </button>
                 <button
                   onClick={manualInvoice}
-                  className="flex items-center gap-2 px-4 py-2 rounded bg-[#eead2b] text-[#221c11] text-sm font-bold hover:bg-[#d6961b] transition-colors shadow-[0_0_20px_rgba(238,173,43,0.2)]"
+                  className="flex items-center gap-2 px-4 py-2 rounded bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors shadow-[0_0_20px_rgba(238,173,43,0.2)]"
                   type="button"
                 >
                   <span className="material-symbols-outlined text-[18px]">add</span>

@@ -165,17 +165,17 @@ export const DraftInbox: React.FC = () => {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-[#1a1612] text-white">
-      <div className="px-6 py-5 border-b border-[#483c23] bg-[#2c2417] flex items-center justify-between gap-4">
+    <div className="h-full overflow-y-auto bg-background text-foreground">
+      <div className="px-6 py-5 border-b border-border bg-card flex items-center justify-between gap-4">
         <div className="flex flex-col">
           <div className="text-2xl font-black tracking-tight">Draft Inbox</div>
-          <div className="text-xs text-[#c9b792] font-semibold">Branch: {branchId}</div>
+          <div className="text-xs text-muted-foreground font-semibold">Branch: {branchId}</div>
         </div>
         <div className="flex items-center gap-2">
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as any)}
-            className="h-10 px-3 rounded-lg bg-[#221c11] border border-[#483c23] text-[#c9b792]"
+            className="h-10 px-3 rounded-lg bg-background border border-border text-foreground"
           >
             <option value="SUBMITTED">Submitted</option>
             <option value="ACCEPTED">Accepted</option>
@@ -183,7 +183,7 @@ export const DraftInbox: React.FC = () => {
           </select>
           <button
             onClick={load}
-            className="h-10 px-4 rounded-lg bg-[#483c23] hover:bg-[#5a4530] font-bold"
+            className="h-10 px-4 rounded-lg bg-secondary hover:bg-secondary/80 border border-border font-bold"
           >
             Refresh
           </button>
@@ -191,39 +191,39 @@ export const DraftInbox: React.FC = () => {
       </div>
 
       <div className="px-6 py-4">
-        {err ? <div className="mb-4 p-3 rounded-lg bg-red-900/20 border border-red-800 text-red-200 text-sm">{err}</div> : null}
+        {err ? <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">{err}</div> : null}
 
         {loading ? (
-          <div className="text-sm text-[#c9b792]">Loading ¦</div>
+          <div className="text-sm text-muted-foreground">Loading ¦</div>
         ) : drafts.length === 0 ? (
-          <div className="text-sm text-[#c9b792]">No drafts.</div>
+          <div className="text-sm text-muted-foreground">No drafts.</div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {drafts.map((d) => (
-              <div key={d.draft_id} className="rounded-xl border border-[#483c23] bg-[#211911] p-4">
+              <div key={d.draft_id} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex flex-col">
                     <div className="text-lg font-black">{d.draft_id}</div>
-                    <div className="text-xs text-[#c9b792] font-semibold">Created by: {d.created_by_staff_id || ' ”'}</div>
-                    {d.submitted_at_local ? <div className="text-xs text-[#c9b792]">Submitted: {d.submitted_at_local}</div> : null}
-                    <div className="text-xs text-[#c9b792]">Updated: {d.updated_at_server || ' ”'}</div>
+                    <div className="text-xs text-muted-foreground font-semibold">Created by: {d.created_by_staff_id || ' ”'}</div>
+                    {d.submitted_at_local ? <div className="text-xs text-muted-foreground">Submitted: {d.submitted_at_local}</div> : null}
+                    <div className="text-xs text-muted-foreground">Updated: {d.updated_at_server || ' ”'}</div>
                   </div>
-                  <div className="px-2 py-1 rounded text-xs font-bold uppercase tracking-wider bg-[#2c241b] border border-[#483c23] text-[#c9b792]">
+                  <div className="px-2 py-1 rounded text-xs font-bold uppercase tracking-wider bg-background border border-border text-muted-foreground">
                     {String(d.status || '') || ' ”'}
                   </div>
                 </div>
 
                 {d.notes ? (
-                  <div className="mt-3 rounded-lg border border-[#483c23] bg-[#1a1612] px-3 py-2">
-                    <div className="text-[11px] font-bold text-[#c9b792]">Notes</div>
-                    <div className="text-sm text-white whitespace-pre-wrap break-words">{d.notes}</div>
+                  <div className="mt-3 rounded-lg border border-border bg-background px-3 py-2">
+                    <div className="text-[11px] font-bold text-muted-foreground">Notes</div>
+                    <div className="text-sm text-foreground whitespace-pre-wrap break-words">{d.notes}</div>
                   </div>
                 ) : null}
 
                 {typeof d.summary === 'object' ? (
                   <div className="mt-3 flex items-center justify-between gap-3 text-xs">
-                    <div className="text-[#c9b792] font-semibold">Items: {Number(d.summary?.items ?? 0)}</div>
-                    <div className="text-white font-black">ETB {Number(d.summary?.total ?? 0).toFixed(2)}</div>
+                    <div className="text-muted-foreground font-semibold">Items: {Number(d.summary?.items ?? 0)}</div>
+                    <div className="text-foreground font-black">ETB {Number(d.summary?.total ?? 0).toFixed(2)}</div>
                   </div>
                 ) : null}
 
@@ -232,13 +232,13 @@ export const DraftInbox: React.FC = () => {
                     <>
                       <button
                         onClick={() => setRejectTarget(d)}
-                        className="h-9 px-3 rounded-lg bg-transparent border border-red-700 text-red-300 hover:bg-red-900/20 font-bold"
+                        className="h-9 px-3 rounded-lg bg-transparent border border-destructive/50 text-destructive hover:bg-destructive/10 font-bold"
                       >
                         Reject
                       </button>
                       <button
                         onClick={() => accept(d)}
-                        className="h-9 px-3 rounded-lg bg-[#eead2b] text-[#221c11] hover:bg-[#d49619] font-black"
+                        className="h-9 px-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-black"
                       >
                         Accept & Print
                       </button>
@@ -253,15 +253,15 @@ export const DraftInbox: React.FC = () => {
 
       {rejectTarget ? (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="w-full max-w-lg rounded-xl bg-[#221c11] border border-[#483c23] p-5">
+          <div className="w-full max-w-lg rounded-xl bg-card border border-border p-5">
             <div className="text-lg font-black">Reject Draft</div>
-            <div className="text-xs text-[#c9b792] mt-1">{rejectTarget.draft_id}</div>
+            <div className="text-xs text-muted-foreground mt-1">{rejectTarget.draft_id}</div>
             <div className="mt-4">
-              <label className="block text-xs font-bold text-[#c9b792] mb-2">Reason (optional)</label>
+              <label className="block text-xs font-bold text-muted-foreground mb-2">Reason (optional)</label>
               <input
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                className="w-full h-10 px-3 rounded-lg bg-[#1a1612] border border-[#483c23] text-white"
+                className="w-full h-10 px-3 rounded-lg bg-background border border-border text-foreground"
                 placeholder="e.g. Missing items / unclear table"
               />
             </div>
@@ -271,13 +271,13 @@ export const DraftInbox: React.FC = () => {
                   setRejectTarget(null);
                   setRejectReason('');
                 }}
-                className="h-10 px-4 rounded-lg bg-transparent border border-[#483c23] text-[#c9b792] hover:text-white font-bold"
+                className="h-10 px-4 rounded-lg bg-transparent border border-border text-muted-foreground hover:text-foreground font-bold"
               >
                 Cancel
               </button>
               <button
                 onClick={submitReject}
-                className="h-10 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-black"
+                className="h-10 px-4 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-black"
               >
                 Reject
               </button>

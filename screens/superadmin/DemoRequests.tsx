@@ -166,14 +166,14 @@ export const SA_DemoRequests: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">
-      <header className="flex-shrink-0 px-6 py-4 border-b border-[#483c23] bg-[#221c10] z-10">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+      <header className="flex-shrink-0 px-6 py-4 border-b border-border bg-card z-10">
         <div className="flex flex-wrap justify-between items-end gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-white text-3xl font-bold tracking-tight">Demo Requests</h2>
-            <p className="text-[#c9b792] text-sm">Incoming demo requests from the marketing website.</p>
+            <h2 className="text-foreground text-3xl font-bold tracking-tight">Demo Requests</h2>
+            <p className="text-muted-foreground text-sm">Incoming demo requests from the marketing website.</p>
           </div>
-          <button onClick={load} className="h-10 px-4 rounded-lg border border-[#483c23] hover:bg-[#483c23] text-white text-sm font-bold">
+          <button onClick={load} className="h-10 px-4 rounded-lg border border-border hover:bg-accent text-foreground text-sm font-bold">
             Refresh
           </button>
         </div>
@@ -188,20 +188,20 @@ export const SA_DemoRequests: React.FC = () => {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="h-10 w-full sm:w-80 rounded-lg bg-[#2d261a] border border-[#483c23] px-3 text-sm text-white placeholder-[#c9b792]"
+              className="h-10 w-full sm:w-80 rounded-lg bg-card border border-border px-3 text-sm text-foreground placeholder:text-muted-foreground"
               placeholder="Search name/email/company"
             />
             <button
               type="button"
               onClick={openStatusFilter}
-              className="h-10 w-full sm:w-52 rounded-lg bg-[#2d261a] border border-[#483c23] px-3 text-sm text-white flex items-center justify-between"
+              className="h-10 w-full sm:w-52 rounded-lg bg-card border border-border px-3 text-sm text-foreground flex items-center justify-between"
             >
-              <span className="text-[#c9b792]">Status</span>
-              <span className="text-white font-semibold">{status}</span>
-              <span className="material-symbols-outlined text-[18px] text-[#c9b792]">expand_more</span>
+              <span className="text-muted-foreground">Status</span>
+              <span className="text-foreground font-semibold">{status}</span>
+              <span className="material-symbols-outlined text-[18px] text-muted-foreground">expand_more</span>
             </button>
           </div>
-          <div className="text-xs text-[#c9b792]">{loading ? 'Loading ¦' : `${filtered.length} requests`}</div>
+          <div className="text-xs text-muted-foreground">{loading ? 'Loading ¦' : `${filtered.length} requests`}</div>
         </div>
 
         <PortalMenu
@@ -223,16 +223,16 @@ export const SA_DemoRequests: React.FC = () => {
                 setFilterAnchor(null);
                 setTimeout(() => load(), 0);
               }}
-              className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#2d261a]"
+              className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent"
             >
               {v}
             </button>
           ))}
         </PortalMenu>
 
-        <div className="overflow-x-auto rounded-xl border border-[#483c23]">
+        <div className="overflow-x-auto rounded-xl border border-border">
           <table className="min-w-full text-sm">
-            <thead className="bg-[#2d261a] text-[#c9b792]">
+            <thead className="bg-muted/40 text-muted-foreground">
               <tr>
                 <th className="text-left px-4 py-3">Lead</th>
                 <th className="text-left px-4 py-3">Company</th>
@@ -244,42 +244,42 @@ export const SA_DemoRequests: React.FC = () => {
             </thead>
             <tbody>
               {filtered.map((d) => (
-                <tr key={d.id} className="border-t border-[#483c23] bg-[#221c10]">
+                <tr key={d.id} className="border-t border-border bg-card">
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-white">{d.name || ' ”'}</div>
-                    <div className="text-xs text-[#c9b792]">{d.email}</div>
+                    <div className="font-semibold text-foreground">{d.name || ' ”'}</div>
+                    <div className="text-xs text-muted-foreground">{d.email}</div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="text-white">{d.company || ' ”'}</div>
-                    <div className="text-xs text-[#c9b792]">{d.country || ''} {d.source ? `   ${d.source}` : ''}</div>
+                    <div className="text-foreground">{d.company || ' ”'}</div>
+                    <div className="text-xs text-muted-foreground">{d.country || ''} {d.source ? `   ${d.source}` : ''}</div>
                   </td>
                   <td className="px-4 py-3">
                     <span
                       className={
                         'inline-flex items-center rounded-full px-2 py-1 text-xs font-bold border ' +
                         (String(d.status || '').toLowerCase() === 'new'
-                          ? 'bg-[#2d261a] text-[#eead2b] border-[#eead2b]/30'
+                          ? 'bg-primary/10 text-primary border-primary/30'
                           : String(d.status || '').toLowerCase() === 'contacted'
-                            ? 'bg-white-900/20 text-white-300 border-white-900/30'
+                            ? 'bg-muted/40 text-muted-foreground border-border'
                             : String(d.status || '').toLowerCase() === 'rejected'
                               ? 'bg-red-900/20 text-red-300 border-red-900/30'
                               : String(d.status || '').toLowerCase() === 'provisioned'
                                 ? 'bg-green-900/20 text-green-300 border-green-900/30'
-                                : 'bg-[#483c23] text-white border-[#483c23]')
+                                : 'bg-muted/40 text-foreground border-border')
                       }
                     >
                       {d.status || ' ”'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-[#c9b792]">{d.createdAt ? (formatDeviceDateTime(d.createdAt) || ' ”') : ' ”'}</td>
-                  <td className="px-4 py-3 text-[#c9b792]">{d.provisionedTenantId ? d.provisionedTenantId : ' ”'}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{d.createdAt ? (formatDeviceDateTime(d.createdAt) || ' ”') : ' ”'}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{d.provisionedTenantId ? d.provisionedTenantId : ' ”'}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"
                         disabled={String(d.status || '').toLowerCase() === 'provisioned'}
                         onClick={() => markStatus(d.id, 'Contacted')}
-                        className="h-9 px-3 rounded-lg border border-[#483c23] text-xs font-bold text-[#c9b792] hover:bg-[#483c23]"
+                        className="h-9 px-3 rounded-lg border border-border text-xs font-bold text-muted-foreground hover:bg-accent"
                       >
                         Mark Contacted
                       </button>
@@ -295,7 +295,7 @@ export const SA_DemoRequests: React.FC = () => {
                         type="button"
                         disabled={String(d.status || '').toLowerCase() === 'provisioned'}
                         onClick={() => markStatus(d.id, 'New')}
-                        className="h-9 px-3 rounded-lg border border-[#483c23] text-xs font-bold text-[#c9b792] hover:bg-[#483c23] disabled:opacity-60"
+                        className="h-9 px-3 rounded-lg border border-border text-xs font-bold text-muted-foreground hover:bg-accent disabled:opacity-60"
                       >
                         Reset
                       </button>
@@ -303,7 +303,7 @@ export const SA_DemoRequests: React.FC = () => {
                         type="button"
                         disabled={Boolean(d.provisionedTenantId)}
                         onClick={() => openProvision(d)}
-                        className="h-9 px-3 rounded-lg bg-[#eead2b] text-[#221c11] text-xs font-bold hover:bg-[#d69a25] disabled:opacity-60"
+                        className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-60"
                       >
                         Provision
                       </button>
@@ -313,7 +313,7 @@ export const SA_DemoRequests: React.FC = () => {
               ))}
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-[#c9b792]">
+                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                     No demo requests
                   </td>
                 </tr>
@@ -326,44 +326,44 @@ export const SA_DemoRequests: React.FC = () => {
       {provisionOpen ? (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => (provisionSaving ? null : setProvisionOpen(false))}></div>
-          <div className="relative w-full max-w-[620px] bg-[#2d261a] border border-[#483c23] rounded-xl shadow-2xl overflow-hidden">
-            <div className="p-5 border-b border-[#483c23] flex items-center justify-between">
-              <div className="text-white font-bold">Provision Tenant</div>
-              <button type="button" className="text-[#c9b792] hover:text-white" onClick={() => (provisionSaving ? null : setProvisionOpen(false))}>
+          <div className="relative w-full max-w-[620px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-border bg-muted/40 flex items-center justify-between">
+              <div className="text-foreground font-bold">Provision Tenant</div>
+              <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => (provisionSaving ? null : setProvisionOpen(false))}>
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="flex flex-col gap-1">
-                <span className="text-xs text-[#c9b792]">Slug (subdomain)</span>
-                <input value={provisionSlug} onChange={(e) => setProvisionSlug(e.target.value)} className="h-11 rounded-lg border border-[#483c23] bg-[#221c10] px-3 text-sm text-white" />
+                <span className="text-xs text-muted-foreground">Slug (subdomain)</span>
+                <input value={provisionSlug} onChange={(e) => setProvisionSlug(e.target.value)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-xs text-[#c9b792]">Tenant name</span>
-                <input value={provisionTenantName} onChange={(e) => setProvisionTenantName(e.target.value)} className="h-11 rounded-lg border border-[#483c23] bg-[#221c10] px-3 text-sm text-white" />
+                <span className="text-xs text-muted-foreground">Tenant name</span>
+                <input value={provisionTenantName} onChange={(e) => setProvisionTenantName(e.target.value)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-xs text-[#c9b792]">Owner name</span>
-                <input value={provisionOwnerName} onChange={(e) => setProvisionOwnerName(e.target.value)} className="h-11 rounded-lg border border-[#483c23] bg-[#221c10] px-3 text-sm text-white" />
+                <span className="text-xs text-muted-foreground">Owner name</span>
+                <input value={provisionOwnerName} onChange={(e) => setProvisionOwnerName(e.target.value)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-xs text-[#c9b792]">Branch name</span>
-                <input value={provisionBranchName} onChange={(e) => setProvisionBranchName(e.target.value)} className="h-11 rounded-lg border border-[#483c23] bg-[#221c10] px-3 text-sm text-white" />
+                <span className="text-xs text-muted-foreground">Branch name</span>
+                <input value={provisionBranchName} onChange={(e) => setProvisionBranchName(e.target.value)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-xs text-[#c9b792]">Trial days</span>
-                <input value={provisionTrialDays} onChange={(e) => setProvisionTrialDays(e.target.value)} className="h-11 rounded-lg border border-[#483c23] bg-[#221c10] px-3 text-sm text-white" />
+                <span className="text-xs text-muted-foreground">Trial days</span>
+                <input value={provisionTrialDays} onChange={(e) => setProvisionTrialDays(e.target.value)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-xs text-[#c9b792]">Owner password (temporary)</span>
-                <input value={provisionOwnerPassword} onChange={(e) => setProvisionOwnerPassword(e.target.value)} className="h-11 rounded-lg border border-[#483c23] bg-[#221c10] px-3 text-sm text-white" type="text" />
+                <span className="text-xs text-muted-foreground">Owner password (temporary)</span>
+                <input value={provisionOwnerPassword} onChange={(e) => setProvisionOwnerPassword(e.target.value)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground" type="text" />
               </label>
             </div>
             <div className="p-5 pt-0 flex justify-end gap-3">
-              <button type="button" onClick={() => setProvisionOpen(false)} disabled={provisionSaving} className="h-11 px-4 rounded-lg border border-[#483c23] text-[#c9b792] hover:text-white disabled:opacity-60">
+              <button type="button" onClick={() => setProvisionOpen(false)} disabled={provisionSaving} className="h-11 px-4 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-60">
                 Cancel
               </button>
-              <button type="button" onClick={provision} disabled={provisionSaving} className="h-11 px-5 rounded-lg bg-[#eead2b] text-[#221c11] font-bold hover:bg-[#d69a25] disabled:opacity-60">
+              <button type="button" onClick={provision} disabled={provisionSaving} className="h-11 px-5 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-60">
                 {provisionSaving ? 'Provisioning ¦' : 'Provision'}
               </button>
             </div>

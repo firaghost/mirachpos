@@ -199,15 +199,15 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
 
   if (!order) {
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">
-        <header className="h-20 border-b border-[#483c23] bg-[#2c241b]/95 backdrop-blur z-10 flex items-center justify-between px-6 md:px-10 shrink-0">
+      <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+        <header className="h-20 border-b border-border bg-card/95 backdrop-blur z-10 flex items-center justify-between px-6 md:px-10 shrink-0">
           <div className="flex flex-col">
-            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Review Order</h2>
-            <p className="text-[#c9b792] text-sm mt-1">No active order selected.</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">Review Order</h2>
+            <p className="text-muted-foreground text-sm mt-1">No active order selected.</p>
           </div>
           <button
             onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white text-sm font-semibold transition-all hover:border-[#c9b792]/30"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground text-sm font-semibold transition-all hover:border-muted-foreground/30"
           >
             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
             <span>Back</span>
@@ -218,22 +218,22 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       {/* Top Header */}
-      <header className="h-20 border-b border-[#483c23] bg-[#2c241b]/95 backdrop-blur z-10 flex items-center justify-between px-6 md:px-10 shrink-0">
+      <header className="h-20 border-b border-border bg-card/95 backdrop-blur z-10 flex items-center justify-between px-6 md:px-10 shrink-0">
         <div className="flex flex-col">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Review Order: {order.tableName}</h2>
-            <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-900/40 text-green-400 border border-green-800/50">{order.status}</span>
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">Review Order: {order.tableName}</h2>
+            <span className="px-2 py-0.5 rounded text-xs font-bold bg-primary/10 text-primary border border-primary/30">{order.status}</span>
           </div>
-          <p className="text-[#c9b792] text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-1">
             {order.number}    <span className="italic">{order.timeLabel}</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => onNavigate(Screen.WAITER_MENU)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white text-sm font-semibold transition-all hover:border-[#c9b792]/30"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground text-sm font-semibold transition-all hover:border-muted-foreground/30"
           >
             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
             <span>Back</span>
@@ -246,15 +246,15 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
         <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Left Column: Order Items Table */}
           <div className="xl:col-span-2 flex flex-col gap-6">
-            <div className="bg-[#2c241b] rounded-xl border border-[#483c23] overflow-hidden shadow-sm">
-              <div className="px-6 py-4 border-b border-[#483c23] flex justify-between items-center bg-[#3a2e22]/30">
-                <h3 className="text-white font-semibold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#eead2b] text-[20px]">list_alt</span> Order Items
+            <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
+              <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-secondary/30">
+                <h3 className="text-foreground font-semibold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-[20px]">list_alt</span> Order Items
                 </h3>
                 <button
                   onClick={() => setEditMode((v) => !v)}
                   disabled={order.status !== 'Pending' || isVoided || order.status === 'Paid'}
-                  className="text-xs font-medium text-[#eead2b] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="text-xs font-medium text-primary hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {editMode ? 'Exit Edit Mode' : 'Edit Mode'}
                 </button>
@@ -262,32 +262,32 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-[#3a2e22] text-[#c9b792] text-sm uppercase tracking-wider font-medium">
+                    <tr className="bg-secondary text-muted-foreground text-sm uppercase tracking-wider font-medium">
                       <th className="px-6 py-4 font-semibold w-5/12">Item Name</th>
                       <th className="px-6 py-4 font-semibold w-2/12 text-center">Qty</th>
                       <th className="px-6 py-4 font-semibold w-3/12">Modifiers</th>
                       <th className="px-6 py-4 font-semibold w-2/12 text-right">Price</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#483c23]">
+                  <tbody className="divide-y divide-border">
                     {/* Item 1 */}
                     {order.items.map((item) => {
                       const voidedQty = item.voidedQty ?? 0;
                       const effQty = Math.max(0, item.qty - voidedQty);
 
                       return (
-                      <tr key={item.productId} className={`group hover:bg-[#3a2e22]/50 transition-colors ${effQty === 0 ? 'opacity-60 line-through' : ''}`}>
+                      <tr key={item.productId} className={`group hover:bg-secondary/50 transition-colors ${effQty === 0 ? 'opacity-60 line-through' : ''}`}>
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
-                            <span className="text-white font-medium text-base">{item.name}</span>
-                            {item.note?.trim() ? <span className="text-[#c9b792] text-xs">{item.note.trim()}</span> : <span className="text-[#c9b792] text-xs"></span>}
+                            <span className="text-foreground font-medium text-base">{item.name}</span>
+                            {item.note?.trim() ? <span className="text-muted-foreground text-xs">{item.note.trim()}</span> : <span className="text-muted-foreground text-xs"></span>}
                             <button
                               onClick={() => {
                                 setNoteEditProductId(item.productId);
                                 setNoteDraft(item.note ?? '');
                               }}
                               disabled={!canEditPending}
-                              className="mt-2 text-xs font-medium text-[#eead2b] hover:text-white transition-colors w-fit disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="mt-2 text-xs font-medium text-primary hover:text-foreground transition-colors w-fit disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               Edit modifier
                             </button>
@@ -298,7 +298,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                             <button
                               onClick={() => setPendingOrderItemQty(order.id, item.productId, Math.max(0, item.qty - 1))}
                               disabled={!canEditPending}
-                              className="w-6 h-6 rounded bg-[#221c10] border border-[#483c23] flex items-center justify-center text-[#c9b792] hover:text-white hover:border-[#c9b792]/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="w-6 h-6 rounded bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                               title="Decrease qty"
                             >
                               <span className="material-symbols-outlined text-[16px]">remove</span>
@@ -309,16 +309,16 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                                 setVoidReason('');
                               }}
                               disabled={isVoided || effQty === 0}
-                              className="w-6 h-6 rounded bg-[#221c10] border border-red-900/50 flex items-center justify-center text-red-400 hover:text-white hover:border-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="w-6 h-6 rounded bg-background border border-destructive/50 flex items-center justify-center text-destructive hover:text-foreground hover:border-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Void 1"
                             >
                               <span className="material-symbols-outlined text-[16px]">remove</span>
                             </button>
-                            <span className="text-white font-mono font-medium text-center">{effQty}/{item.qty}</span>
+                            <span className="text-foreground font-mono font-medium text-center">{effQty}/{item.qty}</span>
                             <button
                               onClick={() => setPendingOrderItemQty(order.id, item.productId, item.qty + 1)}
                               disabled={!canEditPending}
-                              className="w-6 h-6 rounded bg-[#221c10] border border-[#483c23] flex items-center justify-center text-[#c9b792] hover:text-white hover:border-[#c9b792]/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="w-6 h-6 rounded bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                               title="Increase qty"
                             >
                               <span className="material-symbols-outlined text-[16px]">add</span>
@@ -326,10 +326,10 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#eead2b]/10 text-[#eead2b] border border-[#eead2b]/20">-</span>
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">-</span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <span className="text-white font-medium">ETB {(item.unitPrice * effQty).toFixed(2)}</span>
+                          <span className="text-foreground font-medium">ETB {(item.unitPrice * effQty).toFixed(2)}</span>
                         </td>
                       </tr>
                     );
@@ -337,7 +337,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                   </tbody>
                 </table>
               </div>
-              <div className="px-6 py-4 bg-[#3a2e22]/30 border-t border-[#483c23] flex justify-between items-center">
+              <div className="px-6 py-4 bg-secondary/30 border-t border-border flex justify-between items-center">
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
@@ -345,7 +345,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                       setVoidReason('');
                     }}
                     disabled={isVoided || order.status === 'Paid'}
-                    className="px-3 py-1.5 rounded-lg border border-red-900/50 text-red-400 bg-red-900/10 text-sm font-medium hover:bg-red-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 rounded-lg border border-destructive/50 text-destructive bg-destructive/10 text-sm font-medium hover:bg-destructive/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Void Order
                   </button>
@@ -357,66 +357,66 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
           {/* Right Column: Summary & Actions */}
           <div className="xl:col-span-1 flex flex-col gap-6">
             {/* Notes Card */}
-            <div className="bg-[#2c241b] rounded-xl border border-[#483c23] overflow-hidden p-5 flex flex-col gap-3 shadow-sm">
-              <label className="flex items-center gap-2 text-white text-sm font-semibold">
-                <span className="material-symbols-outlined text-[#eead2b] text-[20px]">edit_note</span> Kitchen / Dietary Notes
+            <div className="bg-card rounded-xl border border-border overflow-hidden p-5 flex flex-col gap-3 shadow-sm">
+              <label className="flex items-center gap-2 text-foreground text-sm font-semibold">
+                <span className="material-symbols-outlined text-primary text-[20px]">edit_note</span> Kitchen / Dietary Notes
               </label>
               <textarea
                 value={orderNotesDraft}
                 onChange={(e) => setOrderNotesDraft(e.target.value)}
-                className="w-full bg-[#3a2e22] border border-[#483c23] rounded-lg p-3 text-sm text-white placeholder-[#c9b792] focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b] transition-all resize-none h-32"
+                className="w-full bg-secondary border border-border rounded-lg p-3 text-sm text-foreground placeholder-muted-foreground focus:ring-1 focus:ring-primary focus:border-primary transition-all resize-none h-32"
                 placeholder="Add allergy info, special requests, or preparation notes here..."
               ></textarea>
             </div>
 
             {/* Financial Summary Card */}
-            <div className="bg-[#2c241b] rounded-xl border border-[#483c23] overflow-hidden shadow-sm flex flex-col">
-              <div className="p-5 flex flex-col gap-3 border-b border-[#483c23]/50">
+            <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm flex flex-col">
+              <div className="p-5 flex flex-col gap-3 border-b border-border/50">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-[#c9b792]">Subtotal</span>
-                  <span className="text-white font-medium">ETB {order.subtotal.toFixed(2)}</span>
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="text-foreground font-medium">ETB {order.subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-[#c9b792]">Tax</span>
-                  <span className="text-white font-medium">ETB {order.tax.toFixed(2)}</span>
+                  <span className="text-muted-foreground">Tax</span>
+                  <span className="text-foreground font-medium">ETB {order.tax.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-[#c9b792]">Service Charge</span>
-                  <span className="text-white font-medium">ETB {order.serviceCharge.toFixed(2)}</span>
+                  <span className="text-muted-foreground">Service Charge</span>
+                  <span className="text-foreground font-medium">ETB {order.serviceCharge.toFixed(2)}</span>
                 </div>
                 {Number((order as any)?.takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0) > 0 ? (
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-[#c9b792]">Takeaway Fee</span>
-                    <span className="text-white font-medium">ETB {Number((order as any)?.takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0).toFixed(2)}</span>
+                    <span className="text-muted-foreground">Takeaway Fee</span>
+                    <span className="text-foreground font-medium">ETB {Number((order as any)?.takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0).toFixed(2)}</span>
                   </div>
                 ) : null}
               </div>
-              <div className="p-5 bg-[#3a2e22]/30">
+              <div className="p-5 bg-secondary/30">
                 <div className="flex justify-between items-end">
-                  <span className="text-[#c9b792] font-medium pb-1">Grand Total</span>
-                  <span className="text-3xl font-bold text-[#eead2b]">ETB {order.total.toFixed(2)}</span>
+                  <span className="text-muted-foreground font-medium pb-1">Grand Total</span>
+                  <span className="text-3xl font-bold text-primary">ETB {order.total.toFixed(2)}</span>
                 </div>
               </div>
             </div>
 
             {/* Primary Action */}
             <div className="flex flex-col gap-3">
-              <button disabled={!canPay} onClick={() => onNavigate(Screen.WAITER_PAYMENT)} className="w-full py-4 px-6 bg-[#eead2b] hover:bg-[#d49619] active:scale-[0.98] rounded-xl text-[#221c11] font-extrabold text-lg uppercase tracking-wide shadow-lg shadow-[#eead2b]/10 transition-all flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed">
-                <span className="material-symbols-outlined text-[#221c11] text-[28px] group-hover:animate-pulse">skillet</span>
+              <button disabled={!canPay} onClick={() => onNavigate(Screen.WAITER_PAYMENT)} className="w-full py-4 px-6 bg-primary hover:bg-primary/80 active:scale-[0.98] rounded-xl text-primary-foreground font-extrabold text-lg uppercase tracking-wide shadow-lg shadow-primary/10 transition-all flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed">
+                <span className="material-symbols-outlined text-primary-foreground text-[28px] group-hover:animate-pulse">skillet</span>
                 {canPay ? 'Proceed to Payment' : 'Payment available after Served'}
               </button>
               <div className="grid grid-cols-2 gap-3 mt-2">
                 <button
                   onClick={() => setSplitBillOpen(true)}
-                  className="py-3 px-4 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-white font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                  className="py-3 px-4 bg-card hover:bg-secondary border border-border rounded-lg text-foreground font-medium text-sm transition-colors flex items-center justify-center gap-2"
                 >
-                  <span className="material-symbols-outlined text-[#c9b792] text-[18px]">call_split</span> Split Bill
+                  <span className="material-symbols-outlined text-muted-foreground text-[18px]">call_split</span> Split Bill
                 </button>
                 <button
                   onClick={() => setCustomerOpen(true)}
-                  className="py-3 px-4 bg-[#2c241b] hover:bg-[#3a2e22] border border-[#483c23] rounded-lg text-white font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                  className="py-3 px-4 bg-card hover:bg-secondary border border-border rounded-lg text-foreground font-medium text-sm transition-colors flex items-center justify-center gap-2"
                 >
-                  <span className="material-symbols-outlined text-[#c9b792] text-[18px]">person_add</span> Customer
+                  <span className="material-symbols-outlined text-muted-foreground text-[18px]">person_add</span> Customer
                 </button>
               </div>
             </div>
@@ -432,7 +432,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
           <div className="flex gap-3">
             <button
               onClick={() => setSplitBillOpen(false)}
-              className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
             >
               Close
             </button>
@@ -453,7 +453,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                 setOrderSplits(order.id, splits.length ? splits : null);
                 setSplitBillOpen(false);
               }}
-              className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-bold transition-colors"
             >
               Save
             </button>
@@ -462,7 +462,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-sm text-[#c9b792]">Choose how many splits and assign item quantities to each split.</div>
+            <div className="text-sm text-muted-foreground">Choose how many splits and assign item quantities to each split.</div>
             <select
               value={splitCount}
               onChange={(e) => {
@@ -470,7 +470,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                 setSplitCount(n);
                 setSplitAlloc({});
               }}
-              className="h-10 bg-[#181611] rounded-lg border border-[#393328] text-sm font-semibold text-white px-3"
+              className="h-10 bg-background rounded-lg border border-border text-sm font-semibold text-foreground px-3"
             >
               {[2, 3, 4, 5, 6].map((n) => (
                 <option key={n} value={n}>
@@ -482,7 +482,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
 
           <button
             onClick={ensureSplitDraft}
-            className="h-10 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] text-white font-bold"
+            className="h-10 px-4 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-bold"
           >
             Reset Allocation
           </button>
@@ -493,15 +493,15 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
               const alloc = splitAlloc[it.productId] || Array(splitCount).fill(0);
               const sum = alloc.reduce((a, b) => a + (Number(b) || 0), 0);
               return (
-                <div key={it.productId} className="border border-[#483c23] rounded-xl p-4 bg-[#221c11]">
+                <div key={it.productId} className="border border-border rounded-xl p-4 bg-background">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-bold text-white">{it.name}</div>
-                    <div className="text-xs text-[#c9b792]">Qty {qty}    Alloc {sum}/{qty}</div>
+                    <div className="text-sm font-bold text-foreground">{it.name}</div>
+                    <div className="text-xs text-muted-foreground">Qty {qty}    Alloc {sum}/{qty}</div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
                     {Array.from({ length: splitCount }, (_, idx) => (
-                      <div key={idx} className="flex items-center justify-between gap-2 bg-[#2c241b] border border-[#483c23] rounded-lg px-3 py-2">
-                        <div className="text-xs text-[#c9b792] font-bold">Split {idx + 1}</div>
+                      <div key={idx} className="flex items-center justify-between gap-2 bg-card border border-border rounded-lg px-3 py-2">
+                        <div className="text-xs text-muted-foreground font-bold">Split {idx + 1}</div>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => {
@@ -511,11 +511,11 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                               next[it.productId] = arr;
                               setSplitAlloc(next);
                             }}
-                            className="h-8 w-8 rounded bg-[#181611] border border-[#483c23] text-white font-black"
+                            className="h-8 w-8 rounded bg-background border border-border text-foreground font-black"
                           >
                             -
                           </button>
-                          <div className="w-8 text-center text-sm font-bold text-white">{Math.max(0, Math.floor(Number(alloc[idx]) || 0))}</div>
+                          <div className="w-8 text-center text-sm font-bold text-foreground">{Math.max(0, Math.floor(Number(alloc[idx]) || 0))}</div>
                           <button
                             onClick={() => {
                               const next = { ...splitAlloc };
@@ -526,7 +526,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                               next[it.productId] = arr;
                               setSplitAlloc(next);
                             }}
-                            className="h-8 w-8 rounded bg-[#181611] border border-[#483c23] text-white font-black"
+                            className="h-8 w-8 rounded bg-background border border-border text-foreground font-black"
                           >
                             +
                           </button>
@@ -539,13 +539,13 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
             })}
           </div>
 
-          <div className="border border-[#483c23] rounded-xl p-4 bg-[#2c241b]">
-            <div className="text-sm font-bold text-white mb-2">Preview</div>
+          <div className="border border-border rounded-xl p-4 bg-card">
+            <div className="text-sm font-bold text-foreground mb-2">Preview</div>
             <div className="space-y-2">
               {splitPreview.map((sp, idx) => (
                 <div key={idx} className="flex items-center justify-between text-sm">
-                  <div className="text-[#c9b792]">Split {idx + 1} ({sp.items.reduce((s, x) => s + x.qty, 0)} items)</div>
-                  <div className="text-white font-extrabold">ETB {sp.total.toFixed(2)}</div>
+                  <div className="text-muted-foreground">Split {idx + 1} ({sp.items.reduce((s, x) => s + x.qty, 0)} items)</div>
+                  <div className="text-foreground font-extrabold">ETB {sp.total.toFixed(2)}</div>
                 </div>
               ))}
             </div>
@@ -561,7 +561,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
           <div className="flex gap-3">
             <button
               onClick={() => setCustomerOpen(false)}
-              className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
             >
               Close
             </button>
@@ -570,7 +570,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                 setOrderCustomer(order.id, null);
                 setCustomerOpen(false);
               }}
-              className="flex-1 h-11 rounded-lg bg-[#393328] hover:bg-[#4a4234] border border-[#483c23] text-white font-bold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-bold transition-colors"
             >
               Remove
             </button>
@@ -578,19 +578,19 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
         }
       >
         <div className="space-y-4">
-          <div className="text-sm text-[#c9b792]">Select a customer or create a new one and attach to this order.</div>
+          <div className="text-sm text-muted-foreground">Select a customer or create a new one and attach to this order.</div>
 
           {order.customer ? (
-            <div className="border border-[#483c23] rounded-xl p-4 bg-[#2c241b]">
+            <div className="border border-border rounded-xl p-4 bg-card">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-xs text-[#c9b792]">Attached</div>
-                  <div className="text-sm font-bold text-white">{order.customer.name}</div>
-                  <div className="text-xs text-[#c9b792]">{order.customer.phone}</div>
+                  <div className="text-xs text-muted-foreground">Attached</div>
+                  <div className="text-sm font-bold text-foreground">{order.customer.name}</div>
+                  <div className="text-xs text-muted-foreground">{order.customer.phone}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-[#c9b792]">Points {order.customer.loyaltyPoints}</div>
-                  <div className="text-sm font-extrabold text-[#eead2b]">ETB {Number(order.customer.loyaltyBalance || 0).toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground">Points {order.customer.loyaltyPoints}</div>
+                  <div className="text-sm font-extrabold text-primary">ETB {Number(order.customer.loyaltyBalance || 0).toFixed(2)}</div>
                 </div>
               </div>
 
@@ -619,11 +619,11 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                     })();
                     setOrderCustomer(order.id, next);
                   }}
-                  className="h-11 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-extrabold"
+                  className="h-11 px-4 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-extrabold"
                 >
                   Convert Points to Balance
                 </button>
-                <div className="text-xs text-[#c9b792] self-center">
+                <div className="text-xs text-muted-foreground self-center">
                   Rule: 100 points = 10 ETB (converts in blocks of 100)
                 </div>
               </div>
@@ -632,17 +632,17 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
 
           <div className="flex flex-col md:flex-row gap-3">
             <div className="flex-1">
-              <div className="text-xs font-bold text-[#c9b792]">Search</div>
+              <div className="text-xs font-bold text-muted-foreground">Search</div>
               <input
                 value={customerQuery}
                 onChange={(e) => setCustomerQuery(e.target.value)}
-                className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white"
+                className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground"
                 placeholder="Name or phone..."
               />
             </div>
           </div>
 
-          <div className="border border-[#483c23] rounded-xl overflow-hidden">
+          <div className="border border-border rounded-xl overflow-hidden">
             {filteredCustomers.length ? (
               filteredCustomers.map((c) => (
                 <button
@@ -651,43 +651,43 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                     setOrderCustomer(order.id, c);
                     setCustomerOpen(false);
                   }}
-                  className="w-full text-left px-4 py-3 bg-[#221c11] hover:bg-[#2c241b] border-b border-[#483c23] last:border-b-0"
+                  className="w-full text-left px-4 py-3 bg-background hover:bg-card border-b border-border last:border-b-0"
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <div className="text-sm font-bold text-white">{c.name}</div>
-                      <div className="text-xs text-[#c9b792]">{c.phone}</div>
+                      <div className="text-sm font-bold text-foreground">{c.name}</div>
+                      <div className="text-xs text-muted-foreground">{c.phone}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs text-[#c9b792]">Points {c.loyaltyPoints}</div>
-                      <div className="text-sm font-extrabold text-[#eead2b]">ETB {c.loyaltyBalance.toFixed(2)}</div>
+                      <div className="text-xs text-muted-foreground">Points {c.loyaltyPoints}</div>
+                      <div className="text-sm font-extrabold text-primary">ETB {c.loyaltyBalance.toFixed(2)}</div>
                     </div>
                   </div>
                 </button>
               ))
             ) : (
-              <div className="px-4 py-4 text-sm text-[#c9b792]">{customersLoading ? 'Loading ¦' : customersError ? customersError : 'No customers found.'}</div>
+              <div className="px-4 py-4 text-sm text-muted-foreground">{customersLoading ? 'Loading ¦' : customersError ? customersError : 'No customers found.'}</div>
             )}
           </div>
 
-          <div className="border border-[#483c23] rounded-xl p-4 bg-[#2c241b]">
-            <div className="text-sm font-bold text-white mb-3">Create Customer</div>
+          <div className="border border-border rounded-xl p-4 bg-card">
+            <div className="text-sm font-bold text-foreground mb-3">Create Customer</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <div className="text-xs font-bold text-[#c9b792]">Name</div>
+                <div className="text-xs font-bold text-muted-foreground">Name</div>
                 <input
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white"
+                  className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground"
                   placeholder="Customer name"
                 />
               </div>
               <div>
-                <div className="text-xs font-bold text-[#c9b792]">Phone</div>
+                <div className="text-xs font-bold text-muted-foreground">Phone</div>
                 <input
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white"
+                  className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground"
                   placeholder="+251..."
                 />
               </div>
@@ -722,7 +722,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                     }
                   })();
                 }}
-                className="h-11 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-extrabold"
+                className="h-11 px-4 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-extrabold"
               >
                 Create & Attach
               </button>
@@ -745,7 +745,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                 setNoteEditProductId(null);
                 setNoteDraft('');
               }}
-              className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
             >
               Cancel
             </button>
@@ -756,7 +756,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                 setNoteEditProductId(null);
                 setNoteDraft('');
               }}
-              className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!canEditPending}
             >
               Save
@@ -764,11 +764,11 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
           </div>
         }
       >
-        <label className="block text-sm font-semibold text-[#c9b792] mb-2">Item modifier / note</label>
+        <label className="block text-sm font-semibold text-muted-foreground mb-2">Item modifier / note</label>
         <textarea
           value={noteDraft}
           onChange={(e) => setNoteDraft(e.target.value)}
-          className="w-full bg-[#3a2e22] border border-[#483c23] rounded-lg p-3 text-sm text-white placeholder-[#c9b792] focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b] transition-all resize-none h-28"
+          className="w-full bg-secondary border border-border rounded-lg p-3 text-sm text-foreground placeholder-muted-foreground focus:ring-1 focus:ring-primary focus:border-primary transition-all resize-none h-28"
           placeholder="e.g. No sugar, extra spicy, well-done, allergy notes..."
         />
       </Modal>
@@ -787,7 +787,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                 setVoidOrderOpen(false);
                 setVoidReason('');
               }}
-              className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
             >
               Cancel
             </button>
@@ -798,7 +798,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                 setVoidOrderOpen(false);
                 setVoidReason('');
               }}
-              className="flex-1 h-11 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 h-11 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!voidReason.trim()}
             >
               Void Order
@@ -806,11 +806,11 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
           </div>
         }
       >
-        <label className="block text-sm font-semibold text-[#c9b792] mb-2">Void reason</label>
+        <label className="block text-sm font-semibold text-muted-foreground mb-2">Void reason</label>
         <textarea
           value={voidReason}
           onChange={(e) => setVoidReason(e.target.value)}
-          className="w-full bg-[#3a2e22] border border-[#483c23] rounded-lg p-3 text-sm text-white placeholder-[#c9b792] focus:ring-1 focus:ring-red-400 focus:border-red-400 transition-all resize-none h-28"
+          className="w-full bg-secondary border border-border rounded-lg p-3 text-sm text-foreground placeholder-muted-foreground focus:ring-1 focus:ring-destructive focus:border-destructive transition-all resize-none h-28"
           placeholder="Explain why this order is being voided (required)..."
         />
       </Modal>
@@ -829,7 +829,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                 setVoidItemProductId(null);
                 setVoidReason('');
               }}
-              className="flex-1 h-11 rounded-lg bg-[#3a2e22] hover:bg-[#4a3b2b] border border-[#483c23] text-white font-semibold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
             >
               Cancel
             </button>
@@ -841,7 +841,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                 setVoidItemProductId(null);
                 setVoidReason('');
               }}
-              className="flex-1 h-11 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 h-11 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!voidReason.trim()}
             >
               Void 1
@@ -849,11 +849,11 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
           </div>
         }
       >
-        <label className="block text-sm font-semibold text-[#c9b792] mb-2">Void reason</label>
+        <label className="block text-sm font-semibold text-muted-foreground mb-2">Void reason</label>
         <textarea
           value={voidReason}
           onChange={(e) => setVoidReason(e.target.value)}
-          className="w-full bg-[#3a2e22] border border-[#483c23] rounded-lg p-3 text-sm text-white placeholder-[#c9b792] focus:ring-1 focus:ring-red-400 focus:border-red-400 transition-all resize-none h-28"
+          className="w-full bg-secondary border border-border rounded-lg p-3 text-sm text-foreground placeholder-muted-foreground focus:ring-1 focus:ring-destructive focus:border-destructive transition-all resize-none h-28"
           placeholder="Explain why this item is being voided (required)..."
         />
       </Modal>

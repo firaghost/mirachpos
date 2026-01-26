@@ -121,18 +121,18 @@ const maskish = (s: string) => {
 const Toggle: React.FC<{ checked: boolean; onChange: (next: boolean) => void; label?: string; disabled?: boolean }> = ({ checked, onChange, label, disabled }) => {
   return (
     <div className="flex items-center gap-2">
-      {label ? <span className="text-xs font-bold text-white">{label}</span> : null}
+      {label ? <span className="text-xs font-bold text-foreground">{label}</span> : null}
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-colors ${checked ? 'bg-[#eead2b]/60 border-[#eead2b]' : 'bg-[#1a170d] border-[#473e24]'
+        className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-colors ${checked ? 'bg-primary/60 border-primary' : 'bg-muted border-border'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'} ${checked ? 'border-4 border-[#eead2b]' : 'border-4 border-[#473e24]'
+          className={`inline-block h-5 w-5 transform rounded-full bg-background shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'} ${checked ? 'border-4 border-primary' : 'border-4 border-border'
             }`}
         />
       </button>
@@ -147,12 +147,12 @@ const TabButton: React.FC<{ active: boolean; onClick: () => void; icon: string; 
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${active
-        ? 'bg-[#2c2616] border-[#eead2b] text-white'
-        : 'bg-transparent border-[#473e24] text-[#c8ba93] hover:text-white hover:bg-white/5'
+        ? 'bg-card border-primary text-foreground'
+        : 'bg-transparent border-border text-muted-foreground hover:text-foreground hover:bg-accent/50'
         }`}
       type="button"
     >
-      <span className={`material-symbols-outlined text-[20px] ${active ? 'text-[#eead2b]' : ''}`}>{icon}</span>
+      <span className={`material-symbols-outlined text-[20px] ${active ? 'text-primary' : ''}`}>{icon}</span>
       <span className={`text-sm ${active ? 'font-bold' : 'font-medium'}`}>{title}</span>
     </button>
   );
@@ -161,9 +161,9 @@ const TabButton: React.FC<{ active: boolean; onClick: () => void; icon: string; 
 const Field: React.FC<{ label: string; children: React.ReactNode; hint?: string }> = ({ label, children, hint }) => {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[10px] font-bold uppercase tracking-wider text-[#c8ba93]">{label}</label>
+      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</label>
       {children}
-      {hint ? <div className="text-[11px] text-[#c8ba93]">{hint}</div> : null}
+      {hint ? <div className="text-[11px] text-muted-foreground">{hint}</div> : null}
     </div>
   );
 };
@@ -171,14 +171,14 @@ const Field: React.FC<{ label: string; children: React.ReactNode; hint?: string 
 const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input
     {...props}
-    className={`h-10 px-3 rounded-lg bg-[#1a170d] border border-[#473e24] text-white placeholder:text-[#6f6442] focus:outline-none focus:ring-2 focus:ring-[#eead2b]/40 ${props.className || ''}`}
+    className={`h-10 px-3 rounded-lg bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 ${props.className || ''}`}
   />
 );
 
 const Textarea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
   <textarea
     {...props}
-    className={`min-h-[96px] px-3 py-2 rounded-lg bg-[#1a170d] border border-[#473e24] text-white placeholder:text-[#6f6442] focus:outline-none focus:ring-2 focus:ring-[#eead2b]/40 ${props.className || ''}`}
+    className={`min-h-[96px] px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 ${props.className || ''}`}
   />
 );
 
@@ -1127,11 +1127,11 @@ export const PaymentConfig: React.FC = () => {
 
     const statusPill = (status: string) => {
       const s = String(status || '').toLowerCase();
-      if (s === 'paid') return 'bg-green-500/10 text-green-400 border border-green-500/20';
-      if (s === 'overdue') return 'bg-red-500/10 text-red-400 border border-red-500/20';
-      if (s === 'pending') return 'bg-[#eead2b]/10 text-[#eead2b] border border-[#eead2b]/20';
-      if (s === 'failed') return 'bg-orange-500/10 text-orange-400 border border-orange-500/20';
-      return 'bg-white/10 text-[#c8ba93] border border-white/10';
+      if (s === 'paid') return 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20';
+      if (s === 'overdue') return 'bg-destructive/10 text-destructive border border-destructive/20';
+      if (s === 'pending') return 'bg-primary/10 text-primary border border-primary/20';
+      if (s === 'failed') return 'bg-orange-500/10 text-orange-600 border border-orange-500/20';
+      return 'bg-muted text-muted-foreground border border-border';
     };
 
     const canPrev = invoicePage > 1;
@@ -1170,13 +1170,13 @@ export const PaymentConfig: React.FC = () => {
       <div className="max-w-[1400px] mx-auto flex flex-col gap-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div className="flex flex-col gap-2">
-            <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-white">Invoice Management</h1>
-            <p className="text-[#c8ba93] max-w-2xl">Manage and track billing for cafe subscriptions. Customize invoice templates for Ethiopian tax compliance.</p>
+            <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-foreground">Invoice Management</h1>
+            <p className="text-muted-foreground max-w-2xl">Manage and track billing for cafe subscriptions. Customize invoice templates for Ethiopian tax compliance.</p>
           </div>
 
           <div className="flex gap-3">
             <button
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#2c2616] border border-[#473e24] rounded-lg text-white text-sm font-medium hover:bg-[#3a3220] transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border rounded-lg text-foreground text-sm font-medium hover:bg-accent transition-colors"
               type="button"
               onClick={() => void downloadInvoicesCsv()}
             >
@@ -1184,7 +1184,7 @@ export const PaymentConfig: React.FC = () => {
               Export CSV
             </button>
             <button
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#eead2b] text-[#221e11] rounded-lg text-sm font-bold hover:bg-[#d49a26] transition-colors shadow-[0_0_15px_rgba(232,186,48,0.2)]"
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-[0_0_15px_hsl(var(--primary)/0.2)]"
               type="button"
               onClick={() => {
                 setManualInvError(null);
@@ -1199,37 +1199,37 @@ export const PaymentConfig: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-[#2c2616] border border-[#473e24] rounded-xl p-5 flex flex-col gap-1 relative overflow-hidden">
+          <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-1 relative overflow-hidden">
             <div className="absolute right-0 top-0 p-4 opacity-10">
-              <span className="material-symbols-outlined text-6xl text-[#eead2b]">payments</span>
+              <span className="material-symbols-outlined text-6xl text-primary">payments</span>
             </div>
-            <p className="text-[#c8ba93] text-sm font-medium z-10">Total Revenue ({monthLabel})</p>
+            <p className="text-muted-foreground text-sm font-medium z-10">Total Revenue ({monthLabel})</p>
             <div className="flex items-baseline gap-2 z-10">
-              <span className="text-2xl font-bold text-white tracking-tight">ETB {(Number(invoiceStats?.revenueEtb || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span className="text-2xl font-bold text-foreground tracking-tight">ETB {(Number(invoiceStats?.revenueEtb || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           </div>
-          <div className="bg-[#2c2616] border border-[#473e24] rounded-xl p-5 flex flex-col gap-1 relative overflow-hidden">
+          <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-1 relative overflow-hidden">
             <div className="absolute right-0 top-0 p-4 opacity-10">
               <span className="material-symbols-outlined text-6xl text-orange-400">pending_actions</span>
             </div>
-            <p className="text-[#c8ba93] text-sm font-medium z-10">Outstanding Invoices</p>
+            <p className="text-muted-foreground text-sm font-medium z-10">Outstanding Invoices</p>
             <div className="flex items-baseline gap-2 z-10">
-              <span className="text-2xl font-bold text-white tracking-tight">{Number(invoiceStats?.outstandingCount || 0)}</span>
-              <span className="text-[#c8ba93] text-xs">Waiting payment</span>
+              <span className="text-2xl font-bold text-foreground tracking-tight">{Number(invoiceStats?.outstandingCount || 0)}</span>
+              <span className="text-muted-foreground text-xs">Waiting payment</span>
             </div>
           </div>
-          <div className="bg-[#2c2616] border border-[#473e24] rounded-xl p-5 flex flex-col gap-1 relative overflow-hidden">
+          <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-1 relative overflow-hidden">
             <div className="absolute right-0 top-0 p-4 opacity-10">
-              <span className="material-symbols-outlined text-6xl text-white-300">analytics</span>
+              <span className="material-symbols-outlined text-6xl text-muted-foreground">analytics</span>
             </div>
-            <p className="text-[#c8ba93] text-sm font-medium z-10">Avg Invoice Value</p>
+            <p className="text-muted-foreground text-sm font-medium z-10">Avg Invoice Value</p>
             <div className="flex items-baseline gap-2 z-10">
-              <span className="text-2xl font-bold text-white tracking-tight">ETB {(Number(invoiceStats?.avgInvoiceEtb || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span className="text-2xl font-bold text-foreground tracking-tight">ETB {(Number(invoiceStats?.avgInvoiceEtb || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           </div>
         </div>
 
-        <div className="border-b border-[#473e24]">
+        <div className="border-b border-border">
           <nav aria-label="Tabs" className="flex gap-8">
             <button
               type="button"
@@ -1237,21 +1237,21 @@ export const PaymentConfig: React.FC = () => {
                 setInvoiceTab('all');
                 setInvoicePage(1);
               }}
-              className={`border-b-2 py-4 px-1 text-sm ${invoiceTab === 'all' ? 'font-bold text-[#eead2b] border-[#eead2b]' : 'font-medium text-[#c8ba93] border-transparent hover:border-[#473e24] hover:text-white'} transition-colors`}
+              className={`border-b-2 py-4 px-1 text-sm ${invoiceTab === 'all' ? 'font-bold text-primary border-primary' : 'font-medium text-muted-foreground border-transparent hover:border-border hover:text-foreground'} transition-colors`}
             >
               All Invoices
             </button>
             <button
               type="button"
               onClick={() => setInvoiceTab('recurring')}
-              className={`border-b-2 py-4 px-1 text-sm ${invoiceTab === 'recurring' ? 'font-bold text-[#eead2b] border-[#eead2b]' : 'font-medium text-[#c8ba93] border-transparent hover:border-[#473e24] hover:text-white'} transition-colors`}
+              className={`border-b-2 py-4 px-1 text-sm ${invoiceTab === 'recurring' ? 'font-bold text-primary border-primary' : 'font-medium text-muted-foreground border-transparent hover:border-border hover:text-foreground'} transition-colors`}
             >
               Recurring Profiles
             </button>
             <button
               type="button"
               onClick={() => setInvoiceTab('template')}
-              className={`border-b-2 py-4 px-1 text-sm ${invoiceTab === 'template' ? 'font-bold text-[#eead2b] border-[#eead2b]' : 'font-medium text-[#c8ba93] border-transparent hover:border-[#473e24] hover:text-white'} transition-colors`}
+              className={`border-b-2 py-4 px-1 text-sm ${invoiceTab === 'template' ? 'font-bold text-primary border-primary' : 'font-medium text-muted-foreground border-transparent hover:border-border hover:text-foreground'} transition-colors`}
             >
               Template Settings
             </button>
@@ -1261,65 +1261,65 @@ export const PaymentConfig: React.FC = () => {
         {invoiceTab === 'recurring' ? (
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-[#2c2616] border border-[#473e24] rounded-xl p-5">
-                <div className="text-xs text-[#c8ba93] font-bold uppercase">Total Active</div>
-                <div className="mt-1 text-2xl font-black text-white">{Number(subsOverview?.totalActive || 0)}</div>
+              <div className="bg-card border border-border rounded-xl p-5">
+                <div className="text-xs text-muted-foreground font-bold uppercase">Total Active</div>
+                <div className="mt-1 text-2xl font-black text-foreground">{Number(subsOverview?.totalActive || 0)}</div>
               </div>
-              <div className="bg-[#2c2616] border border-[#473e24] rounded-xl p-5">
-                <div className="text-xs text-[#c8ba93] font-bold uppercase">Verification Needed</div>
-                <div className="mt-1 text-2xl font-black text-white">{Number(subsOverview?.pendingVerify || 0)}</div>
+              <div className="bg-card border border-border rounded-xl p-5">
+                <div className="text-xs text-muted-foreground font-bold uppercase">Verification Needed</div>
+                <div className="mt-1 text-2xl font-black text-foreground">{Number(subsOverview?.pendingVerify || 0)}</div>
               </div>
-              <div className="bg-[#2c2616] border border-[#473e24] rounded-xl p-5">
-                <div className="text-xs text-[#c8ba93] font-bold uppercase">Monthly Revenue (ETB)</div>
-                <div className="mt-1 text-2xl font-black text-white">{Number(subsOverview?.monthlyRevenueEtb || 0).toLocaleString()}</div>
+              <div className="bg-card border border-border rounded-xl p-5">
+                <div className="text-xs text-muted-foreground font-bold uppercase">Monthly Revenue (ETB)</div>
+                <div className="mt-1 text-2xl font-black text-foreground">{Number(subsOverview?.monthlyRevenueEtb || 0).toLocaleString()}</div>
               </div>
-              <div className="bg-[#2c2616] border border-[#473e24] rounded-xl p-5">
-                <div className="text-xs text-[#c8ba93] font-bold uppercase">At Risk (24h)</div>
-                <div className="mt-1 text-2xl font-black text-white">{Number(subsOverview?.atRisk || 0)}</div>
+              <div className="bg-card border border-border rounded-xl p-5">
+                <div className="text-xs text-muted-foreground font-bold uppercase">At Risk (24h)</div>
+                <div className="mt-1 text-2xl font-black text-foreground">{Number(subsOverview?.atRisk || 0)}</div>
               </div>
             </div>
 
-            <div className="bg-[#2c2616] border border-[#473e24] rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#473e24]">
-                <div className="text-white font-bold">Subscription Billing Profiles</div>
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <div className="text-foreground font-bold">Subscription Billing Profiles</div>
                 <button
                   onClick={() => void loadSubscriptions()}
-                  className="h-10 px-4 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+                  className="h-10 px-4 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
                   type="button"
                 >
                   Refresh
                 </button>
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-[#473e24]">
-                  <thead className="bg-[#282215]">
+                <table className="min-w-full divide-y divide-border">
+                  <thead className="bg-muted/40">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider">Tenant</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider">Plan</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider">Cycle</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider">Amount</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider">Next Bill</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider">Method</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tenant</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Plan</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cycle</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Next Bill</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Method</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#473e24] bg-[#221e11]">
+                  <tbody className="divide-y divide-border bg-card">
                     {subsLoading ? (
-                      <tr><td className="px-6 py-4 text-sm text-[#c8ba93]" colSpan={7}>Loading...</td></tr>
+                      <tr><td className="px-6 py-4 text-sm text-muted-foreground" colSpan={7}>Loading...</td></tr>
                     ) : subsError ? (
-                      <tr><td className="px-6 py-4 text-sm text-red-300" colSpan={7}>{subsError}</td></tr>
+                      <tr><td className="px-6 py-4 text-sm text-destructive" colSpan={7}>{subsError}</td></tr>
                     ) : subsRows.length === 0 ? (
-                      <tr><td className="px-6 py-4 text-sm text-[#c8ba93]" colSpan={7}>No subscriptions found.</td></tr>
+                      <tr><td className="px-6 py-4 text-sm text-muted-foreground" colSpan={7}>No subscriptions found.</td></tr>
                     ) : (
                       subsRows.map((r: any) => (
-                        <tr key={String(r.tenantId)} className="hover:bg-[#2d281a] transition-colors">
-                          <td className="px-6 py-4 text-sm text-white font-medium">{r.tenantName || r.tenantId}</td>
-                          <td className="px-6 py-4 text-sm text-[#c8ba93] font-mono">{String(r.plan || '')}</td>
-                          <td className="px-6 py-4 text-sm text-[#c8ba93]">{String(r.cycle || '')}</td>
-                          <td className="px-6 py-4 text-sm text-white font-bold font-mono">ETB {Number(r.amountEtb || 0).toLocaleString()}</td>
-                          <td className="px-6 py-4 text-sm text-[#c8ba93] font-mono">{r.nextBillAt ? (formatDeviceDate(r.nextBillAt) || '-') : '-'}</td>
-                          <td className="px-6 py-4 text-sm text-[#c8ba93]">{String(r.status || '')}</td>
-                          <td className="px-6 py-4 text-sm text-[#c8ba93] font-mono">{String(r.method || '')}</td>
+                        <tr key={String(r.tenantId)} className="hover:bg-muted/40 transition-colors">
+                          <td className="px-6 py-4 text-sm text-foreground font-medium">{r.tenantName || r.tenantId}</td>
+                          <td className="px-6 py-4 text-sm text-muted-foreground font-mono">{String(r.plan || '')}</td>
+                          <td className="px-6 py-4 text-sm text-muted-foreground">{String(r.cycle || '')}</td>
+                          <td className="px-6 py-4 text-sm text-foreground font-bold font-mono">ETB {Number(r.amountEtb || 0).toLocaleString()}</td>
+                          <td className="px-6 py-4 text-sm text-muted-foreground font-mono">{r.nextBillAt ? (formatDeviceDate(r.nextBillAt) || '-') : '-'}</td>
+                          <td className="px-6 py-4 text-sm text-muted-foreground">{String(r.status || '')}</td>
+                          <td className="px-6 py-4 text-sm text-muted-foreground font-mono">{String(r.method || '')}</td>
                         </tr>
                       ))
                     )}
@@ -1329,16 +1329,16 @@ export const PaymentConfig: React.FC = () => {
             </div>
           </div>
         ) : invoiceTab === 'template' ? (
-          <div className="p-6 rounded-xl bg-[#2c2616] border border-[#473e24]">
+          <div className="p-6 rounded-xl bg-card border border-border">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <div className="text-white font-bold">Invoice Template Settings</div>
-                <div className="mt-1 text-sm text-[#c8ba93]">Stored in platform settings and used by PDF generator.</div>
+                <div className="text-foreground font-bold">Invoice Template Settings</div>
+                <div className="mt-1 text-sm text-muted-foreground">Stored in platform settings and used by PDF generator.</div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => void loadInvoiceTemplate()}
-                  className="h-10 px-4 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+                  className="h-10 px-4 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
                   type="button"
                 >
                   Refresh
@@ -1346,7 +1346,7 @@ export const PaymentConfig: React.FC = () => {
                 <button
                   onClick={() => void saveInvoiceTemplate()}
                   disabled={invoiceTplLoading}
-                  className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221e11] text-sm font-bold hover:bg-[#d49a26] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
                 >
                   Save
@@ -1354,7 +1354,7 @@ export const PaymentConfig: React.FC = () => {
               </div>
             </div>
 
-            {invoiceTplError ? <div className="mt-3 text-sm text-red-300">{invoiceTplError}</div> : null}
+            {invoiceTplError ? <div className="mt-3 text-sm text-destructive">{invoiceTplError}</div> : null}
 
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Company / Legal Name"><Input value={invoiceTemplate.companyName} onChange={(e) => setInvoiceTemplate((p) => ({ ...p, companyName: e.target.value }))} /></Field>
@@ -1364,16 +1364,16 @@ export const PaymentConfig: React.FC = () => {
               <div className="md:col-span-2">
                 <Field label="Footer Note"><Textarea value={invoiceTemplate.footerNote} onChange={(e) => setInvoiceTemplate((p) => ({ ...p, footerNote: e.target.value }))} /></Field>
               </div>
-              {invoiceTplLoading ? <div className="md:col-span-2 text-sm text-[#c8ba93]">Saving/Loading...</div> : null}
+              {invoiceTplLoading ? <div className="md:col-span-2 text-sm text-muted-foreground">Saving/Loading...</div> : null}
             </div>
           </div>
         ) : (
           <>
-            <div className="flex flex-col lg:flex-row gap-4 bg-[#2c2616] p-4 rounded-xl border border-[#473e24]">
+            <div className="flex flex-col lg:flex-row gap-4 bg-card p-4 rounded-xl border border-border">
               <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="material-symbols-outlined text-[#c8ba93] text-lg">search</span>
+                    <span className="material-symbols-outlined text-muted-foreground text-lg">search</span>
                   </div>
                   <Input
                     value={invoiceSearch}
@@ -1388,11 +1388,11 @@ export const PaymentConfig: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
-                    <label className="block text-[10px] font-bold uppercase text-[#c8ba93] tracking-wider mb-1">From</label>
+                    <label className="block text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">From</label>
                     <Input type="date" value={invoiceFrom} onChange={(e) => { setInvoiceFrom(e.target.value); setInvoicePage(1); }} />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-[10px] font-bold uppercase text-[#c8ba93] tracking-wider mb-1">To</label>
+                    <label className="block text-[10px] font-bold uppercase text-muted-foreground tracking-wider mb-1">To</label>
                     <Input type="date" value={invoiceTo} onChange={(e) => { setInvoiceTo(e.target.value); setInvoicePage(1); }} />
                   </div>
                 </div>
@@ -1404,7 +1404,7 @@ export const PaymentConfig: React.FC = () => {
                       setInvoiceStatus(e.target.value);
                       setInvoicePage(1);
                     }}
-                    className="block w-full h-10 rounded-lg border border-[#473e24] bg-[#1a170d] text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#eead2b]/40 py-2 pl-3 pr-10 appearance-none"
+                    className="block w-full h-10 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 py-2 pl-3 pr-10 appearance-none"
                   >
                     <option value="">All Statuses</option>
                     <option value="paid">Paid</option>
@@ -1412,7 +1412,7 @@ export const PaymentConfig: React.FC = () => {
                     <option value="overdue">Overdue</option>
                     <option value="failed">Failed</option>
                   </select>
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[#c8ba93]">
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-muted-foreground">
                     <span className="material-symbols-outlined text-lg">expand_more</span>
                   </div>
                 </div>
@@ -1424,7 +1424,7 @@ export const PaymentConfig: React.FC = () => {
                       setInvoiceTier(e.target.value);
                       setInvoicePage(1);
                     }}
-                    className="block w-full h-10 rounded-lg border border-[#473e24] bg-[#1a170d] text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#eead2b]/40 py-2 pl-3 pr-10 appearance-none"
+                    className="block w-full h-10 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 py-2 pl-3 pr-10 appearance-none"
                   >
                     <option value="">All Tiers</option>
                     <option value="Trial">Trial</option>
@@ -1432,59 +1432,59 @@ export const PaymentConfig: React.FC = () => {
                     <option value="Growth">Growth</option>
                     <option value="Enterprise">Enterprise</option>
                   </select>
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[#c8ba93]">
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-muted-foreground">
                     <span className="material-symbols-outlined text-lg">expand_more</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-[#2c2616] border border-[#473e24] rounded-xl overflow-hidden flex flex-col">
+            <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-[#473e24]">
-                  <thead className="bg-[#282215]">
+                <table className="min-w-full divide-y divide-border">
+                  <thead className="bg-muted/40">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider w-12" scope="col">
-                        <input className="rounded border-[#473e24] bg-[#221e11] text-[#eead2b] h-4 w-4" type="checkbox" />
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-12" scope="col">
+                        <input className="rounded border-border bg-background text-primary h-4 w-4" type="checkbox" />
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider" scope="col">Invoice ID</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider" scope="col">Cafe Name</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider" scope="col">Date Issued</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider" scope="col">Amount (ETB)</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-[#c8ba93] uppercase tracking-wider" scope="col">Status</th>
-                      <th className="px-6 py-4 text-right text-xs font-semibold text-[#c8ba93] uppercase tracking-wider" scope="col">Actions</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider" scope="col">Invoice ID</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider" scope="col">Cafe Name</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider" scope="col">Date Issued</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider" scope="col">Amount (ETB)</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider" scope="col">Status</th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider" scope="col">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#473e24] bg-[#221e11]">
+                  <tbody className="divide-y divide-border bg-card">
                     {invoiceLoading ? (
                       <tr>
-                        <td className="px-6 py-4 text-sm text-[#c8ba93]" colSpan={7}>Loading...</td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground" colSpan={7}>Loading...</td>
                       </tr>
                     ) : invoiceError ? (
                       <tr>
-                        <td className="px-6 py-4 text-sm text-red-300" colSpan={7}>{invoiceError}</td>
+                        <td className="px-6 py-4 text-sm text-destructive" colSpan={7}>{invoiceError}</td>
                       </tr>
                     ) : pageRows.length === 0 ? (
                       <tr>
-                        <td className="px-6 py-4 text-sm text-[#c8ba93]" colSpan={7}>No invoices found.</td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground" colSpan={7}>No invoices found.</td>
                       </tr>
                     ) : (
                       pageRows.map((r: any) => (
-                        <tr key={r.id} className="group hover:bg-[#2d281a] transition-colors">
+                        <tr key={r.id} className="group hover:bg-muted/40 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap w-12">
-                            <input className="rounded border-[#473e24] bg-[#221e11] text-[#eead2b] h-4 w-4" type="checkbox" />
+                            <input className="rounded border-border bg-background text-primary h-4 w-4" type="checkbox" />
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white font-mono">{r.invoiceNumber || r.id}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[#c8ba93]">{r.tenantName || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[#c8ba93] font-mono">{r.issueDate ? (formatDeviceDate(r.issueDate) || '-') : '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-bold font-mono">{Number(r.amountEtb || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground font-mono">{r.invoiceNumber || r.id}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{r.tenantName || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground font-mono">{r.issueDate ? (formatDeviceDate(r.issueDate) || '-') : '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground font-bold font-mono">{Number(r.amountEtb || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusPill(r.status)}`}>{String(r.status || 'Unknown')}</span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
                               onClick={() => void openInvoiceDetail(String(r.id))}
-                              className="text-[#c8ba93] hover:text-white p-1 rounded hover:bg-white/5 transition-colors"
+                              className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-accent/50 transition-colors"
                               type="button"
                             >
                               <span className="material-symbols-outlined text-lg">more_vert</span>
@@ -1497,16 +1497,16 @@ export const PaymentConfig: React.FC = () => {
                 </table>
               </div>
 
-              <div className="px-6 py-3 border-t border-[#473e24] flex items-center justify-between bg-[#282215]">
-                <div className="text-sm text-[#c8ba93]">
-                  Showing <span className="font-medium text-white">{shownFrom}</span> to <span className="font-medium text-white">{shownTo}</span> of <span className="font-medium text-white">{invoiceTotal}</span>
+              <div className="px-6 py-3 border-t border-border flex items-center justify-between bg-muted/40">
+                <div className="text-sm text-muted-foreground">
+                  Showing <span className="font-medium text-foreground">{shownFrom}</span> to <span className="font-medium text-foreground">{shownTo}</span> of <span className="font-medium text-foreground">{invoiceTotal}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     disabled={!canPrev}
                     onClick={() => setInvoicePage((p) => Math.max(1, p - 1))}
-                    className="inline-flex items-center px-3 py-2 rounded-md border border-[#473e24] bg-[#221e11] text-sm font-medium text-[#c8ba93] hover:bg-[#2d281a] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-3 py-2 rounded-md border border-border bg-background text-sm font-medium text-muted-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="material-symbols-outlined text-lg">chevron_left</span>
                   </button>
@@ -1514,7 +1514,7 @@ export const PaymentConfig: React.FC = () => {
                     type="button"
                     disabled={!canNext}
                     onClick={() => setInvoicePage((p) => p + 1)}
-                    className="inline-flex items-center px-3 py-2 rounded-md border border-[#473e24] bg-[#221e11] text-sm font-medium text-[#c8ba93] hover:bg-[#2d281a] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-3 py-2 rounded-md border border-border bg-background text-sm font-medium text-muted-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="material-symbols-outlined text-lg">chevron_right</span>
                   </button>
@@ -1545,7 +1545,7 @@ export const PaymentConfig: React.FC = () => {
                 setEditTierOpen(false);
                 setEditTierError(null);
               }}
-              className="h-10 px-4 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+              className="h-10 px-4 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
               type="button"
               disabled={editTierLoading}
             >
@@ -1554,7 +1554,7 @@ export const PaymentConfig: React.FC = () => {
             <button
               onClick={() => void updatePlanTier()}
               disabled={editTierLoading}
-              className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221e11] text-sm font-bold hover:bg-[#d49a26] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
             >
               {editTierLoading ? 'Saving...' : 'Save Changes'}
@@ -1563,7 +1563,7 @@ export const PaymentConfig: React.FC = () => {
         }
       >
         <div className="flex flex-col gap-4">
-          {editTierError ? <div className="text-sm text-red-300">{editTierError}</div> : null}
+          {editTierError ? <div className="text-sm text-destructive">{editTierError}</div> : null}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Monthly (ETB)">
@@ -1645,8 +1645,8 @@ export const PaymentConfig: React.FC = () => {
       <div className="max-w-[1400px] mx-auto flex flex-col gap-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-2">
           <div className="flex flex-col gap-1">
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">Taxation &amp; Compliance Engine</h1>
-            <div className="flex items-center gap-2 text-[#c8ba93] text-sm font-medium">
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">Taxation &amp; Compliance Engine</h1>
+            <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
               <span className="material-symbols-outlined text-sm">public</span>
               <span>Region: Ethiopia (ET)</span>
               <span className="mx-1">•</span>
@@ -1655,7 +1655,7 @@ export const PaymentConfig: React.FC = () => {
           </div>
           <div className="flex items-center gap-3">
             <button
-              className="flex items-center gap-2 bg-[#2c2616] border border-[#473e24] hover:bg-[#3a3220] text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-colors"
+              className="flex items-center gap-2 bg-card border border-border hover:bg-accent text-foreground px-4 py-2.5 rounded-lg text-sm font-bold transition-colors"
               type="button"
               onClick={() => {
                 setTaxStatusDraft({
@@ -1671,7 +1671,7 @@ export const PaymentConfig: React.FC = () => {
               Edit Status
             </button>
             <button
-              className="flex items-center gap-2 bg-[#eead2b] hover:bg-[#d49a26] text-[#221e11] px-4 py-2.5 rounded-lg text-sm font-bold shadow-md transition-colors"
+              className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-bold shadow-md transition-colors"
               type="button"
               onClick={() => {
                 setAddTaxDraft({
@@ -1693,64 +1693,64 @@ export const PaymentConfig: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex flex-col gap-1 rounded-xl p-5 bg-[#2c2616] border border-[#473e24] relative overflow-hidden">
+          <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border relative overflow-hidden">
             <div className="absolute right-4 top-4 text-emerald-400 bg-emerald-500/10 p-1 rounded-md">
               <span className="material-symbols-outlined">print_connect</span>
             </div>
-            <p className="text-[#c8ba93] text-sm font-medium">Fiscal Printer Status</p>
-            <p className="text-white text-2xl font-bold tracking-tight">{taxStatus?.fiscalPrinterStatus ? String(taxStatus.fiscalPrinterStatus) : 'N/A'}</p>
+            <p className="text-muted-foreground text-sm font-medium">Fiscal Printer Status</p>
+            <p className="text-foreground text-2xl font-bold tracking-tight">{taxStatus?.fiscalPrinterStatus ? String(taxStatus.fiscalPrinterStatus) : 'N/A'}</p>
             <div className="flex items-center gap-1 mt-2 text-xs text-emerald-400 font-medium">
               <span className="material-symbols-outlined text-[14px]">check_circle</span>
               <span>{taxStatus?.fiscalSignatureOk === true ? 'Signature OK' : 'Signature N/A'}</span>
             </div>
           </div>
 
-          <div className="flex flex-col gap-1 rounded-xl p-5 bg-[#2c2616] border border-[#473e24] relative overflow-hidden">
-            <div className="absolute right-4 top-4 text-[#eead2b] bg-[#eead2b]/10 p-1 rounded-md">
+          <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border relative overflow-hidden">
+            <div className="absolute right-4 top-4 text-primary bg-primary/10 p-1 rounded-md">
               <span className="material-symbols-outlined">percent</span>
             </div>
-            <p className="text-[#c8ba93] text-sm font-medium">Global VAT Rate</p>
-            <p className="text-white text-2xl font-bold tracking-tight">{Number.isFinite(globalVat) ? `${globalVat.toFixed(1)}%` : '15.0%'}</p>
-            <p className="text-[#c8ba93] text-xs mt-2">Standard Rate (Goods &amp; Services)</p>
+            <p className="text-muted-foreground text-sm font-medium">Global VAT Rate</p>
+            <p className="text-foreground text-2xl font-bold tracking-tight">{Number.isFinite(globalVat) ? `${globalVat.toFixed(1)}%` : '15.0%'}</p>
+            <p className="text-muted-foreground text-xs mt-2">Standard Rate (Goods &amp; Services)</p>
           </div>
 
-          <div className="flex flex-col gap-1 rounded-xl p-5 bg-[#2c2616] border border-[#473e24] relative overflow-hidden">
-            <div className="absolute right-4 top-4 text-white-300 bg-white-500/10 p-1 rounded-md">
+          <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border relative overflow-hidden">
+            <div className="absolute right-4 top-4 text-muted-foreground bg-muted/40 p-1 rounded-md">
               <span className="material-symbols-outlined">sync</span>
             </div>
-            <p className="text-[#c8ba93] text-sm font-medium">Last ERCA Sync</p>
-            <p className="text-white text-2xl font-bold tracking-tight">{taxStatus?.lastErcaSyncAt ? (formatDeviceDateTime(taxStatus.lastErcaSyncAt) || 'N/A') : 'N/A'}</p>
-            <p className="text-[#c8ba93] text-xs mt-2">Next sync: {taxStatus?.nextErcaSyncAt ? (formatDeviceDateTime(taxStatus.nextErcaSyncAt) || 'N/A') : 'N/A'}</p>
+            <p className="text-muted-foreground text-sm font-medium">Last ERCA Sync</p>
+            <p className="text-foreground text-2xl font-bold tracking-tight">{taxStatus?.lastErcaSyncAt ? (formatDeviceDateTime(taxStatus.lastErcaSyncAt) || 'N/A') : 'N/A'}</p>
+            <p className="text-muted-foreground text-xs mt-2">Next sync: {taxStatus?.nextErcaSyncAt ? (formatDeviceDateTime(taxStatus.nextErcaSyncAt) || 'N/A') : 'N/A'}</p>
           </div>
         </div>
 
-        <div className="border-b border-[#473e24]">
+        <div className="border-b border-border">
           <div className="flex gap-8 overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveSubTab('rates')}
-              className={`flex items-center pb-3 border-b-2 ${activeSubTab === 'rates' ? 'border-[#eead2b] text-white font-bold' : 'border-transparent text-[#c8ba93] hover:text-white font-medium'} text-sm tracking-wide transition-colors`}
+              className={`flex items-center pb-3 border-b-2 ${activeSubTab === 'rates' ? 'border-primary text-foreground font-bold' : 'border-transparent text-muted-foreground hover:text-foreground font-medium'} text-sm tracking-wide transition-colors`}
             >
               Active Rates
             </button>
             <button
               type="button"
               onClick={() => setActiveSubTab('exemptions')}
-              className={`flex items-center pb-3 border-b-2 ${activeSubTab === 'exemptions' ? 'border-[#eead2b] text-white font-bold' : 'border-transparent text-[#c8ba93] hover:text-white font-medium'} text-sm tracking-wide transition-colors`}
+              className={`flex items-center pb-3 border-b-2 ${activeSubTab === 'exemptions' ? 'border-primary text-foreground font-bold' : 'border-transparent text-muted-foreground hover:text-foreground font-medium'} text-sm tracking-wide transition-colors`}
             >
               Exemptions
             </button>
             <button
               type="button"
               onClick={() => setActiveSubTab('reporting')}
-              className={`flex items-center pb-3 border-b-2 ${activeSubTab === 'reporting' ? 'border-[#eead2b] text-white font-bold' : 'border-transparent text-[#c8ba93] hover:text-white font-medium'} text-sm tracking-wide transition-colors`}
+              className={`flex items-center pb-3 border-b-2 ${activeSubTab === 'reporting' ? 'border-primary text-foreground font-bold' : 'border-transparent text-muted-foreground hover:text-foreground font-medium'} text-sm tracking-wide transition-colors`}
             >
               Reporting Config
             </button>
             <button
               type="button"
               onClick={() => setActiveSubTab('audit')}
-              className={`flex items-center pb-3 border-b-2 ${activeSubTab === 'audit' ? 'border-[#eead2b] text-white font-bold' : 'border-transparent text-[#c8ba93] hover:text-white font-medium'} text-sm tracking-wide transition-colors`}
+              className={`flex items-center pb-3 border-b-2 ${activeSubTab === 'audit' ? 'border-primary text-foreground font-bold' : 'border-transparent text-muted-foreground hover:text-foreground font-medium'} text-sm tracking-wide transition-colors`}
             >
               Audit Logs
             </button>
@@ -1758,18 +1758,18 @@ export const PaymentConfig: React.FC = () => {
         </div>
 
         {activeSubTab === 'exemptions' ? (
-          <div className="p-6 rounded-xl bg-[#2c2616] border border-[#473e24]">
+          <div className="p-6 rounded-xl bg-card border border-border">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <div className="text-white font-bold">Tax Categories</div>
-                <div className="mt-1 text-sm text-[#c8ba93]">Categories used to scope tax rules (exemptions/standard/reduced).</div>
+                <div className="text-foreground font-bold">Tax Categories</div>
+                <div className="mt-1 text-sm text-muted-foreground">Categories used to scope tax rules (exemptions/standard/reduced).</div>
               </div>
               <div className="flex items-center gap-2">
                 <Input value={taxCatNewName} onChange={(e) => setTaxCatNewName(e.target.value)} placeholder="New category name" />
                 <button
                   onClick={() => void createTaxCategory()}
                   disabled={taxCatLoading}
-                  className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221e11] text-sm font-bold hover:bg-[#d49a26] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
                 >
                   Add
@@ -1777,32 +1777,32 @@ export const PaymentConfig: React.FC = () => {
               </div>
             </div>
 
-            {taxCatError ? <div className="mt-3 text-sm text-red-300">{taxCatError}</div> : null}
+            {taxCatError ? <div className="mt-3 text-sm text-destructive">{taxCatError}</div> : null}
 
-            <div className="mt-4 overflow-hidden rounded-lg border border-[#473e24]">
+            <div className="mt-4 overflow-hidden rounded-lg border border-border">
               <table className="w-full text-left text-sm">
-                <thead className="bg-[#1a170d] text-white">
+                <thead className="bg-muted/40 text-foreground">
                   <tr>
                     <th className="px-4 py-3 font-medium">Name</th>
                     <th className="px-4 py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#473e24] bg-[#221e11]">
+                <tbody className="divide-y divide-border bg-card">
                   {taxCatLoading ? (
-                    <tr><td className="px-4 py-3 text-[#c8ba93]" colSpan={2}>Loading...</td></tr>
+                    <tr><td className="px-4 py-3 text-muted-foreground" colSpan={2}>Loading...</td></tr>
                   ) : taxCategories.length === 0 ? (
-                    <tr><td className="px-4 py-3 text-[#c8ba93]" colSpan={2}>No categories yet.</td></tr>
+                    <tr><td className="px-4 py-3 text-muted-foreground" colSpan={2}>No categories yet.</td></tr>
                   ) : (
                     taxCategories.map((c) => (
-                      <tr key={c.id} className="hover:bg-[#2c2616]/60">
-                        <td className="px-4 py-3 text-white">
+                      <tr key={c.id} className="hover:bg-muted/40">
+                        <td className="px-4 py-3 text-foreground">
                           {taxCatEditId === c.id ? (
                             <div className="flex items-center gap-2">
                               <Input value={taxCatEditName} onChange={(e) => setTaxCatEditName(e.target.value)} />
                               <button
                                 type="button"
                                 onClick={() => void updateTaxCategory(c.id, taxCatEditName)}
-                                className="h-10 px-3 rounded-lg bg-[#eead2b] text-[#221e11] text-xs font-bold hover:bg-[#d49a26] transition-colors"
+                                className="h-10 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors"
                               >
                                 Save
                               </button>
@@ -1812,7 +1812,7 @@ export const PaymentConfig: React.FC = () => {
                                   setTaxCatEditId('');
                                   setTaxCatEditName('');
                                 }}
-                                className="h-10 px-3 rounded-lg bg-[#1a170d] border border-[#473e24] text-white text-xs font-bold hover:bg-[#3a3220] transition-colors"
+                                className="h-10 px-3 rounded-lg bg-card border border-border text-foreground text-xs font-bold hover:bg-accent transition-colors"
                               >
                                 Cancel
                               </button>
@@ -1828,7 +1828,7 @@ export const PaymentConfig: React.FC = () => {
                                 setTaxCatEditId(c.id);
                                 setTaxCatEditName(c.name);
                               }}
-                              className="h-10 w-10 rounded-lg bg-[#1a170d] border border-[#473e24] hover:text-[#eead2b] transition-colors"
+                              className="h-10 w-10 rounded-lg bg-card border border-border hover:text-primary transition-colors"
                               type="button"
                               title="Rename"
                             >
@@ -1836,7 +1836,7 @@ export const PaymentConfig: React.FC = () => {
                             </button>
                             <button
                               onClick={() => void deleteTaxCategory(c.id)}
-                              className="h-10 w-10 rounded-lg bg-[#1a170d] border border-[#473e24] hover:text-red-300 transition-colors"
+                              className="h-10 w-10 rounded-lg bg-card border border-border hover:text-destructive transition-colors"
                               type="button"
                               title="Delete"
                             >
@@ -1852,11 +1852,11 @@ export const PaymentConfig: React.FC = () => {
             </div>
           </div>
         ) : activeSubTab === 'reporting' ? (
-          <div className="p-6 rounded-xl bg-[#2c2616] border border-[#473e24]">
+          <div className="p-6 rounded-xl bg-card border border-border">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="text-white font-bold">Reporting</div>
-                <div className="mt-1 text-sm text-[#c8ba93]">Export current tax rules + category mappings as CSV.</div>
+                <div className="text-foreground font-bold">Reporting</div>
+                <div className="mt-1 text-sm text-muted-foreground">Export current tax rules + category mappings as CSV.</div>
               </div>
               <button
                 onClick={() => {
@@ -1867,65 +1867,65 @@ export const PaymentConfig: React.FC = () => {
                   a.click();
                   a.remove();
                 }}
-                className="h-10 px-4 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+                className="h-10 px-4 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
                 type="button"
               >
                 Export CSV
               </button>
             </div>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 rounded-lg bg-[#1a170d] border border-[#473e24]">
-                <div className="text-xs text-[#c8ba93] font-bold uppercase">Tax Rules</div>
-                <div className="text-2xl text-white font-black mt-1">{taxRules.length}</div>
+              <div className="p-4 rounded-lg bg-muted/40 border border-border">
+                <div className="text-xs text-muted-foreground font-bold uppercase">Tax Rules</div>
+                <div className="text-2xl text-foreground font-black mt-1">{taxRules.length}</div>
               </div>
-              <div className="p-4 rounded-lg bg-[#1a170d] border border-[#473e24]">
-                <div className="text-xs text-[#c8ba93] font-bold uppercase">Categories</div>
-                <div className="text-2xl text-white font-black mt-1">{taxCategories.length}</div>
+              <div className="p-4 rounded-lg bg-muted/40 border border-border">
+                <div className="text-xs text-muted-foreground font-bold uppercase">Categories</div>
+                <div className="text-2xl text-foreground font-black mt-1">{taxCategories.length}</div>
               </div>
-              <div className="p-4 rounded-lg bg-[#1a170d] border border-[#473e24]">
-                <div className="text-xs text-[#c8ba93] font-bold uppercase">VAT Standard</div>
-                <div className="text-2xl text-white font-black mt-1">{Number.isFinite(globalVat) ? `${globalVat.toFixed(1)}%` : '-'}</div>
+              <div className="p-4 rounded-lg bg-muted/40 border border-border">
+                <div className="text-xs text-muted-foreground font-bold uppercase">VAT Standard</div>
+                <div className="text-2xl text-foreground font-black mt-1">{Number.isFinite(globalVat) ? `${globalVat.toFixed(1)}%` : '-'}</div>
               </div>
             </div>
           </div>
         ) : activeSubTab === 'audit' ? (
-          <div className="p-6 rounded-xl bg-[#2c2616] border border-[#473e24]">
+          <div className="p-6 rounded-xl bg-card border border-border">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="text-white font-bold">Tax Audit</div>
-                <div className="mt-1 text-sm text-[#c8ba93]">Recent tax-related changes from audit log.</div>
+                <div className="text-foreground font-bold">Tax Audit</div>
+                <div className="mt-1 text-sm text-muted-foreground">Recent tax-related changes from audit log.</div>
               </div>
               <button
                 onClick={() => void loadTaxAudit()}
-                className="h-10 px-4 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+                className="h-10 px-4 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
                 type="button"
               >
                 Refresh
               </button>
             </div>
 
-            {taxAuditError ? <div className="mt-3 text-sm text-red-300">{taxAuditError}</div> : null}
+            {taxAuditError ? <div className="mt-3 text-sm text-destructive">{taxAuditError}</div> : null}
 
-            <div className="mt-4 overflow-hidden rounded-lg border border-[#473e24]">
+            <div className="mt-4 overflow-hidden rounded-lg border border-border">
               <table className="w-full text-left text-sm">
-                <thead className="bg-[#1a170d] text-white">
+                <thead className="bg-muted/40 text-foreground">
                   <tr>
                     <th className="px-4 py-3 font-medium">Time</th>
                     <th className="px-4 py-3 font-medium">Type</th>
                     <th className="px-4 py-3 font-medium">Details</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#473e24] bg-[#221e11]">
+                <tbody className="divide-y divide-border bg-card">
                   {taxAuditLoading ? (
-                    <tr><td className="px-4 py-3 text-[#c8ba93]" colSpan={3}>Loading...</td></tr>
+                    <tr><td className="px-4 py-3 text-muted-foreground" colSpan={3}>Loading...</td></tr>
                   ) : taxAuditEvents.length === 0 ? (
-                    <tr><td className="px-4 py-3 text-[#c8ba93]" colSpan={3}>No events yet.</td></tr>
+                    <tr><td className="px-4 py-3 text-muted-foreground" colSpan={3}>No events yet.</td></tr>
                   ) : (
                     taxAuditEvents.slice(0, 30).map((e: any) => (
-                      <tr key={String(e.id)} className="hover:bg-[#2c2616]/60">
-                        <td className="px-4 py-3 text-[#c8ba93] font-mono">{e.at ? (formatDeviceDateTime(e.at) || '-') : '-'}</td>
-                        <td className="px-4 py-3 text-white font-mono">{String(e.type || '')}</td>
-                        <td className="px-4 py-3 text-[#c8ba93]">{String(e.details || '')}</td>
+                      <tr key={String(e.id)} className="hover:bg-muted/40">
+                        <td className="px-4 py-3 text-muted-foreground font-mono">{e.at ? (formatDeviceDateTime(e.at) || '-') : '-'}</td>
+                        <td className="px-4 py-3 text-foreground font-mono">{String(e.type || '')}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{String(e.details || '')}</td>
                       </tr>
                     ))
                   )}
@@ -1935,30 +1935,30 @@ export const PaymentConfig: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-            <div className="xl:col-span-3 min-w-0 bg-[#2c2616] rounded-xl border border-[#473e24] flex flex-col min-h-[500px]">
-              <div className="p-4 border-b border-[#473e24] flex justify-between items-center">
-                <h3 className="font-bold text-white text-lg">Defined Tax Rules</h3>
-                <button className="text-[#c8ba93] hover:text-white transition-colors" type="button">
+            <div className="xl:col-span-3 min-w-0 bg-card rounded-xl border border-border flex flex-col min-h-[500px]">
+              <div className="p-4 border-b border-border flex justify-between items-center">
+                <h3 className="font-bold text-foreground text-lg">Defined Tax Rules</h3>
+                <button className="text-muted-foreground hover:text-foreground transition-colors" type="button">
                   <span className="material-symbols-outlined">filter_list</span>
                 </button>
               </div>
               <div className="overflow-x-auto flex-1">
                 <table className="w-full text-left border-collapse">
-                  <thead className="bg-[#221e11]/50 text-[#c8ba93] text-xs uppercase font-semibold">
+                  <thead className="bg-muted/40 text-muted-foreground text-xs uppercase font-semibold">
                     <tr>
-                      <th className="p-4 border-b border-[#473e24]">Code</th>
-                      <th className="p-4 border-b border-[#473e24]">Name</th>
-                      <th className="p-4 border-b border-[#473e24] text-right">Rate</th>
-                      <th className="p-4 border-b border-[#473e24]">Type</th>
-                      <th className="p-4 border-b border-[#473e24]">Effective Date</th>
-                      <th className="p-4 border-b border-[#473e24]">Status</th>
-                      <th className="p-4 border-b border-[#473e24] w-10" />
+                      <th className="p-4 border-b border-border">Code</th>
+                      <th className="p-4 border-b border-border">Name</th>
+                      <th className="p-4 border-b border-border text-right">Rate</th>
+                      <th className="p-4 border-b border-border">Type</th>
+                      <th className="p-4 border-b border-border">Effective Date</th>
+                      <th className="p-4 border-b border-border">Status</th>
+                      <th className="p-4 border-b border-border w-10" />
                     </tr>
                   </thead>
                   <tbody className="text-sm">
                     {rules.length === 0 ? (
                       <tr>
-                        <td className="p-4 text-[#c8ba93]" colSpan={7}>
+                        <td className="p-4 text-muted-foreground" colSpan={7}>
                           No tax rules defined.
                         </td>
                       </tr>
@@ -1970,23 +1970,23 @@ export const PaymentConfig: React.FC = () => {
                             ? 'bg-emerald-500/10 text-emerald-400'
                             : r.status === 'suspended'
                               ? 'bg-orange-500/10 text-orange-400'
-                              : 'bg-white/10 text-[#c8ba93]';
+                              : 'bg-muted text-muted-foreground';
                         return (
                           <tr
                             key={r.code}
                             onClick={() => setSelectedCode(r.code)}
-                            className={`group hover:bg-white/5 transition-colors cursor-pointer border-l-4 ${activeRow ? 'border-l-[#eead2b] bg-white/5' : 'border-l-transparent'}`}
+                            className={`group hover:bg-muted/40 transition-colors cursor-pointer border-l-4 ${activeRow ? 'border-l-primary bg-muted/40' : 'border-l-transparent'}`}
                           >
-                            <td className={`p-4 border-b border-[#473e24] font-mono ${activeRow ? 'text-[#eead2b]' : 'text-[#c8ba93]'}`}>{r.code}</td>
-                            <td className="p-4 border-b border-[#473e24] font-medium text-white">{r.name}</td>
-                            <td className="p-4 border-b border-[#473e24] text-right font-mono text-white">{formatPct(r.ratePct)}</td>
-                            <td className="p-4 border-b border-[#473e24] text-[#c8ba93]">Percentage</td>
-                            <td className="p-4 border-b border-[#473e24] text-[#c8ba93]">{formatDate(r.effectiveDate)}</td>
-                            <td className="p-4 border-b border-[#473e24]">
+                            <td className={`p-4 border-b border-border font-mono ${activeRow ? 'text-primary' : 'text-muted-foreground'}`}>{r.code}</td>
+                            <td className="p-4 border-b border-border font-medium text-foreground">{r.name}</td>
+                            <td className="p-4 border-b border-border text-right font-mono text-foreground">{formatPct(r.ratePct)}</td>
+                            <td className="p-4 border-b border-border text-muted-foreground">Percentage</td>
+                            <td className="p-4 border-b border-border text-muted-foreground">{formatDate(r.effectiveDate)}</td>
+                            <td className="p-4 border-b border-border">
                               <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold ${statusColor}`}>{r.status}</span>
                             </td>
-                            <td className="p-4 border-b border-[#473e24] text-right">
-                              <span className="material-symbols-outlined text-[#c8ba93] text-sm">chevron_right</span>
+                            <td className="p-4 border-b border-border text-right">
+                              <span className="material-symbols-outlined text-muted-foreground text-sm">chevron_right</span>
                             </td>
                           </tr>
                         );
@@ -1998,31 +1998,31 @@ export const PaymentConfig: React.FC = () => {
             </div>
 
             <div className="xl:col-span-2 w-full min-w-0 flex flex-col gap-6 xl:sticky xl:top-6 self-start">
-              <div className="bg-[#2c2616] rounded-xl border border-[#473e24] flex flex-col">
-                <div className="p-4 border-b border-[#473e24] flex justify-between items-center bg-[#221e11]/30">
-                  <h3 className="font-bold text-white text-lg flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#eead2b]">edit_document</span>
+              <div className="bg-card rounded-xl border border-border flex flex-col">
+                <div className="p-4 border-b border-border flex justify-between items-center bg-muted/40">
+                  <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">edit_document</span>
                     Configuration
                   </h3>
-                  <div className="text-xs text-[#c8ba93] font-mono bg-white/5 px-2 py-1 rounded">{selected?.code || '-'}</div>
+                  <div className="text-xs text-muted-foreground font-mono bg-muted/40 px-2 py-1 rounded">{selected?.code || '-'}</div>
                 </div>
 
                 <div className="p-6 flex flex-col gap-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="col-span-2">
-                      <label className="block text-xs font-bold text-[#c8ba93] uppercase tracking-wider mb-2">Display Name</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Display Name</label>
                       <Input value={draftRule?.name || ''} onChange={(e) => draftRule && updateDraft({ name: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-[#c8ba93] uppercase tracking-wider mb-2">Rate (%)</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Rate (%)</label>
                       <Input type="number" value={draftRule ? String(draftRule.ratePct) : ''} onChange={(e) => draftRule && updateDraft({ ratePct: Number(e.target.value || 0) })} className="font-mono font-bold text-right" />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-[#c8ba93] uppercase tracking-wider mb-2">Tax Logic</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Tax Logic</label>
                       <select
                         value={draftRule?.logic || 'exclusive'}
                         onChange={(e) => draftRule && updateDraft({ logic: e.target.value === 'inclusive' ? 'inclusive' : 'exclusive' })}
-                        className="w-full h-10 px-3 rounded-lg bg-[#1a170d] border border-[#473e24] text-white focus:outline-none focus:ring-2 focus:ring-[#eead2b]/40"
+                        className="w-full h-10 px-3 rounded-lg bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                       >
                         <option value="exclusive">Exclusive</option>
                         <option value="inclusive">Inclusive</option>
@@ -2031,10 +2031,10 @@ export const PaymentConfig: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[#c8ba93] uppercase tracking-wider mb-2">Applicability Categories</label>
-                    <div className="p-3 bg-[#1a170d] border border-[#473e24] rounded-md flex flex-wrap gap-2 min-h-[80px]">
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Applicability Categories</label>
+                    <div className="p-3 bg-muted/40 border border-border rounded-md flex flex-wrap gap-2 min-h-[80px]">
                       {(draftRule?.applicabilityCategories || []).map((cat) => (
-                        <span key={cat} className="inline-flex items-center gap-1 bg-white/10 text-white text-xs px-2 py-1 rounded border border-white/10">
+                        <span key={cat} className="inline-flex items-center gap-1 bg-muted text-foreground text-xs px-2 py-1 rounded border border-border">
                           <span>{cat}</span>
                           <button
                             type="button"
@@ -2045,7 +2045,7 @@ export const PaymentConfig: React.FC = () => {
                             }}
                             className="leading-none"
                           >
-                            <span className="material-symbols-outlined text-[14px] hover:text-red-300">close</span>
+                            <span className="material-symbols-outlined text-[14px] hover:text-destructive">close</span>
                           </button>
                         </span>
                       ))}
@@ -2059,7 +2059,7 @@ export const PaymentConfig: React.FC = () => {
                             const next = Array.from(new Set([...(draftRule.applicabilityCategories || []), v]));
                             updateDraft({ applicabilityCategories: next });
                           }}
-                          className="w-full h-10 px-3 rounded-lg bg-[#221e11] border border-[#473e24] text-white focus:outline-none focus:ring-2 focus:ring-[#eead2b]/40"
+                          className="w-full h-10 px-3 rounded-lg bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                         >
                           <option value="">+ Add category…</option>
                           {taxCategories.map((c) => (
@@ -2070,17 +2070,17 @@ export const PaymentConfig: React.FC = () => {
                         </select>
                       </div>
                     </div>
-                    <div className="mt-2 text-[11px] text-[#c8ba93]">
-                      Manage categories in the <span className="text-white font-bold">Exemptions</span> tab.
+                    <div className="mt-2 text-[11px] text-muted-foreground">
+                      Manage categories in the <span className="text-foreground font-bold">Exemptions</span> tab.
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-[#473e24] flex flex-col sm:flex-row gap-3">
+                  <div className="pt-4 border-t border-border flex flex-col sm:flex-row gap-3">
                     <button
                       type="button"
                       onClick={() => draftRule && void saveTaxRule(draftRule.code, draftRule)}
                       disabled={taxLoading || !draftRule}
-                      className="flex-1 bg-[#eead2b] text-[#221e11] font-bold py-2.5 rounded-lg text-sm hover:bg-[#d49a26] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 bg-primary text-primary-foreground font-bold py-2.5 rounded-lg text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Save Changes
                     </button>
@@ -2088,7 +2088,7 @@ export const PaymentConfig: React.FC = () => {
                       type="button"
                       onClick={() => void loadTax()}
                       disabled={taxLoading}
-                      className="sm:w-[140px] px-4 py-2.5 border border-[#473e24] rounded-lg text-[#c8ba93] hover:text-white hover:bg-white/5 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="sm:w-[140px] px-4 py-2.5 border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Refresh
                     </button>
@@ -2096,62 +2096,62 @@ export const PaymentConfig: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-[#2c2616] rounded-xl border border-[#473e24] p-6">
-                <h4 className="text-white text-sm font-bold mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#c8ba93]">calculate</span>
+              <div className="bg-card rounded-xl border border-border p-6">
+                <h4 className="text-foreground text-sm font-bold mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-muted-foreground">calculate</span>
                   Calculation Simulator
                 </h4>
                 <div className="flex flex-col gap-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="min-w-0">
-                      <label className="text-[10px] uppercase text-[#c8ba93] font-bold">Base Price (ETB)</label>
+                      <label className="text-[10px] uppercase text-muted-foreground font-bold">Base Price (ETB)</label>
                       <Input className="mt-1 text-right font-mono" value={simBase} onChange={(e) => setSimBase(e.target.value)} />
                     </div>
 
                     <div className="min-w-0">
-                      <label className="text-[10px] uppercase text-[#c8ba93] font-bold">Tax ({draftRule ? formatPct(draftRule.ratePct) : '0.00%'})</label>
-                      <div className="h-10 mt-1 px-3 rounded-lg bg-[#221e11]/50 border border-[#473e24] text-right text-[#eead2b] text-sm font-mono font-bold flex items-center justify-end">
+                      <label className="text-[10px] uppercase text-muted-foreground font-bold">Tax ({draftRule ? formatPct(draftRule.ratePct) : '0.00%'})</label>
+                      <div className="h-10 mt-1 px-3 rounded-lg bg-muted/40 border border-border text-right text-primary text-sm font-mono font-bold flex items-center justify-end">
                         {taxAmount.toFixed(2)}
                       </div>
                     </div>
 
                     <div className="min-w-0 md:col-span-2">
-                      <label className="text-[10px] uppercase text-[#c8ba93] font-bold">Total</label>
-                      <div className="h-10 mt-1 px-3 rounded-lg bg-white/5 border border-[#473e24] text-right text-white text-sm font-mono font-bold flex items-center justify-end">
+                      <label className="text-[10px] uppercase text-muted-foreground font-bold">Total</label>
+                      <div className="h-10 mt-1 px-3 rounded-lg bg-muted/40 border border-border text-right text-foreground text-sm font-mono font-bold flex items-center justify-end">
                         {total.toFixed(2)}
                       </div>
                     </div>
                   </div>
-                  <p className="text-[10px] text-[#c8ba93] italic text-center mt-2">
+                  <p className="text-[10px] text-muted-foreground italic text-center mt-2">
                     * Simulation based on {logic === 'inclusive' ? 'Inclusive' : 'Exclusive'} tax calculation logic currently selected.
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-dashed border-[#473e24] p-4">
+              <div className="rounded-xl border border-dashed border-border p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <h5 className="text-xs font-bold text-[#c8ba93] uppercase">Recent Modifications</h5>
+                  <h5 className="text-xs font-bold text-muted-foreground uppercase">Recent Modifications</h5>
                   <button
                     type="button"
                     onClick={() => void loadTaxAudit()}
-                    className="text-xs font-bold text-[#eead2b] hover:text-white transition-colors"
+                    className="text-xs font-bold text-primary hover:text-foreground transition-colors"
                   >
                     Refresh
                   </button>
                 </div>
-                {taxAuditError ? <div className="mt-2 text-xs text-red-300">{taxAuditError}</div> : null}
+                {taxAuditError ? <div className="mt-2 text-xs text-destructive">{taxAuditError}</div> : null}
                 <ul className="mt-3 space-y-3">
                   {taxAuditLoading ? (
-                    <li className="text-xs text-[#c8ba93]">Loading...</li>
+                    <li className="text-xs text-muted-foreground">Loading...</li>
                   ) : taxAuditEvents.length === 0 ? (
-                    <li className="text-xs text-[#c8ba93]">No recent changes.</li>
+                    <li className="text-xs text-muted-foreground">No recent changes.</li>
                   ) : (
                     taxAuditEvents.slice(0, 5).map((e: any) => (
                       <li key={String(e.id)} className="flex gap-3 items-start">
-                        <div className="mt-0.5 size-2 rounded-full bg-[#eead2b] flex-shrink-0" />
+                        <div className="mt-0.5 size-2 rounded-full bg-primary flex-shrink-0" />
                         <div className="flex flex-col gap-0.5">
-                          <p className="text-xs text-white font-mono">{String(e.type || '')}</p>
-                          <p className="text-[10px] text-[#c8ba93]">{e.at ? (formatDeviceDateTime(e.at) || '') : ''}{e.details ? ` • ${String(e.details)}` : ''}</p>
+                          <p className="text-xs text-foreground font-mono">{String(e.type || '')}</p>
+                          <p className="text-[10px] text-muted-foreground">{e.at ? (formatDeviceDateTime(e.at) || '') : ''}{e.details ? ` • ${String(e.details)}` : ''}</p>
                         </div>
                       </li>
                     ))
@@ -2172,10 +2172,10 @@ export const PaymentConfig: React.FC = () => {
     if (!br) {
       return (
         <div className="max-w-[1400px] mx-auto">
-          <div className="p-6 rounded-xl bg-[#2c2616] border border-[#473e24]">
-            <div className="text-white font-bold">Billing Rules</div>
-            <div className="mt-2 text-sm text-[#c8ba93]">Loading...</div>
-            {billingError ? <div className="mt-2 text-sm text-red-300">{billingError}</div> : null}
+          <div className="p-6 rounded-xl bg-card border border-border">
+            <div className="text-foreground font-bold">Billing Rules</div>
+            <div className="mt-2 text-sm text-muted-foreground">Loading...</div>
+            {billingError ? <div className="mt-2 text-sm text-destructive">{billingError}</div> : null}
           </div>
         </div>
       );
@@ -2185,8 +2185,8 @@ export const PaymentConfig: React.FC = () => {
       <div className="max-w-[1400px] mx-auto flex flex-col gap-6">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-white tracking-tight mb-2">Billing Configuration</h1>
-            <p className="text-[#c8ba93] max-w-2xl">
+            <h1 className="text-3xl font-extrabold text-foreground tracking-tight mb-2">Billing Configuration</h1>
+            <p className="text-muted-foreground max-w-2xl">
               Define global billing logic, grace periods, and payment workflows. Changes here affect all tenants.
             </p>
           </div>
@@ -2194,7 +2194,7 @@ export const PaymentConfig: React.FC = () => {
             <button
               disabled={billingLoading}
               onClick={() => void loadBilling()}
-              className="px-4 py-2 bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold rounded-lg hover:bg-[#3a3220] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-card border border-border text-foreground text-sm font-bold rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
             >
               Refresh
@@ -2202,7 +2202,7 @@ export const PaymentConfig: React.FC = () => {
             <button
               disabled={billingLoading}
               onClick={() => void saveBillingPolicy()}
-              className="px-6 py-2 bg-[#eead2b] text-[#221e11] text-sm font-bold rounded-lg hover:bg-[#d49a26] transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-primary text-primary-foreground text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
             >
               <span className="material-symbols-outlined text-[18px]">save</span>
@@ -2211,20 +2211,20 @@ export const PaymentConfig: React.FC = () => {
           </div>
         </div>
 
-        {billingError ? <div className="text-sm text-red-300">{billingError}</div> : null}
+        {billingError ? <div className="text-sm text-destructive">{billingError}</div> : null}
 
-        <div className="border-b border-[#473e24] overflow-x-auto">
+        <div className="border-b border-border overflow-x-auto">
           <div className="flex gap-8 min-w-max">
-            <button className="pb-3 border-b-2 border-[#eead2b] text-white font-bold text-sm px-1" type="button">
+            <button className="pb-3 border-b-2 border-primary text-foreground font-bold text-sm px-1" type="button">
               General Policy
             </button>
-            <button className="pb-3 border-b-2 border-transparent text-[#c8ba93] hover:text-white font-medium text-sm px-1 transition-colors" type="button">
+            <button className="pb-3 border-b-2 border-transparent text-muted-foreground hover:text-foreground font-medium text-sm px-1 transition-colors" type="button">
               Dunning &amp; Collections
             </button>
-            <button className="pb-3 border-b-2 border-transparent text-[#c8ba93] hover:text-white font-medium text-sm px-1 transition-colors" type="button">
+            <button className="pb-3 border-b-2 border-transparent text-muted-foreground hover:text-foreground font-medium text-sm px-1 transition-colors" type="button">
               Payment Methods
             </button>
-            <button className="pb-3 border-b-2 border-transparent text-[#c8ba93] hover:text-white font-medium text-sm px-1 transition-colors" type="button">
+            <button className="pb-3 border-b-2 border-transparent text-muted-foreground hover:text-foreground font-medium text-sm px-1 transition-colors" type="button">
               Taxation
             </button>
           </div>
@@ -2232,46 +2232,46 @@ export const PaymentConfig: React.FC = () => {
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <div className="flex flex-col gap-6 xl:col-span-2">
-            <div className="bg-[#2c2616] rounded-xl border border-[#473e24] p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-[#eead2b]/10 rounded-lg text-[#eead2b]">
+                <div className="p-2 bg-primary/10 rounded-lg text-primary">
                   <span className="material-symbols-outlined">autorenew</span>
                 </div>
-                <h3 className="text-white text-lg font-bold">Subscription Lifecycle</h3>
+                <h3 className="text-foreground text-lg font-bold">Subscription Lifecycle</h3>
               </div>
               <div className="space-y-6">
                 <div className="flex items-center justify-between py-2">
                   <div className="flex flex-col">
-                    <span className="text-white font-medium text-sm">Auto-Renewal Default</span>
-                    <span className="text-[#c8ba93] text-xs">New tenants default to auto-renew enabled</span>
+                    <span className="text-foreground font-medium text-sm">Auto-Renewal Default</span>
+                    <span className="text-muted-foreground text-xs">New tenants default to auto-renew enabled</span>
                   </div>
                   <Toggle checked={br.autoRenewDefault !== false} onChange={(v) => setBillingPolicy((p) => (p ? { ...p, autoRenewDefault: v } : p))} />
                 </div>
-                <div className="w-full h-px bg-[#473e24]" />
+                <div className="w-full h-px bg-border" />
                 <div className="flex items-center justify-between py-2">
                   <div className="flex flex-col">
-                    <span className="text-white font-medium text-sm">Proration on Upgrade</span>
-                    <span className="text-[#c8ba93] text-xs">Charge immediate difference when upgrading mid-cycle</span>
+                    <span className="text-foreground font-medium text-sm">Proration on Upgrade</span>
+                    <span className="text-muted-foreground text-xs">Charge immediate difference when upgrading mid-cycle</span>
                   </div>
                   <Toggle checked={br.prorationOnUpgrade !== false} onChange={(v) => setBillingPolicy((p) => (p ? { ...p, prorationOnUpgrade: v } : p))} />
                 </div>
-                <div className="w-full h-px bg-[#473e24]" />
+                <div className="w-full h-px bg-border" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   <div className="flex flex-col gap-2">
-                    <label className="text-[#c8ba93] text-xs font-bold uppercase">Billing Cycle Anchor</label>
+                    <label className="text-muted-foreground text-xs font-bold uppercase">Billing Cycle Anchor</label>
                     <select
                       value={br.billingCycleAnchor || 'signup_date'}
                       onChange={(e) => setBillingPolicy((p) => (p ? { ...p, billingCycleAnchor: e.target.value === 'first_of_month' ? 'first_of_month' : 'signup_date' } : p))}
-                      className="w-full bg-[#1a170d] border border-[#473e24] rounded-lg text-white text-sm focus:ring-1 focus:ring-[#eead2b]/40"
+                      className="w-full bg-background border border-border rounded-lg text-foreground text-sm focus:ring-1 focus:ring-primary/30"
                     >
                       <option value="signup_date">Signup Date</option>
                       <option value="first_of_month">1st of Month</option>
                     </select>
                   </div>
                   <div className="flex flex-col gap-2">
-                    <label className="text-[#c8ba93] text-xs font-bold uppercase">Currency Default</label>
+                    <label className="text-muted-foreground text-xs font-bold uppercase">Currency Default</label>
                     <div className="mt-1 flex items-center">
-                      <span className="text-white font-bold bg-[#1a170d] px-3 py-2 rounded-lg text-sm border border-[#473e24]">
+                      <span className="text-foreground font-bold bg-background px-3 py-2 rounded-lg text-sm border border-border">
                         ETB (Ethiopian Birr)
                       </span>
                     </div>
@@ -2280,18 +2280,18 @@ export const PaymentConfig: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-[#2c2616] rounded-xl border border-[#473e24] p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-orange-500/10 rounded-lg text-orange-400">
                   <span className="material-symbols-outlined">block</span>
                 </div>
-                <h3 className="text-white text-lg font-bold">Suspension &amp; Grace Period</h3>
+                <h3 className="text-foreground text-lg font-bold">Suspension &amp; Grace Period</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1">
-                    <label className="text-white font-medium text-sm">Grace Period (Days)</label>
-                    <p className="text-[#c8ba93] text-xs mb-2">Days service remains active after due date</p>
+                    <label className="text-foreground font-medium text-sm">Grace Period (Days)</label>
+                    <p className="text-muted-foreground text-xs mb-2">Days service remains active after due date</p>
                     <div className="flex items-center">
                       <Input
                         className="w-24 rounded-r-none"
@@ -2299,43 +2299,43 @@ export const PaymentConfig: React.FC = () => {
                         value={String(draft.settings.gracePeriodDays)}
                         onChange={(e) => setDraft((p) => ({ ...p, settings: { ...p.settings, gracePeriodDays: Number(e.target.value || 0) } }))}
                       />
-                      <div className="bg-[#1a170d] border border-[#473e24] text-[#c8ba93] text-sm px-3 py-2 rounded-r-lg border-l-0">Days</div>
+                      <div className="bg-background border border-border text-muted-foreground text-sm px-3 py-2 rounded-r-lg border-l-0">Days</div>
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1">
-                    <label className="text-white font-medium text-sm">Auto-Suspension Trigger</label>
-                    <p className="text-[#c8ba93] text-xs mb-2">Lock account access after grace period ends</p>
+                    <label className="text-foreground font-medium text-sm">Auto-Suspension Trigger</label>
+                    <p className="text-muted-foreground text-xs mb-2">Lock account access after grace period ends</p>
                     <div className="flex items-center gap-3">
                       <Toggle checked={br.autoSuspensionTrigger !== false} onChange={(v) => setBillingPolicy((p) => (p ? { ...p, autoSuspensionTrigger: v } : p))} />
-                      <span className="text-white text-sm">{br.autoSuspensionTrigger === false ? 'Disabled' : 'Enabled'}</span>
+                      <span className="text-foreground text-sm">{br.autoSuspensionTrigger === false ? 'Disabled' : 'Enabled'}</span>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="mt-6 p-4 rounded-lg bg-[#1a170d] border border-orange-500/20 flex gap-3">
+              <div className="mt-6 p-4 rounded-lg bg-muted/40 border border-orange-500/20 flex gap-3">
                 <span className="material-symbols-outlined text-orange-400 mt-0.5">warning</span>
                 <div className="flex flex-col gap-1">
                   <p className="text-orange-400 text-sm font-bold">Impact Warning</p>
-                  <p className="text-[#c8ba93] text-xs">Changing the grace period does not affect invoices already past due.</p>
+                  <p className="text-muted-foreground text-xs">Changing the grace period does not affect invoices already past due.</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-[#2c2616] rounded-xl border border-[#473e24] p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
                     <span className="material-symbols-outlined">payments</span>
                   </div>
                   <div>
-                    <h3 className="text-white text-lg font-bold">Offline Payment Destinations</h3>
-                    <p className="text-[#c8ba93] text-xs">Bank accounts displayed to tenants for manual transfers</p>
+                    <h3 className="text-foreground text-lg font-bold">Offline Payment Destinations</h3>
+                    <p className="text-muted-foreground text-xs">Bank accounts displayed to tenants for manual transfers</p>
                   </div>
                 </div>
                 <button
-                  className="text-[#eead2b] text-sm font-bold hover:text-white flex items-center gap-1"
+                  className="text-primary text-sm font-bold hover:text-foreground flex items-center gap-1"
                   type="button"
                   onClick={() => {
                     setAddOfflineDraft({ bankName: '', accountNumber: '', accountHolder: '', active: true });
@@ -2346,9 +2346,9 @@ export const PaymentConfig: React.FC = () => {
                 </button>
               </div>
 
-              <div className="overflow-hidden rounded-lg border border-[#473e24]">
-                <table className="w-full text-left text-sm text-[#c8ba93]">
-                  <thead className="bg-[#1a170d] text-white">
+              <div className="overflow-hidden rounded-lg border border-border">
+                <table className="w-full text-left text-sm text-muted-foreground">
+                  <thead className="bg-muted/40 text-foreground">
                     <tr>
                       <th className="px-4 py-3 font-medium">Bank Name</th>
                       <th className="px-4 py-3 font-medium">Account Number</th>
@@ -2356,7 +2356,7 @@ export const PaymentConfig: React.FC = () => {
                       <th className="px-4 py-3 font-medium text-right">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#473e24] bg-[#221e11]">
+                  <tbody className="divide-y divide-border bg-card">
                     {offline.length === 0 ? (
                       <tr>
                         <td className="px-4 py-3" colSpan={4}>
@@ -2365,7 +2365,7 @@ export const PaymentConfig: React.FC = () => {
                       </tr>
                     ) : (
                       offline.map((a, idx) => (
-                        <tr key={a.id} className="hover:bg-[#2c2616]/60 transition-colors">
+                        <tr key={a.id} className="hover:bg-muted/40 transition-colors">
                           <td className="px-4 py-3">
                             <Input
                               value={a.bankName}
@@ -2413,7 +2413,7 @@ export const PaymentConfig: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => void deleteOfflineAccount(a.id)}
-                                className="h-10 w-10 rounded-lg bg-[#1a170d] border border-[#473e24] hover:text-red-300 transition-colors flex items-center justify-center"
+                                className="h-10 w-10 rounded-lg bg-card border border-border hover:text-destructive transition-colors flex items-center justify-center"
                                 title="Delete"
                               >
                                 <span className="material-symbols-outlined text-[18px]">delete</span>
@@ -2427,7 +2427,7 @@ export const PaymentConfig: React.FC = () => {
                 </table>
               </div>
 
-              <div className="mt-4 flex items-center gap-2 text-xs text-[#c8ba93]">
+              <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="material-symbols-outlined text-[16px]">info</span>
                 <span>Tenants must upload a receipt image after transfer. Verification is manual.</span>
               </div>
@@ -2435,35 +2435,35 @@ export const PaymentConfig: React.FC = () => {
           </div>
 
           <div className="flex flex-col gap-6 xl:col-span-1">
-            <div className="bg-[#2c2616] rounded-xl border border-[#473e24] p-6 h-full">
+            <div className="bg-card rounded-xl border border-border p-6 h-full">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-purple-500/10 rounded-lg text-purple-300">
                   <span className="material-symbols-outlined">notifications_active</span>
                 </div>
-                <h3 className="text-white text-lg font-bold">Dunning Schedule</h3>
+                <h3 className="text-foreground text-lg font-bold">Dunning Schedule</h3>
               </div>
-              <p className="text-[#c8ba93] text-sm mb-6">Configure automated reminders sent to tenant admins based on invoice due date.</p>
-              {dunningError ? <div className="mb-3 text-sm text-red-300">{dunningError}</div> : null}
-              <div className="relative pl-4 border-l border-[#473e24] space-y-6">
+              <p className="text-muted-foreground text-sm mb-6">Configure automated reminders sent to tenant admins based on invoice due date.</p>
+              {dunningError ? <div className="mb-3 text-sm text-destructive">{dunningError}</div> : null}
+              <div className="relative pl-4 border-l border-border space-y-6">
                 {dunningLoading ? (
-                  <div className="text-sm text-[#c8ba93]">Loading...</div>
+                  <div className="text-sm text-muted-foreground">Loading...</div>
                 ) : dunningSteps.length === 0 ? (
-                  <div className="text-sm text-[#c8ba93]">No reminder steps configured.</div>
+                  <div className="text-sm text-muted-foreground">No reminder steps configured.</div>
                 ) : (
                   dunningSteps.map((s) => {
                     const label = s.offsetDays === 0 ? 'Due Date (T-0)' : s.offsetDays < 0 ? `${Math.abs(s.offsetDays)} Days Before` : `${s.offsetDays} Days Overdue`;
-                    const dot = s.offsetDays === 0 ? 'bg-[#eead2b]' : s.offsetDays < 0 ? 'bg-[#473e24]' : 'bg-orange-400';
+                    const dot = s.offsetDays === 0 ? 'bg-primary' : s.offsetDays < 0 ? 'bg-border' : 'bg-orange-400';
                     const editing = dunningEditId === s.id;
                     return (
                       <div key={s.id} className="relative">
-                        <div className={`absolute -left-[21px] top-1 h-3 w-3 rounded-full ${dot} ring-4 ring-[#221e11]`} />
+                        <div className={`absolute -left-[21px] top-1 h-3 w-3 rounded-full ${dot} ring-4 ring-background`} />
                         <div className="flex flex-col gap-2">
                           <div className="flex justify-between items-center">
-                            <span className={`text-xs font-bold uppercase ${s.offsetDays === 0 ? 'text-[#eead2b]' : 'text-[#c8ba93]'}`}>{label}</span>
+                            <span className={`text-xs font-bold uppercase ${s.offsetDays === 0 ? 'text-primary' : 'text-muted-foreground'}`}>{label}</span>
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                className="text-[#c8ba93] hover:text-white"
+                                className="text-muted-foreground hover:text-foreground"
                                 onClick={() => {
                                   setDunningEditId(s.id);
                                   setDunningEditDraft({
@@ -2481,7 +2481,7 @@ export const PaymentConfig: React.FC = () => {
                               </button>
                               <button
                                 type="button"
-                                className="text-[#c8ba93] hover:text-red-300"
+                                className="text-muted-foreground hover:text-destructive"
                                 onClick={() => void deleteDunningStep(s.id)}
                                 title="Delete"
                               >
@@ -2490,7 +2490,7 @@ export const PaymentConfig: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="bg-[#1a170d] p-3 rounded-lg border border-[#473e24]">
+                          <div className="bg-muted/40 p-3 rounded-lg border border-border">
                             {editing ? (
                               <div className="grid grid-cols-1 gap-3">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -2500,7 +2500,7 @@ export const PaymentConfig: React.FC = () => {
                                     <select
                                       value={dunningEditDraft.channel}
                                       onChange={(e) => setDunningEditDraft((p) => ({ ...p, channel: e.target.value }))}
-                                      className="w-full h-10 px-3 rounded-lg bg-[#221e11] border border-[#473e24] text-white focus:outline-none focus:ring-2 focus:ring-[#eead2b]/40"
+                                      className="w-full h-10 px-3 rounded-lg bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                                     >
                                       <option value="email">Email</option>
                                       <option value="sms">SMS</option>
@@ -2514,14 +2514,14 @@ export const PaymentConfig: React.FC = () => {
                                   <div className="flex items-center gap-2">
                                     <button
                                       type="button"
-                                      className="h-10 px-3 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-xs font-bold hover:bg-[#3a3220] transition-colors"
+                                      className="h-10 px-3 rounded-lg bg-card border border-border text-foreground text-xs font-bold hover:bg-accent transition-colors"
                                       onClick={() => setDunningEditId('')}
                                     >
                                       Cancel
                                     </button>
                                     <button
                                       type="button"
-                                      className="h-10 px-3 rounded-lg bg-[#eead2b] text-[#221e11] text-xs font-bold hover:bg-[#d49a26] transition-colors"
+                                      className="h-10 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors"
                                       onClick={() => void saveDunningStep(s.id)}
                                     >
                                       Save
@@ -2532,11 +2532,11 @@ export const PaymentConfig: React.FC = () => {
                             ) : (
                               <>
                                 <div className="flex items-center gap-2 mb-1">
-                                  <span className="material-symbols-outlined text-xs text-white">mail</span>
-                                  <span className="text-white text-sm font-bold">{s.title}</span>
-                                  {!s.enabled ? <span className="text-[10px] text-[#c8ba93]">(disabled)</span> : null}
+                                  <span className="material-symbols-outlined text-xs text-foreground">mail</span>
+                                  <span className="text-foreground text-sm font-bold">{s.title}</span>
+                                  {!s.enabled ? <span className="text-[10px] text-muted-foreground">(disabled)</span> : null}
                                 </div>
-                                <p className="text-[#c8ba93] text-xs whitespace-pre-wrap">{String(s.bodyTemplate || '')}</p>
+                                <p className="text-muted-foreground text-xs whitespace-pre-wrap">{String(s.bodyTemplate || '')}</p>
                               </>
                             )}
                           </div>
@@ -2548,7 +2548,7 @@ export const PaymentConfig: React.FC = () => {
 
                 <div className="relative pt-2">
                   <button
-                    className="w-full py-2 border border-dashed border-[#473e24] rounded-lg text-[#c8ba93] hover:text-white hover:border-[#c8ba93] hover:bg-[#1a170d] transition-all text-sm font-medium flex items-center justify-center gap-2"
+                    className="w-full py-2 border border-dashed border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-border hover:bg-accent transition-all text-sm font-medium flex items-center justify-center gap-2"
                     type="button"
                     onClick={() => {
                       setDunningEditId('new');
@@ -2561,7 +2561,7 @@ export const PaymentConfig: React.FC = () => {
                 </div>
 
                 {dunningEditId === 'new' ? (
-                  <div className="bg-[#1a170d] p-3 rounded-lg border border-[#473e24]">
+                  <div className="bg-muted/40 p-3 rounded-lg border border-border">
                     <div className="grid grid-cols-1 gap-3">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <Field label="Offset Days"><Input type="number" value={dunningEditDraft.offsetDays} onChange={(e) => setDunningEditDraft((p) => ({ ...p, offsetDays: e.target.value }))} /></Field>
@@ -2570,7 +2570,7 @@ export const PaymentConfig: React.FC = () => {
                           <select
                             value={dunningEditDraft.channel}
                             onChange={(e) => setDunningEditDraft((p) => ({ ...p, channel: e.target.value }))}
-                            className="w-full h-10 px-3 rounded-lg bg-[#221e11] border border-[#473e24] text-white focus:outline-none focus:ring-2 focus:ring-[#eead2b]/40"
+                            className="w-full h-10 px-3 rounded-lg bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                           >
                             <option value="email">Email</option>
                             <option value="sms">SMS</option>
@@ -2584,14 +2584,14 @@ export const PaymentConfig: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            className="h-10 px-3 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-xs font-bold hover:bg-[#3a3220] transition-colors"
+                            className="h-10 px-3 rounded-lg bg-card border border-border text-foreground text-xs font-bold hover:bg-accent transition-colors"
                             onClick={() => setDunningEditId('')}
                           >
                             Cancel
                           </button>
                           <button
                             type="button"
-                            className="h-10 px-3 rounded-lg bg-[#eead2b] text-[#221e11] text-xs font-bold hover:bg-[#d49a26] transition-colors"
+                            className="h-10 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors"
                             onClick={() => void addDunningStep()}
                           >
                             Create
@@ -2610,16 +2610,16 @@ export const PaymentConfig: React.FC = () => {
   };
 
   const PricingTab: React.FC = () => {
-    const byTier = useMemo(() => {
-      const m = new Map<string, { tier: string; modules: string[]; limits: any; pricing: { monthlyEtb: number; yearlyEtb: number } }>();
-      for (const p of plans) m.set(String(p.tier || ''), p);
-      return m;
-    }, [plans]);
-
     const tiers = useMemo(() => {
       const list = plans.map((p) => String(p.tier || '')).filter(Boolean);
       if (list.length) return list;
       return ['Trial', 'Starter', 'Growth', 'Enterprise'];
+    }, [plans]);
+
+    const byTier = useMemo(() => {
+      const m = new Map<string, { tier: string; modules: string[]; limits: any; pricing: { monthlyEtb: number; yearlyEtb: number } }>();
+      for (const p of plans) m.set(String(p.tier || ''), p);
+      return m;
     }, [plans]);
 
     const discountPct = (monthlyEtb: number, yearlyEtb: number) => {
@@ -2634,21 +2634,21 @@ export const PaymentConfig: React.FC = () => {
     return (
       <div className="max-w-[1400px] mx-auto flex flex-col gap-8">
         <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-black text-white tracking-tight">Plans &amp; Pricing Models</h1>
-          <p className="text-[#c8ba93] text-base max-w-3xl">
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Plans &amp; Pricing Models</h1>
+          <p className="text-muted-foreground text-base max-w-3xl">
             Manage subscription tiers, feature entitlements, and pricing structures for the Ethiopian market. Prices are denominated in ETB.
           </p>
         </div>
 
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="col-span-2 p-6 rounded-xl bg-[#2c2616] border border-[#473e24] flex flex-col justify-center">
+          <div className="col-span-2 p-6 rounded-xl bg-card border border-border flex flex-col justify-center">
             <div className="flex items-center justify-between mb-2">
               <div>
-                <h3 className="text-lg font-bold text-white">Billing Cycles</h3>
-                <p className="text-sm text-[#c8ba93]">Define which billing periods are available to customers.</p>
+                <h3 className="text-lg font-bold text-foreground">Billing Cycles</h3>
+                <p className="text-sm text-muted-foreground">Define which billing periods are available to customers.</p>
               </div>
               <button
-                className="text-[#eead2b] text-xs font-bold uppercase tracking-wider hover:text-white transition-colors"
+                className="text-primary text-xs font-bold uppercase tracking-wider hover:text-foreground transition-colors"
                 type="button"
                 onClick={() => void savePricingSettings()}
                 disabled={pricingSettingsLoading}
@@ -2658,36 +2658,36 @@ export const PaymentConfig: React.FC = () => {
             </div>
 
             <div className="flex gap-6 mt-4 flex-col md:flex-row">
-              <div className="flex items-center gap-3 bg-[#1a170d] px-4 py-3 rounded-lg border border-[#473e24] flex-1">
+              <div className="flex items-center gap-3 bg-muted/40 px-4 py-3 rounded-lg border border-border flex-1">
                 <Toggle checked={pricingMonthlyEnabled} onChange={setPricingMonthlyEnabled} />
                 <div className="flex flex-col">
-                  <span className="text-sm font-bold text-white">Monthly Billing</span>
-                  <span className="text-xs text-[#c8ba93]">Standard cycle</span>
+                  <span className="text-sm font-bold text-foreground">Monthly Billing</span>
+                  <span className="text-xs text-muted-foreground">Standard cycle</span>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-[#1a170d] px-4 py-3 rounded-lg border border-[#473e24] flex-1">
+              <div className="flex items-center gap-3 bg-muted/40 px-4 py-3 rounded-lg border border-border flex-1">
                 <Toggle checked={pricingYearlyEnabled} onChange={setPricingYearlyEnabled} />
                 <div className="flex flex-col">
-                  <span className="text-sm font-bold text-white">Yearly Billing</span>
-                  <span className="text-xs text-[#c8ba93]">Upfront payment</span>
+                  <span className="text-sm font-bold text-foreground">Yearly Billing</span>
+                  <span className="text-xs text-muted-foreground">Upfront payment</span>
                 </div>
               </div>
             </div>
+
+            {pricingSettingsError ? <div className="mt-3 text-xs text-destructive">{pricingSettingsError}</div> : null}
           </div>
 
-          <div className="col-span-1 p-6 rounded-xl bg-[#2c2616] border border-[#473e24] flex flex-col justify-center">
+          <div className="col-span-1 p-6 rounded-xl bg-card border border-border flex flex-col justify-center">
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-bold text-white">Yearly Discount</h3>
-              <div className="bg-[#eead2b]/20 text-[#eead2b] px-2 py-0.5 rounded text-xs font-bold">ACTIVE</div>
+              <h3 className="text-lg font-bold text-foreground">Yearly Discount</h3>
+              <div className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-bold">ACTIVE</div>
             </div>
-            <div className="text-sm text-[#c8ba93]">
-              Discount is derived from each plan’s monthly vs yearly price.
-            </div>
+            <div className="text-sm text-muted-foreground">Discount is derived from each plan’s monthly vs yearly price.</div>
             <div className="mt-3 grid grid-cols-1 gap-2">
               {plansLoading ? (
-                <div className="text-xs text-[#c8ba93]">Loading...</div>
+                <div className="text-xs text-muted-foreground">Loading...</div>
               ) : tiers.length === 0 ? (
-                <div className="text-xs text-[#c8ba93]">No plans configured.</div>
+                <div className="text-xs text-muted-foreground">No plans configured.</div>
               ) : (
                 tiers.map((t) => {
                   const p = byTier.get(t);
@@ -2695,26 +2695,25 @@ export const PaymentConfig: React.FC = () => {
                   const y = Number(p?.pricing?.yearlyEtb || 0);
                   const d = discountPct(m, y);
                   return (
-                    <div key={t} className="flex items-center justify-between rounded-lg bg-[#1a170d] border border-[#473e24] px-3 py-2">
-                      <div className="text-xs text-white font-bold">{t}</div>
-                      <div className="text-xs font-mono text-[#eead2b]">{d}%</div>
+                    <div key={t} className="flex items-center justify-between rounded-lg bg-muted/40 border border-border px-3 py-2">
+                      <div className="text-xs text-foreground font-bold">{t}</div>
+                      <div className="text-xs font-mono text-primary">{d}%</div>
                     </div>
                   );
                 })
               )}
             </div>
-            {pricingSettingsError ? <div className="mt-3 text-xs text-red-300">{pricingSettingsError}</div> : null}
           </div>
         </section>
 
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#eead2b]">layers</span>
+            <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">layers</span>
               Subscription Tiers
             </h3>
             <button
-              className="flex items-center gap-2 bg-[#473e24] hover:bg-[#5c5030] text-white px-3 py-1.5 rounded text-xs font-bold transition-colors"
+              className="flex items-center gap-2 bg-border hover:bg-accent transition-colors text-xs font-bold text-foreground px-3 py-1.5 rounded"
               type="button"
               onClick={() => {
                 setCreateTierError(null);
@@ -2727,7 +2726,7 @@ export const PaymentConfig: React.FC = () => {
             </button>
           </div>
 
-          {plansError ? <div className="mb-4 text-sm text-red-300">{plansError}</div> : null}
+          {plansError ? <div className="mb-4 text-sm text-destructive">{plansError}</div> : null}
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {tiers.map((tier) => {
@@ -2739,17 +2738,18 @@ export const PaymentConfig: React.FC = () => {
               const branchLimit = Number(lim.branchLimit) || 0;
               const staffLimit = Number(lim.staffLimit) || 0;
               const modulesCsv = Array.isArray(p?.modules) ? p?.modules.join(',') : '';
+
               return (
-                <div key={tier} className="flex flex-col p-5 rounded-xl bg-[#2c2616] border border-[#473e24] relative group hover:border-[#c8ba93]/30 transition-all">
+                <div key={tier} className="flex flex-col p-5 rounded-xl bg-card border border-border relative group hover:border-accent transition-all">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h4 className="text-xl font-bold text-white">{tier}</h4>
-                      <p className="text-xs text-[#c8ba93] mt-1">Pricing from database</p>
+                      <h4 className="text-xl font-bold text-foreground">{tier}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">Pricing from database</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        className="h-8 w-8 rounded-lg bg-[#1a170d] border border-[#473e24] text-[#c8ba93] hover:text-white hover:bg-[#221e11] transition-colors flex items-center justify-center"
+                        className="h-8 w-8 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex items-center justify-center"
                         title="Edit"
                         onClick={() => {
                           setEditTierError(null);
@@ -2766,12 +2766,13 @@ export const PaymentConfig: React.FC = () => {
                       >
                         <span className="material-symbols-outlined text-[18px]">edit</span>
                       </button>
-                      <div className="size-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                      <div className="size-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
                     </div>
                   </div>
+
                   <div className="grid grid-cols-1 gap-3 mb-6">
                     <div>
-                      <div className="text-[10px] uppercase tracking-wider font-bold text-[#c8ba93]">Monthly (ETB)</div>
+                      <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Monthly (ETB)</div>
                       <Input
                         type="number"
                         value={String(monthlyEtb)}
@@ -2784,7 +2785,7 @@ export const PaymentConfig: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <div className="text-[10px] uppercase tracking-wider font-bold text-[#c8ba93]">Yearly (ETB)</div>
+                      <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Yearly (ETB)</div>
                       <Input
                         type="number"
                         value={String(yearlyEtb)}
@@ -2798,76 +2799,13 @@ export const PaymentConfig: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="mt-auto flex items-center justify-between text-xs text-[#c8ba93]">
+                  <div className="mt-auto flex items-center justify-between text-xs text-muted-foreground">
                     <span>Computed discount</span>
-                    <span className="font-mono text-[#eead2b] font-bold">{disc}%</span>
+                    <span className="font-mono text-primary font-bold">{disc}%</span>
                   </div>
                 </div>
               );
             })}
-          </div>
-        </section>
-
-        <section className="mt-4">
-          <div className="rounded-xl bg-[#2c2616] border border-[#473e24] overflow-hidden">
-            <div className="p-5 border-b border-[#473e24] flex justify-between items-center bg-[#282215]">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-[#eead2b]/20 rounded-lg text-[#eead2b]">
-                  <span className="material-symbols-outlined">tune</span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Feature Entitlements &amp; Limits</h3>
-                  <p className="text-xs text-[#c8ba93]">Granular control over plan capabilities.</p>
-                </div>
-              </div>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="material-symbols-outlined text-[#c8ba93] text-sm">search</span>
-                </span>
-                <Input className="text-xs rounded-lg pl-9 pr-3 py-2 w-64" placeholder="Search features..." />
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead>
-                  <tr className="bg-[#282215]">
-                    <th className="w-1/3 pl-6 py-4 text-[#c8ba93] text-[0.75rem] uppercase tracking-wider font-bold border-b border-[#473e24]">Feature Module</th>
-                    <th className="w-1/6 text-center py-4 text-[#c8ba93] text-[0.75rem] uppercase tracking-wider font-bold border-b border-[#473e24]">Free Trial</th>
-                    <th className="w-1/6 text-center py-4 text-[#eead2b] text-[0.75rem] uppercase tracking-wider font-bold border-b border-[#473e24] border-x border-[#473e24] bg-[#eead2b]/5">Starter</th>
-                    <th className="w-1/6 text-center py-4 text-[#c8ba93] text-[0.75rem] uppercase tracking-wider font-bold border-b border-[#473e24]">Growth</th>
-                    <th className="w-1/6 text-center py-4 text-[#c8ba93] text-[0.75rem] uppercase tracking-wider font-bold border-b border-[#473e24]">Enterprise</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="hover:bg-[#eead2b]/5">
-                    <td className="pl-6 py-4 border-b border-[#473e24]">
-                      <div className="font-bold text-white">Sales Dashboard</div>
-                      <div className="text-xs text-[#c8ba93] mt-0.5">Basic reporting &amp; metrics</div>
-                    </td>
-                    <td className="text-center py-4 border-b border-[#473e24]"><span className="material-symbols-outlined text-green-500">check</span></td>
-                    <td className="text-center py-4 border-b border-[#473e24] border-x border-[#473e24] bg-[#eead2b]/5"><span className="material-symbols-outlined text-green-500">check</span></td>
-                    <td className="text-center py-4 border-b border-[#473e24]"><span className="material-symbols-outlined text-green-500">check</span></td>
-                    <td className="text-center py-4 border-b border-[#473e24]"><span className="material-symbols-outlined text-green-500">check</span></td>
-                  </tr>
-                  <tr className="hover:bg-[#eead2b]/5">
-                    <td className="pl-6 py-4 border-b border-[#473e24]">
-                      <div className="font-bold text-white">Inventory Items</div>
-                      <div className="text-xs text-[#c8ba93] mt-0.5">Max SKU count per location</div>
-                    </td>
-                    <td className="text-center py-4 border-b border-[#473e24]"><Input className="w-16 h-8 text-center text-xs font-mono" defaultValue="50" /></td>
-                    <td className="text-center py-4 border-b border-[#473e24] border-x border-[#473e24] bg-[#eead2b]/5"><Input className="w-16 h-8 text-center text-xs font-mono border border-[#eead2b]/50" defaultValue="500" /></td>
-                    <td className="text-center py-4 border-b border-[#473e24]"><Input className="w-16 h-8 text-center text-xs font-mono" defaultValue="5000" /></td>
-                    <td className="text-center py-4 border-b border-[#473e24]"><span className="text-xs font-bold text-[#eead2b] border border-[#eead2b]/30 px-2 py-0.5 rounded">UNLIMITED</span></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 bg-[#1a170d] border-t border-[#473e24] flex justify-center">
-              <button className="text-xs font-bold text-[#eead2b] hover:text-white uppercase tracking-wider flex items-center gap-2" type="button">
-                <span>Show All 42 Features</span>
-                <span className="material-symbols-outlined text-sm">expand_more</span>
-              </button>
-            </div>
           </div>
         </section>
       </div>
@@ -2875,34 +2813,34 @@ export const PaymentConfig: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#221e11] text-white h-full overflow-hidden flex flex-col">
-      <header className="flex-none flex items-center justify-between whitespace-nowrap border-b border-solid border-[#473e24] px-6 py-3 bg-[#221e11] z-20">
-        <div className="flex items-center gap-4 text-white">
-          <div className="size-8 flex items-center justify-center bg-[#eead2b]/10 rounded text-[#eead2b]">
+    <div className="bg-background text-foreground h-full overflow-hidden flex flex-col">
+      <header className="flex-none flex items-center justify-between whitespace-nowrap border-b border-solid border-border px-6 py-3 bg-background z-20">
+        <div className="flex items-center gap-4 text-foreground">
+          <div className="size-8 flex items-center justify-center bg-primary/10 rounded text-primary">
             <span className="material-symbols-outlined">account_balance_wallet</span>
           </div>
-          <h2 className="text-white text-xl font-bold leading-tight tracking-tight">
-            MirachPos <span className="text-[#c8ba93] font-medium text-lg">/ Admin</span>
+          <h2 className="text-foreground text-xl font-bold leading-tight tracking-tight">
+            MirachPos <span className="text-muted-foreground font-medium text-lg">/ Admin</span>
           </h2>
         </div>
 
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3 bg-[#2c2616] px-3 py-1.5 rounded-lg border border-[#473e24]">
-            <span className="text-[#c8ba93] text-xs font-bold uppercase tracking-wider">Environment</span>
+          <div className="flex items-center gap-3 bg-card px-3 py-1.5 rounded-lg border border-border">
+            <span className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Environment</span>
             <Toggle
               checked={envIsProd}
               onChange={(next) => setDraft((p) => ({ ...p, settings: { ...p.settings, environment: next ? 'production' : 'sandbox' } }))}
             />
-            <span className="text-[#eead2b] text-sm font-bold">{envIsProd ? 'Production' : 'Sandbox'}</span>
+            <span className="text-primary text-sm font-bold">{envIsProd ? 'Production' : 'Sandbox'}</span>
           </div>
 
-          <div className="h-6 w-px bg-[#473e24]" />
+          <div className="h-6 w-px bg-border" />
 
           <div className="flex gap-3">
             <button
               disabled={!dirty || saving}
               onClick={() => void save()}
-              className="flex items-center justify-center rounded-lg h-9 px-4 bg-[#eead2b] text-[#221e11] text-sm font-bold shadow-md hover:bg-[#d49a26] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center rounded-lg h-9 px-4 bg-primary text-primary-foreground text-sm font-bold shadow-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
             >
               {saving ? 'Saving...' : 'Save Changes'}
@@ -2910,7 +2848,7 @@ export const PaymentConfig: React.FC = () => {
             <button
               disabled={!dirty || saving}
               onClick={discard}
-              className="flex items-center justify-center rounded-lg h-9 px-4 bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center rounded-lg h-9 px-4 bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
             >
               Discard
@@ -2919,7 +2857,7 @@ export const PaymentConfig: React.FC = () => {
 
           <button
             onClick={() => void load()}
-            className="h-9 px-3 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+            className="h-9 px-3 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
             type="button"
           >
             Refresh
@@ -2927,7 +2865,7 @@ export const PaymentConfig: React.FC = () => {
         </div>
       </header>
 
-      <div className="flex-none border-b border-[#473e24] bg-[#221e11] px-6 py-3">
+      <div className="flex-none border-b border-border bg-background px-6 py-3">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
             <TabButton active={activeTab === 'gateways'} onClick={() => setActiveTab('gateways')} icon="account_balance_wallet" title="Gateways" />
@@ -2937,15 +2875,15 @@ export const PaymentConfig: React.FC = () => {
             <TabButton active={activeTab === 'invoices'} onClick={() => setActiveTab('invoices')} icon="description" title="Invoices" />
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-xs text-[#c8ba93]">Active Providers: <span className="text-white font-bold">{activeCount}</span></div>
-            {loading ? <div className="text-xs text-[#c8ba93]">Loading...</div> : null}
-            {error ? <div className="text-xs text-red-300">{error}</div> : null}
-            {dirty ? <div className="text-xs text-[#eead2b] font-bold">Unsaved changes</div> : <div className="text-xs text-[#7fd38a] font-bold">Saved</div>}
+            <div className="text-xs text-muted-foreground">Active Providers: <span className="text-foreground font-bold">{activeCount}</span></div>
+            {loading ? <div className="text-xs text-muted-foreground">Loading...</div> : null}
+            {error ? <div className="text-xs text-destructive">{error}</div> : null}
+            {dirty ? <div className="text-xs text-primary font-bold">Unsaved changes</div> : <div className="text-xs text-muted-foreground font-bold">Saved</div>}
           </div>
         </div>
       </div>
 
-      <main className="flex-1 overflow-y-auto bg-[#221e11] p-8 pb-20">
+      <main className="flex-1 overflow-y-auto bg-background p-8 pb-20">
         {activeTab === 'pricing' ? (
           <PricingTab />
         ) : activeTab === 'rules' ? (
@@ -2957,14 +2895,14 @@ export const PaymentConfig: React.FC = () => {
         ) : (
           <div className="max-w-5xl mx-auto flex flex-col gap-8">
             <div className="flex flex-col gap-2">
-              <h1 className="text-3xl font-black text-white tracking-tight">Gateway Integrations</h1>
-              <p className="text-[#c8ba93] text-base max-w-2xl">Configure and manage payment providers for the Ethiopian market.</p>
+              <h1 className="text-3xl font-black text-foreground tracking-tight">Gateway Integrations</h1>
+              <p className="text-muted-foreground text-base max-w-2xl">Configure and manage payment providers for the Ethiopian market.</p>
             </div>
             <>
               <section>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#eead2b]">check_circle</span>
+                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">check_circle</span>
                     Providers
                   </h3>
                   <button
@@ -2975,7 +2913,7 @@ export const PaymentConfig: React.FC = () => {
                         // ignore
                       }
                     }}
-                    className="text-xs font-bold text-[#eead2b] hover:text-white uppercase tracking-wider flex items-center gap-1"
+                    className="text-xs font-bold text-primary hover:text-foreground uppercase tracking-wider flex items-center gap-1"
                     type="button"
                   >
                     <span className="material-symbols-outlined text-sm">history</span>
@@ -2984,29 +2922,29 @@ export const PaymentConfig: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-5 rounded-xl bg-[#2c2616] border border-[#473e24] hover:border-[#eead2b]/50 transition-all shadow-lg relative">
+                  <div className="p-5 rounded-xl bg-card border border-border hover:border-primary/50 transition-all shadow-lg relative">
                     <div className="flex items-start gap-4">
                       <div className="size-12 rounded-lg bg-white p-2 flex items-center justify-center flex-none">
                         <div className="w-full h-full bg-gradient-to-br from-white-500 to-cyan-400 rounded-md" />
                       </div>
                       <div className="flex flex-col flex-1">
                         <div className="flex items-center justify-between gap-4">
-                          <h4 className="text-white font-bold text-lg">Telebirr Integration</h4>
+                          <h4 className="text-foreground font-bold text-lg">Telebirr Integration</h4>
                           <Toggle checked={draft.telebirr.enabled} onChange={(v) => setDraft((p) => ({ ...p, telebirr: { ...p.telebirr, enabled: v } }))} />
                         </div>
-                        <p className="text-[#c8ba93] text-sm mb-4">Native mobile money handling. Supports direct API integration.</p>
+                        <p className="text-muted-foreground text-sm mb-4">Native mobile money handling. Supports direct API integration.</p>
                         <div className="grid grid-cols-2 gap-4 mb-4">
                           <div>
-                            <div className="text-[10px] font-bold uppercase text-[#c8ba93] tracking-wider">Short Code</div>
-                            <div className="font-mono text-sm text-white bg-[#1a170d] px-2 py-1 rounded border border-[#473e24] truncate">{maskish(String(draft.telebirr.shortCode || ''))}</div>
+                            <div className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Short Code</div>
+                            <div className="font-mono text-sm text-foreground bg-muted/40 px-2 py-1 rounded border border-border truncate">{maskish(String(draft.telebirr.shortCode || ''))}</div>
                           </div>
                           <div>
-                            <div className="text-[10px] font-bold uppercase text-[#c8ba93] tracking-wider">App ID</div>
-                            <div className="font-mono text-sm text-white bg-[#1a170d] px-2 py-1 rounded border border-[#473e24] truncate">{maskish(String(draft.telebirr.appId || ''))}</div>
+                            <div className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">App ID</div>
+                            <div className="font-mono text-sm text-foreground bg-muted/40 px-2 py-1 rounded border border-border truncate">{maskish(String(draft.telebirr.appId || ''))}</div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 mt-auto pt-3 border-t border-[#473e24]">
-                          <button onClick={() => openConfigure('telebirr')} className="flex-1 h-9 rounded-lg bg-[#473e24] hover:bg-[#5c5030] text-white text-sm font-bold transition-colors" type="button">
+                        <div className="flex items-center gap-3 mt-auto pt-3 border-t border-border">
+                          <button onClick={() => openConfigure('telebirr')} className="flex-1 h-9 rounded-lg bg-border hover:bg-accent text-foreground text-sm font-bold transition-colors" type="button">
                             Configure
                           </button>
                         </div>
@@ -3014,7 +2952,7 @@ export const PaymentConfig: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="p-5 rounded-xl bg-[#2c2616] border border-[#473e24] hover:border-[#eead2b]/50 transition-all shadow-lg relative">
+                  <div className="p-5 rounded-xl bg-card border border-border hover:border-primary/50 transition-all shadow-lg relative">
                     <div className="flex items-start gap-4">
                       <div className="size-12 rounded-lg bg-white p-2 flex items-center justify-center flex-none">
                         <div className="w-full h-full bg-green-600 rounded-md relative overflow-hidden">
@@ -3023,22 +2961,22 @@ export const PaymentConfig: React.FC = () => {
                       </div>
                       <div className="flex flex-col flex-1">
                         <div className="flex items-center justify-between gap-4">
-                          <h4 className="text-white font-bold text-lg">Chapa</h4>
+                          <h4 className="text-foreground font-bold text-lg">Chapa</h4>
                           <Toggle checked={draft.chapa.enabled} onChange={(v) => setDraft((p) => ({ ...p, chapa: { ...p.chapa, enabled: v } }))} />
                         </div>
-                        <p className="text-[#c8ba93] text-sm mb-4">Payment aggregator for cards and local bank transfers.</p>
+                        <p className="text-muted-foreground text-sm mb-4">Payment aggregator for cards and local bank transfers.</p>
                         <div className="grid grid-cols-2 gap-4 mb-4">
                           <div>
-                            <div className="text-[10px] font-bold uppercase text-[#c8ba93] tracking-wider">Public Key</div>
-                            <div className="font-mono text-sm text-white bg-[#1a170d] px-2 py-1 rounded border border-[#473e24] truncate">{maskish(String(draft.chapa.publicKey || ''))}</div>
+                            <div className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Public Key</div>
+                            <div className="font-mono text-sm text-foreground bg-muted/40 px-2 py-1 rounded border border-border truncate">{maskish(String(draft.chapa.publicKey || ''))}</div>
                           </div>
                           <div>
-                            <div className="text-[10px] font-bold uppercase text-[#c8ba93] tracking-wider">Webhook Secret</div>
-                            <div className="font-mono text-sm text-white bg-[#1a170d] px-2 py-1 rounded border border-[#473e24] truncate">{maskish(String(draft.chapa.webhookSecret || ''))}</div>
+                            <div className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Webhook Secret</div>
+                            <div className="font-mono text-sm text-foreground bg-muted/40 px-2 py-1 rounded border border-border truncate">{maskish(String(draft.chapa.webhookSecret || ''))}</div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 mt-auto pt-3 border-t border-[#473e24]">
-                          <button onClick={() => openConfigure('chapa')} className="flex-1 h-9 rounded-lg bg-[#473e24] hover:bg-[#5c5030] text-white text-sm font-bold transition-colors" type="button">
+                        <div className="flex items-center gap-3 mt-auto pt-3 border-t border-border">
+                          <button onClick={() => openConfigure('chapa')} className="flex-1 h-9 rounded-lg bg-border hover:bg-accent text-foreground text-sm font-bold transition-colors" type="button">
                             Configure
                           </button>
                         </div>
@@ -3046,7 +2984,7 @@ export const PaymentConfig: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="p-5 rounded-xl bg-[#2c2616] border border-[#473e24] hover:border-[#eead2b]/50 transition-all shadow-lg relative md:col-span-2">
+                  <div className="p-5 rounded-xl bg-card border border-border hover:border-primary/50 transition-all shadow-lg relative md:col-span-2">
                     <div className="flex items-start gap-4">
                       <div className="size-12 rounded-lg bg-white p-2 flex items-center justify-center flex-none opacity-90">
                         <div className="w-full h-full bg-purple-700 rounded-md" />
@@ -3054,22 +2992,22 @@ export const PaymentConfig: React.FC = () => {
                       <div className="flex flex-col flex-1">
                         <div className="flex items-center justify-between gap-4">
                           <div>
-                            <h4 className="text-white font-bold text-lg">CBE Birr</h4>
-                            <p className="text-[#c8ba93] text-sm">Commercial Bank of Ethiopia Wallet.</p>
+                            <h4 className="text-foreground font-bold text-lg">CBE Birr</h4>
+                            <p className="text-muted-foreground text-sm">Commercial Bank of Ethiopia Wallet.</p>
                           </div>
                           <Toggle checked={draft.cbeBirr.enabled} onChange={(v) => setDraft((p) => ({ ...p, cbeBirr: { ...p.cbeBirr, enabled: v } }))} />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                           <div>
-                            <div className="text-[10px] font-bold uppercase text-[#c8ba93] tracking-wider">Merchant ID</div>
-                            <div className="font-mono text-sm text-white bg-[#1a170d] px-2 py-1 rounded border border-[#473e24] truncate">{maskish(String(draft.cbeBirr.merchantId || ''))}</div>
+                            <div className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Merchant ID</div>
+                            <div className="font-mono text-sm text-foreground bg-muted/40 px-2 py-1 rounded border border-border truncate">{maskish(String(draft.cbeBirr.merchantId || ''))}</div>
                           </div>
                           <div>
-                            <div className="text-[10px] font-bold uppercase text-[#c8ba93] tracking-wider">API Key</div>
-                            <div className="font-mono text-sm text-white bg-[#1a170d] px-2 py-1 rounded border border-[#473e24] truncate">{maskish(String(draft.cbeBirr.apiKey || ''))}</div>
+                            <div className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">API Key</div>
+                            <div className="font-mono text-sm text-foreground bg-muted/40 px-2 py-1 rounded border border-border truncate">{maskish(String(draft.cbeBirr.apiKey || ''))}</div>
                           </div>
                           <div className="flex items-end">
-                            <button onClick={() => openConfigure('cbeBirr')} className="w-full h-9 rounded-lg bg-[#473e24] hover:bg-[#5c5030] text-white text-sm font-bold transition-colors" type="button">
+                            <button onClick={() => openConfigure('cbeBirr')} className="w-full h-9 rounded-lg bg-border hover:bg-accent text-foreground text-sm font-bold transition-colors" type="button">
                               Configure
                             </button>
                           </div>
@@ -3081,10 +3019,10 @@ export const PaymentConfig: React.FC = () => {
               </section>
 
               <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-6 rounded-xl bg-[#2c2616] border border-[#473e24] shadow-lg">
+                <div className="p-6 rounded-xl bg-card border border-border shadow-lg">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#eead2b]">account_balance</span>
+                    <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary">account_balance</span>
                       Manual Bank Transfer
                     </h3>
                     <Toggle checked={draft.bankDetails.manualEnabled} onChange={(v) => setDraft((p) => ({ ...p, bankDetails: { ...p.bankDetails, manualEnabled: v } }))} />
@@ -3117,62 +3055,62 @@ export const PaymentConfig: React.FC = () => {
                   </div>
 
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="p-4 rounded-lg border border-[#473e24] bg-[#1a170d]">
+                    <div className="p-4 rounded-lg border border-border bg-muted/40">
                       <Toggle
                         checked={draft.bankDetails.requireImageUpload}
                         onChange={(v) => setDraft((p) => ({ ...p, bankDetails: { ...p.bankDetails, requireImageUpload: v } }))}
                         label="Require Receipt Image Upload"
                       />
-                      <div className="text-xs text-[#c8ba93] mt-2">If enabled, tenant must upload bank receipt image for verification.</div>
+                      <div className="text-xs text-muted-foreground mt-2">If enabled, tenant must upload bank receipt image for verification.</div>
                     </div>
-                    <div className="p-4 rounded-lg border border-[#473e24] bg-[#1a170d]">
+                    <div className="p-4 rounded-lg border border-border bg-muted/40">
                       <Toggle
                         checked={draft.bankDetails.autoGrantGracePeriod}
                         onChange={(v) => setDraft((p) => ({ ...p, bankDetails: { ...p.bankDetails, autoGrantGracePeriod: v } }))}
                         label="Auto Grant Grace Period"
                       />
-                      <div className="text-xs text-[#c8ba93] mt-2">If disabled, access may be restricted immediately when invoice is due.</div>
+                      <div className="text-xs text-muted-foreground mt-2">If disabled, access may be restricted immediately when invoice is due.</div>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-6 rounded-xl bg-[#2c2616] border border-[#473e24] shadow-lg">
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
-                    <span className="material-symbols-outlined text-[#eead2b]">price_change</span>
+                <div className="p-6 rounded-xl bg-card border border-border shadow-lg">
+                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
+                    <span className="material-symbols-outlined text-primary">price_change</span>
                     VAT & Pricing Preview
                   </h3>
 
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <div className="text-sm font-bold text-white">VAT</div>
-                      <div className="text-xs text-[#c8ba93]">Applied to plan totals (preview only).</div>
+                      <div className="text-sm font-bold text-foreground">VAT</div>
+                      <div className="text-xs text-muted-foreground">Applied to plan totals (preview only).</div>
                     </div>
                     <Toggle checked={draft.settings.vatEnabled} onChange={(v) => setDraft((p) => ({ ...p, settings: { ...p.settings, vatEnabled: v } }))} />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Field label="Starter Price (ETB)" hint="Pulled from Plans table">
-                      <div className="h-10 px-3 rounded-lg bg-[#1a170d] border border-[#473e24] text-white flex items-center justify-end font-mono font-bold">
+                      <div className="h-10 px-3 rounded-lg bg-muted/40 border border-border text-foreground flex items-center justify-end font-mono font-bold">
                         {starterBaseEtb.toLocaleString()}
                       </div>
                     </Field>
                     <Field label="Growth Price (ETB)" hint="Pulled from Plans table">
-                      <div className="h-10 px-3 rounded-lg bg-[#1a170d] border border-[#473e24] text-white flex items-center justify-end font-mono font-bold">
+                      <div className="h-10 px-3 rounded-lg bg-muted/40 border border-border text-foreground flex items-center justify-end font-mono font-bold">
                         {growthBaseEtb.toLocaleString()}
                       </div>
                     </Field>
                   </div>
 
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-lg bg-[#1a170d] border border-[#473e24]">
-                      <div className="text-xs text-[#c8ba93] font-bold uppercase tracking-wider">Starter Total</div>
-                      <div className="text-2xl font-black text-white">{starterTotal} ETB</div>
-                      <div className="text-xs text-[#c8ba93]">Base: {starterBaseEtb} ETB {draft.settings.vatEnabled ? '(+15% VAT)' : ''}</div>
+                    <div className="p-4 rounded-lg bg-muted/40 border border-border">
+                      <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Starter Total</div>
+                      <div className="text-2xl font-black text-foreground">{starterTotal} ETB</div>
+                      <div className="text-xs text-muted-foreground">Base: {starterBaseEtb} ETB {draft.settings.vatEnabled ? '(+15% VAT)' : ''}</div>
                     </div>
-                    <div className="p-4 rounded-lg bg-[#1a170d] border border-[#473e24]">
-                      <div className="text-xs text-[#c8ba93] font-bold uppercase tracking-wider">Growth Total</div>
-                      <div className="text-2xl font-black text-white">{growthTotal} ETB</div>
-                      <div className="text-xs text-[#c8ba93]">Base: {growthBaseEtb} ETB {draft.settings.vatEnabled ? '(+15% VAT)' : ''}</div>
+                    <div className="p-4 rounded-lg bg-muted/40 border border-border">
+                      <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Growth Total</div>
+                      <div className="text-2xl font-black text-foreground">{growthTotal} ETB</div>
+                      <div className="text-xs text-muted-foreground">Base: {growthBaseEtb} ETB {draft.settings.vatEnabled ? '(+15% VAT)' : ''}</div>
                     </div>
                   </div>
 
@@ -3207,14 +3145,14 @@ export const PaymentConfig: React.FC = () => {
                 setConfigureOpen(null);
                 setConfigureDraft(null);
               }}
-              className="h-10 px-4 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+              className="h-10 px-4 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
               Cancel
             </button>
             <button
               onClick={applyConfigure}
-              className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221e11] text-sm font-bold hover:bg-[#d49a26] transition-colors"
+              className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors"
               type="button"
             >
               Apply
@@ -3299,7 +3237,7 @@ export const PaymentConfig: React.FC = () => {
                 setCreateTierOpen(false);
                 setCreateTierError(null);
               }}
-              className="h-10 px-4 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+              className="h-10 px-4 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
               Cancel
@@ -3307,7 +3245,7 @@ export const PaymentConfig: React.FC = () => {
             <button
               onClick={() => void createPlanTier()}
               disabled={createTierLoading}
-              className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221e11] text-sm font-bold hover:bg-[#d49a26] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
             >
               {createTierLoading ? 'Creating...' : 'Create Tier'}
@@ -3360,7 +3298,7 @@ export const PaymentConfig: React.FC = () => {
                 setManualInvOpen(false);
                 setManualInvError(null);
               }}
-              className="h-10 px-4 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+              className="h-10 px-4 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
               Cancel
@@ -3368,7 +3306,7 @@ export const PaymentConfig: React.FC = () => {
             <button
               onClick={() => void createManualInvoice()}
               disabled={manualInvLoading}
-              className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221e11] text-sm font-bold hover:bg-[#d49a26] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
             >
               {manualInvLoading ? 'Creating...' : 'Create Invoice'}
@@ -3416,13 +3354,12 @@ export const PaymentConfig: React.FC = () => {
                 setInvoiceDetailOpen(false);
                 setInvoiceDetail(null);
               }}
-              className="h-10 px-4 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+              className="h-10 px-4 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
               Close
             </button>
             <button
-              disabled={!invoiceDetail || !!invoiceDetail?.error || invoiceDetailLoading}
               onClick={() => {
                 try {
                   const id = String(invoiceDetail?.id || '');
@@ -3432,7 +3369,7 @@ export const PaymentConfig: React.FC = () => {
                   // ignore
                 }
               }}
-              className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221e11] text-sm font-bold hover:bg-[#d49a26] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
             >
               Download PDF
@@ -3441,42 +3378,42 @@ export const PaymentConfig: React.FC = () => {
         }
       >
         {invoiceDetailLoading ? (
-          <div className="text-sm text-[#c8ba93]">Loading...</div>
+          <div className="text-sm text-muted-foreground">Loading...</div>
         ) : invoiceDetail?.error ? (
           <div className="text-sm text-red-300">{String(invoiceDetail.error)}</div>
         ) : invoiceDetail ? (
           <div className="flex flex-col gap-4">
             <div className="flex justify-between items-start">
               <div>
-                <div className="text-xs text-[#c8ba93] uppercase tracking-wider">Invoice No</div>
-                <div className="text-lg font-mono text-white font-bold">{String(invoiceDetail.invoiceNumber || invoiceDetail.id)}</div>
-                <div className="text-sm text-[#c8ba93] mt-1">{String(invoiceDetail.tenantName || '')}</div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider">Invoice No</div>
+                <div className="text-lg font-mono text-foreground font-bold">{String(invoiceDetail.invoiceNumber || invoiceDetail.id)}</div>
+                <div className="text-sm text-muted-foreground mt-1">{String(invoiceDetail.tenantName || '')}</div>
               </div>
-              <div className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-white/10 text-[#c8ba93] border border-white/10">
+              <div className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-muted/40 text-muted-foreground border border-border">
                 {String(invoiceDetail.status || 'Unknown')}
               </div>
             </div>
 
-            <div className="p-4 bg-[#1a170d] rounded-lg border border-[#473e24]">
-              <div className="text-xs text-[#c8ba93] mb-1">Billed To</div>
-              <div className="text-white font-medium">{String(invoiceDetail.tenantName || '')}</div>
-              {invoiceDetail?.tenantTin ? <div className="text-sm text-[#c8ba93] mt-1">TIN: {String(invoiceDetail.tenantTin)}</div> : null}
+            <div className="p-4 bg-muted/40 rounded-lg border border-border">
+              <div className="text-xs text-muted-foreground mb-1">Billed To</div>
+              <div className="text-foreground font-medium">{String(invoiceDetail.tenantName || '')}</div>
+              {invoiceDetail?.tenantTin ? <div className="text-sm text-muted-foreground mt-1">TIN: {String(invoiceDetail.tenantTin)}</div> : null}
             </div>
 
             <div>
-              <div className="text-xs text-[#c8ba93] uppercase tracking-wider mb-2">Totals</div>
-              <div className="flex justify-between text-sm py-2 border-b border-[#473e24]">
-                <span className="text-white">Amount</span>
-                <span className="text-white font-mono">ETB {Number(invoiceDetail.totalEtb || invoiceDetail.amountEtb || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Totals</div>
+              <div className="flex justify-between text-sm py-2 border-b border-border">
+                <span className="text-foreground">Amount</span>
+                <span className="text-foreground font-mono">ETB {Number(invoiceDetail.totalEtb || invoiceDetail.amountEtb || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between text-sm py-2">
-                <span className="text-white">Due Date</span>
-                <span className="text-[#c8ba93] font-mono">{invoiceDetail.dueDate ? (formatDeviceDate(invoiceDetail.dueDate) || '-') : '-'}</span>
+                <span className="text-foreground">Due Date</span>
+                <span className="text-muted-foreground font-mono">{invoiceDetail.dueDate ? (formatDeviceDate(invoiceDetail.dueDate) || '-') : '-'}</span>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-sm text-[#c8ba93]">Select an invoice to view details.</div>
+          <div className="text-sm text-muted-foreground">Select an invoice to view details.</div>
         )}
       </Modal>
 
@@ -3488,7 +3425,7 @@ export const PaymentConfig: React.FC = () => {
           <div className="flex items-center justify-between gap-3">
             <button
               onClick={() => setAddOfflineOpen(false)}
-              className="h-10 px-4 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+              className="h-10 px-4 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
               Cancel
@@ -3496,7 +3433,7 @@ export const PaymentConfig: React.FC = () => {
             <button
               onClick={() => void createOfflineAccount()}
               disabled={billingLoading}
-              className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221e11] text-sm font-bold hover:bg-[#d49a26] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
             >
               Add
@@ -3514,7 +3451,7 @@ export const PaymentConfig: React.FC = () => {
           <Field label="Account Holder">
             <Input value={addOfflineDraft.accountHolder} onChange={(e) => setAddOfflineDraft((p) => ({ ...p, accountHolder: e.target.value }))} />
           </Field>
-          <div className="p-3 rounded-lg bg-[#1a170d] border border-[#473e24]">
+          <div className="p-3 rounded-lg bg-muted/40 border border-border">
             <Toggle checked={addOfflineDraft.active} onChange={(v) => setAddOfflineDraft((p) => ({ ...p, active: v }))} label="Active" />
           </div>
           {billingError ? <div className="text-sm text-red-300">{billingError}</div> : null}
@@ -3529,7 +3466,7 @@ export const PaymentConfig: React.FC = () => {
           <div className="flex items-center justify-between gap-3">
             <button
               onClick={() => setAddTaxOpen(false)}
-              className="h-10 px-4 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+              className="h-10 px-4 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
               Cancel
@@ -3537,7 +3474,7 @@ export const PaymentConfig: React.FC = () => {
             <button
               onClick={() => void createTaxRule()}
               disabled={taxLoading}
-              className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221e11] text-sm font-bold hover:bg-[#d49a26] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
             >
               Create
@@ -3564,7 +3501,7 @@ export const PaymentConfig: React.FC = () => {
             <select
               value={addTaxDraft.logic}
               onChange={(e) => setAddTaxDraft((p) => ({ ...p, logic: e.target.value === 'inclusive' ? 'inclusive' : 'exclusive' }))}
-              className="w-full h-10 px-3 rounded-lg bg-[#1a170d] border border-[#473e24] text-white focus:outline-none focus:ring-2 focus:ring-[#eead2b]/40"
+              className="w-full h-10 px-3 rounded-lg bg-card border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
               <option value="exclusive">Exclusive</option>
               <option value="inclusive">Inclusive</option>
@@ -3574,7 +3511,7 @@ export const PaymentConfig: React.FC = () => {
             <select
               value={addTaxDraft.status}
               onChange={(e) => setAddTaxDraft((p) => ({ ...p, status: (e.target.value as any) }))}
-              className="w-full h-10 px-3 rounded-lg bg-[#1a170d] border border-[#473e24] text-white focus:outline-none focus:ring-2 focus:ring-[#eead2b]/40"
+              className="w-full h-10 px-3 rounded-lg bg-card border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
               <option value="active">active</option>
               <option value="suspended">suspended</option>
@@ -3598,7 +3535,7 @@ export const PaymentConfig: React.FC = () => {
           <div className="flex items-center justify-between gap-3">
             <button
               onClick={() => setTaxStatusOpen(false)}
-              className="h-10 px-4 rounded-lg bg-[#2c2616] border border-[#473e24] text-white text-sm font-bold hover:bg-[#3a3220] transition-colors"
+              className="h-10 px-4 rounded-lg bg-card border border-border text-foreground text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
               Cancel
@@ -3606,7 +3543,7 @@ export const PaymentConfig: React.FC = () => {
             <button
               onClick={() => void saveTaxSystemStatus()}
               disabled={taxLoading}
-              className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221e11] text-sm font-bold hover:bg-[#d49a26] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
             >
               Save
@@ -3618,7 +3555,7 @@ export const PaymentConfig: React.FC = () => {
           <Field label="Fiscal Printer Status">
             <Input value={taxStatusDraft.fiscalPrinterStatus} onChange={(e) => setTaxStatusDraft((p) => ({ ...p, fiscalPrinterStatus: e.target.value }))} placeholder="Connected (FSC)" />
           </Field>
-          <div className="p-3 rounded-lg bg-[#1a170d] border border-[#473e24]">
+          <div className="p-3 rounded-lg bg-muted/40 border border-border">
             <Toggle checked={taxStatusDraft.fiscalSignatureOk} onChange={(v) => setTaxStatusDraft((p) => ({ ...p, fiscalSignatureOk: v }))} label="Signature OK" />
           </div>
           <Field label="Last ERCA Sync (datetime)">

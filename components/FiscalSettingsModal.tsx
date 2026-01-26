@@ -25,21 +25,21 @@ type BranchSettingsState = {
 const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => (
     <input
         {...props}
-        className={`w-full h-10 bg-[#181611] border border-[#393328] text-white text-sm rounded-lg focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b] px-3 placeholder-[#544b3b] ${props.className}`}
+        className={`w-full h-10 bg-background border border-border text-foreground text-sm rounded-lg focus:ring-1 focus:ring-primary focus:border-primary px-3 placeholder-muted-foreground ${props.className}`}
     />
 );
 
 const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = (props) => (
     <select
         {...props}
-        className={`w-full h-10 bg-[#181611] border border-[#393328] text-white text-sm rounded-lg focus:ring-1 focus:ring-[#eead2b] focus:border-[#eead2b] px-3 ${props.className}`}
+        className={`w-full h-10 bg-background border border-border text-foreground text-sm rounded-lg focus:ring-1 focus:ring-primary focus:border-primary px-3 ${props.className}`}
     />
 );
 
 const Toggle: React.FC<{ checked: boolean; onChange: (next: boolean) => void; label?: string }> = ({ checked, onChange, label }) => (
     <label className="relative inline-flex items-center cursor-pointer" aria-label={label ?? 'toggle'}>
         <input checked={checked} onChange={(e) => onChange(e.target.checked)} className="sr-only peer" type="checkbox" />
-        <div className="w-11 h-6 bg-[#393328] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#eead2b]"></div>
+        <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-background after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
     </label>
 );
 
@@ -148,14 +148,14 @@ export const FiscalSettingsModal: React.FC<FiscalSettingsModalProps> = ({ branch
                 <div className="flex justify-end gap-3">
                     <button
                         onClick={onClose}
-                        className="h-10 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] border border-[#544b3b] text-white font-bold transition-colors"
+                        className="h-10 px-4 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-bold transition-colors"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleSave}
                         disabled={saving || loading || !settings}
-                        className="h-10 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] font-bold transition-colors disabled:opacity-50"
+                        className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-colors disabled:opacity-50"
                     >
                         {saving ? 'Saving...' : 'Save Changes'}
                     </button>
@@ -163,15 +163,15 @@ export const FiscalSettingsModal: React.FC<FiscalSettingsModalProps> = ({ branch
             }
         >
             <div className="space-y-6">
-                {loading && <div className="text-center text-[#b9b09d] py-8">Loading settings...</div>}
-                {error && <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-200 text-sm rounded-lg">{error}</div>}
+                {loading && <div className="text-center text-muted-foreground py-8">Loading settings...</div>}
+                {error && <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg">{error}</div>}
 
                 {!loading && settings && settings.fiscal && (
                     <>
-                        <div className="flex items-center justify-between p-4 bg-[#221c10] border border-[#393328] rounded-xl">
+                        <div className="flex items-center justify-between p-4 bg-secondary border border-border rounded-xl">
                             <div>
-                                <p className="text-white font-bold">Enable Fiscal Integration</p>
-                                <p className="text-xs text-[#b9b09d]">Enable communication with the tax authority device.</p>
+                                <p className="text-foreground font-bold">Enable Fiscal Integration</p>
+                                <p className="text-xs text-muted-foreground">Enable communication with the tax authority device.</p>
                             </div>
                             <Toggle
                                 checked={settings.fiscal.enabled}
@@ -180,10 +180,10 @@ export const FiscalSettingsModal: React.FC<FiscalSettingsModalProps> = ({ branch
                         </div>
 
                         {settings.fiscal.enabled && (
-                            <div className="space-y-4 p-4 border border-[#393328] rounded-xl bg-[#221c10]/50">
+                            <div className="space-y-4 p-4 border border-border rounded-xl bg-secondary/50">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold text-[#b9b09d] uppercase mb-1 block">Driver / Provider</label>
+                                        <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Driver / Provider</label>
                                         <Select
                                             value={settings.fiscal.provider}
                                             onChange={(e) => setSettings({ ...settings, fiscal: { ...settings.fiscal, provider: e.target.value as any } })}
@@ -194,7 +194,7 @@ export const FiscalSettingsModal: React.FC<FiscalSettingsModalProps> = ({ branch
                                         </Select>
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-[#b9b09d] uppercase mb-1 block">Connection Type</label>
+                                        <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Connection Type</label>
                                         <Select
                                             value={settings.fiscal.connectionType}
                                             onChange={(e) => setSettings({ ...settings, fiscal: { ...settings.fiscal, connectionType: e.target.value as any } })}
@@ -207,7 +207,7 @@ export const FiscalSettingsModal: React.FC<FiscalSettingsModalProps> = ({ branch
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="md:col-span-2">
-                                        <label className="text-xs font-bold text-[#b9b09d] uppercase mb-1 block">Device IP / Proxy URL</label>
+                                        <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Device IP / Proxy URL</label>
                                         <Input
                                             value={settings.fiscal.ip}
                                             onChange={(e) => setSettings({ ...settings, fiscal: { ...settings.fiscal, ip: e.target.value } })}
@@ -215,7 +215,7 @@ export const FiscalSettingsModal: React.FC<FiscalSettingsModalProps> = ({ branch
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-[#b9b09d] uppercase mb-1 block">Port</label>
+                                        <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Port</label>
                                         <Input
                                             value={settings.fiscal.port}
                                             onChange={(e) => setSettings({ ...settings, fiscal: { ...settings.fiscal, port: e.target.value } })}
@@ -225,7 +225,7 @@ export const FiscalSettingsModal: React.FC<FiscalSettingsModalProps> = ({ branch
                                 </div>
 
                                 <div>
-                                    <label className="text-xs font-bold text-[#b9b09d] uppercase mb-1 block">Machine Registration No.</label>
+                                    <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Machine Registration No.</label>
                                     <Input
                                         value={settings.fiscal.machineRegistrationNo}
                                         onChange={(e) => setSettings({ ...settings, fiscal: { ...settings.fiscal, machineRegistrationNo: e.target.value } })}
@@ -233,10 +233,10 @@ export const FiscalSettingsModal: React.FC<FiscalSettingsModalProps> = ({ branch
                                     />
                                 </div>
 
-                                <div className="pt-2 flex items-center justify-between border-t border-[#393328] mt-2">
-                                    <div className="text-xs text-[#b9b09d]">
+                                <div className="pt-2 flex items-center justify-between border-t border-border mt-2">
+                                    <div className="text-xs text-muted-foreground">
                                         {testResult && (
-                                            <span className={testResult.success ? 'text-green-400 font-bold' : 'text-red-400 font-bold'}>
+                                            <span className={testResult.success ? 'text-green-500 font-bold' : 'text-destructive font-bold'}>
                                                 {testResult.message}
                                             </span>
                                         )}
@@ -244,7 +244,7 @@ export const FiscalSettingsModal: React.FC<FiscalSettingsModalProps> = ({ branch
                                     <button
                                         type="button"
                                         onClick={handleTest}
-                                        className="text-xs font-bold text-[#eead2b] hover:text-white underline"
+                                        className="text-xs font-bold text-primary hover:text-foreground underline"
                                     >
                                         Test Connection
                                     </button>

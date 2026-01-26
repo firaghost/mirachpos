@@ -862,11 +862,11 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c10] text-white">
-      <header className="h-16 shrink-0 border-b border-[#362b18] bg-[#221c10]/95 backdrop-blur flex items-center justify-between px-8 z-10">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+      <header className="h-16 shrink-0 border-b border-border bg-background/95 backdrop-blur flex items-center justify-between px-8 z-10">
         <div>
-          <h2 className="text-white text-xl font-bold">Inventory &amp; Recipe Management</h2>
-          <p className="text-[#c9b792] text-xs">Track stock levels, define recipes and manage costing</p>
+          <h2 className="text-foreground text-xl font-bold">Inventory &amp; Recipe Management</h2>
+          <p className="text-muted-foreground text-xs">Track stock levels, define recipes and manage costing</p>
         </div>
       </header>
       
@@ -885,28 +885,28 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
         ) : null}
         
         {/* Navigation Tabs */}
-        <div className="flex gap-4 mb-6 border-b border-[#483c23]">
+        <div className="flex gap-4 mb-6 border-b border-border">
           <button
             onClick={() => setActiveTab('stock')}
-            className={`pb-3 px-2 text-sm font-bold transition-all ${activeTab === 'stock' ? 'text-[#eead2b] border-b-2 border-[#eead2b]' : 'text-[#c9b792] hover:text-white'}`}
+            className={`pb-3 px-2 text-sm font-bold transition-all ${activeTab === 'stock' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Current Stock
           </button>
           <button
             onClick={() => setActiveTab('recipes')}
-            className={`pb-3 px-2 text-sm font-bold transition-all ${activeTab === 'recipes' ? 'text-[#eead2b] border-b-2 border-[#eead2b]' : 'text-[#c9b792] hover:text-white'}`}
+            className={`pb-3 px-2 text-sm font-bold transition-all ${activeTab === 'recipes' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Recipe Mapping
           </button>
           <button
             onClick={() => setActiveTab('suppliers')}
-            className={`pb-3 px-2 text-sm font-bold transition-all ${activeTab === 'suppliers' ? 'text-[#eead2b] border-b-2 border-[#eead2b]' : 'text-[#c9b792] hover:text-white'}`}
+            className={`pb-3 px-2 text-sm font-bold transition-all ${activeTab === 'suppliers' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Suppliers
           </button>
           <button
             onClick={() => setActiveTab('audit')}
-            className={`pb-3 px-2 text-sm font-bold transition-all ${activeTab === 'audit' ? 'text-[#eead2b] border-b-2 border-[#eead2b]' : 'text-[#c9b792] hover:text-white'}`}
+            className={`pb-3 px-2 text-sm font-bold transition-all ${activeTab === 'audit' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Audit Log
           </button>
@@ -916,53 +916,53 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
         {activeTab === 'stock' && (
             <div className="animate-fade-in">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-[#362b18] p-4 rounded-lg border border-[#483c23]">
-                        <p className="text-[#c9b792] text-xs font-medium">Total Items</p>
-                        <h3 className="text-2xl font-bold text-white">{stats.totalItems}</h3>
+                    <div className="bg-card p-4 rounded-lg border border-border">
+                        <p className="text-muted-foreground text-xs font-medium">Total Items</p>
+                        <h3 className="text-2xl font-bold text-foreground">{stats.totalItems}</h3>
                     </div>
-                    <div className="bg-[#362b18] p-4 rounded-lg border border-[#483c23]">
-                        <p className="text-[#c9b792] text-xs font-medium">Low Stock Alerts</p>
+                    <div className="bg-card p-4 rounded-lg border border-border">
+                        <p className="text-muted-foreground text-xs font-medium">Low Stock Alerts</p>
                         <h3 className="text-2xl font-bold text-rose-300">{stats.lowStockAlerts}</h3>
                     </div>
-                    <div className="bg-[#362b18] p-4 rounded-lg border border-[#483c23]">
-                        <p className="text-[#c9b792] text-xs font-medium">Inventory Value</p>
-                        <h3 className="text-2xl font-bold text-white">ETB {stats.inventoryValue.toFixed(0)}</h3>
+                    <div className="bg-card p-4 rounded-lg border border-border">
+                        <p className="text-muted-foreground text-xs font-medium">Inventory Value</p>
+                        <h3 className="text-2xl font-bold text-foreground">ETB {stats.inventoryValue.toFixed(0)}</h3>
                     </div>
                     <button
                       onClick={openAdd}
                       disabled={!canUpdateInventory}
-                      className="bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-bold rounded-lg flex flex-col items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg flex flex-col items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         <span className="material-symbols-outlined mb-1">add_circle</span>
                         <span>Add Stock Item</span>
                     </button>
                 </div>
 
-                <div className="bg-[#362b18] rounded-xl border border-[#483c23] overflow-hidden">
+                <div className="bg-card rounded-xl border border-border overflow-hidden">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="bg-[#221c10] border-b border-[#483c23]">
-                                <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Item Name</th>
-                                <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Category</th>
-                                <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Stock Level</th>
-                                <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Unit Price</th>
-                                <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Status</th>
-                                <th className="p-4 text-xs font-bold text-[#c9b792] uppercase text-right">Action</th>
+                            <tr className="bg-background border-b border-border">
+                                <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Item Name</th>
+                                <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Category</th>
+                                <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Stock Level</th>
+                                <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Unit Price</th>
+                                <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Status</th>
+                                <th className="p-4 text-xs font-bold text-muted-foreground uppercase text-right">Action</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#483c23]">
+                        <tbody className="divide-y divide-border">
                             {items.map((item) => (
-                                <tr key={item.id} className="hover:bg-[#42351f] transition-colors">
+                                <tr key={item.id} className="hover:bg-accent transition-colors">
                                     <td className="p-4">
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-bold text-white">{item.name}</span>
-                                            <span className="text-xs text-[#c9b792]">{item.id}</span>
+                                            <span className="text-sm font-bold text-foreground">{item.name}</span>
+                                            <span className="text-xs text-muted-foreground">{item.id}</span>
                                         </div>
                                     </td>
-                                    <td className="p-4 text-sm text-[#c9b792]">{item.category}</td>
+                                    <td className="p-4 text-sm text-muted-foreground">{item.category}</td>
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-24 h-2 bg-[#221c10] rounded-full overflow-hidden border border-[#483c23]">
+                                            <div className="w-24 h-2 bg-muted rounded-full overflow-hidden border border-border">
                                                 <div 
                                                     className={`h-full rounded-full ${
                                                         item.stock <= 0 ? 'bg-rose-500' : item.stock < item.minStock ? 'bg-amber-400' : 'bg-emerald-500'
@@ -979,10 +979,10 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                                                     }}
                                                 ></div>
                                             </div>
-                                            <span className="text-sm font-bold text-white">{item.stock} {item.unit}</span>
+                                            <span className="text-sm font-bold text-foreground">{item.stock} {item.unit}</span>
                                         </div>
                                     </td>
-                                    <td className="p-4 text-sm font-mono text-white">ETB {item.price}</td>
+                                    <td className="p-4 text-sm font-mono text-foreground">ETB {item.price}</td>
                                     <td className="p-4">
                                         <span
                                           className={`inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full font-bold border ${
@@ -1006,7 +1006,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                                           <button
                                             onClick={() => openEdit(item.id)}
                                             disabled={!canUpdateInventory}
-                                            className="text-[#eead2b] hover:text-[#eead2b]/90 text-sm font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+                                            className="text-primary hover:text-primary/90 text-sm font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                                           >
                                             Edit
                                           </button>
@@ -1041,13 +1041,13 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex gap-3">
               <button
                 onClick={closeSupplierPOs}
-                className="flex-1 h-11 rounded-lg bg-[#362b18] hover:bg-[#42351f] border border-[#483c23] text-white font-semibold transition-colors"
+                className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
               >
                 Close
               </button>
               <button
                 onClick={openCreatePO}
-                className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-extrabold transition-colors disabled:opacity-60"
+                className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors disabled:opacity-60"
                 disabled={!poSupplierId}
               >
                 Create PO
@@ -1057,38 +1057,38 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
         >
           <div className="flex flex-col gap-3">
             {poError ? <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{poError}</div> : null}
-            {poLoading ? <div className="text-sm text-[#c9b792]">Loading purchase orders...</div> : null}
+            {poLoading ? <div className="text-sm text-muted-foreground">Loading purchase orders...</div> : null}
 
-            {!poLoading && poRows.length === 0 ? <div className="text-sm text-[#c9b792]">No purchase orders yet.</div> : null}
+            {!poLoading && poRows.length === 0 ? <div className="text-sm text-muted-foreground">No purchase orders yet.</div> : null}
 
             {!poLoading && poRows.length > 0 ? (
-              <div className="rounded-xl border border-[#483c23] bg-[#221c10] overflow-hidden">
-                <div className="divide-y divide-[#483c23]">
+              <div className="rounded-xl border border-border bg-background overflow-hidden">
+                <div className="divide-y divide-border">
                   {poRows.map((p) => (
                     <button
                       key={p.id}
                       onClick={() => openPODetail(p.id)}
-                      className="w-full text-left p-3 hover:bg-[#42351f] transition-colors"
+                      className="w-full text-left p-3 hover:bg-accent transition-colors"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-sm text-white font-bold truncate">{p.referenceNo ? `PO • ${p.referenceNo}` : `PO • ${p.id}`}</div>
-                          <div className="text-xs text-[#c9b792] truncate">{p.notes || '—'}</div>
+                          <div className="text-sm text-foreground font-bold truncate">{p.referenceNo ? `PO • ${p.referenceNo}` : `PO • ${p.id}`}</div>
+                          <div className="text-xs text-muted-foreground truncate">{p.notes || '—'}</div>
                         </div>
                         <div className="text-right shrink-0">
-                          <div className="text-sm text-white font-mono">ETB {Number(p.total || 0).toFixed(2)}</div>
+                          <div className="text-sm text-foreground font-mono">ETB {Number(p.total || 0).toFixed(2)}</div>
                           <div className="mt-1">
                             <span
                               className={`inline-flex items-center gap-2 text-[11px] px-2 py-0.5 rounded-full font-bold border ${
                                 p.status === 'Draft'
-                                  ? 'bg-[#483c23]/40 text-[#c9b792] border-[#483c23]'
+                                  ? 'bg-secondary text-muted-foreground border-border'
                                   : p.status === 'Sent'
-                                    ? 'bg-[#eead2b]/10 text-[#eead2b] border-[#eead2b]/25'
+                                    ? 'bg-primary/10 text-primary border-primary/25'
                                     : p.status === 'Partially Received'
                                       ? 'bg-amber-400/10 text-amber-200 border-amber-400/30'
                                       : p.status === 'Received'
                                         ? 'bg-emerald-500/10 text-emerald-200 border-emerald-500/25'
-                                        : 'bg-[#483c23]/30 text-[#c9b792] border-[#483c23]'
+                                        : 'bg-secondary/60 text-muted-foreground border-border'
                               }`}
                             >
                               {p.status}
@@ -1112,21 +1112,21 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex gap-3">
               <button
                 onClick={() => setPoCreateOpen(false)}
-                className="flex-1 h-11 rounded-lg bg-[#362b18] hover:bg-[#42351f] border border-[#483c23] text-white font-semibold transition-colors"
+                className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
                 disabled={poActionBusy}
               >
                 Cancel
               </button>
               <button
                 onClick={() => void savePO('Draft')}
-                className="flex-1 h-11 rounded-lg border border-[#483c23] bg-[#221c10] hover:bg-[#42351f] text-[#c9b792] font-bold transition-colors disabled:opacity-60"
+                className="flex-1 h-11 rounded-lg border border-border bg-background hover:bg-accent text-muted-foreground font-bold transition-colors disabled:opacity-60"
                 disabled={poActionBusy || poDraftItems.length === 0}
               >
                 {poActionBusy ? 'Saving...' : 'Save Draft'}
               </button>
               <button
                 onClick={() => void savePO('Sent')}
-                className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-extrabold transition-colors disabled:opacity-60"
+                className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors disabled:opacity-60"
                 disabled={poActionBusy || poDraftItems.length === 0}
               >
                 {poActionBusy ? 'Sending...' : 'Send'}
@@ -1135,41 +1135,41 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
           }
         >
           <div className="flex flex-col gap-3">
-            <label className="text-sm font-bold text-[#c9b792]">Reference #</label>
+            <label className="text-sm font-bold text-muted-foreground">Reference #</label>
             <input
               value={poRef}
               onChange={(e) => setPoRef(e.target.value)}
-              className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60"
               placeholder="Leave blank to auto-generate (e.g., PO-000123)"
             />
 
-            <label className="text-sm font-bold text-[#c9b792]">Notes</label>
+            <label className="text-sm font-bold text-muted-foreground">Notes</label>
             <textarea
               value={poNotes}
               onChange={(e) => setPoNotes(e.target.value)}
-              className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60 min-h-[80px]"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 min-h-[80px]"
               placeholder="Optional"
             />
 
             <div className="flex items-center justify-between">
-              <div className="text-sm font-bold text-white">Items</div>
+              <div className="text-sm font-bold text-foreground">Items</div>
               <button
                 onClick={addPoLine}
-                className="text-xs font-bold text-[#eead2b] hover:text-[#eead2b]/90"
+                className="text-xs font-bold text-primary hover:text-primary/90"
                 disabled={items.length === 0}
               >
                 + Add Line
               </button>
             </div>
 
-            {items.length === 0 ? <div className="text-sm text-[#c9b792]">No inventory items available.</div> : null}
+            {items.length === 0 ? <div className="text-sm text-muted-foreground">No inventory items available.</div> : null}
 
             <div className="flex flex-col gap-2">
               {poDraftItems.map((l, idx) => (
-                <div key={`${l.inventoryItemId}-${idx}`} className="p-3 rounded-xl border border-[#483c23] bg-[#221c10]">
+                <div key={`${l.inventoryItemId}-${idx}`} className="p-3 rounded-xl border border-border bg-background">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                     <div className="md:col-span-2">
-                      <label className="text-[11px] text-[#c9b792] font-bold">Inventory Item</label>
+                      <label className="text-[11px] text-muted-foreground font-bold">Inventory Item</label>
                       <select
                         value={l.inventoryItemId}
                         onChange={(e) => {
@@ -1180,7 +1180,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                             ),
                           );
                         }}
-                        className="mt-1 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                       >
                         {items.map((it) => (
                           <option key={it.id} value={it.id}>
@@ -1191,28 +1191,28 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                     </div>
 
                     <div>
-                      <label className="text-[11px] text-[#c9b792] font-bold">Qty Ordered</label>
+                      <label className="text-[11px] text-muted-foreground font-bold">Qty Ordered</label>
                       <input
                         value={l.qtyOrdered}
                         onChange={(e) => setPoDraftItems((cur) => cur.map((x, i) => (i === idx ? { ...x, qtyOrdered: e.target.value } : x)))}
-                        className="mt-1 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                         placeholder="0"
                       />
                     </div>
 
                     <div>
-                      <label className="text-[11px] text-[#c9b792] font-bold">Unit Cost (ETB)</label>
+                      <label className="text-[11px] text-muted-foreground font-bold">Unit Cost (ETB)</label>
                       <input
                         value={l.unitCost}
                         onChange={(e) => setPoDraftItems((cur) => cur.map((x, i) => (i === idx ? { ...x, unitCost: e.target.value } : x)))}
-                        className="mt-1 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                         placeholder="0"
                       />
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between mt-2">
-                    <div className="text-xs text-[#c9b792]">
+                    <div className="text-xs text-muted-foreground">
                       Line Total: ETB {(() => {
                         const q = Number(l.qtyOrdered);
                         const c = Number(l.unitCost);
@@ -1237,21 +1237,21 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex gap-3">
               <button
                 onClick={closePODetail}
-                className="flex-1 h-11 rounded-lg bg-[#362b18] hover:bg-[#42351f] border border-[#483c23] text-white font-semibold transition-colors"
+                className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
                 disabled={poActionBusy}
               >
                 Close
               </button>
               <button
                 onClick={() => void loadPODetail(String(poDetailId || ''))}
-                className="flex-1 h-11 rounded-lg border border-[#483c23] bg-[#221c10] hover:bg-[#42351f] text-[#c9b792] font-bold transition-colors disabled:opacity-60"
+                className="flex-1 h-11 rounded-lg border border-border bg-background hover:bg-accent text-muted-foreground font-bold transition-colors disabled:opacity-60"
                 disabled={poActionBusy || !poDetailId}
               >
                 Refresh
               </button>
               <button
                 onClick={() => void markPOSent()}
-                className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-extrabold transition-colors disabled:opacity-60"
+                className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors disabled:opacity-60"
                 disabled={poActionBusy || !poDetailId || !poDetail || poDetail.status !== 'Draft'}
               >
                 Mark Sent
@@ -1261,41 +1261,41 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
         >
           <div className="flex flex-col gap-3">
             {poDetailError ? <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{poDetailError}</div> : null}
-            {poDetailLoading ? <div className="text-sm text-[#c9b792]">Loading purchase order...</div> : null}
+            {poDetailLoading ? <div className="text-sm text-muted-foreground">Loading purchase order...</div> : null}
 
             {poDetail ? (
-              <div className="rounded-xl border border-[#483c23] bg-[#221c10] p-3">
+              <div className="rounded-xl border border-border bg-background p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm font-bold text-white">{poDetail.referenceNo ? `Ref: ${poDetail.referenceNo}` : `ID: ${poDetail.id}`}</div>
-                    <div className="text-xs text-[#c9b792] flex items-center gap-2">
+                    <div className="text-sm font-bold text-foreground">{poDetail.referenceNo ? `Ref: ${poDetail.referenceNo}` : `ID: ${poDetail.id}`}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-2">
                       <span>Status:</span>
                       <span
                         className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-bold border ${
                           poDetail.status === 'Draft'
-                            ? 'bg-[#483c23]/40 text-[#c9b792] border-[#483c23]'
+                            ? 'bg-secondary text-muted-foreground border-border'
                             : poDetail.status === 'Sent'
-                              ? 'bg-[#eead2b]/10 text-[#eead2b] border-[#eead2b]/25'
+                              ? 'bg-primary/10 text-primary border-primary/25'
                               : poDetail.status === 'Partially Received'
                                 ? 'bg-amber-400/10 text-amber-200 border-amber-400/30'
                                 : poDetail.status === 'Received'
                                   ? 'bg-emerald-500/10 text-emerald-200 border-emerald-500/25'
-                                  : 'bg-[#483c23]/30 text-[#c9b792] border-[#483c23]'
+                                  : 'bg-secondary/60 text-muted-foreground border-border'
                         }`}
                       >
                         {poDetail.status}
                       </span>
                     </div>
-                    <div className="text-xs text-[#c9b792]">Total: ETB {Number(poDetail.total || 0).toFixed(2)}</div>
+                    <div className="text-xs text-muted-foreground">Total: ETB {Number(poDetail.total || 0).toFixed(2)}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[11px] text-[#c9b792] font-mono">Created {poDetail.createdAt ? formatRelativeTime(poDetail.createdAt) : ''}</div>
-                    <div className="text-[11px] text-[#c9b792]/70 font-mono">{poDetail.createdAt ? (formatDeviceDateTime(poDetail.createdAt) || '') : ''}</div>
+                    <div className="text-[11px] text-muted-foreground font-mono">Created {poDetail.createdAt ? formatRelativeTime(poDetail.createdAt) : ''}</div>
+                    <div className="text-[11px] text-muted-foreground/70 font-mono">{poDetail.createdAt ? (formatDeviceDateTime(poDetail.createdAt) || '') : ''}</div>
                   </div>
                 </div>
-                <div className="mt-2 text-xs text-[#c9b792]">Notes: {poDetail.notes || '—'}</div>
+                <div className="mt-2 text-xs text-muted-foreground">Notes: {poDetail.notes || '—'}</div>
                 {poDetail.sentAt ? (
-                  <div className="mt-2 text-[11px] text-[#c9b792]/70 font-mono">Sent at: {formatDeviceDateTime(poDetail.sentAt) || ''}</div>
+                  <div className="mt-2 text-[11px] text-muted-foreground/70 font-mono">Sent at: {formatDeviceDateTime(poDetail.sentAt) || ''}</div>
                 ) : null}
                 {poDetail.receivedAt ? (
                   <div className="mt-1 text-[11px] text-emerald-200/80 font-mono">Received at: {formatDeviceDateTime(poDetail.receivedAt) || ''}</div>
@@ -1304,29 +1304,29 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
             ) : null}
 
             {poDetail && poDetailItems.length > 0 ? (
-              <div className="rounded-xl border border-[#483c23] bg-[#221c10] overflow-hidden">
-                <div className="divide-y divide-[#483c23]">
+              <div className="rounded-xl border border-border bg-background overflow-hidden">
+                <div className="divide-y divide-border">
                   {poDetailItems.map((it) => {
                     const remaining = Math.max(0, Number(it.qtyOrdered || 0) - Number(it.qtyReceived || 0));
                     return (
                       <div key={it.id} className="p-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-sm text-white font-bold truncate">{it.name}</div>
-                            <div className="text-xs text-[#c9b792]">
+                            <div className="text-sm text-foreground font-bold truncate">{it.name}</div>
+                            <div className="text-xs text-muted-foreground">
                               Ordered: {Number(it.qtyOrdered || 0).toLocaleString(undefined, { maximumFractionDigits: 3 })} {it.unit || ''} • Received:{' '}
                               {Number(it.qtyReceived || 0).toLocaleString(undefined, { maximumFractionDigits: 3 })} {it.unit || ''} • Remaining:{' '}
                               {remaining.toLocaleString(undefined, { maximumFractionDigits: 3 })} {it.unit || ''}
                             </div>
-                            <div className="text-[11px] text-[#c9b792]/70 font-mono">ETB {Number(it.unitCost || 0).toFixed(2)} / unit</div>
+                            <div className="text-[11px] text-muted-foreground/70 font-mono">ETB {Number(it.unitCost || 0).toFixed(2)} / unit</div>
                           </div>
 
                           <div className="w-28">
-                            <label className="text-[10px] text-[#c9b792] font-bold">Receive Now</label>
+                            <label className="text-[10px] text-muted-foreground font-bold">Receive Now</label>
                             <input
                               value={poReceiveDraft[it.id] ?? ''}
                               onChange={(e) => setPoReceiveDraft((cur) => ({ ...cur, [it.id]: e.target.value }))}
-                              className="mt-1 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-2 py-1.5 text-sm text-white"
+                              className="mt-1 w-full bg-background border border-border rounded-lg px-2 py-1.5 text-sm text-foreground"
                               placeholder="0"
                               disabled={poActionBusy || remaining <= 0 || poDetail.status === 'Draft' || poDetail.status === 'Received'}
                             />
@@ -1352,7 +1352,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                 ) : (
                   <>
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-bold text-white">Receive Stock</div>
+                      <div className="text-sm font-bold text-foreground">Receive Stock</div>
                       <button
                         onClick={() => {
                           const next: Record<string, string> = {};
@@ -1362,29 +1362,29 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                           }
                           setPoReceiveDraft(next);
                         }}
-                        className="text-xs font-bold text-[#eead2b] hover:text-[#eead2b]/90"
+                        className="text-xs font-bold text-primary hover:text-primary/90"
                         disabled={poActionBusy}
                       >
                         Receive All Remaining
                       </button>
                     </div>
 
-                    <label className="text-sm font-bold text-[#c9b792]">Receiving Note (optional)</label>
+                    <label className="text-sm font-bold text-muted-foreground">Receiving Note (optional)</label>
                     <textarea
                       value={poReceiveNote}
                       onChange={(e) => setPoReceiveNote(e.target.value)}
-                      className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60 min-h-[70px]"
+                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 min-h-[70px]"
                       placeholder="e.g. Delivered partially, missing onions"
                       disabled={poActionBusy}
                     />
                     <button
                       onClick={() => void receivePO()}
-                      className="h-11 rounded-lg bg-emerald-500/90 hover:bg-emerald-500 text-[#221c10] font-extrabold transition-colors disabled:opacity-60"
+                      className="h-11 rounded-lg bg-emerald-500/90 hover:bg-emerald-500 text-emerald-950 font-extrabold transition-colors disabled:opacity-60"
                       disabled={poActionBusy || !poDetailId}
                     >
                       {poActionBusy ? 'Receiving...' : 'Receive Stock'}
                     </button>
-                    <div className="text-[11px] text-[#c9b792]/70">
+                    <div className="text-[11px] text-muted-foreground/70">
                       Receiving updates inventory stock immediately. You can receive partially multiple times until fully received.
                     </div>
                   </>
@@ -1397,11 +1397,11 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
         {/* RECIPE MAPPING TAB */}
         {activeTab === 'recipes' && (
           <div className="animate-fade-in flex flex-col lg:flex-row gap-6">
-            <div className="flex-1 bg-[#362b18] rounded-xl border border-[#483c23] overflow-hidden">
-              <div className="p-4 border-b border-[#483c23] bg-[#221c10] flex items-center justify-between gap-4">
+            <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden">
+              <div className="p-4 border-b border-border bg-background flex items-center justify-between gap-4">
                 <div className="flex flex-col">
-                  <h3 className="text-white font-bold text-lg">Menu Products</h3>
-                  <p className="text-[#c9b792] text-sm">Select a product to preview its recipe deduction and costing.</p>
+                  <h3 className="text-foreground font-bold text-lg">Menu Products</h3>
+                  <p className="text-muted-foreground text-sm">Select a product to preview its recipe deduction and costing.</p>
                 </div>
                 <button
                   onClick={() => {
@@ -1413,7 +1413,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                     }
                     onNavigate(Screen.MANAGER_RECIPE_BUILDER);
                   }}
-                  className="px-4 py-2 bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-bold rounded-lg flex items-center gap-2 disabled:opacity-50"
+                  className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg flex items-center gap-2 disabled:opacity-50"
                   disabled={!selectedProductId}
                 >
                   <span className="material-symbols-outlined text-[18px]">edit</span> Edit Recipe
@@ -1422,7 +1422,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
-                  <thead className="bg-[#221c10] text-[#c9b792] text-xs uppercase font-bold tracking-wider border-b border-[#483c23]">
+                  <thead className="bg-background text-muted-foreground text-xs uppercase font-bold tracking-wider border-b border-border">
                     <tr>
                       <th className="p-4">Product</th>
                       <th className="p-4">Category</th>
@@ -1431,7 +1431,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                       <th className="p-4">Recipe</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#483c23]">
+                  <tbody className="divide-y divide-border">
                     {products.map((p) => {
                       const rec = recipes.find((r) => r.productId === p.id) ?? null;
                       const hasRecipe = rec != null && rec.ingredients.length > 0;
@@ -1447,22 +1447,22 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                               // ignore
                             }
                           }}
-                          className={`group hover:bg-[#42351f] transition-colors cursor-pointer border-l-4 ${selected ? 'bg-[#eead2b]/10 border-l-[#eead2b]' : 'border-l-transparent'}`}
+                          className={`group hover:bg-accent transition-colors cursor-pointer border-l-4 ${selected ? 'bg-primary/10 border-l-primary' : 'border-l-transparent'}`}
                         >
                           <td className="p-4">
                             <div className="flex items-center gap-3">
-                              <div className="size-9 rounded-lg bg-[#221c10] border border-[#483c23] overflow-hidden">
+                              <div className="size-9 rounded-lg bg-background border border-border overflow-hidden">
                                 <img alt={p.name} src={p.image} className="w-full h-full object-cover" />
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-sm font-bold text-white">{p.name}</span>
-                                <span className="text-xs text-[#c9b792]">Code: {p.code}</span>
+                                <span className="text-sm font-bold text-foreground">{p.name}</span>
+                                <span className="text-xs text-muted-foreground">Code: {p.code}</span>
                               </div>
                             </div>
                           </td>
-                          <td className="p-4 text-sm text-[#c9b792]">{p.category}</td>
-                          <td className="p-4 text-sm font-mono text-white">ETB {p.price.toFixed(2)}</td>
-                          <td className="p-4 text-sm font-mono text-white">ETB {(rec?.totalCost ?? 0).toFixed(2)}</td>
+                          <td className="p-4 text-sm text-muted-foreground">{p.category}</td>
+                          <td className="p-4 text-sm font-mono text-foreground">ETB {p.price.toFixed(2)}</td>
+                          <td className="p-4 text-sm font-mono text-foreground">ETB {(rec?.totalCost ?? 0).toFixed(2)}</td>
                           <td className="p-4">
                             <span
                               className={`text-xs px-2 py-1 rounded-full font-bold border ${
@@ -1480,16 +1480,16 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
               </div>
             </div>
 
-            <div className="w-full lg:w-[380px] bg-[#362b18] rounded-xl border border-[#483c23] overflow-hidden flex flex-col">
-              <div className="p-4 bg-[#221c10] border-b border-[#483c23] flex items-start justify-between gap-4">
+            <div className="w-full lg:w-[380px] bg-card rounded-xl border border-border overflow-hidden flex flex-col">
+              <div className="p-4 bg-background border-b border-border flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs uppercase tracking-wider text-[#c9b792] font-bold mb-1">Recipe View</p>
-                  <h3 className="text-white font-black text-xl">{selectedProduct?.name ?? 'Select a product'}</h3>
-                  <p className="text-[#c9b792] text-sm">{selectedProduct ? 'Composite Product • 1 Unit Sales' : 'Click a product to inspect deduction.'}</p>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-1">Recipe View</p>
+                  <h3 className="text-foreground font-black text-xl">{selectedProduct?.name ?? 'Select a product'}</h3>
+                  <p className="text-muted-foreground text-sm">{selectedProduct ? 'Composite Product • 1 Unit Sales' : 'Click a product to inspect deduction.'}</p>
                 </div>
                 <button
                   onClick={() => setSelectedProductId(null)}
-                  className="text-[#c9b792] hover:text-white p-1"
+                  className="text-muted-foreground hover:text-foreground p-1"
                   title="Close"
                 >
                   <span className="material-symbols-outlined">close</span>
@@ -1498,27 +1498,27 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
 
               <div className="p-4 flex-1 overflow-y-auto">
                 {!selectedProduct ? (
-                  <div className="text-[#c9b792] text-sm">No product selected.</div>
+                  <div className="text-muted-foreground text-sm">No product selected.</div>
                 ) : (
                   <>
                     <div className="flex flex-col items-center gap-2 mb-6">
-                      <div className="w-full p-4 rounded-xl bg-[#eead2b]/10 border border-[#eead2b]/20 flex items-center gap-4">
-                        <div className="size-12 rounded-lg bg-[#221c10] border border-[#483c23] overflow-hidden">
+                      <div className="w-full p-4 rounded-xl bg-primary/10 border border-primary/20 flex items-center gap-4">
+                        <div className="size-12 rounded-lg bg-background border border-border overflow-hidden">
                           <img alt={selectedProduct.name} src={selectedProduct.image} className="w-full h-full object-cover" />
                         </div>
                         <div>
-                          <p className="text-white font-bold">{selectedProduct.name}</p>
-                          <p className="text-xs text-[#eead2b] font-medium">Sales Price: ETB {selectedProduct.price.toFixed(2)}</p>
+                          <p className="text-foreground font-bold">{selectedProduct.name}</p>
+                          <p className="text-xs text-primary font-medium">Sales Price: ETB {selectedProduct.price.toFixed(2)}</p>
                         </div>
-                        <div className="ml-auto bg-[#eead2b]/20 text-[#eead2b] px-2 py-1 rounded text-xs font-bold">- 1 Unit</div>
+                        <div className="ml-auto bg-primary/20 text-primary px-2 py-1 rounded text-xs font-bold">- 1 Unit</div>
                       </div>
-                      <div className="h-8 w-0.5 bg-[#483c23]"></div>
-                      <div className="text-xs text-[#c9b792] bg-[#221c10] px-2 py-0.5 rounded border border-[#483c23] -my-3">Consumes</div>
-                      <div className="h-6 w-0.5 bg-[#483c23]"></div>
+                      <div className="h-8 w-0.5 bg-border"></div>
+                      <div className="text-xs text-muted-foreground bg-background px-2 py-0.5 rounded border border-border -my-3">Consumes</div>
+                      <div className="h-6 w-0.5 bg-border"></div>
 
                       <div className="w-full flex flex-col gap-2">
                         {(computedRecipe?.ingredients ?? []).length === 0 ? (
-                          <div className="p-3 rounded-lg border border-[#483c23] bg-[#221c10] text-[#c9b792] text-sm">
+                          <div className="p-3 rounded-lg border border-border bg-background text-muted-foreground text-sm">
                             No recipe set. Click "Edit Recipe" to add ingredients.
                           </div>
                         ) : (
@@ -1536,14 +1536,14 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                             return (
                               <div
                                 key={ing.ingredientId}
-                                className={`p-3 rounded-lg border bg-[#221c10] flex items-center justify-between ${
+                                className={`p-3 rounded-lg border bg-background flex items-center justify-between ${
                                   missing
                                     ? 'border-amber-400/30'
                                     : critical
                                       ? 'border-rose-500/30'
                                       : low
                                         ? 'border-amber-400/30'
-                                        : 'border-[#483c23]'
+                                        : 'border-border'
                                 }`}
                               >
                                 <div className="flex items-center gap-3">
@@ -1553,27 +1553,27 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                                         ? 'bg-rose-500/10 border-rose-500/30'
                                         : low || missing
                                           ? 'bg-amber-400/10 border-amber-400/30'
-                                          : 'bg-[#362b18] border-[#483c23]'
+                                          : 'bg-secondary border-border'
                                     }`}
                                   >
                                     <span
                                       className={`material-symbols-outlined text-sm ${
-                                        critical ? 'text-rose-300' : low || missing ? 'text-amber-200' : 'text-[#c9b792]'
+                                        critical ? 'text-rose-300' : low || missing ? 'text-amber-200' : 'text-muted-foreground'
                                       }`}
                                     >
                                       inventory_2
                                     </span>
                                   </div>
                                   <div>
-                                    <p className="text-sm text-white font-medium">{ing.name}</p>
-                                    <p className="text-[10px] text-[#c9b792]">
+                                    <p className="text-sm text-foreground font-medium">{ing.name}</p>
+                                    <p className="text-[10px] text-muted-foreground">
                                       {missing ? 'Missing inventory item' : stockLabel ? `Current Stock: ${stockLabel}` : ''}
                                     </p>
                                   </div>
                                 </div>
                                 <div className="text-right">
                                   <p className="text-rose-200 font-bold text-sm">- {qtyLabel}</p>
-                                  <p className="text-[10px] text-[#c9b792]">Cost: ETB {ing.cost.toFixed(2)}</p>
+                                  <p className="text-[10px] text-muted-foreground">Cost: ETB {ing.cost.toFixed(2)}</p>
                                 </div>
                               </div>
                             );
@@ -1582,31 +1582,31 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-[#221c10] border border-[#eead2b]/20">
+                    <div className="p-4 rounded-xl bg-background border border-primary/20">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs text-[#c9b792]">Total Cost</span>
-                        <span className="text-sm font-medium text-white">ETB {(computedRecipe?.totalCost ?? 0).toFixed(2)}</span>
+                        <span className="text-xs text-muted-foreground">Total Cost</span>
+                        <span className="text-sm font-medium text-foreground">ETB {(computedRecipe?.totalCost ?? 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs text-[#c9b792]">Gross Margin</span>
+                        <span className="text-xs text-muted-foreground">Gross Margin</span>
                         <span className="text-sm font-medium text-success">
                           {selectedProduct.price > 0
                             ? (((selectedProduct.price - (computedRecipe?.totalCost ?? 0)) / selectedProduct.price) * 100).toFixed(1)
-                            : '0'}
+                            : '0.0'}
                           %
                         </span>
                       </div>
-                      <div className="h-px bg-[#483c23] my-2"></div>
+                      <div className="h-px bg-border my-2"></div>
                       <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-[#eead2b] uppercase">Net Profit</span>
-                        <span className="text-lg font-bold text-white">ETB {(selectedProduct.price - (computedRecipe?.totalCost ?? 0)).toFixed(2)}</span>
+                        <span className="text-xs font-bold text-primary uppercase">Net Profit</span>
+                        <span className="text-lg font-bold text-foreground">ETB {(selectedProduct.price - (computedRecipe?.totalCost ?? 0)).toFixed(2)}</span>
                       </div>
                     </div>
                   </>
                 )}
               </div>
 
-              <div className="p-4 border-t border-[#483c23] bg-[#362b18]">
+              <div className="p-4 border-t border-border bg-card">
                 <div className="flex gap-3">
                   <button
                     onClick={() => {
@@ -1618,7 +1618,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                       }
                       onNavigate(Screen.MANAGER_RECIPE_BUILDER);
                     }}
-                    className="flex-1 py-2 rounded-lg border border-[#483c23] text-[#c9b792] text-xs font-medium hover:text-white hover:bg-[#42351f] transition-colors disabled:opacity-50"
+                    className="flex-1 py-2 rounded-lg border border-border text-muted-foreground text-xs font-medium hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
                     disabled={!selectedProductId}
                   >
                     Edit Recipe
@@ -1629,7 +1629,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                       setHistoryOpen(true);
                       void loadRecipeHistory();
                     }}
-                    className="flex-1 py-2 rounded-lg border border-[#483c23] text-[#c9b792] text-xs font-medium hover:text-white hover:bg-[#42351f] transition-colors disabled:opacity-50"
+                    className="flex-1 py-2 rounded-lg border border-border text-muted-foreground text-xs font-medium hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
                     disabled={!selectedProduct}
                   >
                     Recipe History
@@ -1648,13 +1648,13 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex gap-3">
               <button
                 onClick={() => setHistoryOpen(false)}
-                className="flex-1 h-11 rounded-lg bg-[#362b18] hover:bg-[#42351f] border border-[#483c23] text-white font-semibold transition-colors"
+                className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
               >
                 Close
               </button>
               <button
                 onClick={() => void loadRecipeHistory()}
-                className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-extrabold transition-colors disabled:opacity-60"
+                className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors disabled:opacity-60"
                 disabled={historyLoading || !selectedProduct}
               >
                 {historyLoading ? 'Loading...' : 'Refresh'}
@@ -1663,26 +1663,26 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
           }
         >
           <div className="flex flex-col gap-3">
-            <div className="text-sm text-white font-bold">{selectedProduct?.name || '—'}</div>
+            <div className="text-sm text-foreground font-bold">{selectedProduct?.name || '—'}</div>
             {historyError ? <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{historyError}</div> : null}
-            {historyLoading ? <div className="text-sm text-[#c9b792]">Loading history...</div> : null}
+            {historyLoading ? <div className="text-sm text-muted-foreground">Loading history...</div> : null}
             {!historyLoading && !historyError && historyRows.length === 0 ? (
-              <div className="text-sm text-[#c9b792]">No recipe changes recorded yet.</div>
+              <div className="text-sm text-muted-foreground">No recipe changes recorded yet.</div>
             ) : null}
             {!historyLoading && historyRows.length > 0 ? (
-              <div className="rounded-xl border border-[#483c23] bg-[#221c10] overflow-hidden">
-                <div className="divide-y divide-[#483c23]">
+              <div className="rounded-xl border border-border bg-background overflow-hidden">
+                <div className="divide-y divide-border">
                   {historyRows.map((h) => (
                     <div key={h.id} className="p-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-sm text-white font-semibold truncate">{auditTypeLabel(h.type)}</div>
-                          <div className="text-xs text-[#c9b792] truncate">{h.summary}</div>
-                          <div className="text-[11px] text-[#c9b792]/70 mt-1">{h.actorName ? `${h.actorName}${h.actorRole ? ` (${h.actorRole})` : ''}` : h.actorRole || ''}</div>
+                          <div className="text-sm text-foreground font-semibold truncate">{auditTypeLabel(h.type)}</div>
+                          <div className="text-xs text-muted-foreground truncate">{h.summary}</div>
+                          <div className="text-[11px] text-muted-foreground/70 mt-1">{h.actorName ? `${h.actorName}${h.actorRole ? ` (${h.actorRole})` : ''}` : h.actorRole || ''}</div>
                         </div>
                         <div className="text-right">
-                          <div className="text-xs text-[#c9b792] font-mono">{h.at ? formatRelativeTime(h.at) : ''}</div>
-                          <div className="text-[10px] text-[#c9b792]/70 font-mono">{h.at ? (formatDeviceDateTime(h.at) || '') : ''}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{h.at ? formatRelativeTime(h.at) : ''}</div>
+                          <div className="text-[10px] text-muted-foreground/70 font-mono">{h.at ? (formatDeviceDateTime(h.at) || '') : ''}</div>
                         </div>
                       </div>
                     </div>
@@ -1698,48 +1698,48 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
           <div className="animate-fade-in">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-white font-bold text-lg">Suppliers</h3>
-                <p className="text-[#c9b792] text-sm">Manage your suppliers for inventory purchasing.</p>
+                <h3 className="text-foreground font-bold text-lg">Suppliers</h3>
+                <p className="text-muted-foreground text-sm">Manage your suppliers for inventory purchasing.</p>
               </div>
               <button
                 onClick={openNewSupplier}
-                className="px-4 py-2 bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-bold rounded-lg flex items-center gap-2"
+                className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg flex items-center gap-2"
               >
                 <span className="material-symbols-outlined text-[18px]">add</span> Add Supplier
               </button>
             </div>
 
-            <div className="bg-[#362b18] rounded-xl border border-[#483c23] overflow-hidden">
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-[#221c10] border-b border-[#483c23]">
-                    <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Name</th>
-                    <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Phone</th>
-                    <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Email</th>
-                    <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Address</th>
-                    <th className="p-4 text-xs font-bold text-[#c9b792] uppercase">Status</th>
-                    <th className="p-4 text-xs font-bold text-[#c9b792] uppercase text-right">Action</th>
+                  <tr className="bg-background border-b border-border">
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Name</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Phone</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Email</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Address</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Status</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#483c23]">
+                <tbody className="divide-y divide-border">
                   {suppliers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-6 text-[#c9b792] text-sm">
+                      <td colSpan={6} className="p-6 text-muted-foreground text-sm">
                         No suppliers yet.
                       </td>
                     </tr>
                   ) : (
                     suppliers.map((s) => (
-                      <tr key={s.id} className="hover:bg-[#42351f] transition-colors">
+                      <tr key={s.id} className="hover:bg-accent transition-colors">
                         <td className="p-4">
                           <div className="flex flex-col">
-                            <span className="text-sm font-bold text-white">{s.name}</span>
-                            <span className="text-xs text-[#c9b792]">{s.id}</span>
+                            <span className="text-sm font-bold text-foreground">{s.name}</span>
+                            <span className="text-xs text-muted-foreground">{s.id}</span>
                           </div>
                         </td>
-                        <td className="p-4 text-sm text-[#c9b792]">{s.phone || '—'}</td>
-                        <td className="p-4 text-sm text-[#c9b792]">{s.email || '—'}</td>
-                        <td className="p-4 text-sm text-[#c9b792]">{s.address || '—'}</td>
+                        <td className="p-4 text-sm text-muted-foreground">{s.phone || '—'}</td>
+                        <td className="p-4 text-sm text-muted-foreground">{s.email || '—'}</td>
+                        <td className="p-4 text-sm text-muted-foreground">{s.address || '—'}</td>
                         <td className="p-4">
                           <span
                             className={`text-xs px-2 py-1 rounded-full font-bold border ${
@@ -1755,11 +1755,11 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                           <div className="flex items-center justify-end gap-3">
                             <button
                               onClick={() => openSupplierPOs(s.id)}
-                              className="text-[#c9b792] hover:text-white text-sm font-bold"
+                              className="text-muted-foreground hover:text-foreground text-sm font-bold"
                             >
                               POs
                             </button>
-                            <button onClick={() => openEditSupplier(s.id)} className="text-[#eead2b] hover:text-[#eead2b]/90 text-sm font-bold">Edit</button>
+                            <button onClick={() => openEditSupplier(s.id)} className="text-primary hover:text-primary/90 text-sm font-bold">Edit</button>
                             <button
                               onClick={() => setSupplierDeleteId(s.id)}
                               className="text-red-400 hover:text-red-300 text-sm font-bold"
@@ -1782,52 +1782,52 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
           <div className="animate-fade-in">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-white font-bold text-lg">Audit Log</h3>
-                <p className="text-text-muted text-sm">Recent inventory and recipe changes for this branch.</p>
+                <h3 className="text-foreground font-bold text-lg">Audit Log</h3>
+                <p className="text-muted-foreground text-sm">Recent inventory and recipe changes for this branch.</p>
               </div>
               <button
                 onClick={() => void loadAudit()}
-                className="px-4 py-2 bg-surface border border-border text-white hover:bg-surface-light rounded-lg text-sm font-bold"
+                className="px-4 py-2 bg-card border border-border text-foreground hover:bg-accent rounded-lg text-sm font-bold"
                 disabled={auditLoading}
               >
                 {auditLoading ? 'Loading ¦' : 'Refresh'}
               </button>
             </div>
 
-            <div className="bg-surface rounded-xl border border-border overflow-hidden">
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-surface-light border-b border-border">
-                    <th className="p-4 text-xs font-bold text-text-muted uppercase">When</th>
-                    <th className="p-4 text-xs font-bold text-text-muted uppercase">Type</th>
-                    <th className="p-4 text-xs font-bold text-text-muted uppercase">Summary</th>
-                    <th className="p-4 text-xs font-bold text-text-muted uppercase">Actor</th>
+                  <tr className="bg-background border-b border-border">
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase">When</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Type</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Summary</th>
+                    <th className="p-4 text-xs font-bold text-muted-foreground uppercase">Actor</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {audit.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="p-6 text-text-muted text-sm">
+                      <td colSpan={4} className="p-6 text-muted-foreground text-sm">
                         {auditLoading ? 'Loading audit ¦' : 'No audit events yet.'}
                       </td>
                     </tr>
                   ) : (
                     audit.map((a) => (
-                      <tr key={a.id} className="hover:bg-surface-light/50 transition-colors">
+                      <tr key={a.id} className="hover:bg-accent transition-colors">
                         <td className="p-4">
                           <div className="flex flex-col">
-                            <span className="text-sm text-text-muted font-mono">{a.at ? formatRelativeTime(a.at) : ' ”'}</span>
-                            <span className="text-[11px] text-text-muted/70 font-mono">{a.at ? (formatDeviceDateTime(a.at) || '') : ''}</span>
+                            <span className="text-sm text-muted-foreground font-mono">{a.at ? formatRelativeTime(a.at) : ' ”'}</span>
+                            <span className="text-[11px] text-muted-foreground/70 font-mono">{a.at ? (formatDeviceDateTime(a.at) || '') : ''}</span>
                           </div>
                         </td>
                         <td className="p-4">
                           <div className="flex flex-col">
-                            <span className="text-sm text-white font-semibold">{auditTypeLabel(a.type)}</span>
-                            <span className="text-[11px] text-text-muted font-mono">{a.type || ' ”'}</span>
+                            <span className="text-sm text-foreground font-semibold">{auditTypeLabel(a.type)}</span>
+                            <span className="text-[11px] text-muted-foreground font-mono">{a.type || ' ”'}</span>
                           </div>
                         </td>
-                        <td className="p-4 text-sm text-white">{a.summary || ' ”'}</td>
-                        <td className="p-4 text-sm text-text-muted">{a.actorName ? `${a.actorName}${a.actorRole ? ` (${a.actorRole})` : ''}` : a.actorRole || ' ”'}</td>
+                        <td className="p-4 text-sm text-foreground">{a.summary || ' ”'}</td>
+                        <td className="p-4 text-sm text-muted-foreground">{a.actorName ? `${a.actorName}${a.actorRole ? ` (${a.actorRole})` : ''}` : a.actorRole || ' ”'}</td>
                       </tr>
                     ))
                   )}
@@ -1845,14 +1845,14 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex gap-3">
               <button
                 onClick={closeSupplierModal}
-                className="flex-1 h-11 rounded-lg bg-[#362b18] hover:bg-[#42351f] border border-[#483c23] text-white font-semibold transition-colors"
+                className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
                 disabled={supplierBusy}
               >
                 Cancel
               </button>
               <button
                 onClick={saveSupplier}
-                className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-extrabold transition-colors disabled:opacity-60"
+                className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors disabled:opacity-60"
                 disabled={supplierBusy}
               >
                 {supplierBusy ? 'Saving ¦' : 'Save'}
@@ -1861,39 +1861,39 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
           }
         >
           <div className="flex flex-col gap-3">
-            <label className="text-sm font-bold text-[#c9b792]">Name</label>
+            <label className="text-sm font-bold text-muted-foreground">Name</label>
             <input
               value={supplierName}
               onChange={(e) => setSupplierName(e.target.value)}
-              className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60"
             />
 
-            <label className="text-sm font-bold text-[#c9b792]">Phone</label>
+            <label className="text-sm font-bold text-muted-foreground">Phone</label>
             <input
               value={supplierPhone}
               onChange={(e) => setSupplierPhone(e.target.value)}
-              className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60"
             />
 
-            <label className="text-sm font-bold text-[#c9b792]">Email</label>
+            <label className="text-sm font-bold text-muted-foreground">Email</label>
             <input
               value={supplierEmail}
               onChange={(e) => setSupplierEmail(e.target.value)}
-              className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60"
             />
 
-            <label className="text-sm font-bold text-[#c9b792]">Address</label>
+            <label className="text-sm font-bold text-muted-foreground">Address</label>
             <input
               value={supplierAddress}
               onChange={(e) => setSupplierAddress(e.target.value)}
-              className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60"
             />
 
-            <label className="text-sm font-bold text-[#c9b792]">Notes</label>
+            <label className="text-sm font-bold text-muted-foreground">Notes</label>
             <textarea
               value={supplierNotes}
               onChange={(e) => setSupplierNotes(e.target.value)}
-              className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60 min-h-[90px]"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 min-h-[90px]"
             />
           </div>
         </Modal>
@@ -1906,7 +1906,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex gap-3">
               <button
                 onClick={() => setSupplierDeleteId(null)}
-                className="flex-1 h-11 rounded-lg bg-[#362b18] hover:bg-[#42351f] border border-[#483c23] text-white font-semibold transition-colors"
+                className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
                 disabled={supplierBusy}
               >
                 Cancel
@@ -1930,8 +1930,8 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                       setSupplierBusy(false);
                     }
                   })();
-                }}
-                className="flex-1 h-11 rounded-lg bg-red-600 hover:bg-red-500 text-white font-extrabold transition-colors disabled:opacity-60"
+              }}
+                className="flex-1 h-11 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-extrabold transition-colors disabled:opacity-60"
                 disabled={supplierBusy}
               >
                 {supplierBusy ? 'Deleting ¦' : 'Delete'}
@@ -1939,7 +1939,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
             </div>
           }
         >
-          <div className="text-sm text-[#c9b792]">This will permanently remove the supplier.</div>
+          <div className="text-sm text-muted-foreground">This will permanently remove the supplier.</div>
         </Modal>
 
         <Modal
@@ -1950,14 +1950,14 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex gap-3">
               <button
                 onClick={closeModal}
-                className="flex-1 h-11 rounded-lg bg-[#362b18] hover:bg-[#42351f] border border-[#483c23] text-white font-semibold transition-colors"
+                className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={saveModal}
                 disabled={!canUpdateInventory}
-                className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#eead2b]/90 text-[#221c10] font-extrabold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Save
               </button>
@@ -1965,54 +1965,54 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
           }
         >
           <div className="flex flex-col gap-3">
-            <label className="text-sm font-bold text-[#c9b792]">Name</label>
+            <label className="text-sm font-bold text-muted-foreground">Name</label>
             <input
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
-              className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60"
             />
 
-            <label className="text-sm font-bold text-[#c9b792]">Category</label>
+            <label className="text-sm font-bold text-muted-foreground">Category</label>
             <input
               value={draftCategory}
               onChange={(e) => setDraftCategory(e.target.value)}
-              className="w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60"
             />
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-bold text-[#c9b792]">Stock</label>
+                <label className="text-sm font-bold text-muted-foreground">Stock</label>
                 <input
                   value={draftStock}
                   onChange={(e) => setDraftStock(e.target.value)}
-                  className="mt-2 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+                  className="mt-2 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60"
                 />
               </div>
               <div>
-                <label className="text-sm font-bold text-[#c9b792]">Unit</label>
+                <label className="text-sm font-bold text-muted-foreground">Unit</label>
                 <input
                   value={draftUnit}
                   onChange={(e) => setDraftUnit(e.target.value)}
-                  className="mt-2 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+                  className="mt-2 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-bold text-[#c9b792]">Min Stock</label>
+                <label className="text-sm font-bold text-muted-foreground">Min Stock</label>
                 <input
                   value={draftMinStock}
                   onChange={(e) => setDraftMinStock(e.target.value)}
-                  className="mt-2 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+                  className="mt-2 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60"
                 />
               </div>
               <div>
-                <label className="text-sm font-bold text-[#c9b792]">Unit Price</label>
+                <label className="text-sm font-bold text-muted-foreground">Unit Price</label>
                 <input
                   value={draftPrice}
                   onChange={(e) => setDraftPrice(e.target.value)}
-                  className="mt-2 w-full bg-[#221c10] border border-[#483c23] rounded-lg px-3 py-2 text-sm text-white placeholder:text-[#c9b792]/60"
+                  className="mt-2 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60"
                 />
               </div>
             </div>
@@ -2027,7 +2027,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex gap-3">
               <button
                 onClick={closeDelete}
-                className="flex-1 h-11 rounded-lg bg-surface-light hover:bg-border border border-border text-white font-semibold transition-colors"
+                className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
                 disabled={busy}
               >
                 Cancel
@@ -2056,7 +2056,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                     }
                   })();
                 }}
-                className="flex-1 h-11 rounded-lg bg-red-600 hover:bg-red-500 text-white font-extrabold transition-colors disabled:opacity-60"
+                className="flex-1 h-11 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-extrabold transition-colors disabled:opacity-60"
                 disabled={busy || !canUpdateInventory}
               >
                 {busy ? 'Deleting ¦' : 'Delete'}
@@ -2064,7 +2064,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
             </div>
           }
         >
-          <div className="text-sm text-text-muted">This will permanently remove the inventory item.</div>
+          <div className="text-sm text-muted-foreground">This will permanently remove the inventory item.</div>
         </Modal>
 
       </div>

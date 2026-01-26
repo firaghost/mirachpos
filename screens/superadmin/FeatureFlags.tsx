@@ -118,10 +118,10 @@ export const SA_FeatureFlags: React.FC = () => {
 
   const riskColor = (r: string) => {
     const x = String(r || '').toLowerCase();
-    if (x === 'critical') return { text: 'text-[#ef4444]', icon: 'error' };
-    if (x === 'high') return { text: 'text-[#ef4444]', icon: 'warning' };
-    if (x === 'medium') return { text: 'text-[#eead2b]', icon: 'warning' };
-    return { text: 'text-success', icon: 'shield' };
+    if (x === 'critical') return { text: 'text-destructive', icon: 'error' };
+    if (x === 'high') return { text: 'text-destructive', icon: 'warning' };
+    if (x === 'medium') return { text: 'text-primary', icon: 'warning' };
+    return { text: 'text-emerald-500', icon: 'shield' };
   };
 
   const timeAgo = (iso: string) => {
@@ -220,25 +220,25 @@ export const SA_FeatureFlags: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       {/* Scrollable Content Area */}
       <main className="flex-1 overflow-y-auto p-8 relative">
         <div className="max-w-7xl mx-auto flex flex-col gap-6">
           {/* Page Heading & Actions */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="flex flex-col gap-2">
-              <h2 className="text-3xl font-display font-bold text-white tracking-tight">Feature Management</h2>
-              <p className="text-[#c9b792] max-w-2xl text-sm leading-relaxed">
+              <h2 className="text-3xl font-display font-bold text-foreground tracking-tight">Feature Management</h2>
+              <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
                 Manage global feature availability, plan dependencies, and rollout percentages. 
-                <span className="text-[#eead2b]/80 ml-1">Changes affect live production environments immediately.</span>
+                <span className="text-primary/80 ml-1">Changes affect live production environments immediately.</span>
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <button className="px-4 py-2.5 rounded-lg border border-[#483c23] bg-[#2c2417] text-white hover:bg-[#3a3020] text-sm font-semibold transition-colors flex items-center gap-2">
+              <button className="px-4 py-2.5 rounded-lg border border-border bg-card text-foreground hover:bg-accent text-sm font-semibold transition-colors flex items-center gap-2">
                 <span className="material-symbols-outlined" style={{fontSize: '18px'}}>history</span>
                 View Audit Log
               </button>
-              <button onClick={openCreate} className="px-4 py-2.5 rounded-lg bg-[#eead2b] hover:bg-[#d6961b] text-[#221c11] text-sm font-bold shadow-lg shadow-[#eead2b]/10 transition-colors flex items-center gap-2">
+              <button onClick={openCreate} className="px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold shadow-lg shadow-primary/10 transition-colors flex items-center gap-2">
                 <span className="material-symbols-outlined" style={{fontSize: '18px'}}>add</span>
                 Create Flag
               </button>
@@ -249,96 +249,96 @@ export const SA_FeatureFlags: React.FC = () => {
 
           {/* KPI Stats Strip */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-[#2c2417] border border-[#483c23] rounded-xl p-4 flex flex-col gap-1">
+            <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-1">
               <div className="flex justify-between items-start">
-                <span className="text-[#c9b792] text-xs font-semibold uppercase tracking-wider">Total Flags</span>
-                <span className="material-symbols-outlined text-[#c9b792]" style={{fontSize: '20px'}}>flag</span>
+                <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Total Flags</span>
+                <span className="material-symbols-outlined text-muted-foreground" style={{fontSize: '20px'}}>flag</span>
               </div>
-              <span className="text-2xl font-bold text-white font-mono">{loading ? ' ”' : String(stats.totalFlags)}</span>
+              <span className="text-2xl font-bold text-foreground font-mono">{loading ? ' ”' : String(stats.totalFlags)}</span>
             </div>
-            <div className="bg-[#2c2417] border border-[#483c23] rounded-xl p-4 flex flex-col gap-1">
+            <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-1">
               <div className="flex justify-between items-start">
-                <span className="text-[#c9b792] text-xs font-semibold uppercase tracking-wider">Active Globally</span>
-                <span className="material-symbols-outlined text-[#eead2b]" style={{fontSize: '20px'}}>public</span>
+                <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Active Globally</span>
+                <span className="material-symbols-outlined text-primary" style={{fontSize: '20px'}}>public</span>
               </div>
-              <span className="text-2xl font-bold text-white font-mono">{loading ? ' ”' : String(stats.activeGlobally)}</span>
+              <span className="text-2xl font-bold text-foreground font-mono">{loading ? ' ”' : String(stats.activeGlobally)}</span>
             </div>
-            <div className="bg-[#2c2417] border border-[#483c23] rounded-xl p-4 flex flex-col gap-1">
+            <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-1">
               <div className="flex justify-between items-start">
-                <span className="text-[#c9b792] text-xs font-semibold uppercase tracking-wider">High Risk</span>
-                <span className="material-symbols-outlined text-[#eead2b]" style={{fontSize: '20px'}}>warning</span>
+                <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">High Risk</span>
+                <span className="material-symbols-outlined text-primary" style={{fontSize: '20px'}}>warning</span>
               </div>
-              <span className="text-2xl font-bold text-white font-mono">{loading ? ' ”' : String(stats.highRisk)}</span>
+              <span className="text-2xl font-bold text-foreground font-mono">{loading ? ' ”' : String(stats.highRisk)}</span>
             </div>
-            <div className="bg-[#2c2417] border border-[#483c23] rounded-xl p-4 flex flex-col gap-1">
+            <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-1">
               <div className="flex justify-between items-start">
-                <span className="text-[#c9b792] text-xs font-semibold uppercase tracking-wider">Beta Features</span>
-                <span className="material-symbols-outlined text-[#c9b792]" style={{fontSize: '20px'}}>science</span>
+                <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Beta Features</span>
+                <span className="material-symbols-outlined text-muted-foreground" style={{fontSize: '20px'}}>science</span>
               </div>
-              <span className="text-2xl font-bold text-white font-mono">{loading ? ' ”' : String(stats.betaFeatures)}</span>
+              <span className="text-2xl font-bold text-foreground font-mono">{loading ? ' ”' : String(stats.betaFeatures)}</span>
             </div>
           </div>
 
           {/* Filters Toolbar */}
-          <div className="bg-[#2c2417] border border-[#483c23] rounded-xl p-3 flex flex-wrap gap-3 items-center">
-            <div className="flex items-center gap-2 px-3 py-2 bg-[#221c11] border border-[#483c23] rounded-lg w-full max-w-sm">
-              <span className="material-symbols-outlined text-[#c9b792]" style={{fontSize: '18px'}}>filter_list</span>
-              <input value={q} onChange={(e) => setQ(e.target.value)} className="bg-transparent border-none p-0 text-sm text-white placeholder-[#c9b792]/50 focus:ring-0 w-full focus:outline-none" placeholder="Filter by name or ID..." type="text"/>
+          <div className="bg-card border border-border rounded-xl p-3 flex flex-wrap gap-3 items-center">
+            <div className="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-lg w-full max-w-sm">
+              <span className="material-symbols-outlined text-muted-foreground" style={{fontSize: '18px'}}>filter_list</span>
+              <input value={q} onChange={(e) => setQ(e.target.value)} className="bg-transparent border-none p-0 text-sm text-foreground placeholder:text-muted-foreground focus:ring-0 w-full focus:outline-none" placeholder="Filter by name or ID..." type="text"/>
             </div>
-            <div className="h-6 w-[1px] bg-[#483c23] mx-1"></div>
+            <div className="h-6 w-[1px] bg-border mx-1"></div>
             <div className="relative">
-              <select value={plan} onChange={(e) => setPlan(e.target.value)} className="appearance-none bg-[#221c11] border border-[#483c23] text-white text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:border-[#eead2b] cursor-pointer">
+              <select value={plan} onChange={(e) => setPlan(e.target.value)} className="appearance-none bg-background border border-border text-foreground text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:border-primary cursor-pointer">
                 <option>All Plans</option>
                 <option>Basic</option>
                 <option>Pro</option>
                 <option>Enterprise</option>
               </select>
-              <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[#c9b792] pointer-events-none" style={{fontSize: '18px'}}>expand_more</span>
+              <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" style={{fontSize: '18px'}}>expand_more</span>
             </div>
             <div className="relative">
-              <select value={risk} onChange={(e) => setRisk(e.target.value)} className="appearance-none bg-[#221c11] border border-[#483c23] text-white text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:border-[#eead2b] cursor-pointer">
+              <select value={risk} onChange={(e) => setRisk(e.target.value)} className="appearance-none bg-background border border-border text-foreground text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:border-primary cursor-pointer">
                 <option>Risk: Any</option>
                 <option>Risk: Low</option>
                 <option>Risk: Medium</option>
                 <option>Risk: High</option>
                 <option>Risk: Critical</option>
               </select>
-              <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[#c9b792] pointer-events-none" style={{fontSize: '18px'}}>expand_more</span>
+              <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" style={{fontSize: '18px'}}>expand_more</span>
             </div>
             <div className="ml-auto flex items-center gap-2">
-              <span className="text-xs text-[#c9b792] font-medium mr-2">Showing {(page - 1) * pageSize + 1}-{(page - 1) * pageSize + flags.length} of {Number(data?.total || 0)}</span>
-              <button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="p-1.5 rounded-md hover:bg-[#483c23] text-[#c9b792] disabled:opacity-50">
+              <span className="text-xs text-muted-foreground font-medium mr-2">Showing {(page - 1) * pageSize + 1}-{(page - 1) * pageSize + flags.length} of {Number(data?.total || 0)}</span>
+              <button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground disabled:opacity-50">
                 <span className="material-symbols-outlined" style={{fontSize: '18px'}}>chevron_left</span>
               </button>
-              <button disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="p-1.5 rounded-md hover:bg-[#483c23] text-white disabled:opacity-50">
+              <button disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="p-1.5 rounded-md hover:bg-accent text-foreground disabled:opacity-50">
                 <span className="material-symbols-outlined" style={{fontSize: '18px'}}>chevron_right</span>
               </button>
             </div>
           </div>
 
           {/* Data Grid */}
-          <div className="bg-[#2c2417] border border-[#483c23] rounded-xl overflow-hidden shadow-xl">
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xl">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-[#3a3020] border-b border-[#483c23]">
-                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase tracking-wider w-1/3">Feature Name / ID</th>
-                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase tracking-wider">Plan Dependency</th>
-                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase tracking-wider">Risk Level</th>
-                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase tracking-wider">Last Modified</th>
-                  <th className="p-4 text-xs font-bold text-[#c9b792] uppercase tracking-wider text-right">Status</th>
+                <tr className="bg-muted/40 border-b border-border">
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider w-1/3">Feature Name / ID</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Plan Dependency</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Risk Level</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Last Modified</th>
+                  <th className="p-4 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Status</th>
                   <th className="w-12"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#483c23]">
+              <tbody className="divide-y divide-border">
                 {loading ? (
                   <tr>
-                    <td className="p-4 text-sm text-[#c9b792]" colSpan={6}>Loading ¦</td>
+                    <td className="p-4 text-sm text-muted-foreground" colSpan={6}>Loading ¦</td>
                   </tr>
                 ) : null}
 
                 {!loading && flags.length === 0 ? (
                   <tr>
-                    <td className="p-4 text-sm text-[#c9b792]" colSpan={6}>No flags found.</td>
+                    <td className="p-4 text-sm text-muted-foreground" colSpan={6}>No flags found.</td>
                   </tr>
                 ) : null}
 
@@ -352,15 +352,15 @@ export const SA_FeatureFlags: React.FC = () => {
                         .map((x) => x[0].toUpperCase())
                         .join('')
                         .slice(0, 2);
-                      const planPill = f.plan === 'All Plans' ? 'bg-[#2c2417] text-[#c9b792] border border-[#483c23]' : 'bg-[#483c23] text-white border border-[#5c4d2e]';
+                      const planPill = f.plan === 'All Plans' ? 'bg-muted/40 text-muted-foreground border border-border' : 'bg-primary/10 text-primary border border-primary/20';
                       const labelOn = f.enabled ? 'ON' : 'OFF';
-                      const labelColor = f.enabled ? 'text-white' : 'text-[#c9b792]';
+                      const labelColor = f.enabled ? 'text-foreground' : 'text-muted-foreground';
                       return (
-                        <tr key={f.id} className="group hover:bg-[#352b1b] transition-colors">
+                        <tr key={f.id} className="group hover:bg-accent transition-colors">
                           <td className="p-4">
                             <div className="flex flex-col">
-                              <span className="text-white font-bold text-sm">{f.name}</span>
-                              <span className="text-[#c9b792] text-xs font-mono mt-1 opacity-70">{f.id}</span>
+                              <span className="text-foreground font-bold text-sm">{f.name}</span>
+                              <span className="text-muted-foreground text-xs font-mono mt-1 opacity-70">{f.id}</span>
                             </div>
                           </td>
                           <td className="p-4">
@@ -374,10 +374,10 @@ export const SA_FeatureFlags: React.FC = () => {
                           </td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-[#483c23] flex items-center justify-center text-xs text-white">{initials || 'SY'}</div>
+                              <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs text-foreground">{initials || 'SY'}</div>
                               <div className="flex flex-col">
-                                <span className="text-white text-xs">{f.updatedBy || 'System'}</span>
-                                <span className="text-[#c9b792] text-[10px]">{timeAgo(f.updatedAt)}</span>
+                                <span className="text-foreground text-xs">{f.updatedBy || 'System'}</span>
+                                <span className="text-muted-foreground text-[10px]">{timeAgo(f.updatedAt)}</span>
                               </div>
                             </div>
                           </td>
@@ -390,7 +390,7 @@ export const SA_FeatureFlags: React.FC = () => {
                                 className="sr-only peer"
                                 type="checkbox"
                               />
-                              <div className="w-11 h-6 bg-[#221c11] rounded-full peer border border-[#483c23] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[#c9b792] after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#eead2b]/20 peer-checked:after:bg-[#eead2b] peer-checked:border-[#eead2b]"></div>
+                              <div className="w-11 h-6 bg-muted rounded-full peer border border-border peer-checked:after:translate-x-full peer-checked:after:border-background after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-muted-foreground after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary/20 peer-checked:after:bg-primary peer-checked:border-primary"></div>
                               <span className={"ml-3 text-sm font-medium min-w-[30px] " + labelColor}>{labelOn}</span>
                             </label>
                           </td>
@@ -398,7 +398,7 @@ export const SA_FeatureFlags: React.FC = () => {
                             <button
                               type="button"
                               onClick={(ev) => toggleActions(f.id, ev)}
-                              className="text-[#c9b792] hover:text-white p-1 rounded hover:bg-[#483c23]"
+                              className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-accent"
                             >
                               <span className="material-symbols-outlined" style={{fontSize: '20px'}}>more_vert</span>
                             </button>
@@ -432,7 +432,7 @@ export const SA_FeatureFlags: React.FC = () => {
                       setOpenActionsFor(null);
                       setActionsAnchor(null);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#2d261a]"
+                    className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent"
                   >
                     Edit
                   </button>
@@ -444,51 +444,51 @@ export const SA_FeatureFlags: React.FC = () => {
           {modalOpen ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div onClick={() => setModalOpen(false)} className="absolute inset-0 bg-black/60"></div>
-              <div className="relative w-full max-w-xl rounded-2xl bg-[#2c2417] border border-[#483c23] shadow-2xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-[#483c23] flex items-center justify-between">
+              <div className="relative w-full max-w-xl rounded-2xl bg-card border border-border shadow-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
                   <div className="flex flex-col">
-                    <div className="text-white font-bold">{modalMode === 'create' ? 'Create Feature Flag' : 'Edit Feature Flag'}</div>
-                    <div className="text-[#c9b792] text-xs">Changes apply immediately.</div>
+                    <div className="text-foreground font-bold">{modalMode === 'create' ? 'Create Feature Flag' : 'Edit Feature Flag'}</div>
+                    <div className="text-muted-foreground text-xs">Changes apply immediately.</div>
                   </div>
-                  <button onClick={() => setModalOpen(false)} className="text-[#c9b792] hover:text-white p-1 rounded hover:bg-[#483c23]">
+                  <button onClick={() => setModalOpen(false)} className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-accent">
                     <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
                   </button>
                 </div>
 
                 <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
-                    <div className="text-xs font-semibold text-[#c9b792] uppercase tracking-wider">Flag ID</div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Flag ID</div>
                     <input
                       value={formId}
                       onChange={(e) => setFormId(e.target.value)}
                       disabled={modalMode === 'edit' || modalSaving}
-                      className="bg-[#221c11] border border-[#483c23] text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#eead2b]"
+                      className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
                       placeholder="e.g. feat_inventory_v2"
                       type="text"
                     />
-                    {modalMode === 'edit' ? <div className="text-[11px] text-[#c9b792]/70">ID cannot be changed.</div> : null}
+                    {modalMode === 'edit' ? <div className="text-[11px] text-muted-foreground/70">ID cannot be changed.</div> : null}
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <div className="text-xs font-semibold text-[#c9b792] uppercase tracking-wider">Feature Name</div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Feature Name</div>
                     <input
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
                       disabled={modalSaving}
-                      className="bg-[#221c11] border border-[#483c23] text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#eead2b]"
+                      className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
                       placeholder="Human readable name"
                       type="text"
                     />
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <div className="text-xs font-semibold text-[#c9b792] uppercase tracking-wider">Plan Dependency</div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Plan Dependency</div>
                     <div className="relative">
                       <select
                         value={formPlan}
                         onChange={(e) => setFormPlan(e.target.value)}
                         disabled={modalSaving}
-                        className="appearance-none bg-[#221c11] border border-[#483c23] text-white text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:border-[#eead2b] cursor-pointer w-full"
+                        className="appearance-none bg-background border border-border text-foreground text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:border-primary cursor-pointer w-full"
                       >
                         <option>All Plans</option>
                         <option>Basic</option>
@@ -496,32 +496,32 @@ export const SA_FeatureFlags: React.FC = () => {
                         <option>Enterprise</option>
                         <option>Beta</option>
                       </select>
-                      <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[#c9b792] pointer-events-none" style={{ fontSize: '18px' }}>expand_more</span>
+                      <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" style={{ fontSize: '18px' }}>expand_more</span>
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <div className="text-xs font-semibold text-[#c9b792] uppercase tracking-wider">Risk Level</div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Risk Level</div>
                     <div className="relative">
                       <select
                         value={formRisk}
                         onChange={(e) => setFormRisk(e.target.value)}
                         disabled={modalSaving}
-                        className="appearance-none bg-[#221c11] border border-[#483c23] text-white text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:border-[#eead2b] cursor-pointer w-full"
+                        className="appearance-none bg-background border border-border text-foreground text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:border-primary cursor-pointer w-full"
                       >
                         <option>Low</option>
                         <option>Medium</option>
                         <option>High</option>
                         <option>Critical</option>
                       </select>
-                      <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[#c9b792] pointer-events-none" style={{ fontSize: '18px' }}>expand_more</span>
+                      <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" style={{ fontSize: '18px' }}>expand_more</span>
                     </div>
                   </div>
 
-                  <div className="md:col-span-2 flex items-center justify-between bg-[#221c11] border border-[#483c23] rounded-xl px-4 py-3">
+                  <div className="md:col-span-2 flex items-center justify-between bg-background border border-border rounded-xl px-4 py-3">
                     <div className="flex flex-col">
-                      <div className="text-white text-sm font-bold">Status</div>
-                      <div className="text-[#c9b792] text-xs">Enable or disable globally.</div>
+                      <div className="text-foreground text-sm font-bold">Status</div>
+                      <div className="text-muted-foreground text-xs">Enable or disable globally.</div>
                     </div>
                     <label className="inline-flex relative items-center cursor-pointer">
                       <input
@@ -531,24 +531,24 @@ export const SA_FeatureFlags: React.FC = () => {
                         className="sr-only peer"
                         type="checkbox"
                       />
-                      <div className="w-11 h-6 bg-[#221c11] rounded-full peer border border-[#483c23] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[#c9b792] after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#eead2b]/20 peer-checked:after:bg-[#eead2b] peer-checked:border-[#eead2b]"></div>
-                      <span className={"ml-3 text-sm font-medium min-w-[30px] " + (formEnabled ? 'text-white' : 'text-[#c9b792]')}>{formEnabled ? 'ON' : 'OFF'}</span>
+                      <div className="w-11 h-6 bg-muted rounded-full peer border border-border peer-checked:after:translate-x-full peer-checked:after:border-background after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-muted-foreground after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary/20 peer-checked:after:bg-primary peer-checked:border-primary"></div>
+                      <span className={"ml-3 text-sm font-medium min-w-[30px] " + (formEnabled ? 'text-foreground' : 'text-muted-foreground')}>{formEnabled ? 'ON' : 'OFF'}</span>
                     </label>
                   </div>
                 </div>
 
-                <div className="px-6 py-4 border-t border-[#483c23] flex items-center justify-end gap-3">
+                <div className="px-6 py-4 border-t border-border bg-muted/40 flex items-center justify-end gap-3">
                   <button
                     onClick={() => setModalOpen(false)}
                     disabled={modalSaving}
-                    className="px-4 py-2.5 rounded-lg border border-[#483c23] bg-[#221c11] text-white hover:bg-[#3a3020] text-sm font-semibold transition-colors disabled:opacity-60"
+                    className="px-4 py-2.5 rounded-lg border border-border bg-card text-foreground hover:bg-accent text-sm font-semibold transition-colors disabled:opacity-60"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={saveFlag}
                     disabled={modalSaving}
-                    className="px-4 py-2.5 rounded-lg bg-[#eead2b] hover:bg-[#d6961b] text-[#221c11] text-sm font-bold shadow-lg shadow-[#eead2b]/10 transition-colors disabled:opacity-60"
+                    className="px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold shadow-lg shadow-primary/10 transition-colors disabled:opacity-60"
                   >
                     {modalSaving ? 'Saving ¦' : 'Save'}
                   </button>
@@ -556,7 +556,7 @@ export const SA_FeatureFlags: React.FC = () => {
               </div>
             </div>
           ) : null}
-          <div className="text-center text-[#c9b792] text-xs mt-4">
+          <div className="text-center text-muted-foreground text-xs mt-4">
             MirachPos Admin Console v4.2.0    Data secured via end-to-end encryption
           </div>
         </div>

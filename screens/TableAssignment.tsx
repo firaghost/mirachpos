@@ -152,26 +152,26 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
           // Optional: If we wanted to preserve table selection when switching staff, we'd remove the clearing logic.
           // But "first choose staff" implies a flow. Let's keep tables selected if they switch staff to make it easy to re-assign.
       }
-  }
+  };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#181611] text-white font-display">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground font-display">
       <Header title="Floor & Tables" subtitle="Assign tables to waiters and manage the floor" />
 
       <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete table" size="sm">
         <div className="flex flex-col gap-4">
-          <div className="text-sm text-[#c9b792]">This removes the table from the floor. You can re-create it later.</div>
+          <div className="text-sm text-muted-foreground">This removes the table from the floor. You can re-create it later.</div>
           <div className="flex items-center justify-end gap-2">
             <button
               type="button"
-              className="h-10 px-4 rounded-lg bg-[#2c261e] border border-[#352e24] text-[#c9b792] font-bold text-sm"
+              className="h-10 px-4 rounded-lg bg-secondary border border-border text-foreground font-bold text-sm"
               onClick={() => setDeleteOpen(false)}
             >
               Cancel
             </button>
             <button
               type="button"
-              className="h-10 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-sm"
+              className="h-10 px-4 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold text-sm"
               onClick={() => {
                 const id = deleteTargetId;
                 if (!id) return;
@@ -201,9 +201,9 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
             <div className="max-w-7xl mx-auto flex flex-col gap-8">
 
                 {actionBanner ? (
-                  <div className="rounded-xl border border-[#352e24] bg-[#262016] p-4 text-sm text-[#c9b792] flex items-center justify-between gap-3">
+                  <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground flex items-center justify-between gap-3">
                     <div>{actionBanner}</div>
-                    <button type="button" className="h-9 px-3 rounded-lg bg-[#2c261e] border border-[#352e24] text-[#c9b792] font-bold text-xs" onClick={() => setActionBanner('')}>
+                    <button type="button" className="h-9 px-3 rounded-lg bg-secondary border border-border text-foreground font-bold text-xs" onClick={() => setActionBanner('')}>
                       Dismiss
                     </button>
                   </div>
@@ -213,17 +213,17 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                 <div className="flex flex-col gap-4">
                     <div className="flex justify-between items-end">
                         <div>
-                            <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#eead2b] text-[#181611] text-sm font-bold">1</span>
+                            <h2 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-2">
+                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold">1</span>
                                 Select Staff Member
                             </h2>
-                            <p className="text-[#c9b792] text-sm mt-1 ml-8">Choose a waiter to assign tables to.</p>
+                            <p className="text-muted-foreground text-sm mt-1 ml-8">Choose a waiter to assign tables to.</p>
                         </div>
 
                         <button
                             onClick={() => selectedStaffId && openWaiterFloor(selectedStaffId)}
                             disabled={!selectedStaffId}
-                            className="h-10 px-4 rounded-xl bg-[#2c261e] border border-[#352e24] text-[#c9b792] font-bold text-xs hover:bg-[#352e24] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="h-10 px-4 rounded-xl bg-secondary border border-border text-foreground font-bold text-xs hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Open Floor View
                         </button>
@@ -231,8 +231,8 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                     
                     <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
                         {availableStaff.length === 0 ? (
-                          <div className="w-full rounded-xl border border-[#352e24] bg-[#262016] p-4 text-[#c9b792] text-sm">
-                            No waiters found for this branch. Create staff under <span className="text-white font-bold">Staff Roster</span>.
+                          <div className="w-full rounded-xl border border-border bg-card p-4 text-muted-foreground text-sm">
+                            No waiters found for this branch. Create staff under <span className="text-foreground font-bold">Staff Roster</span>.
                           </div>
                         ) : availableStaff.map((staff: any) => {
                             const isSelected = selectedStaffId === staff.id;
@@ -245,26 +245,26 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                     className={`
                                         flex items-center gap-3 p-3 pr-6 rounded-xl border transition-all min-w-[200px] group
                                         ${isSelected 
-                                            ? 'bg-[#eead2b] border-[#eead2b] text-[#181611] shadow-lg shadow-[#eead2b]/20' 
-                                            : 'bg-[#262016] border border-[#352e24] text-[#c9b792] hover:border-[#eead2b]/50 hover:bg-[#2c261e]'
+                                            ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20' 
+                                            : 'bg-card border border-border text-muted-foreground hover:border-primary/40 hover:bg-accent'
                                         }
                                     `}
                                 >
-                                    <div className={`relative p-0.5 rounded-full ${isSelected ? 'bg-[#181611]/20' : 'border border-[#483c23]'}`}>
+                                    <div className={`relative p-0.5 rounded-full ${isSelected ? 'bg-primary/10' : 'border border-border'}`}>
                                         {lab.avatar ? (
                                           <img src={lab.avatar} alt={lab.name} className="w-10 h-10 rounded-full object-cover" />
                                         ) : (
-                                          <div className="w-10 h-10 rounded-full bg-[#1a1612] border border-[#483c23] flex items-center justify-center text-xs font-black text-[#eead2b]">
+                                          <div className="w-10 h-10 rounded-full bg-background border border-border flex items-center justify-center text-xs font-black text-primary">
                                             {lab.initials}
                                           </div>
                                         )}
                                         {lab.status === 'Active' && (
-                                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#262016] rounded-full"></div>
+                                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-background rounded-full"></div>
                                         )}
                                     </div>
                                     <div className="text-left">
-                                        <p className={`font-bold text-sm ${isSelected ? 'text-[#181611]' : 'text-white'}`}>{lab.name}</p>
-                                        <p className={`text-xs ${isSelected ? 'text-[#181611]/70' : 'text-[#c9b792]'}`}>{lab.role}</p>
+                                        <p className={`font-bold text-sm ${isSelected ? 'text-primary-foreground' : 'text-foreground'}`}>{lab.name}</p>
+                                        <p className={`text-xs ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{lab.role}</p>
                                     </div>
                                     {isSelected && <span className="material-symbols-outlined ml-auto text-xl">check_circle</span>}
                                   </button>
@@ -273,17 +273,17 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                     </div>
                 </div>
 
-                <div className="h-px bg-[#352e24] w-full"></div>
+                <div className="h-px bg-border w-full"></div>
 
                 {/* 2. Table Selection Section */}
                 <div className={`flex flex-col gap-6 transition-opacity duration-300 ${!selectedStaffId ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                         <div>
-                            <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#eead2b] text-[#181611] text-sm font-bold">2</span>
+                            <h2 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-2">
+                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold">2</span>
                                 Assign Tables
                             </h2>
-                            <p className="text-[#c9b792] text-sm mt-1 ml-8">Select multiple tables for {selectedStaff ? selectedStaff.name.split(' ')[0] : 'the waiter'}.</p>
+                            <p className="text-muted-foreground text-sm mt-1 ml-8">Select multiple tables for {selectedStaff ? selectedStaff.name.split(' ')[0] : 'the waiter'}.</p>
                         </div>
                         
                         <div className="flex gap-2">
@@ -293,8 +293,8 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                     onClick={() => setSelectedZone(zone)}
                                     className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
                                         selectedZone === zone 
-                                        ? 'bg-[#352e24] text-white border border-[#483c23]' 
-                                        : 'text-[#c9b792] hover:text-white'
+                                        ? 'bg-secondary text-foreground border border-border' 
+                                        : 'text-muted-foreground hover:text-foreground'
                                     }`}
                                 >
                                     {zone}
@@ -302,7 +302,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                             ))}
                             <button
                                 onClick={() => setAddOpen(true)}
-                                className="px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all bg-[#eead2b] text-[#181611] hover:bg-[#d6961b]"
+                                className="px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all bg-primary text-primary-foreground hover:bg-primary/90"
                             >
                                 + New Table
                             </button>
@@ -329,38 +329,38 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                     className={`
                                         relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 transition-all duration-200 group
                                         ${isSelected 
-                                            ? 'bg-[#3a2a16] border-2 border-[#eead2b] shadow-[0_0_20px_rgba(238,173,43,0.15)] scale-[1.02]' 
-                                            : 'bg-[#1f1a14] border border-[#352e24] hover:border-[#5a4d3b] hover:bg-[#262016]'
+                                            ? 'bg-primary/10 border-2 border-primary shadow-[0_0_20px_rgba(0,0,0,0.12)] scale-[1.02]' 
+                                            : 'bg-card border border-border hover:border-border/80 hover:bg-accent'
                                         }
                                     `}
                                 >
                                     {isSelected && (
-                                        <div className="absolute top-2 right-2 bg-[#eead2b] text-[#181611] w-6 h-6 rounded-full flex items-center justify-center shadow-sm z-10">
+                                        <div className="absolute top-2 right-2 bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center shadow-sm z-10">
                                             <span className="material-symbols-outlined text-[16px] font-bold">check</span>
                                         </div>
                                     )}
                                     
                                     <div className={`
                                         w-12 h-12 rounded-full flex items-center justify-center mb-1 transition-colors
-                                        ${isSelected ? 'bg-[#eead2b] text-[#181611]' : 'bg-[#2c261e] text-[#5a4d3b] group-hover:text-[#c9b792]'}
-                                        ${!isSelected && (table.status === 'occupied') ? 'bg-[#4a4032] text-[#1f1a14]' : ''}
+                                        ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground group-hover:text-foreground'}
+                                        ${!isSelected && (table.status === 'occupied') ? 'bg-muted text-foreground/70' : ''}
                                     `}>
                                         <span className="material-symbols-outlined text-2xl">table_restaurant</span>
                                     </div>
                                     
                                     <div className="text-center">
-                                        <h3 className={`text-xl font-black leading-none mb-1 ${isSelected ? 'text-white' : 'text-[#c9b792]'}`}>
+                                        <h3 className={`text-xl font-black leading-none mb-1 ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
                                             {table.code}
                                         </h3>
-                                        <p className="text-[10px] font-bold text-[#8d7f70] uppercase tracking-wide">{table.seats} Seats</p>
+                                        <p className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-wide">{table.seats} Seats</p>
                                     </div>
 
                                     {assigned ? (
-                                      <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded bg-[#eead2b]/10 border border-[#eead2b]/20 text-[#eead2b]">
+                                      <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary">
                                         {assigned.name}
                                       </div>
                                     ) : (
-                                      <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded bg-white/5 border border-white/10 text-[#c9b792]">
+                                      <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded bg-secondary/50 border border-border text-muted-foreground">
                                         Unassigned
                                       </div>
                                     )}
@@ -372,15 +372,15 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                         setDeleteTargetId(table.id);
                                         setDeleteOpen(true);
                                       }}
-                                      className="absolute top-2 right-2 h-7 px-2 rounded-lg text-[10px] font-black bg-red-600/10 border border-red-600/20 text-red-300 hover:bg-red-600/20"
+                                      className="absolute top-2 right-2 h-7 px-2 rounded-lg text-[10px] font-black bg-destructive/10 border border-destructive/20 text-destructive-foreground hover:bg-destructive/20"
                                     >
                                       Delete
                                     </button>
 
                                     <div className="absolute bottom-3 left-0 w-full text-center">
                                         <span className={`text-[9px] font-black uppercase tracking-widest ${
-                                            table.status === 'available' ? 'text-[#0bda19]' : 
-                                            table.status === 'occupied' ? 'text-[#c9b792]' : 'text-[#eead2b]'
+                                            table.status === 'available' ? 'text-emerald-500' : 
+                                            table.status === 'occupied' ? 'text-muted-foreground' : 'text-primary'
                                         }`}>
                                             {table.status}
                                         </span>
@@ -395,22 +395,22 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
 
         {/* Bottom Context Bar */}
         {selectedStaff && selectedTableIds.size > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 bg-[#262016] border-t border-[#352e24] p-4 lg:p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-30 animate-slide-up">
+            <div className="absolute bottom-0 left-0 right-0 bg-card border-t border-border p-4 lg:p-6 shadow-lg z-30 animate-slide-up">
                 <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
                     <div className="flex items-center gap-5 w-full sm:w-auto">
-                        <div className="h-14 w-14 rounded-full border-2 border-[#eead2b] p-0.5">
+                        <div className="h-14 w-14 rounded-full border-2 border-primary p-0.5">
                             {staffLabel(selectedStaff).avatar ? (
                               <img src={staffLabel(selectedStaff).avatar} className="w-full h-full rounded-full object-cover" alt="Staff" />
                             ) : (
-                              <div className="w-full h-full rounded-full bg-[#1a1612] border border-[#483c23] flex items-center justify-center text-sm font-black text-[#eead2b]">
+                              <div className="w-full h-full rounded-full bg-background border border-border flex items-center justify-center text-sm font-black text-primary">
                                 {staffLabel(selectedStaff).initials}
                               </div>
                             )}
                         </div>
                         <div className="flex flex-col">
-                            <h3 className="text-white text-xl font-bold leading-tight">Assigning to {staffLabel(selectedStaff).name}</h3>
-                            <div className="flex items-center gap-2 text-[#c9b792] text-sm font-medium">
-                                <span className="bg-[#eead2b] text-[#181611] px-1.5 rounded text-xs font-bold">{selectedTableIds.size}</span>
+                            <h3 className="text-foreground text-xl font-bold leading-tight">Assigning to {staffLabel(selectedStaff).name}</h3>
+                            <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
+                                <span className="bg-primary text-primary-foreground px-1.5 rounded text-xs font-bold">{selectedTableIds.size}</span>
                                 Tables Selected
                             </div>
                         </div>
@@ -422,12 +422,12 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                 setSelectedTableIds(new Set());
                                 setSelectedStaffId(null);
                             }}
-                            className="flex-1 sm:flex-none px-6 py-3.5 rounded-xl border border-[#352e24] bg-[#2c261e] text-[#c9b792] font-bold text-sm hover:bg-[#352e24] hover:text-white transition-colors"
+                            className="flex-1 sm:flex-none px-6 py-3.5 rounded-xl border border-border bg-secondary text-foreground font-bold text-sm hover:bg-secondary/80 transition-colors"
                         >
                             Cancel
                         </button>
                         <button 
-                            className="flex-1 sm:flex-none px-8 py-3.5 rounded-xl bg-[#eead2b] hover:bg-[#d6961b] text-[#181611] font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-lg shadow-[#eead2b]/20"
+                            className="flex-1 sm:flex-none px-8 py-3.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-lg shadow-primary/20"
                             onClick={() => {
                                 setTableAssignment(Array.from(selectedTableIds), selectedStaff.id, staffLabel(selectedStaff).name);
                                 setSelectedTableIds(new Set());
@@ -439,7 +439,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                         </button>
 
                         <button
-                            className="flex-1 sm:flex-none px-8 py-3.5 rounded-xl bg-[#2c261e] hover:bg-[#352e24] text-[#c9b792] font-bold text-sm flex items-center justify-center gap-2 transition-colors border border-[#352e24]"
+                            className="flex-1 sm:flex-none px-8 py-3.5 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground font-bold text-sm flex items-center justify-center gap-2 transition-colors border border-border"
                             onClick={() => {
                                 setTableAssignment(Array.from(selectedTableIds), null);
                                 setSelectedTableIds(new Set());
@@ -472,7 +472,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                             setNewTableSeats('4');
                             setNewTableArea('Main Hall');
                         }}
-                        className="flex-1 h-11 rounded-lg bg-[#393328] hover:bg-[#4a4234] border border-[#544b3b] text-white font-semibold transition-colors"
+                        className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
                     >
                         Cancel
                     </button>
@@ -486,7 +486,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                             setNewTableSeats('4');
                             setNewTableArea('Main Hall');
                         }}
-                        className="flex-1 h-11 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] font-extrabold transition-colors"
+                        className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors"
                     >
                         Create
                     </button>
@@ -494,12 +494,12 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
             }
         >
             <div className="flex flex-col gap-3">
-                <label className="text-sm font-bold text-[#b9b09d]">Table Name</label>
-                <input value={newTableName} onChange={(e) => setNewTableName(e.target.value)} className="w-full bg-[#2d2820] border border-[#544b3b] rounded-lg px-3 py-2 text-sm text-white" placeholder="T-07" />
-                <label className="text-sm font-bold text-[#b9b09d]">Seats</label>
-                <input value={newTableSeats} onChange={(e) => setNewTableSeats(e.target.value)} className="w-full bg-[#2d2820] border border-[#544b3b] rounded-lg px-3 py-2 text-sm text-white" placeholder="4" />
-                <label className="text-sm font-bold text-[#b9b09d]">Area</label>
-                <select value={newTableArea} onChange={(e) => setNewTableArea(e.target.value as any)} className="w-full bg-[#2d2820] border border-[#544b3b] rounded-lg px-3 py-2 text-sm text-white">
+                <label className="text-sm font-bold text-muted-foreground">Table Name</label>
+                <input value={newTableName} onChange={(e) => setNewTableName(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" placeholder="T-07" />
+                <label className="text-sm font-bold text-muted-foreground">Seats</label>
+                <input value={newTableSeats} onChange={(e) => setNewTableSeats(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" placeholder="4" />
+                <label className="text-sm font-bold text-muted-foreground">Area</label>
+                <select value={newTableArea} onChange={(e) => setNewTableArea(e.target.value as any)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground">
                     <option value="Main Hall">Main Hall</option>
                     <option value="Patio">Patio</option>
                     <option value="Bar Area">Bar Area</option>

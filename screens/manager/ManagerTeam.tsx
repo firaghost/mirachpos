@@ -388,18 +388,18 @@ export const ManagerTeam: React.FC = () => {
   const activityTypes = useMemo(() => ['staff_created', 'staff_updated'], []);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#181611] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <main className="w-full max-w-[1440px] mx-auto px-6 py-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight mb-2">Team</h1>
-              <p className="text-[#b9b09d] max-w-2xl">Manage staff for your branch. Role changes are restricted by policy.</p>
+              <p className="text-muted-foreground max-w-2xl">Manage staff for your branch. Role changes are restricted by policy.</p>
             </div>
             <div className="flex items-center gap-3">
               <button
                 onClick={openAdd}
-                className="flex items-center gap-2 px-5 h-11 bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] rounded-lg text-sm font-bold transition-all"
+                className="flex items-center gap-2 px-5 h-11 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-bold transition-all"
               >
                 <span className="material-symbols-outlined text-[20px]">add</span>
                 Add Staff
@@ -415,19 +415,19 @@ export const ManagerTeam: React.FC = () => {
               )}
             >
               <div className="text-sm font-medium">{banner.message}</div>
-              <button onClick={() => setBanner(null)} className="h-9 px-3 rounded-lg bg-white/10 border border-white/10 text-white">
+              <button onClick={() => setBanner(null)} className="h-9 px-3 rounded-lg bg-secondary border border-border text-foreground">
                 Dismiss
               </button>
             </div>
           ) : null}
 
-          <div className="bg-[#221c10] rounded-xl border border-[#393328] overflow-hidden">
-            <div className="flex border-b border-[#393328] px-6">
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="flex border-b border-border px-6">
               <button
                 onClick={() => setTab('staff')}
                 className={cx(
                   'relative flex items-center gap-2 px-4 py-4 border-b-[3px] text-sm font-bold',
-                  tab === 'staff' ? 'text-[#eead2b] border-[#eead2b]' : 'text-[#b9b09d] border-transparent hover:text-white',
+                  tab === 'staff' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground',
                 )}
               >
                 <span className="material-symbols-outlined text-[20px]">group</span>
@@ -437,7 +437,7 @@ export const ManagerTeam: React.FC = () => {
                 onClick={() => setTab('activity')}
                 className={cx(
                   'relative flex items-center gap-2 px-4 py-4 border-b-[3px] text-sm font-bold',
-                  tab === 'activity' ? 'text-[#eead2b] border-[#eead2b]' : 'text-[#b9b09d] border-transparent hover:text-white',
+                  tab === 'activity' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground',
                 )}
               >
                 <span className="material-symbols-outlined text-[20px]">history</span>
@@ -447,14 +447,14 @@ export const ManagerTeam: React.FC = () => {
 
             {tab === 'staff' ? (
               <>
-                <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-[#393328]">
+                <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-border">
                   <div className="flex items-center gap-3 flex-1 min-w-[280px]">
                     <div className="relative w-full max-w-md">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#b9b09d]">search</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-muted-foreground">search</span>
                       <input
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        className="w-full h-10 pl-10 pr-4 rounded-lg bg-[#181611] border border-[#393328] focus:ring-1 focus:ring-[#eead2b] text-sm"
+                        className="w-full h-10 pl-10 pr-4 rounded-lg bg-background border border-border focus:ring-1 focus:ring-primary text-sm"
                         placeholder="Search by name, email, or code..."
                         type="text"
                       />
@@ -464,7 +464,7 @@ export const ManagerTeam: React.FC = () => {
                     <select
                       value={status}
                       onChange={(e) => setStatus(e.target.value as any)}
-                      className="h-10 bg-[#181611] rounded-lg border border-[#393328] text-sm font-semibold text-white px-3"
+                      className="h-10 bg-background rounded-lg border border-border text-sm font-semibold text-foreground px-3"
                     >
                       <option value="Active">Status: Active</option>
                       <option value="">Status: All</option>
@@ -473,7 +473,7 @@ export const ManagerTeam: React.FC = () => {
                     </select>
                     <button
                       onClick={fetchStaff}
-                      className="h-10 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] text-white font-bold"
+                      className="h-10 px-4 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-bold"
                     >
                       Refresh
                     </button>
@@ -483,7 +483,7 @@ export const ManagerTeam: React.FC = () => {
                 {error ? (
                   <div className="p-6 text-sm text-red-300 flex items-center justify-between">
                     <div>Failed to load staff: {error}</div>
-                    <button onClick={fetchStaff} className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#181611] font-bold">
+                    <button onClick={fetchStaff} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-bold">
                       Retry
                     </button>
                   </div>
@@ -491,29 +491,29 @@ export const ManagerTeam: React.FC = () => {
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
-                    <thead className="bg-[#181611] border-b border-[#393328]">
+                    <thead className="bg-background border-b border-border">
                       <tr>
-                        <th className="py-4 px-6 text-xs font-bold text-[#b9b09d] uppercase tracking-wider">Employee</th>
-                        <th className="py-4 px-6 text-xs font-bold text-[#b9b09d] uppercase tracking-wider">Role</th>
-                        <th className="py-4 px-6 text-xs font-bold text-[#b9b09d] uppercase tracking-wider">Contact</th>
-                        <th className="py-4 px-6 text-xs font-bold text-[#b9b09d] uppercase tracking-wider">Status</th>
-                        <th className="py-4 px-6 text-xs font-bold text-[#b9b09d] uppercase tracking-wider text-right">Actions</th>
+                        <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
+                        <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Role</th>
+                        <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Contact</th>
+                        <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                        <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#393328]">
+                    <tbody className="divide-y divide-border">
                       {loading ? (
                         <tr>
-                          <td colSpan={5} className="py-10 px-6 text-sm text-[#b9b09d]">
+                          <td colSpan={5} className="py-10 px-6 text-sm text-muted-foreground">
                             Loading ¦
                           </td>
                         </tr>
                       ) : staff.length ? (
                         staff.map((s) => (
-                          <tr key={s.id} className="hover:bg-[#2c241b] transition-colors">
+                          <tr key={s.id} className="hover:bg-accent transition-colors">
                             <td className="py-4 px-6">
                               <div>
                                 <div className="text-sm font-bold">{s.name}</div>
-                                <div className="text-xs text-[#b9b09d]">Code: {s.code || s.id}</div>
+                                <div className="text-xs text-muted-foreground">Code: {s.code || s.id}</div>
                               </div>
                             </td>
                             <td className="py-4 px-6">
@@ -521,7 +521,7 @@ export const ManagerTeam: React.FC = () => {
                             </td>
                             <td className="py-4 px-6">
                               <div className="text-sm">{s.email || '  '}</div>
-                              <div className="text-xs text-[#b9b09d]">{s.phone || '  '}</div>
+                              <div className="text-xs text-muted-foreground">{s.phone || '  '}</div>
                             </td>
                             <td className="py-4 px-6">
                               <span className={statusBadgeClass(s.status)}>
@@ -532,7 +532,7 @@ export const ManagerTeam: React.FC = () => {
                             <td className="py-4 px-6 text-right">
                               <button
                                 onClick={() => openEdit(s)}
-                                className="h-9 px-3 rounded-lg bg-[#393328] hover:bg-[#4a4234] text-white text-sm font-bold"
+                                className="h-9 px-3 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-sm font-bold"
                               >
                                 Manage
                               </button>
@@ -541,7 +541,7 @@ export const ManagerTeam: React.FC = () => {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={5} className="py-10 px-6 text-sm text-[#b9b09d]">
+                          <td colSpan={5} className="py-10 px-6 text-sm text-muted-foreground">
                             No staff found.
                           </td>
                         </tr>
@@ -550,23 +550,23 @@ export const ManagerTeam: React.FC = () => {
                   </table>
                 </div>
 
-                <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-t border-[#393328]">
-                  <div className="text-xs text-[#b9b09d]">
+                <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-t border-border">
+                  <div className="text-xs text-muted-foreground">
                     Showing {showing.start}-{showing.end} of {showing.total}
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       disabled={page <= 1}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      className="h-9 px-3 rounded-lg bg-[#393328] disabled:opacity-50"
+                      className="h-9 px-3 rounded-lg bg-secondary disabled:opacity-50"
                     >
                       Prev
                     </button>
-                    <div className="text-xs text-[#b9b09d]">Page {page} / {pageCount}</div>
+                    <div className="text-xs text-muted-foreground">Page {page} / {pageCount}</div>
                     <button
                       disabled={page >= pageCount}
                       onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                      className="h-9 px-3 rounded-lg bg-[#393328] disabled:opacity-50"
+                      className="h-9 px-3 rounded-lg bg-secondary disabled:opacity-50"
                     >
                       Next
                     </button>
@@ -575,14 +575,14 @@ export const ManagerTeam: React.FC = () => {
               </>
             ) : (
               <>
-                <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-[#393328]">
+                <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-border">
                   <div className="flex items-center gap-3 flex-1 min-w-[280px]">
                     <div className="relative w-full max-w-md">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#b9b09d]">search</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-muted-foreground">search</span>
                       <input
                         value={activityQ}
                         onChange={(e) => setActivityQ(e.target.value)}
-                        className="w-full h-10 pl-10 pr-4 rounded-lg bg-[#181611] border border-[#393328] focus:ring-1 focus:ring-[#eead2b] text-sm"
+                        className="w-full h-10 pl-10 pr-4 rounded-lg bg-background border border-border focus:ring-1 focus:ring-primary text-sm"
                         placeholder="Search events..."
                         type="text"
                       />
@@ -592,7 +592,7 @@ export const ManagerTeam: React.FC = () => {
                     <select
                       value={activityType}
                       onChange={(e) => setActivityType(e.target.value)}
-                      className="h-10 bg-[#181611] rounded-lg border border-[#393328] text-sm font-semibold text-white px-3"
+                      className="h-10 bg-background rounded-lg border border-border text-sm font-semibold text-foreground px-3"
                     >
                       <option value="">All Types</option>
                       {activityTypes.map((t) => (
@@ -603,7 +603,7 @@ export const ManagerTeam: React.FC = () => {
                     </select>
                     <button
                       onClick={fetchActivity}
-                      className="h-10 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] text-white font-bold"
+                      className="h-10 px-4 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-bold"
                     >
                       Refresh
                     </button>
@@ -612,21 +612,21 @@ export const ManagerTeam: React.FC = () => {
 
                 {activityError ? <div className="p-6 text-sm text-red-300">Failed to load activity: {activityError}</div> : null}
 
-                <div className="divide-y divide-[#393328]">
+                <div className="divide-y divide-border">
                   {activityLoading ? (
-                    <div className="p-6 text-sm text-[#b9b09d]">Loading ¦</div>
+                    <div className="p-6 text-sm text-muted-foreground">Loading ¦</div>
                   ) : activity?.events?.length ? (
                     activity.events.map((e) => (
                       <div key={e.id} className="p-5">
                         <div className="flex items-center justify-between gap-4">
                           <div className="text-sm font-bold">{e.type}</div>
-                          <div className="text-xs text-[#b9b09d]">{e.at}</div>
+                          <div className="text-xs text-muted-foreground">{e.at}</div>
                         </div>
-                        <pre className="mt-3 text-xs text-[#b9b09d] whitespace-pre-wrap">{JSON.stringify(e.payload || {}, null, 2)}</pre>
+                        <pre className="mt-3 text-xs text-muted-foreground whitespace-pre-wrap">{JSON.stringify(e.payload || {}, null, 2)}</pre>
                       </div>
                     ))
                   ) : (
-                    <div className="p-6 text-sm text-[#b9b09d]">No activity yet.</div>
+                    <div className="p-6 text-sm text-muted-foreground">No activity yet.</div>
                   )}
                 </div>
               </>
@@ -638,34 +638,34 @@ export const ManagerTeam: React.FC = () => {
       <Modal open={addOpen} onClose={closeAdd} title="Add Staff">
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Name</label>
-            <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
+            <label className="text-xs font-bold text-muted-foreground">Name</label>
+            <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground" />
           </div>
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Code (optional)</label>
-            <input value={draftCode} onChange={(e) => setDraftCode(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
+            <label className="text-xs font-bold text-muted-foreground">Code (optional)</label>
+            <input value={draftCode} onChange={(e) => setDraftCode(e.target.value)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground" />
           </div>
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Email (required for login)</label>
-            <input value={draftEmail} onChange={(e) => setDraftEmail(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
+            <label className="text-xs font-bold text-muted-foreground">Email (required for login)</label>
+            <input value={draftEmail} onChange={(e) => setDraftEmail(e.target.value)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground" />
           </div>
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Password (optional)</label>
-            <input value={draftPassword} onChange={(e) => setDraftPassword(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
-            <div className="mt-1 text-[11px] text-[#b9b09d]">Leave empty to auto-generate a temporary password.</div>
+            <label className="text-xs font-bold text-muted-foreground">Password (optional)</label>
+            <input value={draftPassword} onChange={(e) => setDraftPassword(e.target.value)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground" />
+            <div className="mt-1 text-[11px] text-muted-foreground">Leave empty to auto-generate a temporary password.</div>
           </div>
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">PIN (optional)</label>
-            <input value={draftPin} onChange={(e) => setDraftPin(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
-            <div className="mt-1 text-[11px] text-[#b9b09d]">Leave empty to auto-generate a PIN for waiter login by code.</div>
+            <label className="text-xs font-bold text-muted-foreground">PIN (optional)</label>
+            <input value={draftPin} onChange={(e) => setDraftPin(e.target.value)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground" />
+            <div className="mt-1 text-[11px] text-muted-foreground">Leave empty to auto-generate a PIN for waiter login by code.</div>
           </div>
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Phone (optional)</label>
-            <input value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
+            <label className="text-xs font-bold text-muted-foreground">Phone (optional)</label>
+            <input value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground" />
           </div>
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Status</label>
-            <select value={draftStatus} onChange={(e) => setDraftStatus(e.target.value as any)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white">
+            <label className="text-xs font-bold text-muted-foreground">Status</label>
+            <select value={draftStatus} onChange={(e) => setDraftStatus(e.target.value as any)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground">
               <option value="Active">Active</option>
               <option value="On Leave">On Leave</option>
               <option value="Suspended">Suspended</option>
@@ -673,11 +673,11 @@ export const ManagerTeam: React.FC = () => {
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={closeAdd} className="h-10 px-4 rounded-lg bg-[#393328] text-white font-bold">
+            <button onClick={closeAdd} className="h-10 px-4 rounded-lg bg-secondary text-foreground font-bold">
               Cancel
             </button>
-            <button disabled={addLoading} onClick={submitAdd} className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#181611] font-extrabold disabled:opacity-50">
-              {addLoading ? 'Saving ¦' : 'Create'}
+            <button disabled={addLoading} onClick={submitAdd} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-extrabold disabled:opacity-50">
+              {addLoading ? 'Saving...' : 'Add'}
             </button>
           </div>
         </div>
@@ -686,24 +686,24 @@ export const ManagerTeam: React.FC = () => {
       <Modal open={editOpen} onClose={closeEdit} title="Manage Staff">
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Name</label>
-            <input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
+            <label className="text-xs font-bold text-muted-foreground">Name</label>
+            <input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground" />
           </div>
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Code</label>
-            <input value={editCode} onChange={(e) => setEditCode(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
+            <label className="text-xs font-bold text-muted-foreground">Code</label>
+            <input value={editCode} onChange={(e) => setEditCode(e.target.value)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground" />
           </div>
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Email</label>
-            <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
+            <label className="text-xs font-bold text-muted-foreground">Email</label>
+            <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground" />
           </div>
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Phone</label>
-            <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
+            <label className="text-xs font-bold text-muted-foreground">Phone</label>
+            <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground" />
           </div>
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Status</label>
-            <select value={editStatus} onChange={(e) => setEditStatus(e.target.value as any)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white">
+            <label className="text-xs font-bold text-muted-foreground">Status</label>
+            <select value={editStatus} onChange={(e) => setEditStatus(e.target.value as any)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground">
               <option value="Active">Active</option>
               <option value="On Leave">On Leave</option>
               <option value="Suspended">Suspended</option>
@@ -711,21 +711,21 @@ export const ManagerTeam: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Set New PIN (optional)</label>
-            <input value={editPin} onChange={(e) => setEditPin(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
+            <label className="text-xs font-bold text-muted-foreground">Set New PIN (optional)</label>
+            <input value={editPin} onChange={(e) => setEditPin(e.target.value)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground" />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-[#b9b09d]">Set New Password (optional)</label>
-            <input value={editPassword} onChange={(e) => setEditPassword(e.target.value)} className="mt-1 w-full h-11 bg-[#181611] border border-[#393328] rounded-lg px-4 text-white" />
-            <div className="mt-1 text-[11px] text-[#b9b09d]">Leave empty unless you want to manually set a new password.</div>
+            <label className="text-xs font-bold text-muted-foreground">Set New Password (optional)</label>
+            <input value={editPassword} onChange={(e) => setEditPassword(e.target.value)} className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground" />
+            <div className="mt-1 text-[11px] text-muted-foreground">Leave empty unless you want to manually set a new password.</div>
           </div>
 
           <button
             type="button"
             onClick={resetPin}
             disabled={editLoading || !editTarget}
-            className="h-10 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] text-white font-bold disabled:opacity-50"
+            className="h-10 px-4 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-bold disabled:opacity-50"
           >
             Reset PIN
           </button>
@@ -734,18 +734,18 @@ export const ManagerTeam: React.FC = () => {
             type="button"
             onClick={resetPassword}
             disabled={editLoading || !editTarget}
-            className="h-10 px-4 rounded-lg bg-[#393328] hover:bg-[#4a4234] text-white font-bold disabled:opacity-50"
+            className="h-10 px-4 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-bold disabled:opacity-50"
           >
             Reset Password
           </button>
 
-          <div className="text-xs text-[#b9b09d]">Role changes are not allowed for Branch Managers.</div>
+          <div className="text-xs text-muted-foreground">Role changes are not allowed for Branch Managers.</div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={closeEdit} className="h-10 px-4 rounded-lg bg-[#393328] text-white font-bold">
+            <button onClick={closeEdit} className="h-10 px-4 rounded-lg bg-secondary text-foreground font-bold">
               Cancel
             </button>
-            <button disabled={editLoading} onClick={submitEdit} className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#181611] font-extrabold disabled:opacity-50">
+            <button disabled={editLoading} onClick={submitEdit} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-extrabold disabled:opacity-50">
               {editLoading ? 'Saving ¦' : 'Save'}
             </button>
           </div>

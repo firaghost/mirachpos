@@ -823,19 +823,19 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
 
   if (!effectiveOrderTyped) {
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
-        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#483c23] bg-[#2c241b] px-6 py-3">
-          <div className="flex items-center gap-4 text-white">
-            <div className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] text-[#221c11]">
+      <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-border bg-card px-6 py-3">
+          <div className="flex items-center gap-4 text-foreground">
+            <div className="size-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <span className="material-symbols-outlined">receipt_long</span>
             </div>
-            <h2 className="text-white text-xl font-bold leading-tight tracking-tight">Receipt</h2>
+            <h2 className="text-foreground text-xl font-bold leading-tight tracking-tight">Receipt</h2>
           </div>
-          <button onClick={() => onNavigate(Screen.WAITER_HISTORY)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#483c23] hover:bg-[#3a2e22] transition-colors text-[#c9b792] text-sm font-medium">
+          <button onClick={() => onNavigate(Screen.WAITER_HISTORY)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-secondary transition-colors text-muted-foreground text-sm font-medium">
             <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
           </button>
         </header>
-        <div className="flex-1 flex flex-col items-center justify-center text-[#c9b792] px-6 text-center gap-3">
+        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground px-6 text-center gap-3">
           <div>{remoteError ? `Failed to load order: ${remoteError}` : 'No order selected.'}</div>
           {selectedOrderId ? <div className="text-xs opacity-80">Order ID: {selectedOrderId}</div> : null}
         </div>
@@ -844,21 +844,21 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
-      <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-[#483c23] bg-[#2c241b] px-6 py-3">
-        <div className="flex items-center gap-4 text-white">
-          <div className="size-8 flex items-center justify-center rounded-lg bg-[#eead2b] text-[#221c11]">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+      <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-border bg-card px-6 py-3">
+        <div className="flex items-center gap-4 text-foreground">
+          <div className="size-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <span className="material-symbols-outlined">receipt_long</span>
           </div>
-          <h2 className="text-white text-xl font-bold leading-tight tracking-tight">Receipt</h2>
-          <div className="h-6 w-px bg-[#483c23] mx-2"></div>
+          <h2 className="text-foreground text-xl font-bold leading-tight tracking-tight">Receipt</h2>
+          <div className="h-6 w-px bg-border mx-2"></div>
           <div className="flex flex-col">
             <span className="text-sm font-bold leading-none">{effectiveOrderTyped.tableName}</span>
-            <span className="text-xs text-[#c9b792] leading-none mt-1">{effectiveOrderTyped.number}</span>
+            <span className="text-xs text-muted-foreground leading-none mt-1">{effectiveOrderTyped.number}</span>
           </div>
         </div>
         <div className="flex gap-3">
-          <button onClick={() => onNavigate(Screen.WAITER_HISTORY)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-[#483c23] hover:bg-[#3a2e22] transition-colors text-[#c9b792] text-sm font-medium">
+          <button onClick={() => onNavigate(Screen.WAITER_HISTORY)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-secondary transition-colors text-muted-foreground text-sm font-medium">
             <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> History
           </button>
           <button
@@ -884,7 +884,7 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
               const ok = openPrintWindow(receiptDoc || receiptHtml(effectiveOrderTyped, settingsUi, receiptVerifyUrl || undefined, 'print'));
               if (!ok) window.print();
             }}
-            className="h-11 px-4 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#181611] font-bold flex items-center"
+            className="h-11 px-4 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-bold flex items-center"
           >
             <span className="material-symbols-outlined text-lg mr-2">print</span> Print
           </button>

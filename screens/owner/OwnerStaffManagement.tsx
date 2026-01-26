@@ -109,9 +109,9 @@ const ModalSelect: React.FC<{
       <button
         type="button"
         onClick={toggle}
-        className="h-10 w-full rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm text-left text-[#221c10] dark:text-white focus:border-primary focus:outline-none flex items-center justify-between"
+        className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-left text-foreground focus:border-primary focus:outline-none flex items-center justify-between"
       >
-        <span className={cx('truncate', label ? '' : 'text-[#897c61] dark:text-gray-500')}>{label || placeholder || 'Select ¦'}</span>
+        <span className={cx('truncate', label ? '' : 'text-muted-foreground')}>{label || placeholder || 'Select ¦'}</span>
         <span className="material-symbols-outlined text-[18px] opacity-70">expand_more</span>
       </button>
 
@@ -126,7 +126,7 @@ const ModalSelect: React.FC<{
       >
         <div className="max-h-72 overflow-y-auto">
           {options.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-[#c9b792]">No options</div>
+            <div className="px-4 py-3 text-sm text-muted-foreground">No options</div>
           ) : (
             options.map((o) => (
               <button
@@ -140,8 +140,8 @@ const ModalSelect: React.FC<{
                 className={cx(
                   'w-full px-4 py-3 text-left text-sm select-none',
                   o.value === value
-                    ? 'bg-[#eead2b] text-[#181611] font-extrabold'
-                    : 'text-white hover:bg-[#2c241b]',
+                    ? 'bg-primary text-primary-foreground font-extrabold'
+                    : 'text-foreground hover:bg-accent',
                 )}
               >
                 {o.label}
@@ -158,35 +158,35 @@ const roleBadgeClass = (roleName: string, kind: ApiStaff['roleKind']) => {
   const base = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border';
   switch (kind) {
     case 'super':
-      return `${base} bg-white-50 text-white-700 border-white-100 dark:bg-white-900/30 dark:text-white-300 dark:border-white-800`;
+      return `${base} bg-primary/10 text-primary border-primary/20`;
     case 'manager':
-      return `${base} bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800`;
+      return `${base} bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-500/20`;
     case 'kitchen':
-      return `${base} bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800`;
+      return `${base} bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-emerald-500/20`;
     default:
       if (roleName.toLowerCase().includes('barista') || roleName.toLowerCase().includes('server') || roleName.toLowerCase().includes('wait')) {
-        return `${base} bg-primary/10 text-primary border-primary/20`;
+        return `${base} bg-sky-500/10 text-sky-600 dark:text-sky-500 border-sky-500/20`;
       }
-      return `${base} bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700`;
+      return `${base} bg-muted text-muted-foreground border-border`;
   }
 };
 
 const statusBadgeClass = (status: ApiStaff['status']) => {
   const base = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border';
-  if (status === 'Active') return `${base} bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800`;
-  if (status === 'On Leave') return `${base} bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700`;
-  return `${base} bg-red-50 text-red-700 border-red-100 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800`;
+  if (status === 'Active') return `${base} bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-emerald-500/20`;
+  if (status === 'On Leave') return `${base} bg-muted text-muted-foreground border-border`;
+  return `${base} bg-destructive/10 text-destructive border-destructive/20`;
 };
 
 const statCard = (label: string, value: number, icon: string, iconClass: string) => {
   return (
-    <div className="bg-white dark:bg-[#2c241b] p-4 rounded-xl shadow-soft border border-[#e6e2db] dark:border-[#3d3429] flex items-center gap-4">
+    <div className="bg-card p-4 rounded-xl shadow-soft border border-border flex items-center gap-4">
       <div className={cx('size-12 rounded-full flex items-center justify-center', iconClass)}>
         <span className="material-symbols-outlined">{icon}</span>
       </div>
       <div>
-        <p className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">{label}</p>
-        <p className="text-2xl font-black text-[#221c10] dark:text-white">{value}</p>
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{label}</p>
+        <p className="text-2xl font-black text-foreground">{value}</p>
       </div>
     </div>
   );
@@ -829,14 +829,14 @@ export const OwnerStaffManagement: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#f8f7f6] dark:bg-[#221c10] text-[#221c10] dark:text-[#f8f7f6]">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <OwnerPageHeader
         title="Staff Management"
         rightSlot={
           <div className="flex items-center gap-3">
             <button
               onClick={openRoleCreate}
-              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-[#393328] text-white rounded-lg text-sm font-bold hover:bg-[#393328]/80 transition-colors"
+              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-secondary text-secondary-foreground rounded-lg text-sm font-bold hover:bg-secondary/80 transition-colors"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>shield_person</span>
@@ -844,7 +844,7 @@ export const OwnerStaffManagement: React.FC = () => {
             </button>
             <button
               onClick={exportCsv}
-              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-[#393328] text-white rounded-lg text-sm font-bold hover:bg-[#393328]/80 transition-colors"
+              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-secondary text-secondary-foreground rounded-lg text-sm font-bold hover:bg-secondary/80 transition-colors"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>download</span>
@@ -852,7 +852,7 @@ export const OwnerStaffManagement: React.FC = () => {
             </button>
             <button
               onClick={refreshActive}
-              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-[#393328] text-white rounded-lg text-sm font-bold hover:bg-[#393328]/80 transition-colors"
+              className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-secondary text-secondary-foreground rounded-lg text-sm font-bold hover:bg-secondary/80 transition-colors"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>refresh</span>
@@ -860,7 +860,7 @@ export const OwnerStaffManagement: React.FC = () => {
             </button>
             <button
               onClick={openAdd}
-              className="flex items-center justify-center gap-2 h-10 px-4 bg-[#eead2b] text-[#181611] rounded-lg text-sm font-bold hover:bg-[#d99a20] transition-colors shadow-[0_0_15px_rgba(238,173,43,0.3)]"
+              className="flex items-center justify-center gap-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow"
               type="button"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>add</span>
@@ -872,11 +872,11 @@ export const OwnerStaffManagement: React.FC = () => {
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <main className="w-full max-w-[1440px] mx-auto px-6 py-8">
           <div className="flex items-center gap-2 text-sm font-medium mb-6">
-            <span className="text-[#897c61] hover:text-primary transition-colors">Dashboard</span>
-            <span className="text-[#897c61]/50">/</span>
-            <span className="text-[#897c61] hover:text-primary transition-colors">Settings</span>
-            <span className="text-[#897c61]/50">/</span>
-            <span className="text-[#221c10] dark:text-white">Staff & Roles</span>
+            <span className="text-muted-foreground hover:text-primary transition-colors">Dashboard</span>
+            <span className="text-muted-foreground/50">/</span>
+            <span className="text-muted-foreground hover:text-primary transition-colors">Settings</span>
+            <span className="text-muted-foreground/50">/</span>
+            <span className="text-foreground">Staff & Roles</span>
           </div>
 
           {banner ? (
@@ -884,14 +884,14 @@ export const OwnerStaffManagement: React.FC = () => {
               className={cx(
                 'rounded-xl border p-4 flex items-center justify-between gap-4 mb-6',
                 banner.kind === 'success'
-                  ? 'border-emerald-500/20 bg-emerald-900/10 text-emerald-200'
-                  : 'border-red-500/20 bg-red-900/10 text-red-200',
+                  ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                  : 'border-destructive/20 bg-destructive/10 text-destructive',
               )}
             >
               <div className="text-sm font-medium">{banner.message}</div>
               <button
                 onClick={() => setBanner(null)}
-                className="h-9 px-3 rounded-lg bg-white/10 border border-white/10 text-white hover:border-primary/50"
+                className="h-9 px-3 rounded-lg bg-background border border-border text-foreground hover:bg-accent"
               >
                 Dismiss
               </button>
@@ -899,19 +899,19 @@ export const OwnerStaffManagement: React.FC = () => {
           ) : null}
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            {statCard('Super Admins', stats.superAdmins, 'admin_panel_settings', 'bg-white-50 text-white-600 dark:bg-white-900/30 dark:text-white-300')}
-            {statCard('Managers', stats.managers, 'manage_accounts', 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300')}
-            {statCard('Baristas/Servers', stats.baristasServers, 'coffee_maker', 'bg-primary/10 text-primary')}
-            {statCard('Kitchen Staff', stats.kitchen, 'restaurant', 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-300')}
+            {statCard('Super Admins', stats.superAdmins, 'admin_panel_settings', 'bg-primary/10 text-primary')}
+            {statCard('Managers', stats.managers, 'manage_accounts', 'bg-amber-500/10 text-amber-600 dark:text-amber-500')}
+            {statCard('Baristas/Servers', stats.baristasServers, 'coffee_maker', 'bg-sky-500/10 text-sky-600 dark:text-sky-500')}
+            {statCard('Kitchen Staff', stats.kitchen, 'restaurant', 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500')}
           </div>
 
-          <div className="bg-white dark:bg-[#2c241b] rounded-xl shadow-soft border border-[#e6e2db] dark:border-[#3d3429] overflow-hidden flex flex-col min-h-[600px]">
-            <div className="flex border-b border-[#e6e2db] dark:border-[#3d3429] px-6">
+          <div className="bg-card rounded-xl shadow-soft border border-border overflow-hidden flex flex-col min-h-[600px]">
+            <div className="flex border-b border-border px-6">
               <button
                 onClick={() => setTab('staff')}
                 className={cx(
                   'relative flex items-center gap-2 px-4 py-4 border-b-[3px] font-bold text-sm',
-                  tab === 'staff' ? 'text-primary border-primary' : 'text-[#5c554a] dark:text-gray-400 border-transparent hover:text-[#221c10] dark:hover:text-white',
+                  tab === 'staff' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground',
                 )}
               >
                 <span className={cx('material-symbols-outlined text-[20px]', tab === 'staff' ? 'icon-filled' : '')}>group</span>
@@ -921,7 +921,7 @@ export const OwnerStaffManagement: React.FC = () => {
                 onClick={() => setTab('roles')}
                 className={cx(
                   'relative flex items-center gap-2 px-4 py-4 border-b-[3px] font-medium text-sm transition-colors',
-                  tab === 'roles' ? 'text-primary border-primary font-bold' : 'text-[#5c554a] dark:text-gray-400 border-transparent hover:text-[#221c10] dark:hover:text-white',
+                  tab === 'roles' ? 'text-primary border-primary font-bold' : 'text-muted-foreground border-transparent hover:text-foreground',
                 )}
               >
                 <span className="material-symbols-outlined text-[20px]">verified_user</span>
@@ -931,7 +931,7 @@ export const OwnerStaffManagement: React.FC = () => {
                 onClick={() => setTab('invites')}
                 className={cx(
                   'relative flex items-center gap-2 px-4 py-4 border-b-[3px] font-medium text-sm transition-colors',
-                  tab === 'invites' ? 'text-primary border-primary font-bold' : 'text-[#5c554a] dark:text-gray-400 border-transparent hover:text-[#221c10] dark:hover:text-white',
+                  tab === 'invites' ? 'text-primary border-primary font-bold' : 'text-muted-foreground border-transparent hover:text-foreground',
                 )}
               >
                 <span className="material-symbols-outlined text-[20px]">mail</span>
@@ -941,7 +941,7 @@ export const OwnerStaffManagement: React.FC = () => {
                 onClick={() => setTab('activity')}
                 className={cx(
                   'relative flex items-center gap-2 px-4 py-4 border-b-[3px] font-medium text-sm transition-colors',
-                  tab === 'activity' ? 'text-primary border-primary font-bold' : 'text-[#5c554a] dark:text-gray-400 border-transparent hover:text-[#221c10] dark:hover:text-white',
+                  tab === 'activity' ? 'text-primary border-primary font-bold' : 'text-muted-foreground border-transparent hover:text-foreground',
                 )}
               >
                 <span className="material-symbols-outlined text-[20px]">history</span>
@@ -951,14 +951,14 @@ export const OwnerStaffManagement: React.FC = () => {
 
             {tab === 'staff' ? (
               <>
-                <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-[#f4f3f0] dark:border-[#3d3429]">
+                <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-border">
                   <div className="flex items-center gap-3 flex-1 min-w-[280px]">
                     <div className="relative w-full max-w-md">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#897c61]">search</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-muted-foreground">search</span>
                       <input
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        className="w-full h-10 pl-10 pr-4 rounded-lg bg-[#f8f7f6] dark:bg-[#221c10] border border-transparent focus:bg-white dark:focus:bg-[#2c241b] focus:border-primary focus:ring-0 text-sm transition-all"
+                        className="w-full h-10 pl-10 pr-4 rounded-lg bg-background border border-border focus:border-primary focus:ring-0 text-sm transition-all placeholder:text-muted-foreground"
                         placeholder="Search by name, ID, or email..."
                         type="text"
                       />
@@ -968,7 +968,7 @@ export const OwnerStaffManagement: React.FC = () => {
                     <select
                       value={roleId}
                       onChange={(e) => setRoleId(e.target.value)}
-                      className="h-10 bg-[#f8f7f6] dark:bg-[#221c10] rounded-lg border border-transparent hover:border-[#e6e2db] dark:hover:border-[#4a4238] cursor-pointer transition-all text-sm font-semibold text-[#221c10] dark:text-white px-3"
+                      className="h-10 bg-background rounded-lg border border-border cursor-pointer transition-all text-sm font-semibold text-foreground px-3"
                     >
                       <option value="">Filter: All Roles</option>
                       {roles.map((r) => (
@@ -980,7 +980,7 @@ export const OwnerStaffManagement: React.FC = () => {
                     <select
                       value={status}
                       onChange={(e) => setStatus(e.target.value as any)}
-                      className="h-10 bg-[#f8f7f6] dark:bg-[#221c10] rounded-lg border border-transparent hover:border-[#e6e2db] dark:hover:border-[#4a4238] cursor-pointer transition-all text-sm font-semibold text-[#221c10] dark:text-white px-3"
+                      className="h-10 bg-background rounded-lg border border-border cursor-pointer transition-all text-sm font-semibold text-foreground px-3"
                     >
                       <option value="Active">Status: Active</option>
                       <option value="">Status: All</option>
@@ -990,20 +990,20 @@ export const OwnerStaffManagement: React.FC = () => {
                     <button
                       onClick={exportCsv}
                       disabled={loading || !staff.length}
-                      className="flex items-center gap-2 px-3 h-10 bg-[#f8f7f6] dark:bg-[#221c10] rounded-lg border border-transparent hover:border-[#e6e2db] dark:hover:border-[#4a4238] transition-all text-sm font-semibold text-[#221c10] dark:text-white disabled:opacity-50"
+                      className="flex items-center gap-2 px-3 h-10 bg-background rounded-lg border border-border hover:bg-accent transition-all text-sm font-semibold text-foreground disabled:opacity-50"
                     >
-                      <span className="material-symbols-outlined text-[#897c61] text-[20px]">download</span>
+                      <span className="material-symbols-outlined text-muted-foreground text-[20px]">download</span>
                       Export
                     </button>
                   </div>
                 </div>
 
                 {error ? (
-                  <div className="p-6 text-sm text-red-500 flex items-center justify-between">
+                  <div className="p-6 text-sm text-destructive flex items-center justify-between">
                     <div>Failed to load staff: {error}</div>
                     <button
                       onClick={fetchStaff}
-                      className="h-10 px-4 rounded-lg bg-primary hover:bg-[#d49a26] text-white font-bold"
+                      className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                     >
                       Retry
                     </button>
@@ -1012,30 +1012,30 @@ export const OwnerStaffManagement: React.FC = () => {
 
                 <div className="overflow-x-auto flex-1">
                   <table className="w-full text-left border-collapse">
-                    <thead className="bg-[#fcfbf9] dark:bg-[#251f15] border-b border-[#e6e2db] dark:border-[#3d3429]">
+                    <thead className="bg-muted/50 border-b border-border">
                       <tr>
-                        <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider">Employee</th>
-                        <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider">Role</th>
-                        <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider">Contact Info</th>
-                        <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider">Status</th>
-                        <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider">Last Login</th>
-                        <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider text-right">Actions</th>
+                        <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
+                        <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Role</th>
+                        <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Contact Info</th>
+                        <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                        <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Last Login</th>
+                        <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#f4f3f0] dark:divide-[#3d3429]">
+                    <tbody className="divide-y divide-border">
                       {loading ? (
                         <tr>
-                          <td colSpan={6} className="py-10 px-6 text-sm text-[#5c554a] dark:text-gray-400">
+                          <td colSpan={6} className="py-10 px-6 text-sm text-muted-foreground">
                             Loading ¦
                           </td>
                         </tr>
                       ) : staff.length ? (
                         staff.map((s) => (
-                          <tr key={s.id} className="group hover:bg-[#fcfbf9] dark:hover:bg-[#332b22] transition-colors">
+                          <tr key={s.id} className="group hover:bg-muted/30 transition-colors">
                             <td className="py-4 px-6">
                               <div>
-                                <p className="text-sm font-bold text-[#221c10] dark:text-white">{s.name}</p>
-                                <p className="text-xs text-[#897c61]">ID: #{s.code}</p>
+                                <p className="text-sm font-bold text-foreground">{s.name}</p>
+                                <p className="text-xs text-muted-foreground">ID: #{s.code}</p>
                               </div>
                             </td>
                             <td className="py-4 px-6">
@@ -1055,22 +1055,22 @@ export const OwnerStaffManagement: React.FC = () => {
                               </span>
                             </td>
                             <td className="py-4 px-6">
-                              <p className="text-sm text-[#221c10] dark:text-gray-200">{s.email || ' ”'}</p>
-                              <p className="text-xs text-[#897c61]">{s.phone || ' ”'}</p>
+                              <p className="text-sm text-foreground">{s.email || ' ”'}</p>
+                              <p className="text-xs text-muted-foreground">{s.phone || ' ”'}</p>
                             </td>
                             <td className="py-4 px-6">
                               <span className={statusBadgeClass(s.status)}>
                                 <span
                                   className={cx(
                                     'w-1.5 h-1.5 rounded-full',
-                                    s.status === 'Active' ? 'bg-emerald-500' : s.status === 'On Leave' ? 'bg-gray-400' : 'bg-red-500',
+                                    s.status === 'Active' ? 'bg-emerald-500' : s.status === 'On Leave' ? 'bg-muted-foreground' : 'bg-destructive',
                                   )}
                                 ></span>
                                 {s.status}
                               </span>
                             </td>
                             <td className="py-4 px-6">
-                              <p className="text-sm text-[#5c554a] dark:text-gray-400">{s.lastLoginLabel || ' ”'}</p>
+                              <p className="text-sm text-muted-foreground">{s.lastLoginLabel || ' ”'}</p>
                             </td>
                             <td className="py-4 px-6 text-right relative">
                               <button
@@ -1099,7 +1099,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                     return next;
                                   });
                                 }}
-                                className="text-[#897c61] hover:text-primary transition-colors p-1"
+                                className="text-muted-foreground hover:text-primary transition-colors p-1"
                               >
                                 <span className="material-symbols-outlined">more_vert</span>
                               </button>
@@ -1120,7 +1120,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                     setRowMenuAnchor(null);
                                   }}
                                   disabled={!s.code}
-                                  className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b] disabled:opacity-50"
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-accent disabled:opacity-50"
                                   type="button"
                                 >
                                   Copy Staff Code
@@ -1133,7 +1133,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                     setRowMenuAnchor(null);
                                   }}
                                   disabled={!s.email}
-                                  className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b] disabled:opacity-50"
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-accent disabled:opacity-50"
                                   type="button"
                                 >
                                   Copy Email
@@ -1146,7 +1146,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                     setRowMenuAnchor(null);
                                   }}
                                   disabled={!s.phone}
-                                  className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b] disabled:opacity-50"
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-accent disabled:opacity-50"
                                   type="button"
                                 >
                                   Copy Phone
@@ -1157,7 +1157,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                     setRowMenuStaffId(null);
                                     setRowMenuAnchor(null);
                                   }}
-                                  className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b]"
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-accent"
                                   type="button"
                                 >
                                   Manage
@@ -1188,7 +1188,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                         setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to reset PIN.' });
                                       }
                                     }}
-                                    className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b]"
+                                    className="w-full px-4 py-3 text-left text-sm hover:bg-accent"
                                     type="button"
                                   >
                                     Reset PIN
@@ -1219,12 +1219,12 @@ export const OwnerStaffManagement: React.FC = () => {
                                       setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to reset password.' });
                                     }
                                   }}
-                                  className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b]"
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-accent"
                                   type="button"
                                 >
                                   Reset Password
                                 </button>
-                                <div className="h-px bg-[#675532]/40" />
+                                <div className="h-px bg-border" />
                                 <button
                                   onClick={async () => {
                                     try {
@@ -1237,7 +1237,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                       setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to update status.' });
                                     }
                                   }}
-                                  className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b]"
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-accent"
                                   type="button"
                                 >
                                   Set Active
@@ -1254,7 +1254,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                       setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to update status.' });
                                     }
                                   }}
-                                  className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b]"
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-accent"
                                   type="button"
                                 >
                                   Set On Leave
@@ -1271,7 +1271,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                       setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to update status.' });
                                     }
                                   }}
-                                  className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b]"
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-accent"
                                   type="button"
                                 >
                                   Set Suspended
@@ -1282,7 +1282,7 @@ export const OwnerStaffManagement: React.FC = () => {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={6} className="py-12 px-6 text-sm text-[#5c554a] dark:text-gray-400">
+                          <td colSpan={6} className="py-12 px-6 text-sm text-muted-foreground">
                             No staff found.
                           </td>
                         </tr>
@@ -1291,24 +1291,24 @@ export const OwnerStaffManagement: React.FC = () => {
                   </table>
                 </div>
 
-                <div className="px-6 py-4 border-t border-[#e6e2db] dark:border-[#3d3429] flex items-center justify-between">
-                  <p className="text-sm text-[#5c554a] dark:text-gray-400">
-                    Showing <span className="font-bold text-[#221c10] dark:text-white">{showing.start}-{showing.end}</span> of{' '}
-                    <span className="font-bold text-[#221c10] dark:text-white">{showing.total}</span> staff members
+                <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Showing <span className="font-bold text-foreground">{showing.start}-{showing.end}</span> of{' '}
+                    <span className="font-bold text-foreground">{showing.total}</span> staff members
                   </p>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page <= 1 || loading}
-                      className="flex items-center justify-center size-9 rounded-lg border border-[#e6e2db] dark:border-[#4a4238] text-[#5c554a] hover:bg-[#f8f7f6] dark:hover:bg-[#3d3429] hover:text-primary transition-colors disabled:opacity-50"
+                      className="flex items-center justify-center size-9 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-colors disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-[20px]">chevron_left</span>
                     </button>
-                    <button className="flex items-center justify-center size-9 rounded-lg bg-primary text-white font-bold shadow-sm">{page}</button>
+                    <button className="flex items-center justify-center size-9 rounded-lg bg-primary text-primary-foreground font-bold shadow-sm">{page}</button>
                     <button
                       onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
                       disabled={page >= pageCount || loading}
-                      className="flex items-center justify-center size-9 rounded-lg border border-[#e6e2db] dark:border-[#4a4238] text-[#5c554a] hover:bg-[#f8f7f6] dark:hover:bg-[#3d3429] hover:text-primary transition-colors disabled:opacity-50"
+                      className="flex items-center justify-center size-9 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-colors disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-[20px]">chevron_right</span>
                     </button>
@@ -1319,11 +1319,11 @@ export const OwnerStaffManagement: React.FC = () => {
               <>
                 {tab === 'roles' ? (
                   <>
-                    <div className="p-5 flex items-center justify-between gap-4 border-b border-[#f4f3f0] dark:border-[#3d3429]">
-                      <div className="text-sm font-bold text-[#221c10] dark:text-white">Role Definitions</div>
+                    <div className="p-5 flex items-center justify-between gap-4 border-b border-border">
+                      <div className="text-sm font-bold text-foreground">Role Definitions</div>
                       <button
                         onClick={openRoleCreate}
-                        className="flex items-center gap-2 px-3 h-10 bg-primary hover:bg-[#d49a26] text-white rounded-lg text-sm font-bold"
+                        className="flex items-center gap-2 px-3 h-10 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-bold"
                       >
                         <span className="material-symbols-outlined text-[18px]">add</span>
                         New Role
@@ -1331,9 +1331,9 @@ export const OwnerStaffManagement: React.FC = () => {
                     </div>
 
                     {rolesError ? (
-                      <div className="p-6 text-sm text-red-500 flex items-center justify-between">
+                      <div className="p-6 text-sm text-destructive flex items-center justify-between">
                         <div>Failed to load roles: {rolesError}</div>
-                        <button onClick={fetchRoles} className="h-10 px-4 rounded-lg bg-primary hover:bg-[#d49a26] text-white font-bold">
+                        <button onClick={fetchRoles} className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
                           Retry
                         </button>
                       </div>
@@ -1341,33 +1341,33 @@ export const OwnerStaffManagement: React.FC = () => {
 
                     <div className="overflow-x-auto flex-1">
                       <table className="w-full text-left border-collapse">
-                        <thead className="bg-[#fcfbf9] dark:bg-[#251f15] border-b border-[#e6e2db] dark:border-[#3d3429]">
+                        <thead className="bg-muted/50 border-b border-border">
                           <tr>
-                            <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider">Role</th>
-                            <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider">Scope</th>
-                            <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider">Permissions</th>
-                            <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider text-right">Actions</th>
+                            <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Role</th>
+                            <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Scope</th>
+                            <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Permissions</th>
+                            <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#f4f3f0] dark:divide-[#3d3429]">
+                        <tbody className="divide-y divide-border">
                           {rolesLoading ? (
                             <tr>
-                              <td colSpan={4} className="py-10 px-6 text-sm text-[#5c554a] dark:text-gray-400">
+                              <td colSpan={4} className="py-10 px-6 text-sm text-muted-foreground">
                                 Loading ¦
                               </td>
                             </tr>
                           ) : rolesData.length ? (
                             rolesData.map((r) => (
-                              <tr key={r.id} className="group hover:bg-[#fcfbf9] dark:hover:bg-[#332b22] transition-colors">
+                              <tr key={r.id} className="group hover:bg-muted/30 transition-colors">
                                 <td className="py-4 px-6">
-                                  <div className="text-sm font-bold text-[#221c10] dark:text-white">{r.name}</div>
-                                  <div className="text-xs text-[#897c61]">{r.id}</div>
+                                  <div className="text-sm font-bold text-foreground">{r.name}</div>
+                                  <div className="text-xs text-muted-foreground">{r.id}</div>
                                 </td>
                                 <td className="py-4 px-6">
-                                  <span className="text-sm text-[#5c554a] dark:text-gray-300">{r.scope}</span>
+                                  <span className="text-sm text-muted-foreground">{r.scope}</span>
                                 </td>
                                 <td className="py-4 px-6">
-                                  <div className="text-sm text-[#5c554a] dark:text-gray-300">
+                                  <div className="text-sm text-muted-foreground">
                                     {(r.permissions || []).slice(0, 5).join(', ') || ' ”'}
                                     {(r.permissions || []).length > 5 ? ' ¦' : ''}
                                   </div>
@@ -1400,7 +1400,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                         return next;
                                       });
                                     }}
-                                    className="text-[#897c61] hover:text-primary transition-colors p-1"
+                                    className="text-muted-foreground hover:text-primary transition-colors p-1"
                                   >
                                     <span className="material-symbols-outlined">more_vert</span>
                                   </button>
@@ -1415,7 +1415,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                   >
                                     <button
                                       type="button"
-                                      className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b]"
+                                      className="w-full px-4 py-3 text-left text-sm hover:bg-accent"
                                       onClick={async () => {
                                         const permsText = Array.isArray(r.permissions) ? r.permissions.join('\n') : String((r as any)?.permissions || '');
                                         const ok = await copyText(permsText);
@@ -1428,7 +1428,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                     </button>
                                     <button
                                       type="button"
-                                      className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b]"
+                                      className="w-full px-4 py-3 text-left text-sm hover:bg-accent"
                                       onClick={() => {
                                         openRoleEdit(r);
                                         setRoleRowMenuId(null);
@@ -1437,10 +1437,10 @@ export const OwnerStaffManagement: React.FC = () => {
                                     >
                                       Edit Role
                                     </button>
-                                    <div className="h-px bg-[#675532]/40" />
+                                    <div className="h-px bg-border" />
                                     <button
                                       type="button"
-                                      className="w-full px-4 py-3 text-left text-sm hover:bg-[#2c241b] text-red-300"
+                                      className="w-full px-4 py-3 text-left text-sm hover:bg-accent text-destructive"
                                       onClick={() => {
                                         openRoleDelete(r);
                                         setRoleRowMenuId(null);
@@ -1455,7 +1455,7 @@ export const OwnerStaffManagement: React.FC = () => {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={4} className="py-12 px-6 text-sm text-[#5c554a] dark:text-gray-400">
+                              <td colSpan={4} className="py-12 px-6 text-sm text-muted-foreground">
                                 No roles found.
                               </td>
                             </tr>
@@ -1466,28 +1466,28 @@ export const OwnerStaffManagement: React.FC = () => {
                   </>
                 ) : tab === 'invites' ? (
                   <>
-                    <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-[#f4f3f0] dark:border-[#3d3429]">
+                    <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-border">
                       <div>
-                        <div className="text-sm font-bold text-[#221c10] dark:text-white">Invite Codes</div>
-                        <div className="text-xs text-[#897c61] dark:text-gray-400 mt-1">Create one-time invite codes for Branch Managers and Waiters.</div>
+                        <div className="text-sm font-bold text-foreground">Invite Codes</div>
+                        <div className="text-xs text-muted-foreground mt-1">Create one-time invite codes for Branch Managers and Waiters.</div>
                       </div>
                       <button
                         onClick={fetchInvites}
-                        className="h-10 px-4 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-white dark:bg-[#221c10] text-sm font-bold hover:bg-[#f4f3f0] dark:hover:bg-[#2c241b] transition-colors flex items-center gap-2"
+                        className="h-10 px-4 rounded-lg border border-border bg-background text-sm font-bold hover:bg-accent transition-colors flex items-center gap-2"
                       >
                         <span className="material-symbols-outlined text-[18px]">refresh</span>
                         Refresh
                       </button>
                     </div>
 
-                    <div className="p-5 border-b border-[#f4f3f0] dark:border-[#3d3429]">
+                    <div className="p-5 border-b border-border">
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <label className="flex flex-col gap-1.5">
-                          <span className="text-xs font-bold uppercase tracking-wider text-[#897c61] dark:text-gray-400">Role</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Role</span>
                           <select
                             value={inviteRoleName}
                             onChange={(e) => setInviteRoleName((e.target.value as any) === 'Waiter' ? 'Waiter' : 'Branch Manager')}
-                            className="h-11 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-white dark:bg-[#221c10] px-3 text-sm"
+                            className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
                           >
                             <option value="Branch Manager">Branch Manager</option>
                             <option value="Waiter">Waiter</option>
@@ -1495,11 +1495,11 @@ export const OwnerStaffManagement: React.FC = () => {
                         </label>
 
                         <label className="flex flex-col gap-1.5">
-                          <span className="text-xs font-bold uppercase tracking-wider text-[#897c61] dark:text-gray-400">Branch (optional)</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Branch (optional)</span>
                           <select
                             value={inviteBranchId}
                             onChange={(e) => setInviteBranchId(e.target.value)}
-                            className="h-11 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-white dark:bg-[#221c10] px-3 text-sm"
+                            className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
                           >
                             <option value="">Any</option>
                             {inviteBranchOptions.map((b) => (
@@ -1511,11 +1511,11 @@ export const OwnerStaffManagement: React.FC = () => {
                         </label>
 
                         <label className="flex flex-col gap-1.5">
-                          <span className="text-xs font-bold uppercase tracking-wider text-[#897c61] dark:text-gray-400">Expires (days)</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Expires (days)</span>
                           <input
                             value={String(inviteExpiresDays)}
                             onChange={(e) => setInviteExpiresDays(Number(e.target.value || 7))}
-                            className="h-11 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-white dark:bg-[#221c10] px-3 text-sm"
+                            className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
                             type="number"
                             min={1}
                             max={14}
@@ -1526,26 +1526,26 @@ export const OwnerStaffManagement: React.FC = () => {
                           <button
                             onClick={submitInvite}
                             disabled={inviteCreating}
-                            className="w-full h-11 rounded-lg bg-primary text-white text-sm font-black hover:opacity-90 disabled:opacity-60 transition-opacity"
+                            className="w-full h-11 rounded-lg bg-primary text-primary-foreground text-sm font-black hover:bg-primary/90 disabled:opacity-60 transition-opacity"
                           >
                             {inviteCreating ? 'Creating ¦' : 'Create Invite'}
                           </button>
                         </div>
                       </div>
 
-                      {invitesError ? <div className="mt-3 text-sm text-red-600 dark:text-red-400">{invitesError}</div> : null}
+                      {invitesError ? <div className="mt-3 text-sm text-destructive">{invitesError}</div> : null}
                     </div>
 
                     <div className="p-5">
                       <div className="flex items-center justify-between mb-3">
-                        <div className="text-sm font-bold text-[#221c10] dark:text-white">Recent Invites</div>
-                        <div className="text-xs text-[#897c61] dark:text-gray-400 font-mono">{invitesLoading ? 'Loading ¦' : `${invites.length} total`}</div>
+                        <div className="text-sm font-bold text-foreground">Recent Invites</div>
+                        <div className="text-xs text-muted-foreground font-mono">{invitesLoading ? 'Loading ¦' : `${invites.length} total`}</div>
                       </div>
 
-                      <div className="overflow-x-auto rounded-xl border border-[#e6e2db] dark:border-[#3d3429]">
+                      <div className="overflow-x-auto rounded-xl border border-border">
                         <table className="min-w-full text-left">
-                          <thead className="bg-[#f4f3f0] dark:bg-[#221c10]">
-                            <tr className="text-xs font-black uppercase tracking-wider text-[#897c61] dark:text-gray-400">
+                          <thead className="bg-muted/50">
+                            <tr className="text-xs font-black uppercase tracking-wider text-muted-foreground">
                               <th className="px-5 py-3">Code</th>
                               <th className="px-5 py-3">Role</th>
                               <th className="px-5 py-3">Branch</th>
@@ -1555,29 +1555,29 @@ export const OwnerStaffManagement: React.FC = () => {
                               <th className="px-5 py-3"></th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[#e6e2db] dark:divide-[#3d3429] bg-white dark:bg-[#2c241b]">
+                          <tbody className="divide-y divide-border bg-background">
                             {!invitesLoading && invites.length === 0 ? (
                               <tr>
-                                <td className="px-5 py-4 text-sm text-[#897c61] dark:text-gray-400" colSpan={7}>
+                                <td className="px-5 py-4 text-sm text-muted-foreground" colSpan={7}>
                                   No invites yet.
                                 </td>
                               </tr>
                             ) : null}
                             {invites.map((i) => (
-                              <tr key={i.id} className="hover:bg-[#f8f7f6] dark:hover:bg-[#221c10] transition-colors">
-                                <td className="px-5 py-3 text-sm font-mono font-black text-[#221c10] dark:text-white">{i.code}</td>
-                                <td className="px-5 py-3 text-sm text-[#221c10] dark:text-white">{i.roleName}</td>
-                                <td className="px-5 py-3 text-sm text-[#5c554a] dark:text-gray-300">{i.branchId || 'Any'}</td>
-                                <td className="px-5 py-3 text-sm text-[#5c554a] dark:text-gray-300">{i.createdAt ? fmtDateTime(i.createdAt) : ' ”'}</td>
-                                <td className="px-5 py-3 text-sm text-[#5c554a] dark:text-gray-300">{i.expiresAt ? fmtDateTime(i.expiresAt) : ' ”'}</td>
-                                <td className="px-5 py-3 text-sm text-[#5c554a] dark:text-gray-300">{i.usedAt ? `${fmtDateTime(i.usedAt)}${i.usedByEmail ? ` (${i.usedByEmail})` : ''}` : 'Not used'}</td>
+                              <tr key={i.id} className="hover:bg-muted/30 transition-colors">
+                                <td className="px-5 py-3 text-sm font-mono font-black text-foreground">{i.code}</td>
+                                <td className="px-5 py-3 text-sm text-foreground">{i.roleName}</td>
+                                <td className="px-5 py-3 text-sm text-muted-foreground">{i.branchId || 'Any'}</td>
+                                <td className="px-5 py-3 text-sm text-muted-foreground">{i.createdAt ? fmtDateTime(i.createdAt) : ' ”'}</td>
+                                <td className="px-5 py-3 text-sm text-muted-foreground">{i.expiresAt ? fmtDateTime(i.expiresAt) : ' ”'}</td>
+                                <td className="px-5 py-3 text-sm text-muted-foreground">{i.usedAt ? `${fmtDateTime(i.usedAt)}${i.usedByEmail ? ` (${i.usedByEmail})` : ''}` : 'Not used'}</td>
                                 <td className="px-5 py-3 text-sm">
                                   <button
                                     onClick={async () => {
                                       const ok = await copyText(i.code);
                                       setBanner({ kind: ok ? 'success' : 'error', message: ok ? 'Invite code copied.' : 'Failed to copy.' });
                                     }}
-                                    className="h-9 px-3 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] text-xs font-black hover:bg-[#f4f3f0] dark:hover:bg-[#221c10] transition-colors"
+                                    className="h-9 px-3 rounded-lg border border-border text-xs font-black hover:bg-accent transition-colors"
                                   >
                                     Copy
                                   </button>
@@ -1591,14 +1591,14 @@ export const OwnerStaffManagement: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <div className="p-5 flex items-center justify-between gap-4 border-b border-[#f4f3f0] dark:border-[#3d3429]">
+                    <div className="p-5 flex items-center justify-between gap-4 border-b border-border">
                       <div className="flex items-center gap-3 flex-1 min-w-[280px]">
                         <div className="relative w-full max-w-md">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[#897c61]">search</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-muted-foreground">search</span>
                           <input
                             value={activityQ}
                             onChange={(e) => setActivityQ(e.target.value)}
-                            className="w-full h-10 pl-10 pr-4 rounded-lg bg-[#f8f7f6] dark:bg-[#221c10] border border-transparent focus:bg-white dark:focus:bg-[#2c241b] focus:border-primary focus:ring-0 text-sm transition-all"
+                            className="w-full h-10 pl-10 pr-4 rounded-lg bg-background border border-border focus:border-primary focus:ring-0 text-sm transition-all placeholder:text-muted-foreground"
                             placeholder="Search activity payload..."
                             type="text"
                           />
@@ -1608,7 +1608,7 @@ export const OwnerStaffManagement: React.FC = () => {
                         <select
                           value={activityType}
                           onChange={(e) => setActivityType(e.target.value)}
-                          className="h-10 bg-[#f8f7f6] dark:bg-[#221c10] rounded-lg border border-transparent hover:border-[#e6e2db] dark:hover:border-[#4a4238] cursor-pointer transition-all text-sm font-semibold text-[#221c10] dark:text-white px-3"
+                          className="h-10 bg-background rounded-lg border border-border cursor-pointer transition-all text-sm font-semibold text-foreground px-3"
                         >
                           <option value="">Type: All</option>
                           {activityTypes.map((t) => (
@@ -1619,18 +1619,18 @@ export const OwnerStaffManagement: React.FC = () => {
                         </select>
                         <button
                           onClick={fetchActivity}
-                          className="flex items-center gap-2 px-3 h-10 bg-[#f8f7f6] dark:bg-[#221c10] rounded-lg border border-transparent hover:border-[#e6e2db] dark:hover:border-[#4a4238] transition-all text-sm font-semibold text-[#221c10] dark:text-white"
+                          className="flex items-center gap-2 px-3 h-10 bg-background rounded-lg border border-border hover:bg-accent transition-all text-sm font-semibold text-foreground"
                         >
-                          <span className="material-symbols-outlined text-[#897c61] text-[20px]">refresh</span>
+                          <span className="material-symbols-outlined text-muted-foreground text-[20px]">refresh</span>
                           Refresh
                         </button>
                       </div>
                     </div>
 
                     {activityError ? (
-                      <div className="p-6 text-sm text-red-500 flex items-center justify-between">
+                      <div className="p-6 text-sm text-destructive flex items-center justify-between">
                         <div>Failed to load activity: {activityError}</div>
-                        <button onClick={fetchActivity} className="h-10 px-4 rounded-lg bg-primary hover:bg-[#d49a26] text-white font-bold">
+                        <button onClick={fetchActivity} className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold">
                           Retry
                         </button>
                       </div>
@@ -1638,37 +1638,37 @@ export const OwnerStaffManagement: React.FC = () => {
 
                     <div className="overflow-x-auto flex-1">
                       <table className="w-full text-left border-collapse">
-                        <thead className="bg-[#fcfbf9] dark:bg-[#251f15] border-b border-[#e6e2db] dark:border-[#3d3429]">
+                        <thead className="bg-muted/50 border-b border-border">
                           <tr>
-                            <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider">When</th>
-                            <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider">Type</th>
-                            <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider">Branch</th>
-                            <th className="py-4 px-6 text-xs font-bold text-[#897c61] uppercase tracking-wider">Details</th>
+                            <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">When</th>
+                            <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Type</th>
+                            <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Branch</th>
+                            <th className="py-4 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Details</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#f4f3f0] dark:divide-[#3d3429]">
+                        <tbody className="divide-y divide-border">
                           {activityLoading ? (
                             <tr>
-                              <td colSpan={4} className="py-10 px-6 text-sm text-[#5c554a] dark:text-gray-400">
+                              <td colSpan={4} className="py-10 px-6 text-sm text-muted-foreground">
                                 Loading ¦
                               </td>
                             </tr>
                           ) : activity?.events?.length ? (
                             activity.events.map((e) => (
-                              <tr key={e.id} className="group hover:bg-[#fcfbf9] dark:hover:bg-[#332b22] transition-colors">
-                                <td className="py-4 px-6 text-sm text-[#5c554a] dark:text-gray-300">{e.at ? fmtDateTime(e.at) : ' ”'}</td>
+                              <tr key={e.id} className="group hover:bg-muted/30 transition-colors">
+                                <td className="py-4 px-6 text-sm text-muted-foreground">{e.at ? fmtDateTime(e.at) : ' ”'}</td>
                                 <td className="py-4 px-6">
-                                  <span className="text-sm font-bold text-[#221c10] dark:text-white">{e.type}</span>
+                                  <span className="text-sm font-bold text-foreground">{e.type}</span>
                                 </td>
-                                <td className="py-4 px-6 text-sm text-[#5c554a] dark:text-gray-300">{e.branchId || ' ”'}</td>
-                                <td className="py-4 px-6 text-sm text-[#5c554a] dark:text-gray-300">
+                                <td className="py-4 px-6 text-sm text-muted-foreground">{e.branchId || ' ”'}</td>
+                                <td className="py-4 px-6 text-sm text-muted-foreground">
                                   {Object.keys(e.payload || {}).length ? JSON.stringify(e.payload) : ' ”'}
                                 </td>
                               </tr>
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={4} className="py-12 px-6 text-sm text-[#5c554a] dark:text-gray-400">
+                              <td colSpan={4} className="py-12 px-6 text-sm text-muted-foreground">
                                 No activity found.
                               </td>
                             </tr>
@@ -1677,30 +1677,30 @@ export const OwnerStaffManagement: React.FC = () => {
                       </table>
                     </div>
 
-                    <div className="px-6 py-4 border-t border-[#e6e2db] dark:border-[#3d3429] flex items-center justify-between">
-                      <p className="text-sm text-[#5c554a] dark:text-gray-400">
+                    <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">
                         Showing{' '}
-                        <span className="font-bold text-[#221c10] dark:text-white">
+                        <span className="font-bold text-foreground">
                           {activity?.total ? (activityPage - 1) * 10 + 1 : 0}-{activity?.total ? Math.min(activity.total, activityPage * 10) : 0}
                         </span>{' '}
-                        of <span className="font-bold text-[#221c10] dark:text-white">{activity?.total ?? 0}</span> events
+                        of <span className="font-bold text-foreground">{activity?.total ?? 0}</span> events
                       </p>
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
                           disabled={activityPage <= 1 || activityLoading}
-                          className="flex items-center justify-center size-9 rounded-lg border border-[#e6e2db] dark:border-[#4a4238] text-[#5c554a] hover:bg-[#f8f7f6] dark:hover:bg-[#3d3429] hover:text-primary transition-colors disabled:opacity-50"
+                          className="flex items-center justify-center size-9 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-colors disabled:opacity-50"
                         >
                           <span className="material-symbols-outlined text-[20px]">chevron_left</span>
                         </button>
-                        <button className="flex items-center justify-center size-9 rounded-lg bg-primary text-white font-bold shadow-sm">{activityPage}</button>
+                        <button className="flex items-center justify-center size-9 rounded-lg bg-primary text-primary-foreground font-bold shadow-sm">{activityPage}</button>
                         <button
                           onClick={() => {
                             const max = Math.max(1, Math.ceil((activity?.total ?? 0) / 10));
                             setActivityPage((p) => Math.min(max, p + 1));
                           }}
                           disabled={activityLoading || activityPage >= Math.max(1, Math.ceil((activity?.total ?? 0) / 10))}
-                          className="flex items-center justify-center size-9 rounded-lg border border-[#e6e2db] dark:border-[#4a4238] text-[#5c554a] hover:bg-[#f8f7f6] dark:hover:bg-[#3d3429] hover:text-primary transition-colors disabled:opacity-50"
+                          className="flex items-center justify-center size-9 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-colors disabled:opacity-50"
                         >
                           <span className="material-symbols-outlined text-[20px]">chevron_right</span>
                         </button>
@@ -1720,61 +1720,61 @@ export const OwnerStaffManagement: React.FC = () => {
               if (e.target === e.currentTarget) closeAdd();
             }}
           >
-            <div className="w-full max-w-[560px] rounded-2xl border border-[#e6e2db] dark:border-[#3d3429] bg-white dark:bg-[#221c10] shadow-2xl relative overflow-visible isolate">
-              <div className="flex items-start justify-between gap-4 border-b border-[#e6e2db] dark:border-[#3d3429] px-5 py-4">
+            <div className="w-full max-w-[560px] rounded-2xl border border-border bg-card shadow-2xl relative overflow-visible isolate">
+              <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
                 <div>
-                  <div className="text-[#221c10] dark:text-white text-lg font-black">Add Staff</div>
-                  <div className="text-[#897c61] dark:text-gray-400 text-sm mt-1">Create a staff account (name + role + contact).</div>
+                  <div className="text-foreground text-lg font-black">Add Staff</div>
+                  <div className="text-muted-foreground text-sm mt-1">Create a staff account (name + role + contact).</div>
                 </div>
-                <button onClick={closeAdd} className="p-1.5 rounded-md hover:bg-[#f8f7f6] dark:hover:bg-[#2c241b] text-[#897c61] hover:text-[#221c10] dark:hover:text-white transition-colors">
+                <button onClick={closeAdd} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
                   <span className="material-symbols-outlined text-[22px]">close</span>
                 </button>
               </div>
 
               <div className="px-5 py-4 grid grid-cols-1 md:grid-cols-2 gap-4 relative overflow-visible">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Full Name</label>
-                  <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" placeholder="Sarah Jenkins" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Full Name</label>
+                  <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="Sarah Jenkins" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Employee Code</label>
-                  <input value={draftCode} onChange={(e) => setDraftCode(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" placeholder="EMP-001" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee Code</label>
+                  <input value={draftCode} onChange={(e) => setDraftCode(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="EMP-001" />
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Email (required for login)</label>
-                  <input value={draftEmail} onChange={(e) => setDraftEmail(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" placeholder="name@mirach.com" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Email (required for login)</label>
+                  <input value={draftEmail} onChange={(e) => setDraftEmail(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="name@mirach.com" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Phone</label>
-                  <input value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" placeholder="+251 9xx xxx xxx" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phone</label>
+                  <input value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="+251 9xx xxx xxx" />
                 </div>
 
                 <div className="flex flex-col gap-2 md:col-span-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Password (optional)</label>
-                  <input value={draftPassword} onChange={(e) => setDraftPassword(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" placeholder="Leave empty to auto-generate" />
-                  <div className="text-[11px] text-[#897c61] dark:text-gray-400">If left empty, the system generates a temporary password and shows it after creation.</div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Password (optional)</label>
+                  <input value={draftPassword} onChange={(e) => setDraftPassword(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="Leave empty to auto-generate" />
+                  <div className="text-[11px] text-muted-foreground">If left empty, the system generates a temporary password and shows it after creation.</div>
                 </div>
 
                 {(roles.find((r) => r.id === draftRoleId)?.name || '').toLowerCase() === 'waiter' ? (
                   <div className="flex flex-col gap-2 md:col-span-2">
-                    <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">PIN (optional)</label>
-                    <input value={draftPin} onChange={(e) => setDraftPin(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" placeholder="Leave empty to auto-generate" />
-                    <div className="text-[11px] text-[#897c61] dark:text-gray-400">If left empty, the system generates a PIN and shows it after creation.</div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">PIN (optional)</label>
+                    <input value={draftPin} onChange={(e) => setDraftPin(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="Leave empty to auto-generate" />
+                    <div className="text-[11px] text-muted-foreground">If left empty, the system generates a PIN and shows it after creation.</div>
                   </div>
                 ) : null}
 
                 <div className="flex flex-col gap-2 md:col-span-2 relative z-[10]">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Role</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Role</label>
                   <ModalSelect value={draftRoleId} onChange={setDraftRoleId} options={effectiveRoles.map((r) => ({ value: r.id, label: r.name }))} placeholder="Select role" />
                 </div>
                 <div className="flex flex-col gap-2 md:col-span-2 relative z-[10]">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Branch</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Branch</label>
                   <ModalSelect value={draftBranchId} onChange={setDraftBranchId} options={branches.map((b) => ({ value: b.id, label: b.name }))} placeholder="Select branch" />
                 </div>
 
                 <div className="flex flex-col gap-2 md:col-span-2 mt-6 relative z-[0]">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Status</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</label>
                   <ModalSelect
                     value={draftStatus}
                     onChange={(v) => setDraftStatus(v as any)}
@@ -1788,11 +1788,11 @@ export const OwnerStaffManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-[#e6e2db] dark:border-[#3d3429] px-5 py-4">
-                <button onClick={closeAdd} className="h-10 px-4 rounded-lg bg-white dark:bg-[#2c241b] border border-[#e6e2db] dark:border-[#3d3429] text-[#221c10] dark:text-white hover:bg-[#f8f7f6] dark:hover:bg-[#3d3429]" disabled={addLoading}>
+              <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
+                <button onClick={closeAdd} className="h-10 px-4 rounded-lg bg-background border border-border text-foreground hover:bg-accent" disabled={addLoading}>
                   Cancel
                 </button>
-                <button onClick={submitAdd} className="h-10 px-4 rounded-lg bg-primary hover:bg-[#d49a26] text-white font-bold disabled:opacity-60" disabled={addLoading}>
+                <button onClick={submitAdd} className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold disabled:opacity-60" disabled={addLoading}>
                   {addLoading ? 'Creating ¦' : 'Add Staff'}
                 </button>
               </div>
@@ -1807,47 +1807,47 @@ export const OwnerStaffManagement: React.FC = () => {
               if (e.target === e.currentTarget) closeEditStaff();
             }}
           >
-            <div className="w-full max-w-[680px] rounded-2xl border border-[#e6e2db] dark:border-[#3d3429] bg-white dark:bg-[#221c10] shadow-2xl relative overflow-visible isolate">
-              <div className="flex items-start justify-between gap-4 border-b border-[#e6e2db] dark:border-[#3d3429] px-5 py-4">
+            <div className="w-full max-w-[680px] rounded-2xl border border-border bg-card shadow-2xl relative overflow-visible isolate">
+              <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
                 <div>
-                  <div className="text-[#221c10] dark:text-white text-lg font-black">Manage Staff</div>
-                  <div className="text-[#897c61] dark:text-gray-400 text-sm mt-1">Update details, role, branch, or status.</div>
+                  <div className="text-foreground text-lg font-black">Manage Staff</div>
+                  <div className="text-muted-foreground text-sm mt-1">Update details, role, branch, or status.</div>
                 </div>
-                <button onClick={closeEditStaff} className="p-1.5 rounded-md hover:bg-[#f8f7f6] dark:hover:bg-[#2c241b] text-[#897c61] hover:text-[#221c10] dark:hover:text-white transition-colors">
+                <button onClick={closeEditStaff} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
                   <span className="material-symbols-outlined text-[22px]">close</span>
                 </button>
               </div>
 
               <div className="px-5 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Full Name</label>
-                  <input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Full Name</label>
+                  <input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Employee Code</label>
-                  <input value={editCode} onChange={(e) => setEditCode(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee Code</label>
+                  <input value={editCode} onChange={(e) => setEditCode(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none" />
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Email</label>
-                  <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Email</label>
+                  <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Phone</label>
-                  <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phone</label>
+                  <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none" />
                 </div>
 
                 <div className="flex flex-col gap-2 md:col-span-2 relative z-[10]">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Role</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Role</label>
                   <ModalSelect value={editRoleId} onChange={setEditRoleId} options={effectiveRoles.map((r) => ({ value: r.id, label: r.name }))} placeholder="Select role" />
                 </div>
                 <div className="flex flex-col gap-2 md:col-span-2 relative z-[10]">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Branch</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Branch</label>
                   <ModalSelect value={editBranchId} onChange={setEditBranchId} options={branches.map((b) => ({ value: b.id, label: b.name }))} placeholder="Select branch" />
                 </div>
 
                 <div className="flex flex-col gap-2 md:col-span-2 mt-6 relative z-[0]">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Status</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</label>
                   <ModalSelect
                     value={editStatus}
                     onChange={(v) => setEditStatus(v as any)}
@@ -1862,13 +1862,13 @@ export const OwnerStaffManagement: React.FC = () => {
 
                 {(roles.find((r) => r.id === editRoleId)?.name || '').toLowerCase() === 'waiter' ? (
                   <div className="flex flex-col gap-2 md:col-span-2">
-                    <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Set New PIN (optional)</label>
-                    <input value={editPin} onChange={(e) => setEditPin(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" placeholder="Enter to change PIN" />
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Set New PIN (optional)</label>
+                    <input value={editPin} onChange={(e) => setEditPin(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="Enter to change PIN" />
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={resetWaiterPin}
-                        className="h-10 px-4 rounded-lg bg-white dark:bg-[#2c241b] border border-[#e6e2db] dark:border-[#3d3429] text-[#221c10] dark:text-white hover:bg-[#f8f7f6] dark:hover:bg-[#3d3429] font-bold"
+                        className="h-10 px-4 rounded-lg bg-background border border-border text-foreground hover:bg-accent font-bold"
                         disabled={staffEditLoading}
                       >
                         Reset PIN
@@ -1878,17 +1878,17 @@ export const OwnerStaffManagement: React.FC = () => {
                 ) : null}
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-[#e6e2db] dark:border-[#3d3429] px-5 py-4">
+              <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
                 <button
                   onClick={closeEditStaff}
-                  className="h-10 px-4 rounded-lg bg-white dark:bg-[#2c241b] border border-[#e6e2db] dark:border-[#3d3429] text-[#221c10] dark:text-white hover:bg-[#f8f7f6] dark:hover:bg-[#3d3429]"
+                  className="h-10 px-4 rounded-lg bg-background border border-border text-foreground hover:bg-accent"
                   disabled={staffEditLoading}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={submitEditStaff}
-                  className="h-10 px-4 rounded-lg bg-primary hover:bg-[#d49a26] text-white font-bold disabled:opacity-60"
+                  className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold disabled:opacity-60"
                   disabled={staffEditLoading}
                 >
                   {staffEditLoading ? 'Saving ¦' : 'Save Changes'}
@@ -1905,51 +1905,51 @@ export const OwnerStaffManagement: React.FC = () => {
               if (e.target === e.currentTarget) closeRoleCreate();
             }}
           >
-            <div className="w-full max-w-[640px] rounded-2xl border border-[#e6e2db] dark:border-[#3d3429] bg-white dark:bg-[#221c10] shadow-2xl">
-              <div className="flex items-start justify-between gap-4 border-b border-[#e6e2db] dark:border-[#3d3429] px-5 py-4">
+            <div className="w-full max-w-[640px] rounded-2xl border border-border bg-card shadow-2xl">
+              <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
                 <div>
-                  <div className="text-[#221c10] dark:text-white text-lg font-black">Create Role</div>
-                  <div className="text-[#897c61] dark:text-gray-400 text-sm mt-1">Define a role and its permissions.</div>
+                  <div className="text-foreground text-lg font-black">Create Role</div>
+                  <div className="text-muted-foreground text-sm mt-1">Define a role and its permissions.</div>
                 </div>
-                <button onClick={closeRoleCreate} className="p-1.5 rounded-md hover:bg-[#f8f7f6] dark:hover:bg-[#2c241b] text-[#897c61] hover:text-[#221c10] dark:hover:text-white transition-colors">
+                <button onClick={closeRoleCreate} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
                   <span className="material-symbols-outlined text-[22px]">close</span>
                 </button>
               </div>
 
               <div className="px-5 py-4 grid grid-cols-1 gap-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Role Name</label>
-                  <input value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" placeholder="Supervisor" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Role Name</label>
+                  <input value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none placeholder:text-muted-foreground" placeholder="Supervisor" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Scope</label>
-                  <select value={newRoleScope} onChange={(e) => setNewRoleScope(e.target.value as any)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Scope</label>
+                  <select value={newRoleScope} onChange={(e) => setNewRoleScope(e.target.value as any)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none">
                     <option value="branch">branch</option>
                     <option value="global">global</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Permissions (one per line)</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Permissions (one per line)</label>
                   <textarea
                     value={newRolePerms}
                     onChange={(e) => setNewRolePerms(e.target.value)}
-                    className="min-h-32 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    className="min-h-32 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none placeholder:text-muted-foreground"
                     placeholder="orders.read\norders.write\nstaff.read\nstaff.write"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-[#e6e2db] dark:border-[#3d3429] px-5 py-4">
+              <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
                 <button
                   onClick={closeRoleCreate}
-                  className="h-10 px-4 rounded-lg bg-white dark:bg-[#2c241b] border border-[#e6e2db] dark:border-[#3d3429] text-[#221c10] dark:text-white hover:bg-[#f8f7f6] dark:hover:bg-[#3d3429]"
+                  className="h-10 px-4 rounded-lg bg-background border border-border text-foreground hover:bg-accent"
                   disabled={roleCreateLoading}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={submitRoleCreate}
-                  className="h-10 px-4 rounded-lg bg-primary hover:bg-[#d49a26] text-white font-bold disabled:opacity-60"
+                  className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold disabled:opacity-60"
                   disabled={roleCreateLoading}
                 >
                   {roleCreateLoading ? 'Creating ¦' : 'Create Role'}
@@ -1966,50 +1966,50 @@ export const OwnerStaffManagement: React.FC = () => {
               if (e.target === e.currentTarget) closeRoleEdit();
             }}
           >
-            <div className="w-full max-w-[640px] rounded-2xl border border-[#e6e2db] dark:border-[#3d3429] bg-white dark:bg-[#221c10] shadow-2xl">
-              <div className="flex items-start justify-between gap-4 border-b border-[#e6e2db] dark:border-[#3d3429] px-5 py-4">
+            <div className="w-full max-w-[640px] rounded-2xl border border-border bg-card shadow-2xl">
+              <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
                 <div>
-                  <div className="text-[#221c10] dark:text-white text-lg font-black">Edit Role</div>
-                  <div className="text-[#897c61] dark:text-gray-400 text-sm mt-1">Update role name, scope and permissions.</div>
+                  <div className="text-foreground text-lg font-black">Edit Role</div>
+                  <div className="text-muted-foreground text-sm mt-1">Update role name, scope and permissions.</div>
                 </div>
-                <button onClick={closeRoleEdit} className="p-1.5 rounded-md hover:bg-[#f8f7f6] dark:hover:bg-[#2c241b] text-[#897c61] hover:text-[#221c10] dark:hover:text-white transition-colors">
+                <button onClick={closeRoleEdit} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
                   <span className="material-symbols-outlined text-[22px]">close</span>
                 </button>
               </div>
 
               <div className="px-5 py-4 grid grid-cols-1 gap-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Role Name</label>
-                  <input value={editRoleName} onChange={(e) => setEditRoleName(e.target.value)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Role Name</label>
+                  <input value={editRoleName} onChange={(e) => setEditRoleName(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Scope</label>
-                  <select value={editRoleScope} onChange={(e) => setEditRoleScope(e.target.value as any)} className="h-10 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 text-sm focus:border-primary focus:outline-none">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Scope</label>
+                  <select value={editRoleScope} onChange={(e) => setEditRoleScope(e.target.value as any)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none">
                     <option value="branch">branch</option>
                     <option value="global">global</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-[#897c61] dark:text-gray-400 uppercase tracking-wider">Permissions (one per line)</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Permissions (one per line)</label>
                   <textarea
                     value={editRolePerms}
                     onChange={(e) => setEditRolePerms(e.target.value)}
-                    className="min-h-32 rounded-lg border border-[#e6e2db] dark:border-[#3d3429] bg-[#f8f7f6] dark:bg-[#2c241b] px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    className="min-h-32 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-[#e6e2db] dark:border-[#3d3429] px-5 py-4">
+              <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
                 <button
                   onClick={closeRoleEdit}
-                  className="h-10 px-4 rounded-lg bg-white dark:bg-[#2c241b] border border-[#e6e2db] dark:border-[#3d3429] text-[#221c10] dark:text-white hover:bg-[#f8f7f6] dark:hover:bg-[#3d3429]"
+                  className="h-10 px-4 rounded-lg bg-background border border-border text-foreground hover:bg-accent"
                   disabled={roleEditLoading}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={submitRoleEdit}
-                  className="h-10 px-4 rounded-lg bg-primary hover:bg-[#d49a26] text-white font-bold disabled:opacity-60"
+                  className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold disabled:opacity-60"
                   disabled={roleEditLoading}
                 >
                   {roleEditLoading ? 'Saving ¦' : 'Save'}
@@ -2026,34 +2026,34 @@ export const OwnerStaffManagement: React.FC = () => {
               if (e.target === e.currentTarget) closeRoleDelete();
             }}
           >
-            <div className="w-full max-w-[520px] rounded-2xl border border-[#e6e2db] dark:border-[#3d3429] bg-white dark:bg-[#221c10] shadow-2xl">
-              <div className="flex items-start justify-between gap-4 border-b border-[#e6e2db] dark:border-[#3d3429] px-5 py-4">
+            <div className="w-full max-w-[520px] rounded-2xl border border-border bg-card shadow-2xl">
+              <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
                 <div>
-                  <div className="text-[#221c10] dark:text-white text-lg font-black">Delete Role</div>
-                  <div className="text-[#897c61] dark:text-gray-400 text-sm mt-1">This cannot be undone.</div>
+                  <div className="text-foreground text-lg font-black">Delete Role</div>
+                  <div className="text-muted-foreground text-sm mt-1">This cannot be undone.</div>
                 </div>
-                <button onClick={closeRoleDelete} className="p-1.5 rounded-md hover:bg-[#f8f7f6] dark:hover:bg-[#2c241b] text-[#897c61] hover:text-[#221c10] dark:hover:text-white transition-colors">
+                <button onClick={closeRoleDelete} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
                   <span className="material-symbols-outlined text-[22px]">close</span>
                 </button>
               </div>
 
               <div className="px-5 py-4">
-                <div className="text-sm text-[#221c10] dark:text-white">
+                <div className="text-sm text-foreground">
                   Role: <span className="font-black">{roleDeleteTarget?.name || ' ”'}</span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-[#e6e2db] dark:border-[#3d3429] px-5 py-4">
+              <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
                 <button
                   onClick={closeRoleDelete}
-                  className="h-10 px-4 rounded-lg bg-white dark:bg-[#2c241b] border border-[#e6e2db] dark:border-[#3d3429] text-[#221c10] dark:text-white hover:bg-[#f8f7f6] dark:hover:bg-[#3d3429]"
+                  className="h-10 px-4 rounded-lg bg-background border border-border text-foreground hover:bg-accent"
                   disabled={roleDeleteLoading}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmRoleDelete}
-                  className="h-10 px-4 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold disabled:opacity-60"
+                  className="h-10 px-4 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold disabled:opacity-60"
                   disabled={roleDeleteLoading}
                 >
                   {roleDeleteLoading ? 'Deleting ¦' : 'Delete'}

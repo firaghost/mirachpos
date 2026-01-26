@@ -183,16 +183,16 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
 
   const statusUi = (s: string) => {
     const v = String(s || '').toLowerCase();
-    if (v === 'active') return { label: 'Active', cls: 'bg-green-900/30 text-green-400 ring-green-900/40', border: 'border-border-dark', cardBorder: 'border-border-dark hover:border-primary/40' };
-    if (v === 'suspended') return { label: 'Suspended', cls: 'bg-red-900/30 text-red-400 ring-red-900/40', border: 'border-red-900/30', cardBorder: 'border-red-900/30 hover:border-red-500/40' };
-    if (v === 'trial') return { label: 'New', cls: 'bg-white-900/30 text-white-400 ring-white-900/40', border: 'border-border-dark', cardBorder: 'border-border-dark hover:border-primary/40' };
-    return { label: s || 'Unknown', cls: 'bg-yellow-900/30 text-yellow-500 ring-yellow-900/40', border: 'border-border-dark', cardBorder: 'border-border-dark hover:border-yellow-500/40' };
+    if (v === 'active') return { label: 'Active', cls: 'bg-emerald-500/10 text-emerald-500 ring-emerald-500/20', cardBorder: 'border-border hover:border-emerald-500/30' };
+    if (v === 'suspended') return { label: 'Suspended', cls: 'bg-destructive/10 text-destructive ring-destructive/20', cardBorder: 'border-destructive/30 hover:border-destructive/40' };
+    if (v === 'trial') return { label: 'New', cls: 'bg-muted/40 text-muted-foreground ring-border', cardBorder: 'border-border hover:border-primary/30' };
+    return { label: s || 'Unknown', cls: 'bg-primary/10 text-primary ring-primary/20', cardBorder: 'border-border hover:border-primary/40' };
   };
 
   const usageColor = (pct: number) => {
-    if (pct >= 90) return 'bg-yellow-500';
-    if (pct >= 60) return 'bg-white-500';
-    return 'bg-green-500';
+    if (pct >= 90) return 'bg-destructive';
+    if (pct >= 60) return 'bg-primary';
+    return 'bg-emerald-500';
   };
 
   const openTenant = (id: string) => {
@@ -210,26 +210,26 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
   const stableItems = useMemo(() => items, [items]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <main className="flex-1 px-4 sm:px-8 py-6 w-full max-w-[1600px] mx-auto overflow-y-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
             <div className="flex items-center gap-2 text-sm mb-2">
-              <span className="text-[#c9b792]">Home</span>
-              <span className="text-[#483c23]">/</span>
-              <span className="text-white">Cafes</span>
+              <span className="text-muted-foreground">Home</span>
+              <span className="text-muted-foreground">/</span>
+              <span className="text-foreground">Cafes</span>
             </div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">Tenant Management</h1>
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">Tenant Management</h1>
           </div>
           <div className="flex gap-3">
-            <button className="flex items-center justify-center gap-2 rounded-lg h-10 px-4 bg-[#2c241b] hover:bg-[#3a3024] border border-[#483c23] text-[#c9b792] hover:text-white text-sm font-semibold transition-colors">
+            <button className="flex items-center justify-center gap-2 rounded-lg h-10 px-4 bg-card hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-sm font-semibold transition-colors">
               <span className="material-symbols-outlined text-[20px]">download</span>
               <span>Export List</span>
             </button>
             <button
               type="button"
               onClick={openOnboard}
-              className="flex items-center justify-center gap-2 rounded-lg h-10 px-4 bg-[#eead2b] hover:bg-[#d49619] text-[#221c11] text-sm font-bold transition-colors shadow-lg shadow-[#eead2b]/10"
+              className="flex items-center justify-center gap-2 rounded-lg h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold transition-colors shadow-lg shadow-primary/10"
             >
               <span className="material-symbols-outlined text-[20px]">add</span>
               <span>Onboard New Cafe</span>
@@ -237,16 +237,16 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
           </div>
         </div>
 
-        <div className="mb-6 p-4 rounded-lg border border-[#483c23] bg-[#2c241b] flex flex-col lg:flex-row gap-4 justify-between items-center">
+        <div className="mb-6 p-4 rounded-lg border border-border bg-card flex flex-col lg:flex-row gap-4 justify-between items-center">
           <div className="flex flex-1 w-full gap-4">
             <div className="relative w-full max-w-md">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="material-symbols-outlined text-[#c9b792]">search</span>
+                <span className="material-symbols-outlined text-muted-foreground">search</span>
               </div>
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                className="block w-full rounded-md border border-[#483c23] bg-[#221c11] py-2 pl-10 pr-3 text-sm text-white placeholder-[#c9b792]/50 focus:border-[#eead2b] focus:ring-1 focus:ring-[#eead2b]"
+                className="block w-full rounded-md border border-border bg-background py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/30"
                 placeholder="Search by cafe name, ID, or owner email..."
                 type="text"
               />
@@ -255,7 +255,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
               <select
                 value={status || 'all'}
                 onChange={(e) => setStatus(e.target.value === 'all' ? '' : e.target.value)}
-                className="rounded-md border border-[#483c23] bg-[#221c11] text-white text-sm focus:border-[#eead2b] focus:ring-[#eead2b] py-2 pl-3 pr-10"
+                className="rounded-md border border-border bg-background text-foreground text-sm focus:border-primary focus:ring-primary py-2 pl-3 pr-10"
               >
                 <option value="all">All Statuses</option>
                 <option value="Active">Active</option>
@@ -265,7 +265,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
               <select
                 value={tier || 'all'}
                 onChange={(e) => setTier(e.target.value === 'all' ? '' : e.target.value)}
-                className="rounded-md border border-[#483c23] bg-[#221c11] text-white text-sm focus:border-[#eead2b] focus:ring-[#eead2b] py-2 pl-3 pr-10"
+                className="rounded-md border border-border bg-background text-foreground text-sm focus:border-primary focus:ring-primary py-2 pl-3 pr-10"
               >
                 <option value="all">All Plans</option>
                 <option value="Trial">Trial</option>
@@ -275,12 +275,12 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
               </select>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-sm text-[#c9b792]">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Sort by:</span>
             <button
               type="button"
               onClick={() => setSort('last_activity')}
-              className="flex items-center gap-1 text-white font-medium hover:text-[#eead2b] transition-colors"
+              className="flex items-center gap-1 text-foreground font-medium hover:text-primary transition-colors"
             >
               Last Activity
               <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
@@ -288,21 +288,21 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
             <button
               type="button"
               onClick={() => setSort('created')}
-              className="flex items-center gap-1 text-[#c9b792] font-medium hover:text-white transition-colors"
+              className="flex items-center gap-1 text-muted-foreground font-medium hover:text-foreground transition-colors"
             >
               Created
             </button>
             <button
               type="button"
               onClick={() => setSort('name')}
-              className="flex items-center gap-1 text-[#c9b792] font-medium hover:text-white transition-colors"
+              className="flex items-center gap-1 text-muted-foreground font-medium hover:text-foreground transition-colors"
             >
               Name
             </button>
             <button
               type="button"
               onClick={load}
-              className="ml-2 flex items-center justify-center gap-1 rounded-lg h-9 px-3 bg-[#221c11] hover:bg-[#3a3024] border border-[#483c23] text-[#c9b792] hover:text-white text-xs font-semibold transition-colors"
+              className="ml-2 flex items-center justify-center gap-1 rounded-lg h-9 px-3 bg-background hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors"
             >
               <span className={loading ? 'material-symbols-outlined animate-spin text-[18px]' : 'material-symbols-outlined text-[18px]'}>sync</span>
               Refresh
@@ -330,17 +330,17 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
                 tabIndex={0}
                 onClick={() => openTenant(t.id)}
                 onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openTenant(t.id)}
-                className={`group bg-[#2c241b] rounded-lg border ${ui.cardBorder} transition-all duration-200 flex flex-col cursor-pointer`}
+                className={`group bg-card rounded-lg border ${ui.cardBorder} transition-all duration-200 flex flex-col cursor-pointer`}
               >
                 <div className="p-5 flex-1">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="size-12 rounded bg-white p-1 flex items-center justify-center shrink-0">
-                        <div className="w-full h-full bg-[#1a1a1a] flex items-center justify-center text-white font-bold rounded-sm">{initials(t.name)}</div>
+                      <div className="size-12 rounded bg-muted p-1 flex items-center justify-center shrink-0">
+                        <div className="w-full h-full bg-background flex items-center justify-center text-foreground font-bold rounded-sm">{initials(t.name)}</div>
                       </div>
                       <div>
-                        <h3 className="text-white font-bold text-lg leading-tight group-hover:text-[#eead2b] transition-colors">{t.name}</h3>
-                        <p className="text-[#c9b792] text-xs font-mono">ID: {t.id}</p>
+                        <h3 className="text-foreground font-bold text-lg leading-tight group-hover:text-primary transition-colors">{t.name}</h3>
+                        <p className="text-muted-foreground text-xs font-mono">ID: {t.id}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -348,7 +348,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
                       <button
                         type="button"
                         onClick={(e) => e.stopPropagation()}
-                        className="text-[#c9b792] hover:text-white p-1 rounded hover:bg-[#3a3024] transition-colors ml-1"
+                        className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-accent transition-colors ml-1"
                       >
                         <span className="material-symbols-outlined text-[20px]">more_vert</span>
                       </button>
@@ -356,49 +356,49 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
                   </div>
 
                   <div className="mt-4 grid grid-cols-1 gap-2 text-sm">
-                    <div className="flex items-center gap-2 text-[#c9b792]">
-                      <span className="material-symbols-outlined text-[18px] text-[#eead2b]">person</span>
-                      <span className="text-white font-medium">{ownerName || '-'}</span>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <span className="material-symbols-outlined text-[18px] text-primary">person</span>
+                      <span className="text-foreground font-medium">{ownerName || '-'}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-[#c9b792]">
-                      <span className="material-symbols-outlined text-[18px] text-[#eead2b]">mail</span>
-                      <span className="text-[#c9b792]">{ownerEmail || '-'}</span>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <span className="material-symbols-outlined text-[18px] text-primary">mail</span>
+                      <span className="text-muted-foreground">{ownerEmail || '-'}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-[#c9b792]">
-                      <span className="material-symbols-outlined text-[18px] text-[#eead2b]">call</span>
-                      <span className="text-[#c9b792]">{ownerPhone || '-'}</span>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <span className="material-symbols-outlined text-[18px] text-primary">call</span>
+                      <span className="text-muted-foreground">{ownerPhone || '-'}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-[#c9b792]">
-                      <span className="material-symbols-outlined text-[#eead2b] text-[18px]">verified</span>
-                      <span className="text-white font-medium">{t.plan || '-'}</span>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <span className="material-symbols-outlined text-primary text-[18px]">verified</span>
+                      <span className="text-foreground font-medium">{t.plan || '-'}</span>
                     </div>
                   </div>
 
                   <div className="mt-4">
-                    <p className="text-[10px] uppercase tracking-wider text-[#c9b792] mb-1">Usage</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Usage</p>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-[#221c11] rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                         <div className={`h-full ${usageColor(usagePct)} rounded-full`} style={{ width: `${usagePct}%` }} />
                       </div>
-                      <span className="text-xs text-[#c9b792]">{usagePct ? `${usagePct}%` : '—'}</span>
+                      <span className="text-xs text-muted-foreground">{usagePct ? `${usagePct}%` : '—'}</span>
                     </div>
-                    <p className="text-[10px] text-[#c9b792] mt-0.5">{usageLabel || '—'}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{usageLabel || '—'}</p>
                   </div>
 
                   <div className="mt-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#c9b792] text-[18px]">storefront</span>
-                      <span className="text-sm text-white">{Number(t.branches || 0)} Branches</span>
+                      <span className="material-symbols-outlined text-muted-foreground text-[18px]">storefront</span>
+                      <span className="text-sm text-foreground">{Number(t.branches || 0)} Branches</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#c9b792] text-[18px]">group</span>
-                      <span className="text-sm text-white">{Number(t.users || 0)} Users</span>
+                      <span className="material-symbols-outlined text-muted-foreground text-[18px]">group</span>
+                      <span className="text-sm text-foreground">{Number(t.users || 0)} Users</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="px-5 py-3 bg-[#221c11]/40 border-t border-[#483c23] rounded-b-lg flex justify-between items-center">
-                  <span className="text-xs text-[#c9b792] flex items-center gap-1">
+                <div className="px-5 py-3 bg-muted/40 border-t border-border rounded-b-lg flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
                     <span className="material-symbols-outlined text-[14px]">schedule</span>
                     {activityLabel ? `Active ${activityLabel}` : 'No activity'}
                   </span>
@@ -409,7 +409,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
                         e.stopPropagation();
                         openTenant(t.id);
                       }}
-                      className="text-[#eead2b] hover:text-white text-xs font-semibold px-3 py-1.5 rounded border border-[#483c23] hover:bg-[#2c241b] transition-colors"
+                      className="text-primary hover:text-foreground text-xs font-semibold px-3 py-1.5 rounded border border-border hover:bg-accent transition-colors"
                     >
                       View Details
                     </button>
@@ -420,21 +420,21 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
           })}
 
           {!loading && stableItems.length === 0 ? (
-            <div className="col-span-full text-center text-sm text-[#c9b792] py-20">No cafes found.</div>
+            <div className="col-span-full text-center text-sm text-muted-foreground py-20">No cafes found.</div>
           ) : null}
         </div>
 
-        <div className="mt-8 flex items-center justify-between border-t border-[#483c23] pt-4">
-          <div className="text-sm text-[#c9b792]">
-            Showing <span className="text-white font-medium">{showingFrom}</span> to <span className="text-white font-medium">{showingTo}</span> of{' '}
-            <span className="text-white font-medium">{total}</span> cafes
+        <div className="mt-8 flex items-center justify-between border-t border-border pt-4">
+          <div className="text-sm text-muted-foreground">
+            Showing <span className="text-foreground font-medium">{showingFrom}</span> to <span className="text-foreground font-medium">{showingTo}</span> of{' '}
+            <span className="text-foreground font-medium">{total}</span> cafes
           </div>
           <div className="flex gap-2">
             <button
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-[#483c23] bg-[#2c241b] text-sm text-[#c9b792] hover:text-white hover:border-[#eead2b]/50 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-border bg-card text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[16px]">chevron_left</span>
               Previous
@@ -443,7 +443,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-[#483c23] bg-[#2c241b] text-sm text-white hover:border-[#eead2b]/50 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-border bg-card text-sm text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
             >
               Next
               <span className="material-symbols-outlined text-[16px]">chevron_right</span>
@@ -454,13 +454,13 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
 
       {onboardOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-3xl rounded-xl border border-[#483c23] bg-[#221c11] shadow-xl overflow-hidden">
-            <div className="p-4 border-b border-[#483c23] flex items-center justify-between">
+          <div className="w-full max-w-3xl rounded-xl border border-border bg-card shadow-xl overflow-hidden">
+            <div className="p-4 border-b border-border bg-muted/40 flex items-center justify-between">
               <div>
-                <div className="text-white font-bold">Onboard New Cafe</div>
-                <div className="text-xs text-[#c9b792]">Create a tenant with owner account and default branch</div>
+                <div className="text-foreground font-bold">Onboard New Cafe</div>
+                <div className="text-xs text-muted-foreground">Create a tenant with owner account and default branch</div>
               </div>
-              <button type="button" className="text-[#c9b792] hover:text-white" onClick={() => setOnboardOpen(false)}>
+              <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setOnboardOpen(false)}>
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
@@ -480,16 +480,16 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Cafe Name *</div>
-                  <input value={newName} onChange={(e) => { setNewName(e.target.value); if (!newSlug.trim()) setNewSlug(slugify(e.target.value)); }} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Cafe Name *</div>
+                  <input value={newName} onChange={(e) => { setNewName(e.target.value); if (!newSlug.trim()) setNewSlug(slugify(e.target.value)); }} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Slug</div>
-                  <input value={newSlug} onChange={(e) => setNewSlug(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white font-mono" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Slug</div>
+                  <input value={newSlug} onChange={(e) => setNewSlug(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground font-mono" />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Plan</div>
-                  <select value={newTier} onChange={(e) => setNewTier(e.target.value as any)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Plan</div>
+                  <select value={newTier} onChange={(e) => setNewTier(e.target.value as any)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground">
                     <option value="Trial">Trial</option>
                     <option value="Basic">Basic</option>
                     <option value="Pro">Pro</option>
@@ -497,45 +497,45 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
                   </select>
                 </div>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Owner Name</div>
-                  <input value={newOwnerName} onChange={(e) => setNewOwnerName(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Owner Name</div>
+                  <input value={newOwnerName} onChange={(e) => setNewOwnerName(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Owner Email *</div>
-                  <input value={newOwnerEmail} onChange={(e) => setNewOwnerEmail(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Owner Email *</div>
+                  <input value={newOwnerEmail} onChange={(e) => setNewOwnerEmail(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Owner Phone</div>
-                  <input value={newOwnerPhone} onChange={(e) => setNewOwnerPhone(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Owner Phone</div>
+                  <input value={newOwnerPhone} onChange={(e) => setNewOwnerPhone(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Owner Password</div>
-                  <input value={newOwnerPassword} onChange={(e) => setNewOwnerPassword(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white font-mono" placeholder="Leave blank to auto-generate" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Owner Password</div>
+                  <input value={newOwnerPassword} onChange={(e) => setNewOwnerPassword(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground font-mono" placeholder="Leave blank to auto-generate" />
                 </div>
                 <div className="md:col-span-2">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Default Branch Name</div>
-                  <input value={newBranchName} onChange={(e) => setNewBranchName(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Default Branch Name</div>
+                  <input value={newBranchName} onChange={(e) => setNewBranchName(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">City</div>
-                  <input value={newCity} onChange={(e) => setNewCity(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">City</div>
+                  <input value={newCity} onChange={(e) => setNewCity(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
                 </div>
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Country</div>
-                  <input value={newCountry} onChange={(e) => setNewCountry(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Country</div>
+                  <input value={newCountry} onChange={(e) => setNewCountry(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
                 </div>
                 <div className="md:col-span-2">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#c9b792] mb-1">Address</div>
-                  <input value={newAddress1} onChange={(e) => setNewAddress1(e.target.value)} className="h-10 w-full rounded-lg border border-[#483c23] bg-[#2e281a] px-3 text-sm text-white" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Address</div>
+                  <input value={newAddress1} onChange={(e) => setNewAddress1(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
                 </div>
               </div>
             </div>
 
-            <div className="p-4 border-t border-[#483c23] flex items-center justify-end gap-2">
-              <button type="button" className="h-10 px-4 rounded-lg border border-[#483c23] bg-[#2e281a] text-[#c9b792] hover:text-white" onClick={() => setOnboardOpen(false)}>
+            <div className="p-4 border-t border-border bg-muted/40 flex items-center justify-end gap-2">
+              <button type="button" className="h-10 px-4 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent" onClick={() => setOnboardOpen(false)}>
                 Close
               </button>
-              <button type="button" className="h-10 px-4 rounded-lg bg-[#eead2b] text-[#221c11] font-bold hover:bg-[#d69a25] disabled:opacity-60" onClick={createTenant} disabled={onboardSaving}>
+              <button type="button" className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-60" onClick={createTenant} disabled={onboardSaving}>
                 {onboardSaving ? 'Creating...' : 'Create Cafe'}
               </button>
             </div>

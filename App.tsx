@@ -680,7 +680,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-full bg-gray-50 dark:bg-[#181611] overflow-hidden transition-colors duration-200">
+    <div className="flex h-screen w-full bg-background overflow-hidden transition-colors duration-200">
       <Sidebar
         currentScreen={currentScreen}
         setScreen={navigate}
@@ -688,14 +688,14 @@ const AppContent: React.FC = () => {
         logout={handleLogout}
       />
 
-      <main className="flex-1 h-full overflow-hidden bg-gray-50 dark:bg-background relative transition-colors duration-200 pb-8">
+      <main className="flex-1 h-full overflow-hidden bg-background relative transition-colors duration-200 pb-8">
         {null}
 
         {moduleBlocked ? (
           <div className="absolute top-0 left-0 right-0 z-[110] p-3">
-            <div className="mx-auto max-w-5xl rounded-xl border border-[#483c23] bg-[#221c11] text-[#c9b792] px-4 py-3 flex items-start justify-between gap-4 shadow-xl">
+            <div className="mx-auto max-w-5xl rounded-xl border border-border bg-card text-muted-foreground px-4 py-3 flex items-start justify-between gap-4 shadow-xl">
               <div className="flex flex-col">
-                <div className="text-white font-extrabold text-sm">
+                <div className="text-foreground font-extrabold text-sm">
                   {moduleBlocked.error === 'module_not_enabled'
                     ? `Module disabled${moduleBlocked.module ? `: ${moduleBlocked.module}` : ''}`
                     : moduleBlocked.error === 'subscription_pending_verify'
@@ -720,7 +720,7 @@ const AppContent: React.FC = () => {
                 {userRole === UserRole.CAFE_OWNER ? (
                   <button
                     type="button"
-                    className="h-9 px-3 rounded-lg bg-[#eead2b] text-[#221c11] text-xs font-black hover:bg-[#d6961b]"
+                    className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-black hover:bg-primary/90"
                     onClick={() => {
                       if (moduleBlocked.error === 'module_not_enabled') navigate(Screen.OWNER_SETTINGS);
                       else navigate(Screen.OWNER_BILLING);
@@ -733,7 +733,7 @@ const AppContent: React.FC = () => {
 
                 <button
                   type="button"
-                  className="h-9 px-3 rounded-lg border border-[#483c23] bg-[#2d261a] text-[#c9b792] text-xs font-bold hover:text-white hover:bg-[#362e21]"
+                  className="h-9 px-3 rounded-lg border border-border bg-secondary text-muted-foreground text-xs font-bold hover:text-foreground hover:bg-secondary/80"
                   onClick={() => setModuleBlocked(null)}
                 >
                   Dismiss
@@ -745,9 +745,9 @@ const AppContent: React.FC = () => {
 
         {accessDenied ? (
           <div className="absolute top-0 left-0 right-0 z-[109] p-3">
-            <div className="mx-auto max-w-5xl rounded-xl border border-red-500/30 bg-red-500/10 text-red-100 px-4 py-3 flex items-start justify-between gap-4 shadow-xl">
+            <div className="mx-auto max-w-5xl rounded-xl border border-destructive/30 bg-destructive/10 text-destructive px-4 py-3 flex items-start justify-between gap-4 shadow-xl">
               <div className="flex flex-col">
-                <div className="text-white font-extrabold text-sm">Access denied</div>
+                <div className="text-foreground font-extrabold text-sm">Access denied</div>
                 <div className="text-xs mt-1">You do not have permission to perform this action.</div>
                 {accessDenied.path ? <div className="text-[10px] mt-1 opacity-75 font-mono">{accessDenied.path}</div> : null}
               </div>
@@ -755,7 +755,7 @@ const AppContent: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="h-9 px-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-100 text-xs font-bold hover:bg-red-500/20"
+                  className="h-9 px-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs font-bold hover:bg-destructive/20"
                   onClick={() => setAccessDenied(null)}
                 >
                   Dismiss
@@ -777,12 +777,12 @@ const AppContent: React.FC = () => {
                 setUpgradeModalDismissed(true);
               }}
             />
-            <div className="relative w-full max-w-[640px] rounded-2xl border border-[#675532] bg-[#221c11] shadow-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-[#483c23] flex items-center justify-between">
-                <div className="text-white font-black text-lg">Unlock Premium Features</div>
+            <div className="relative w-full max-w-[640px] rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                <div className="text-foreground font-black text-lg">Unlock Premium Features</div>
                 <button
                   type="button"
-                  className="text-[#c9b792] hover:text-white"
+                  className="text-muted-foreground hover:text-foreground"
                   onClick={() => {
                     try {
                       if (upgradeModalKey) localStorage.setItem(upgradeModalKey, '1');
@@ -795,7 +795,7 @@ const AppContent: React.FC = () => {
                 </button>
               </div>
               <div className="p-6">
-                <div className="text-[#c9b792] text-sm leading-relaxed">
+                <div className="text-muted-foreground text-sm leading-relaxed">
                   {(() => {
                     const st = String((billing as any)?.status || '').toLowerCase().replace(/\s+/g, '_');
                     if (st === 'pending_verify' || st === 'verification_needed') return 'Your upgrade request is awaiting verification. Premium modules are temporarily locked until payment is confirmed.';
@@ -805,7 +805,7 @@ const AppContent: React.FC = () => {
                 <div className="mt-5 flex items-center justify-end gap-3">
                   <button
                     type="button"
-                    className="h-11 px-4 rounded-lg border border-[#483c23] bg-[#2d261a] text-[#c9b792] text-sm font-bold hover:text-white hover:bg-[#362e21]"
+                    className="h-11 px-4 rounded-lg border border-border bg-secondary text-muted-foreground text-sm font-bold hover:text-foreground hover:bg-secondary/80"
                     onClick={() => {
                       try {
                         if (upgradeModalKey) localStorage.setItem(upgradeModalKey, '1');
@@ -818,7 +818,7 @@ const AppContent: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    className="h-11 px-5 rounded-lg bg-[#eead2b] text-[#221c11] text-sm font-black hover:bg-[#d6961b]"
+                    className="h-11 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-black hover:bg-primary/90"
                     onClick={() => {
                       try {
                         localStorage.setItem('mirachpos.settings.initialTab.v1', 'subscription');
@@ -912,8 +912,8 @@ const AppContent: React.FC = () => {
         {currentScreen === Screen.SA_ADDONS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Addons />}
         {currentScreen === Screen.SA_SETTINGS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Settings />}
         {userRole ? (
-          <div className="fixed bottom-0 left-64 right-0 h-8 border-t border-[#393328] bg-[#181611] text-[#b9b09d] text-xs flex items-center justify-center z-40">
-            Powered by <span className="text-white font-bold ml-1">MirachPos</span>
+          <div className="fixed bottom-0 left-64 right-0 h-8 border-t border-border bg-card text-muted-foreground text-xs flex items-center justify-center z-40">
+            Powered by <span className="text-foreground font-bold ml-1">MirachPos</span>
           </div>
         ) : null}
       </main>

@@ -885,8 +885,8 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
           <div
             className={`max-w-[1200px] mx-auto rounded-xl border px-4 py-3 text-sm font-bold mb-5 ${
               flash.kind === 'success'
-                ? 'bg-emerald-900/10 border-emerald-800 text-emerald-200'
-                : 'bg-red-900/10 border-red-800 text-red-200'
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                : 'bg-destructive/10 border-destructive/20 text-destructive'
             }`}
           >
             {flash.message}
@@ -894,7 +894,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
         ) : null}
 
         {loadingRemote ? (
-          <div className="max-w-[1200px] mx-auto rounded-xl border border-border bg-surface px-4 py-3 text-xs text-text-muted font-bold mb-5">
+          <div className="max-w-[1200px] mx-auto rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground font-bold mb-5">
             Loading staff data ¦
           </div>
         ) : null}
@@ -904,7 +904,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
             <div className="flex gap-3">
               <button
                 onClick={exportCsv}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border bg-transparent hover:bg-surface-light text-white text-sm font-semibold transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border bg-transparent hover:bg-accent text-foreground text-sm font-semibold transition-colors"
               >
                 <span className="material-symbols-outlined text-[20px]">file_download</span>
                 Export Report
@@ -920,13 +920,13 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
           </div>
 
           {view === 'list' && pendingLeaveCount > 0 ? (
-            <div className="bg-surface border border-border rounded-xl overflow-hidden">
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="p-4 border-b border-border flex items-center justify-between">
                 <div className="flex flex-col">
-                  <div className="text-white font-bold">Pending Leave Approvals</div>
-                  <div className="text-text-muted text-xs">Approve or reject leave requests.</div>
+                  <div className="text-foreground font-bold">Pending Leave Approvals</div>
+                  <div className="text-muted-foreground text-xs">Approve or reject leave requests.</div>
                 </div>
-                <div className="text-xs text-text-muted">{pendingLeaveCount} pending</div>
+                <div className="text-xs text-muted-foreground">{pendingLeaveCount} pending</div>
               </div>
               <div className="divide-y divide-border">
                 {leaveRequests
@@ -939,8 +939,8 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                         <div className="flex items-center gap-3">
                           {s ? <img src={s.avatar} alt={s.name} className="w-10 h-10 rounded-full border border-border object-cover" /> : null}
                           <div className="flex flex-col">
-                            <div className="text-white font-semibold">{s?.name ?? r.staffId}</div>
-                            <div className="text-text-muted text-xs">
+                            <div className="text-foreground font-semibold">{s?.name ?? r.staffId}</div>
+                            <div className="text-muted-foreground text-xs">
                               {r.from} {r.fromTime || '9:00 AM'} â†’ {r.to} {r.toTime || '6:00 PM'}
                             </div>
                           </div>
@@ -948,7 +948,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                         <div className="flex gap-2">
                           <button
                             onClick={() => setLeaveStatus(r.id, 'Rejected')}
-                            className="px-3 py-2 text-xs font-bold text-text-muted hover:text-white border border-border rounded hover:bg-surface-light transition-colors"
+                            className="px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground border border-border rounded hover:bg-accent transition-colors"
                           >
                             Reject
                           </button>
@@ -967,18 +967,18 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
           ) : null}
 
           {view === 'list' ? (
-            <div className="bg-surface border border-border rounded-xl overflow-hidden">
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="p-4 border-b border-border flex items-center justify-between">
                 <div className="flex flex-col">
-                  <div className="text-white font-bold">New Leave Request</div>
-                  <div className="text-text-muted text-xs">Create a leave request (date + time, 12-hour format).</div>
+                  <div className="text-foreground font-bold">New Leave Request</div>
+                  <div className="text-muted-foreground text-xs">Create a leave request (date + time, 12-hour format).</div>
                 </div>
               </div>
               <div className="p-4 grid grid-cols-1 lg:grid-cols-6 gap-3">
                 <select
                   value={leaveStaffId}
                   onChange={(e) => setLeaveStaffId(e.target.value)}
-                  className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="">Select Staff</option>
                   {staff.map((s) => (
@@ -992,14 +992,14 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                   type="date"
                   value={leaveFromDate}
                   onChange={(e) => setLeaveFromDate(e.target.value)}
-                  className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
 
                 <div className="flex gap-2">
                   <select
                     value={leaveFromTime.hour}
                     onChange={(e) => setLeaveFromTime((t) => ({ ...t, hour: Number(e.target.value) }))}
-                    className="bg-background border border-border rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="bg-background border border-border rounded-lg px-2 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     {hoursOptions.map((h) => (
                       <option key={h} value={h}>
@@ -1010,7 +1010,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                   <select
                     value={leaveFromTime.minute}
                     onChange={(e) => setLeaveFromTime((t) => ({ ...t, minute: Number(e.target.value) }))}
-                    className="bg-background border border-border rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="bg-background border border-border rounded-lg px-2 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     {minuteOptions.map((m) => (
                       <option key={m} value={m}>
@@ -1021,7 +1021,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                   <select
                     value={leaveFromTime.meridiem}
                     onChange={(e) => setLeaveFromTime((t) => ({ ...t, meridiem: e.target.value as 'AM' | 'PM' }))}
-                    className="bg-background border border-border rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="bg-background border border-border rounded-lg px-2 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     <option value="AM">AM</option>
                     <option value="PM">PM</option>
@@ -1032,14 +1032,14 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                   type="date"
                   value={leaveToDate}
                   onChange={(e) => setLeaveToDate(e.target.value)}
-                  className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
 
                 <div className="flex gap-2">
                   <select
                     value={leaveToTime.hour}
                     onChange={(e) => setLeaveToTime((t) => ({ ...t, hour: Number(e.target.value) }))}
-                    className="bg-background border border-border rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="bg-background border border-border rounded-lg px-2 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     {hoursOptions.map((h) => (
                       <option key={h} value={h}>
@@ -1050,7 +1050,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                   <select
                     value={leaveToTime.minute}
                     onChange={(e) => setLeaveToTime((t) => ({ ...t, minute: Number(e.target.value) }))}
-                    className="bg-background border border-border rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="bg-background border border-border rounded-lg px-2 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     {minuteOptions.map((m) => (
                       <option key={m} value={m}>
@@ -1061,7 +1061,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                   <select
                     value={leaveToTime.meridiem}
                     onChange={(e) => setLeaveToTime((t) => ({ ...t, meridiem: e.target.value as 'AM' | 'PM' }))}
-                    className="bg-background border border-border rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="bg-background border border-border rounded-lg px-2 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     <option value="AM">AM</option>
                     <option value="PM">PM</option>
@@ -1071,7 +1071,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                 <input
                   value={leaveReason}
                   onChange={(e) => setLeaveReason(e.target.value)}
-                  className="lg:col-span-5 bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="lg:col-span-5 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   placeholder="Reason (optional)"
                 />
                 <button
@@ -1081,7 +1081,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                   Submit
                 </button>
               </div>
-              <div className="px-4 pb-4 text-xs text-text-muted">
+              <div className="px-4 pb-4 text-xs text-muted-foreground">
                 From: {leaveFromDate} {leaveFromTime.hour}:{String(leaveFromTime.minute).padStart(2, '0')} {leaveFromTime.meridiem}    To: {leaveToDate}{' '}
                 {leaveToTime.hour}:{String(leaveToTime.minute).padStart(2, '0')} {leaveToTime.meridiem}
               </div>
@@ -1089,73 +1089,73 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
           ) : null}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden group">
+            <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                 <span className="material-symbols-outlined text-6xl text-primary">badge</span>
               </div>
-              <p className="text-text-muted text-sm font-medium uppercase tracking-wider">Active Staff</p>
+              <p className="text-muted-foreground text-sm font-medium uppercase tracking-wider">Active Staff</p>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-white">{activeStaffCount}</span>
-                <span className="text-text-muted text-lg">/ {staff.length}</span>
+                <span className="text-3xl font-bold text-foreground">{activeStaffCount}</span>
+                <span className="text-muted-foreground text-lg">/ {staff.length}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="flex items-center text-green-500 font-medium bg-green-500/10 px-1.5 py-0.5 rounded">
                   <span className="material-symbols-outlined text-[16px] mr-1">trending_flat</span>
                   Stable
                 </span>
-                <span className="text-text-muted">vs last week</span>
+                <span className="text-muted-foreground">vs last week</span>
               </div>
             </div>
 
-            <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden group">
+            <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-6xl text-white">calendar_clock</span>
+                <span className="material-symbols-outlined text-6xl text-muted-foreground">calendar_clock</span>
               </div>
-              <p className="text-text-muted text-sm font-medium uppercase tracking-wider">Pending Approvals</p>
+              <p className="text-muted-foreground text-sm font-medium uppercase tracking-wider">Pending Approvals</p>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-white">{pendingLeaveCount}</span>
-                <span className="text-text-muted text-lg">requests</span>
+                <span className="text-3xl font-bold text-foreground">{pendingLeaveCount}</span>
+                <span className="text-muted-foreground text-lg">requests</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="flex items-center text-primary font-medium bg-primary/10 px-1.5 py-0.5 rounded">+1 new</span>
-                <span className="text-text-muted">since login</span>
+                <span className="text-muted-foreground">since login</span>
               </div>
             </div>
 
-            <div className="bg-surface border border-border rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden group">
+            <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                 <span className="material-symbols-outlined text-6xl text-red-400">trending_up</span>
               </div>
-              <p className="text-text-muted text-sm font-medium uppercase tracking-wider">Labor Cost %</p>
+              <p className="text-muted-foreground text-sm font-medium uppercase tracking-wider">Labor Cost %</p>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-white">{Math.round((onShiftCount / Math.max(1, staff.length)) * 100)}%</span>
+                <span className="text-3xl font-bold text-foreground">{Math.round((onShiftCount / Math.max(1, staff.length)) * 100)}%</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="flex items-center text-green-500 font-medium bg-green-500/10 px-1.5 py-0.5 rounded">
                   <span className="material-symbols-outlined text-[16px] mr-1">arrow_downward</span>
                   2%
                 </span>
-                <span className="text-text-muted">under budget target</span>
+                <span className="text-muted-foreground">under budget target</span>
               </div>
             </div>
           </div>
 
           <div className="flex flex-col gap-4 mb-6">
-            <div className="flex flex-col sm:flex-row justify-between gap-4 p-4 border border-border rounded-xl bg-surface">
+            <div className="flex flex-col sm:flex-row justify-between gap-4 p-4 border border-border rounded-xl bg-card">
               <div className="flex items-center gap-2 flex-1 max-w-md">
                 <div className="relative flex-1">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-[20px]">search</span>
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]">search</span>
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+                    className="w-full bg-background border border-border rounded-lg pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
                     placeholder="Search staff by name or ID..."
                     type="text"
                   />
                 </div>
                 <button
                   onClick={() => setRoleFilter(roleFilter === 'All' ? (roles[1] ?? 'All') : 'All')}
-                  className="flex items-center justify-center p-2.5 rounded-lg border border-border bg-background text-text-muted hover:text-white hover:border-text-muted transition-colors"
+                  className="flex items-center justify-center p-2.5 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground transition-colors"
                   title="Quick toggle role filter"
                 >
                   <span className="material-symbols-outlined text-[20px]">filter_list</span>
@@ -1165,7 +1165,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                 <button
                   onClick={() => setChipFilter('All')}
                   className={`px-4 py-2 rounded-lg text-sm font-semibold border whitespace-nowrap transition-colors ${
-                    chipFilter === 'All' ? 'bg-primary/20 text-primary border-primary/30' : 'hover:bg-surface-light text-text-muted hover:text-white border-transparent'
+                    chipFilter === 'All' ? 'bg-primary/20 text-primary border-primary/30' : 'hover:bg-accent text-muted-foreground hover:text-foreground border-transparent'
                   }`}
                 >
                   All Staff
@@ -1173,7 +1173,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                 <button
                   onClick={() => setChipFilter('OnShift')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                    chipFilter === 'OnShift' ? 'bg-primary/20 text-primary border border-primary/30' : 'hover:bg-surface-light text-text-muted hover:text-white'
+                    chipFilter === 'OnShift' ? 'bg-primary/20 text-primary border border-primary/30' : 'hover:bg-accent text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   On Shift
@@ -1181,7 +1181,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                 <button
                   onClick={() => setChipFilter('Kitchen')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                    chipFilter === 'Kitchen' ? 'bg-primary/20 text-primary border border-primary/30' : 'hover:bg-surface-light text-text-muted hover:text-white'
+                    chipFilter === 'Kitchen' ? 'bg-primary/20 text-primary border border-primary/30' : 'hover:bg-accent text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   Kitchen
@@ -1189,7 +1189,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                 <button
                   onClick={() => setChipFilter('Service')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                    chipFilter === 'Service' ? 'bg-primary/20 text-primary border border-primary/30' : 'hover:bg-surface-light text-text-muted hover:text-white'
+                    chipFilter === 'Service' ? 'bg-primary/20 text-primary border border-primary/30' : 'hover:bg-accent text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   Service
@@ -1198,16 +1198,16 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="flex bg-surface border border-border rounded-lg p-1">
+              <div className="flex bg-card border border-border rounded-lg p-1">
                 <button
                   onClick={() => setView('list')}
-                  className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${view === 'list' ? 'bg-primary text-background shadow-lg' : 'text-text-muted hover:text-white'}`}
+                  className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${view === 'list' ? 'bg-primary text-background shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   Employee List
                 </button>
                 <button
                   onClick={() => setView('schedule')}
-                  className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${view === 'schedule' ? 'bg-primary text-background shadow-lg' : 'text-text-muted hover:text-white'}`}
+                  className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${view === 'schedule' ? 'bg-primary text-background shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   Shift Schedule
                 </button>
@@ -1215,7 +1215,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
-                className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                className="bg-card border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 {roles.map((r) => (
                   <option key={r} value={r}>
@@ -1227,10 +1227,10 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
           </div>
 
           {view === 'list' && (
-            <div className="flex flex-col bg-surface border border-border rounded-xl overflow-hidden shadow-xl">
+            <div className="flex flex-col bg-card border border-border rounded-xl overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
-                  <thead className="bg-surface-light/30 text-xs uppercase text-text-muted font-semibold tracking-wider">
+                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground font-semibold tracking-wider">
                     <tr>
                       <th className="px-6 py-4">Employee</th>
                       <th className="px-6 py-4">Role</th>
@@ -1243,7 +1243,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                   <tbody className="divide-y divide-border">
                     {pagedStaff.length === 0 ? (
                       <tr>
-                        <td className="px-6 py-8 text-text-muted" colSpan={6}>
+                        <td className="px-6 py-8 text-muted-foreground" colSpan={6}>
                           No staff found.
                         </td>
                       </tr>
@@ -1257,23 +1257,23 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
 
                         const plannedHours = plannedHoursThisWeekByStaffId.get(s.id) ?? 0;
                         const pct = Math.max(0, Math.min(100, (plannedHours / 40) * 100));
-                        const scheduleBar = isOnBreak ? 'bg-orange-400' : onShift ? 'bg-primary' : 'bg-text-muted/40';
+                        const scheduleBar = isOnBreak ? 'bg-orange-400' : onShift ? 'bg-primary' : 'bg-muted';
 
                         const shiftCount = shiftCountLast7DaysByStaffId.get(s.id) ?? 0;
-                        const rolePill = roleGroup(s.role) === 'Kitchen' ? 'bg-primary/20 text-primary border border-primary/20' : 'bg-surface-light text-white border border-white/10';
+                        const rolePill = roleGroup(s.role) === 'Kitchen' ? 'bg-primary/20 text-primary border border-primary/20' : 'bg-muted text-foreground border border-border';
 
                         const statusLabel = isOnBreak ? 'On Break' : lateMinutes > 0 ? 'Late' : onShift ? 'On Shift' : s.status === 'Active' ? 'Off Duty' : s.status;
-                        const statusDot = isOnBreak ? 'bg-orange-400' : lateMinutes > 0 ? 'bg-red-500 animate-pulse' : onShift ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-surface-light border border-text-muted';
+                        const statusDot = isOnBreak ? 'bg-orange-400' : lateMinutes > 0 ? 'bg-red-500 animate-pulse' : onShift ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-muted border border-border';
 
                         const breakLeftMins = isOnBreak ? Math.max(0, Math.ceil((new Date(runtime.breakUntil!).getTime() - Date.now()) / (1000 * 60))) : 0;
                         return (
-                          <tr key={s.id} className="group hover:bg-surface-light/20 transition-colors">
+                          <tr key={s.id} className="group hover:bg-accent/50 transition-colors">
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="size-10 rounded-full bg-cover bg-center border border-border" style={{ backgroundImage: `url('${s.avatar}')` }} />
                                 <div>
-                                  <p className="font-bold text-white text-sm">{s.name}</p>
-                                  <p className="text-xs text-text-muted">ID: {s.id}</p>
+                                  <p className="font-bold text-foreground text-sm">{s.name}</p>
+                                  <p className="text-xs text-muted-foreground">ID: {s.id}</p>
                                 </div>
                               </div>
                             </td>
@@ -1285,15 +1285,15 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                 <div
                                   className={`size-2.5 rounded-full ${statusDot}`}
                                 />
-                                <span className={`text-sm font-medium ${onShift ? 'text-white' : 'text-text-muted'}`}>{statusLabel}</span>
-                                {onShift && active ? <span className="text-xs text-text-muted ml-1">(Since {formatTime12(active.clockInAt)})</span> : null}
-                                {isOnBreak ? <span className="text-xs text-text-muted ml-1">({breakLeftMins}m left)</span> : null}
+                                <span className={`text-sm font-medium ${onShift ? 'text-foreground' : 'text-muted-foreground'}`}>{statusLabel}</span>
+                                {onShift && active ? <span className="text-xs text-muted-foreground ml-1">(Since {formatTime12(active.clockInAt)})</span> : null}
+                                {isOnBreak ? <span className="text-xs text-muted-foreground ml-1">({breakLeftMins}m left)</span> : null}
                                 {lateMinutes > 0 ? <span className="text-xs text-red-300 ml-1">(+{lateMinutes}m)</span> : null}
                               </div>
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex flex-col gap-1">
-                                <div className="flex justify-between text-xs text-text-muted mb-0.5">
+                                <div className="flex justify-between text-xs text-muted-foreground mb-0.5">
                                   <span>{plannedHours.toFixed(0)}h / 40h</span>
                                 </div>
                                 <div className="w-24 h-1.5 bg-background rounded-full overflow-hidden">
@@ -1303,26 +1303,26 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                             </td>
                             <td className="px-6 py-4 text-right">
                               <div className="flex flex-col items-end">
-                                <span className="text-sm font-bold text-white">{(hoursLast7DaysByStaffId.get(s.id) ?? 0).toFixed(1)}h</span>
-                                <span className="text-xs text-text-muted">Last 7 days</span>
+                                <span className="text-sm font-bold text-foreground">{(hoursLast7DaysByStaffId.get(s.id) ?? 0).toFixed(1)}h</span>
+                                <span className="text-xs text-muted-foreground">Last 7 days</span>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
                               <div className="relative inline-block text-left">
                                 <button
                                   onClick={() => setActionsId((prev) => (prev === s.id ? null : s.id))}
-                                  className="p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-surface-light transition-colors"
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                                 >
                                   <span className="material-symbols-outlined text-[20px]">more_vert</span>
                                 </button>
                                 {actionsId === s.id ? (
-                                  <div className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-surface shadow-xl z-20 overflow-hidden">
+                                  <div className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-card shadow-xl z-20 overflow-hidden">
                                     <button
                                       onClick={() => {
                                         setProfileId(s.id);
                                         setActionsId(null);
                                       }}
-                                      className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                      className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                     >
                                       View Profile
                                     </button>
@@ -1331,7 +1331,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                         openEdit(s.id);
                                         setActionsId(null);
                                       }}
-                                      className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                      className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                     >
                                       Edit Staff
                                     </button>
@@ -1350,7 +1350,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                         setShiftHistoryId(s.id);
                                         setActionsId(null);
                                       }}
-                                      className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                      className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                     >
                                       Shift History
                                     </button>
@@ -1359,7 +1359,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                         setPaySlipId(s.id);
                                         setActionsId(null);
                                       }}
-                                      className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                      className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                     >
                                       Pay Slip
                                     </button>
@@ -1372,7 +1372,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                           clockOut(s.id);
                                           setActionsId(null);
                                         }}
-                                        className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                        className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                       >
                                         Clock Out
                                       </button>
@@ -1382,7 +1382,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                           clockIn(s.id);
                                           setActionsId(null);
                                         }}
-                                        className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                        className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                       >
                                         Clock In
                                       </button>
@@ -1396,7 +1396,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                               clearBreak(s.id);
                                               setActionsId(null);
                                             }}
-                                            className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                            className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                           >
                                             End Break
                                           </button>
@@ -1406,7 +1406,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                               setBreak(s.id, 15);
                                               setActionsId(null);
                                             }}
-                                            className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                            className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                           >
                                             Start Break (15m)
                                           </button>
@@ -1417,7 +1417,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                             addLate(s.id, 5);
                                             setActionsId(null);
                                           }}
-                                          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                          className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                         >
                                           Mark Late (+5m)
                                         </button>
@@ -1426,7 +1426,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                             addLate(s.id, 15);
                                             setActionsId(null);
                                           }}
-                                          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                          className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                         >
                                           Mark Late (+15m)
                                         </button>
@@ -1435,7 +1435,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                             clearLate(s.id);
                                             setActionsId(null);
                                           }}
-                                          className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                          className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                         >
                                           Clear Late
                                         </button>
@@ -1449,7 +1449,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                         createLeaveRequest(s.id, 3);
                                         setActionsId(null);
                                       }}
-                                      className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                      className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                     >
                                       Request Leave (3 days)
                                     </button>
@@ -1458,7 +1458,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                         createLeaveRequest(s.id, 7);
                                         setActionsId(null);
                                       }}
-                                      className="w-full text-left px-3 py-2 text-sm text-white hover:bg-surface-light"
+                                      className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent"
                                     >
                                       Request Leave (7 days)
                                     </button>
@@ -1473,21 +1473,21 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                   </tbody>
                 </table>
               </div>
-              <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-surface">
-                <p className="text-sm text-text-muted">
-                  Showing <span className="text-white font-medium">{showingRange.start}-{showingRange.end}</span> of{' '}
-                  <span className="text-white font-medium">{showingRange.total}</span> staff
+              <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-card">
+                <p className="text-sm text-muted-foreground">
+                  Showing <span className="text-foreground font-medium">{showingRange.start}-{showingRange.end}</span> of{' '}
+                  <span className="text-foreground font-medium">{showingRange.total}</span> staff
                 </p>
                 <div className="flex gap-2">
                   <button
-                    className="px-3 py-1 rounded border border-border text-text-muted hover:bg-surface-light hover:text-white transition-colors disabled:opacity-50 text-sm"
+                    className="px-3 py-1 rounded border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50 text-sm"
                     disabled={pageIndex <= 0}
                     onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
                   >
                     Previous
                   </button>
                   <button
-                    className="px-3 py-1 rounded border border-border text-text-muted hover:bg-surface-light hover:text-white transition-colors text-sm"
+                    className="px-3 py-1 rounded border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors text-sm"
                     disabled={pageIndex >= pageCount - 1}
                     onClick={() => setPageIndex((p) => Math.min(pageCount - 1, p + 1))}
                   >
@@ -1499,20 +1499,20 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
           )}
 
           {view === 'schedule' && (
-            <div className="bg-surface border border-border rounded-xl overflow-hidden">
-                <div className="p-4 bg-surface-light border-b border-border flex flex-col gap-3">
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <div className="p-4 bg-muted/50 border-b border-border flex flex-col gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex flex-col">
-                        <h3 className="text-white font-bold">
+                        <h3 className="text-foreground font-bold">
                           Week of {weekStart} - {addDays(weekStart, 6)}
                         </h3>
-                        <div className="text-xs text-text-muted">Plan next week or any week in a month using the navigator.</div>
+                        <div className="text-xs text-muted-foreground">Plan next week or any week in a month using the navigator.</div>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => setScheduleEditMode((v) => !v)}
                           className={`px-3 py-1.5 rounded border text-xs font-bold transition-colors ${
-                            scheduleEditMode ? 'bg-primary/20 text-primary border-primary/30' : 'border-border text-text-muted hover:bg-border hover:text-white'
+                            scheduleEditMode ? 'bg-primary/20 text-primary border-primary/30' : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                           }`}
                         >
                           {scheduleEditMode ? 'Done Editing' : 'Edit Week'}
@@ -1529,7 +1529,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                             setScheduleEditMode(false);
                             setEditingCell(null);
                           }}
-                          className="p-1.5 rounded hover:bg-border text-white"
+                          className="p-1.5 rounded hover:bg-accent text-foreground"
                           title="Previous week"
                         >
                           <span className="material-symbols-outlined">chevron_left</span>
@@ -1540,7 +1540,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                             setScheduleEditMode(false);
                             setEditingCell(null);
                           }}
-                          className="p-1.5 rounded hover:bg-border text-white"
+                          className="p-1.5 rounded hover:bg-accent text-foreground"
                           title="Next week"
                         >
                           <span className="material-symbols-outlined">chevron_right</span>
@@ -1549,7 +1549,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
-                      <label className="text-xs text-text-muted">Month</label>
+                      <label className="text-xs text-muted-foreground">Month</label>
                       <input
                         type="month"
                         value={weekStart.slice(0, 7)}
@@ -1561,7 +1561,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                           setScheduleEditMode(false);
                           setEditingCell(null);
                         }}
-                        className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-white"
+                        className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                       />
                       <div className="flex gap-2 overflow-x-auto">
                         {(() => {
@@ -1584,7 +1584,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                               setEditingCell(null);
                             }}
                             className={`px-3 py-2 rounded-lg text-xs font-bold border whitespace-nowrap transition-colors ${
-                              w === weekStart ? 'bg-primary/20 text-primary border-primary/30' : 'border-border text-text-muted hover:bg-border hover:text-white'
+                              w === weekStart ? 'bg-primary/20 text-primary border-primary/30' : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                             }`}
                           >
                             {w}
@@ -1599,16 +1599,16 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr>
-                                <th className="p-4 border-b border-r border-border bg-surface-light/50 text-xs font-bold text-text-muted uppercase w-48 sticky left-0 z-10 backdrop-blur">Staff Member</th>
+                                <th className="p-4 border-b border-r border-border bg-muted/50 text-xs font-bold text-muted-foreground uppercase w-48 sticky left-0 z-10 backdrop-blur">Staff Member</th>
                                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                                    <th key={day} className="p-4 border-b border-border text-xs font-bold text-text-muted uppercase text-center min-w-[120px]">{day}</th>
+                                    <th key={day} className="p-4 border-b border-border text-xs font-bold text-muted-foreground uppercase text-center min-w-[120px]">{day}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                             {currentWeekRows.map((row, i) => (
                                 <tr key={i}>
-                                    <td className="p-4 border-r border-border bg-surface font-bold text-sm text-white sticky left-0 z-10">
+                                    <td className="p-4 border-r border-border bg-card font-bold text-sm text-foreground sticky left-0 z-10">
                                       {staffById.get(row.staffId)?.name || row.staffId}
                                     </td>
                                     {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
@@ -1625,9 +1625,9 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                                 }}
                                                 className={`w-full rounded p-2 text-xs font-bold text-center border transition-colors ${
                                                   isSelected
-                                                    ? 'bg-primary/20 border-primary/40 text-white'
+                                                    ? 'bg-primary/20 border-primary/40 text-foreground'
                                                     : isOff
-                                                      ? 'bg-surface-light border-border text-text-muted/50'
+                                                      ? 'bg-muted border-border text-muted-foreground'
                                                       : 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/15'
                                                 }`}
                                                 disabled={!scheduleEditMode}
@@ -1643,9 +1643,9 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                     </table>
                   </div>
 
-                  <div className="hidden xl:block border-l border-border bg-surface p-4">
+                  <div className="hidden xl:block border-l border-border bg-card p-4">
                     {!scheduleEditMode || !editingCell ? (
-                      <div className="text-text-muted text-sm">Click any day cell to edit shift time.</div>
+                      <div className="text-muted-foreground text-sm">Click any day cell to edit shift time.</div>
                     ) : (
                       (() => {
                         const row = currentWeekRows.find((r) => r.staffId === editingCell.staffId);
@@ -1655,21 +1655,21 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                         return (
                           <div className="flex flex-col gap-4">
                             <div className="flex items-center justify-between">
-                              <div className="text-white font-bold">Edit Shift</div>
+                              <div className="text-foreground font-bold">Edit Shift</div>
                               <button
                                 onClick={() => setEditingCell(null)}
-                                className="text-text-muted hover:text-white"
+                                className="text-muted-foreground hover:text-foreground"
                               >
                                 <span className="material-symbols-outlined">close</span>
                               </button>
                             </div>
 
-                            <div className="text-sm text-white">
+                            <div className="text-sm text-foreground">
                               {staffName}
-                              <span className="text-text-muted">    {String(editingCell.day).toUpperCase()}</span>
+                              <span className="text-muted-foreground">    {String(editingCell.day).toUpperCase()}</span>
                             </div>
 
-                            <label className="flex items-center gap-2 text-sm text-text-muted">
+                            <label className="flex items-center gap-2 text-sm text-muted-foreground">
                               <input
                                 type="checkbox"
                                 checked={parts.off}
@@ -1681,7 +1681,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
 
                             {!parts.off ? (
                               <div className="grid grid-cols-1 gap-3">
-                                <div className="text-xs text-text-muted font-bold uppercase tracking-wider">Start</div>
+                                <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Start</div>
                                 <div className="flex gap-2">
                                   <select
                                     value={parts.start.hour}
@@ -1689,7 +1689,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                       const next = { ...parts, start: { ...parts.start, hour: Number(e.target.value) } };
                                       updateScheduleCell(editingCell.staffId, editingCell.day, formatShift12(next.start, next.end));
                                     }}
-                                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-white"
+                                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                                   >
                                     {hoursOptions.map((h) => (
                                       <option key={h} value={h}>
@@ -1703,7 +1703,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                       const next = { ...parts, start: { ...parts.start, minute: Number(e.target.value) } };
                                       updateScheduleCell(editingCell.staffId, editingCell.day, formatShift12(next.start, next.end));
                                     }}
-                                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-white"
+                                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                                   >
                                     {minuteOptions.map((m) => (
                                       <option key={m} value={m}>
@@ -1717,14 +1717,14 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                       const next = { ...parts, start: { ...parts.start, meridiem: e.target.value as 'AM' | 'PM' } };
                                       updateScheduleCell(editingCell.staffId, editingCell.day, formatShift12(next.start, next.end));
                                     }}
-                                    className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-white"
+                                    className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                                   >
                                     <option value="AM">AM</option>
                                     <option value="PM">PM</option>
                                   </select>
                                 </div>
 
-                                <div className="text-xs text-text-muted font-bold uppercase tracking-wider mt-2">End</div>
+                                <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider mt-2">End</div>
                                 <div className="flex gap-2">
                                   <select
                                     value={parts.end.hour}
@@ -1732,7 +1732,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                       const next = { ...parts, end: { ...parts.end, hour: Number(e.target.value) } };
                                       updateScheduleCell(editingCell.staffId, editingCell.day, formatShift12(next.start, next.end));
                                     }}
-                                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-white"
+                                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                                   >
                                     {hoursOptions.map((h) => (
                                       <option key={h} value={h}>
@@ -1746,7 +1746,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                       const next = { ...parts, end: { ...parts.end, minute: Number(e.target.value) } };
                                       updateScheduleCell(editingCell.staffId, editingCell.day, formatShift12(next.start, next.end));
                                     }}
-                                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-white"
+                                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                                   >
                                     {minuteOptions.map((m) => (
                                       <option key={m} value={m}>
@@ -1760,17 +1760,17 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                       const next = { ...parts, end: { ...parts.end, meridiem: e.target.value as 'AM' | 'PM' } };
                                       updateScheduleCell(editingCell.staffId, editingCell.day, formatShift12(next.start, next.end));
                                     }}
-                                    className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-white"
+                                    className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                                   >
                                     <option value="AM">AM</option>
                                     <option value="PM">PM</option>
                                   </select>
                                 </div>
 
-                                <div className="text-xs text-text-muted">Saved automatically for {weekStart}.</div>
+                                <div className="text-xs text-muted-foreground">Saved automatically for {weekStart}.</div>
                               </div>
                             ) : (
-                              <div className="text-text-muted text-sm">Marked as Off.</div>
+                              <div className="text-muted-foreground text-sm">Marked as Off.</div>
                             )}
                           </div>
                         );
@@ -1789,39 +1789,39 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
         onClose={closeAdd}
         footer={
           <div className="flex gap-3">
-            <button onClick={closeAdd} className="flex-1 h-11 rounded-lg bg-surface-light hover:bg-border border border-border text-white font-semibold transition-colors" disabled={busy}>Cancel</button>
+            <button onClick={closeAdd} className="flex-1 h-11 rounded-lg bg-muted hover:bg-accent border border-border text-foreground font-semibold transition-colors" disabled={busy}>Cancel</button>
             <button onClick={saveAdd} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary-hover text-background font-extrabold transition-colors disabled:opacity-60" disabled={busy}>{busy ? 'Saving ¦' : 'Save'}</button>
           </div>
         }
       >
         <div className="flex flex-col gap-3">
-          <label className="text-sm font-bold text-text-muted">Name</label>
-          <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" placeholder="Full name" />
-          <label className="text-sm font-bold text-text-muted">Role</label>
-          <input value={draftRole} onChange={(e) => setDraftRole(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" placeholder="Waiter" />
-          <label className="text-sm font-bold text-text-muted">Phone</label>
-          <input value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" placeholder="+251 ..." />
-          <label className="text-sm font-bold text-text-muted">Email</label>
+          <label className="text-sm font-bold text-muted-foreground">Name</label>
+          <input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" placeholder="Full name" />
+          <label className="text-sm font-bold text-muted-foreground">Role</label>
+          <input value={draftRole} onChange={(e) => setDraftRole(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" placeholder="Waiter" />
+          <label className="text-sm font-bold text-muted-foreground">Phone</label>
+          <input value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" placeholder="+251 ..." />
+          <label className="text-sm font-bold text-muted-foreground">Email</label>
           <input
             value={draftEmail}
             onChange={(e) => setDraftEmail(e.target.value)}
-            className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
             placeholder="name@example.com"
           />
           {!editId ? (
             <>
-              <label className="text-sm font-bold text-text-muted">Password</label>
+              <label className="text-sm font-bold text-muted-foreground">Password</label>
               <input
                 value={draftPassword}
                 onChange={(e) => setDraftPassword(e.target.value)}
-                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white"
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
                 placeholder="Temporary password"
                 type="password"
               />
             </>
           ) : null}
-          <label className="text-sm font-bold text-text-muted">Shift</label>
-          <input value={draftShift} onChange={(e) => setDraftShift(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-white" placeholder="08:00 - 16:00" />
+          <label className="text-sm font-bold text-muted-foreground">Shift</label>
+          <input value={draftShift} onChange={(e) => setDraftShift(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" placeholder="08:00 - 16:00" />
         </div>
       </Modal>
 
@@ -1833,7 +1833,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
           <div className="flex gap-3">
             <button
               onClick={() => setDeleteId(null)}
-              className="flex-1 h-11 rounded-lg bg-surface-light hover:bg-border border border-border text-white font-semibold transition-colors"
+              className="flex-1 h-11 rounded-lg bg-muted hover:bg-accent border border-border text-foreground font-semibold transition-colors"
               disabled={busy}
             >
               Cancel
@@ -1872,7 +1872,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                   }
                 })();
               }}
-              className="flex-1 h-11 rounded-lg bg-red-600 hover:bg-red-500 text-white font-extrabold transition-colors disabled:opacity-60"
+              className="flex-1 h-11 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-extrabold transition-colors disabled:opacity-60"
               disabled={busy}
             >
               {busy ? 'Deleting ¦' : 'Delete'}
@@ -1880,7 +1880,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
           </div>
         }
       >
-        <div className="text-sm text-text-muted">This will permanently remove the staff member from this branch.</div>
+        <div className="text-sm text-muted-foreground">This will permanently remove the staff member from this branch.</div>
       </Modal>
 
       <Modal
@@ -1889,7 +1889,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
         onClose={() => setShiftHistoryId(null)}
         footer={
           <div className="flex gap-3">
-            <button onClick={() => setShiftHistoryId(null)} className="flex-1 h-11 rounded-lg bg-surface-light hover:bg-border border border-border text-white font-semibold transition-colors">Close</button>
+            <button onClick={() => setShiftHistoryId(null)} className="flex-1 h-11 rounded-lg bg-muted hover:bg-accent border border-border text-foreground font-semibold transition-colors">Close</button>
           </div>
         }
       >
@@ -1898,14 +1898,14 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
           const rows = sid ? shiftLogs.filter((l) => l.staffId === sid) : [];
           return (
             <div className="space-y-3">
-              <div className="text-sm text-text-muted">
+              <div className="text-sm text-muted-foreground">
                 Showing the most recent shifts for this staff member.
               </div>
               <div className="rounded-lg border border-border overflow-hidden">
                 <div className="max-w-full overflow-x-auto">
                   <table className="min-w-[520px] w-full text-left text-sm">
-                    <thead className="bg-surface-light/50">
-                      <tr className="text-xs font-bold text-text-muted uppercase">
+                    <thead className="bg-muted/50">
+                      <tr className="text-xs font-bold text-muted-foreground uppercase">
                         <th className="p-3 border-b border-border">Clock In</th>
                         <th className="p-3 border-b border-border">Clock Out</th>
                         <th className="p-3 border-b border-border">Status</th>
@@ -1914,18 +1914,18 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                     <tbody className="divide-y divide-border">
                       {rows.length === 0 ? (
                         <tr>
-                          <td className="p-4 text-text-muted" colSpan={3}>
+                          <td className="p-4 text-muted-foreground" colSpan={3}>
                             No shifts recorded yet.
                           </td>
                         </tr>
                       ) : (
                         rows.slice(0, 25).map((r) => (
                           <tr key={r.id}>
-                            <td className="p-3 text-white font-mono">{formatDateTime12(r.clockInAt)}</td>
-                            <td className="p-3 text-white font-mono">{r.clockOutAt ? formatDateTime12(r.clockOutAt) : ' ”'}</td>
+                            <td className="p-3 text-foreground font-mono">{formatDateTime12(r.clockInAt)}</td>
+                            <td className="p-3 text-foreground font-mono">{r.clockOutAt ? formatDateTime12(r.clockOutAt) : ' ”'}</td>
                             <td className="p-3">
                               {r.clockOutAt ? (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-surface-light text-text-muted border border-border">Closed</span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-muted text-muted-foreground border border-border">Closed</span>
                               ) : (
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-primary/10 text-primary border border-primary/20">Open</span>
                               )}
@@ -1948,7 +1948,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
         onClose={() => setProfileId(null)}
         footer={
           <div className="flex gap-3">
-            <button onClick={() => setProfileId(null)} className="flex-1 h-11 rounded-lg bg-surface-light hover:bg-border border border-border text-white font-semibold transition-colors">Close</button>
+            <button onClick={() => setProfileId(null)} className="flex-1 h-11 rounded-lg bg-muted hover:bg-accent border border-border text-foreground font-semibold transition-colors">Close</button>
           </div>
         }
       >
@@ -1957,10 +1957,10 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
             <img src={profile.avatar} alt={profile.name} className="w-14 h-14 rounded-full border border-border object-cover" />
           ) : null}
           <div className="flex flex-col gap-1">
-            <div className="text-white font-bold">{profile?.name}</div>
-            <div className="text-text-muted text-sm">{profile?.role}</div>
-            <div className="text-text-muted text-sm">{profile?.phone}</div>
-            <div className="text-text-muted text-sm">Shift: {profile?.shift}</div>
+            <div className="text-foreground font-bold">{profile?.name}</div>
+            <div className="text-muted-foreground text-sm">{profile?.role}</div>
+            <div className="text-muted-foreground text-sm">{profile?.phone}</div>
+            <div className="text-muted-foreground text-sm">Shift: {profile?.shift}</div>
           </div>
         </div>
       </Modal>
@@ -1971,12 +1971,12 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
         onClose={() => setPaySlipId(null)}
         footer={
           <div className="flex gap-3">
-            <button onClick={() => setPaySlipId(null)} className="flex-1 h-11 rounded-lg bg-surface-light hover:bg-border border border-border text-white font-semibold transition-colors">Close</button>
+            <button onClick={() => setPaySlipId(null)} className="flex-1 h-11 rounded-lg bg-muted hover:bg-accent border border-border text-foreground font-semibold transition-colors">Close</button>
             <button onClick={() => window.print()} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary-hover text-background font-extrabold transition-colors">Print</button>
           </div>
         }
       >
-        <div className="text-sm text-text-muted">
+        <div className="text-sm text-muted-foreground">
           This is a placeholder pay slip preview. Hook your payroll backend to show real earnings and deductions.
         </div>
       </Modal>

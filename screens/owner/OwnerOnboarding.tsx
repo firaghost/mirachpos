@@ -147,16 +147,16 @@ export const OwnerOnboarding: React.FC<{ onNavigate?: (screen: Screen) => void; 
   }, [form.address1, form.city, form.contactPhone, form.country]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#181611] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <OwnerPageHeader
         title="Setup"
-        leftSlot={<p className="text-xs text-[#b9b09d]">Complete onboarding for {tenantName}</p>}
+        leftSlot={<p className="text-xs text-muted-foreground">Complete onboarding for {tenantName}</p>}
         rightSlot={
           <button
             type="button"
             disabled={loading}
             onClick={load}
-            className="h-10 px-4 rounded-lg bg-[#393328] text-white text-sm font-bold hover:bg-[#393328]/80 disabled:opacity-50"
+            className="h-10 px-4 rounded-lg bg-muted text-foreground text-sm font-bold hover:bg-accent disabled:opacity-50"
           >
             Refresh
           </button>
@@ -165,71 +165,71 @@ export const OwnerOnboarding: React.FC<{ onNavigate?: (screen: Screen) => void; 
 
       <div className="flex-1 overflow-y-auto p-6 lg:p-10">
         {error ? (
-          <div className="mb-6 rounded-lg border border-red-900/40 bg-red-900/10 p-4 text-sm text-red-200">{error}</div>
+          <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>
         ) : null}
 
         {loading ? (
-          <div className="text-sm text-[#b9b09d]">Loading onboarding ¦</div>
+          <div className="text-sm text-muted-foreground">Loading onboarding ¦</div>
         ) : null}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-4">
-          <div className="lg:col-span-7 rounded-xl border border-[#393328] bg-[#221c10] p-6">
+          <div className="lg:col-span-7 rounded-xl border border-border bg-card p-6">
             <h3 className="text-lg font-bold mb-4">Company profile</h3>
-            <p className="text-sm text-[#b9b09d] mb-6">This is used for receipts, invoices, and branch setup.</p>
+            <p className="text-sm text-muted-foreground mb-6">This is used for receipts, invoices, and branch setup.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="flex flex-col gap-2">
-                <span className="text-xs text-[#b9b09d]">Phone</span>
+                <span className="text-xs text-muted-foreground">Phone</span>
                 <input
                   value={form.contactPhone}
                   onChange={(e) => setForm((p) => ({ ...p, contactPhone: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#181611] border border-[#393328] px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#eead2b]"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
               <label className="flex flex-col gap-2">
-                <span className="text-xs text-[#b9b09d]">Timezone</span>
+                <span className="text-xs text-muted-foreground">Timezone</span>
                 <input
                   value={form.timezone}
                   onChange={(e) => setForm((p) => ({ ...p, timezone: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#181611] border border-[#393328] px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#eead2b]"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
               <label className="flex flex-col gap-2 md:col-span-2">
-                <span className="text-xs text-[#b9b09d]">Address</span>
+                <span className="text-xs text-muted-foreground">Address</span>
                 <input
                   value={form.address1}
                   onChange={(e) => setForm((p) => ({ ...p, address1: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#181611] border border-[#393328] px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#eead2b]"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
               <label className="flex flex-col gap-2">
-                <span className="text-xs text-[#b9b09d]">City</span>
+                <span className="text-xs text-muted-foreground">City</span>
                 <input
                   value={form.city}
                   onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#181611] border border-[#393328] px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#eead2b]"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
               <label className="flex flex-col gap-2">
-                <span className="text-xs text-[#b9b09d]">Country</span>
+                <span className="text-xs text-muted-foreground">Country</span>
                 <input
                   value={form.country}
                   onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
-                  className="h-11 rounded-lg bg-[#181611] border border-[#393328] px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#eead2b]"
+                  className="h-11 rounded-lg bg-background border border-border px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
               <label className="flex flex-col gap-2">
-                <span className="text-xs text-[#b9b09d]">Currency</span>
+                <span className="text-xs text-muted-foreground">Currency</span>
                 <input
                   readOnly
                   value="ETB"
-                  className="h-11 rounded-lg bg-[#3a3028]/50 border border-[#393328] px-3 text-sm text-[#b9b09d] focus:outline-none cursor-not-allowed"
+                  className="h-11 rounded-lg bg-muted border border-border px-3 text-sm text-muted-foreground focus:outline-none cursor-not-allowed"
                 />
               </label>
             </div>
 
             {profileMissing.length > 0 ? (
-              <div className="mt-4 text-xs text-[#b9b09d]">Missing: {profileMissing.join(', ')}</div>
+              <div className="mt-4 text-xs text-muted-foreground">Missing: {profileMissing.join(', ')}</div>
             ) : null}
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -237,31 +237,31 @@ export const OwnerOnboarding: React.FC<{ onNavigate?: (screen: Screen) => void; 
                 type="button"
                 disabled={saving}
                 onClick={saveProfile}
-                className="h-11 px-5 rounded-lg bg-[#eead2b] text-[#181611] font-bold text-sm hover:bg-[#d99a20] disabled:opacity-50"
+                className="h-11 px-5 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:bg-primary-hover disabled:opacity-50"
               >
                 Save profile
               </button>
             </div>
           </div>
 
-          <div className="lg:col-span-5 rounded-xl border border-[#393328] bg-[#221c10] p-6">
+          <div className="lg:col-span-5 rounded-xl border border-border bg-card p-6">
             <h3 className="text-lg font-bold mb-4">Checklist</h3>
 
             <div className="flex flex-col gap-3 text-sm">
-              <div className="flex items-center justify-between rounded-lg border border-[#393328] bg-[#181611] px-4 py-3">
+              <div className="flex items-center justify-between rounded-lg border border-border bg-muted px-4 py-3">
                 <div>
                   <div className="font-semibold">Company profile</div>
-                  <div className="text-xs text-[#b9b09d]">Phone, address, city, country</div>
+                  <div className="text-xs text-muted-foreground">Phone, address, city, country</div>
                 </div>
-                <span className={steps.profile ? 'text-green-400 font-bold' : 'text-[#b9b09d] font-bold'}>{steps.profile ? 'Done' : 'Required'}</span>
+                <span className={steps.profile ? 'text-emerald-500 font-bold' : 'text-muted-foreground font-bold'}>{steps.profile ? 'Done' : 'Required'}</span>
               </div>
 
-              <div className="flex items-center justify-between rounded-lg border border-[#393328] bg-[#181611] px-4 py-3">
+              <div className="flex items-center justify-between rounded-lg border border-border bg-muted px-4 py-3">
                 <div>
                   <div className="font-semibold">At least 1 branch</div>
-                  <div className="text-xs text-[#b9b09d]">We created a default branch automatically</div>
+                  <div className="text-xs text-muted-foreground">We created a default branch automatically</div>
                 </div>
-                <span className={steps.branches ? 'text-green-400 font-bold' : 'text-[#b9b09d] font-bold'}>
+                <span className={steps.branches ? 'text-emerald-500 font-bold' : 'text-muted-foreground font-bold'}>
                   {steps.branches ? `Done (${counts.branches})` : 'Required'}
                 </span>
               </div>
@@ -272,12 +272,12 @@ export const OwnerOnboarding: React.FC<{ onNavigate?: (screen: Screen) => void; 
                 type="button"
                 disabled={!canFinish || saving}
                 onClick={complete}
-                className="h-11 px-5 rounded-lg bg-white text-[#181611] font-bold text-sm disabled:opacity-50"
+                className="h-11 px-5 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:bg-primary-hover disabled:opacity-50"
               >
                 Finish setup
               </button>
               {!canFinish ? (
-                <div className="text-xs text-[#b9b09d]">Complete the required items above to finish onboarding.</div>
+                <div className="text-xs text-muted-foreground">Complete the required items above to finish onboarding.</div>
               ) : null}
             </div>
           </div>

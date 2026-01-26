@@ -470,14 +470,14 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#221c11] text-white">
+    <div className="flex flex-col h-full overflow-hidden bg-card text-foreground">
       {switchOpen ? (
         <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl border border-[#483c23] bg-[#221c11] shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#483c23] bg-[#2c2417] flex items-center justify-between">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-border bg-card flex items-center justify-between">
               <div>
                 <div className="text-lg font-black">Active Waiter</div>
-                <div className="text-xs text-[#c9b792] mt-0.5">Switch without logging out</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Switch without logging out</div>
               </div>
               <button
                 type="button"
@@ -486,18 +486,18 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                   setSwitchErr('');
                   setSwitchPin('');
                 }}
-                className="h-9 px-3 rounded-lg border border-[#483c23] bg-[#221c11] text-[#c9b792] hover:text-white"
+                className="h-9 px-3 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground"
               >
                 Close
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-bold text-[#b9b09d]">Select waiter</label>
+                <label className="text-xs font-bold text-muted-foreground">Select waiter</label>
                 <select
                   value={switchWaiterId}
                   onChange={(e) => setSwitchWaiterId(e.target.value)}
-                  className="mt-2 w-full h-11 rounded-lg border border-[#393328] bg-[#181611] px-3 text-white"
+                  className="mt-2 w-full h-11 rounded-lg border border-border bg-background px-3 text-foreground"
                 >
                   <option value="">Choose waiter…</option>
                   {remoteWaiters.map((w) => (
@@ -509,7 +509,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
               </div>
               {!isWaiterManager ? (
                 <div>
-                  <label className="text-xs font-bold text-[#b9b09d]">Waiter PIN</label>
+                  <label className="text-xs font-bold text-muted-foreground">Waiter PIN</label>
                   <input
                     type="password"
                     value={switchPin}
@@ -518,11 +518,11 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                       setSwitchPin(v);
                     }}
                     placeholder="1234"
-                    className="mt-2 w-full h-11 rounded-lg border border-[#393328] bg-[#181611] px-3 text-white"
+                    className="mt-2 w-full h-11 rounded-lg border border-border bg-background px-3 text-foreground"
                   />
                 </div>
               ) : null}
-              {switchErr ? <div className="text-xs text-red-300 font-semibold">{switchErr}</div> : null}
+              {switchErr ? <div className="text-xs text-destructive font-semibold">{switchErr}</div> : null}
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
@@ -538,7 +538,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                     setSwitchErr('');
                     setSwitchPin('');
                   }}
-                  className="h-11 px-4 rounded-lg border border-[#483c23] bg-[#221c11] text-[#c9b792] hover:text-white font-bold"
+                  className="h-11 px-4 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground font-bold"
                 >
                   Clear
                 </button>
@@ -585,7 +585,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                       setSwitching(false);
                     }
                   }}
-                  className="h-11 px-5 rounded-lg bg-[#eead2b] hover:bg-[#d49a26] text-[#221c11] font-extrabold disabled:opacity-50"
+                  className="h-11 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold disabled:opacity-50"
                 >
                   {switching ? 'Switching…' : 'Set Active Waiter'}
                 </button>
@@ -595,9 +595,9 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
         </div>
       ) : null}
       {isImpersonationEnabled && impersonateWaiterId && (
-        <div className="px-6 py-2 bg-[#2c2417] border-b border-[#483c23] flex items-center justify-between">
-          <div className="text-xs text-[#c9b792]">
-            Viewing as: <span className="text-white font-bold">{impersonatedWaiter?.name ?? impersonateWaiterId}</span>
+        <div className="px-6 py-2 bg-card border-b border-border flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            Viewing as: <span className="text-foreground font-bold">{impersonatedWaiter?.name ?? impersonateWaiterId}</span>
           </div>
           <button
             onClick={() => {
@@ -619,25 +619,25 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                 onNavigate(returnScreen);
               }
             }}
-            className="h-8 px-3 rounded-lg bg-[#221c11] border border-[#483c23] text-[#c9b792] hover:text-white hover:border-[#eead2b]/40 text-xs font-bold"
+            className="h-8 px-3 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 text-xs font-bold"
           >
             Exit
           </button>
         </div>
       )}
       {/* Header Section */}
-      <header className="bg-[#2c2417] border-b border-[#483c23] flex-shrink-0 z-10">
+      <header className="bg-card border-b border-border flex-shrink-0 z-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between px-6 py-4 gap-4">
           <div className="flex flex-col">
             <div className="flex items-baseline gap-3">
-              <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white">{area}</h2>
-              <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-900/30 text-green-400 border border-green-800">OPEN</span>
+              <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">{area}</h2>
+              <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">OPEN</span>
             </div>
-            <p className="text-[#c9b792] text-sm font-medium mt-1 flex items-center gap-1">
+            <p className="text-muted-foreground text-sm font-medium mt-1 flex items-center gap-1">
               <span className="material-symbols-outlined text-sm">schedule</span>
               {formatDeviceTime(now, { hour: '2-digit', minute: '2-digit' })}    {formatDeviceDate(now, { month: 'short', day: '2-digit', year: 'numeric' })}
             </p>
-            {actionErr ? <p className="mt-2 text-xs text-red-300 font-semibold">{actionErr}</p> : null}
+            {actionErr ? <p className="mt-2 text-xs text-destructive font-semibold">{actionErr}</p> : null}
           </div>
           <div className="flex items-center gap-3">
             {isImpersonationEnabled && (
@@ -648,7 +648,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                   setSwitchWaiterId(impersonateWaiterId || '');
                   setSwitchOpen(true);
                 }}
-                className="hidden md:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-[#221c11] border border-[#483c23] text-[#c9b792] hover:text-white hover:border-[#eead2b]/40 transition-colors text-sm font-bold"
+                className="hidden md:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors text-sm font-bold"
               >
                 <span className="material-symbols-outlined text-lg">badge</span>
                 Active Waiter
@@ -656,14 +656,14 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
             )}
             <button
               onClick={() => void handleRefresh()}
-              className="hidden md:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-[#483c23] text-white hover:bg-[#5a4530] transition-colors text-sm font-bold"
+              className="hidden md:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-secondary text-foreground hover:bg-secondary transition-colors text-sm font-bold"
             >
               <span className="material-symbols-outlined text-lg">sync</span>
               Refresh
             </button>
             <button
               onClick={handleNewWalkIn}
-              className="flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-[#eead2b] text-[#221c11] hover:bg-[#d49619] shadow-lg shadow-[#eead2b]/20 transition-all text-sm font-bold"
+              className="flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all text-sm font-bold"
             >
               <span className="material-symbols-outlined text-lg">add</span>
               New Walk-in
@@ -673,28 +673,28 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
         {/* Floor Tabs & Status Filter Row */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between px-6 pb-0 gap-4">
           <div className="flex gap-6 border-b border-transparent xl:border-none overflow-x-auto">
-            <button onClick={() => setArea('All Areas')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'All Areas' ? 'border-[#eead2b] text-[#eead2b]' : 'border-transparent text-[#c9b792] hover:text-white transition-colors'}`}>All Areas</button>
-            <button onClick={() => setArea('Main Hall')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'Main Hall' ? 'border-[#eead2b] text-[#eead2b]' : 'border-transparent text-[#c9b792] hover:text-white transition-colors'}`}>Main Hall</button>
-            <button onClick={() => setArea('Patio')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'Patio' ? 'border-[#eead2b] text-[#eead2b]' : 'border-transparent text-[#c9b792] hover:text-white transition-colors'}`}>Patio</button>
-            <button onClick={() => setArea('Bar Area')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'Bar Area' ? 'border-[#eead2b] text-[#eead2b]' : 'border-transparent text-[#c9b792] hover:text-white transition-colors'}`}>Bar Area</button>
-            <button onClick={() => setArea('Private Room')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'Private Room' ? 'border-[#eead2b] text-[#eead2b]' : 'border-transparent text-[#c9b792] hover:text-white transition-colors'}`}>Private Room</button>
+            <button onClick={() => setArea('All Areas')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'All Areas' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>All Areas</button>
+            <button onClick={() => setArea('Main Hall')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'Main Hall' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>Main Hall</button>
+            <button onClick={() => setArea('Patio')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'Patio' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>Patio</button>
+            <button onClick={() => setArea('Bar Area')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'Bar Area' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>Bar Area</button>
+            <button onClick={() => setArea('Private Room')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'Private Room' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>Private Room</button>
           </div>
           <div className="flex gap-2 pb-3 overflow-x-auto items-center">
-            <button onClick={() => setFilter('All')} className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-4 transition-colors ${filter === 'All' ? 'bg-white text-black' : 'border border-[#483c23] bg-transparent text-[#c9b792] hover:bg-[#3a2e22] hover:text-white'}`}>
+            <button onClick={() => setFilter('All')} className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-4 transition-colors ${filter === 'All' ? 'bg-primary text-primary-foreground' : 'border border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
               <span className="text-xs font-bold uppercase">All</span>
-              <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] font-bold">{counts.all}</span>
+              <span className="bg-background/60 px-1.5 py-0.5 rounded text-[10px] font-bold">{counts.all}</span>
             </button>
-            <button onClick={() => setFilter('Free')} className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-4 transition-colors ${filter === 'Free' ? 'border border-[#eead2b] bg-[#eead2b]/10 text-[#eead2b]' : 'border border-[#483c23] bg-transparent text-[#c9b792] hover:bg-[#3a2e22] hover:text-white'}`}>
-              <span className="w-2 h-2 rounded-full bg-[#c9b792]"></span>
+            <button onClick={() => setFilter('Free')} className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-4 transition-colors ${filter === 'Free' ? 'border border-primary bg-primary/10 text-primary' : 'border border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
+              <span className="w-2 h-2 rounded-full bg-muted-foreground"></span>
               <span className="text-xs font-bold uppercase">Free</span>
               <span className="text-[10px] opacity-60">{counts.free}</span>
             </button>
-            <button onClick={() => setFilter('Occupied')} className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-4 transition-colors ${filter === 'Occupied' ? 'border border-teal-500/40 bg-teal-500/10 text-teal-300' : 'border border-[#483c23] bg-transparent text-[#c9b792] hover:bg-[#3a2e22] hover:text-white'}`}>
-              <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+            <button onClick={() => setFilter('Occupied')} className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-4 transition-colors ${filter === 'Occupied' ? 'border border-primary/40 bg-primary/10 text-primary' : 'border border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
+              <span className="w-2 h-2 rounded-full bg-primary"></span>
               <span className="text-xs font-bold uppercase">Occupied</span>
               <span className="text-[10px] opacity-60">{counts.occupied}</span>
             </button>
-            <button onClick={() => setFilter('Action')} className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-4 transition-colors ${filter === 'Action' ? 'border border-[#eead2b] bg-[#eead2b]/10 text-[#eead2b]' : 'border border-[#483c23] bg-transparent text-[#c9b792] hover:bg-[#3a2e22] hover:text-white'}`}>
+            <button onClick={() => setFilter('Action')} className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-4 transition-colors ${filter === 'Action' ? 'border border-primary bg-primary/10 text-primary' : 'border border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
               <span className="material-symbols-outlined text-sm animate-pulse">notifications_active</span>
               <span className="text-xs font-bold uppercase">Action</span>
               <span className="text-[10px] font-bold">{counts.action}</span>
@@ -703,7 +703,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </header>
 
-      <div className="flex-1 overflow-hidden bg-[#1a1612]">
+      <div className="flex-1 overflow-hidden bg-background">
         <div className="flex h-full overflow-hidden relative">
           <div className="flex-1 overflow-y-auto p-6">
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-6 pb-28">
@@ -724,21 +724,21 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                     key={t.id}
                     onClick={() => handleTableClick(t.id)}
                     className={`group relative flex flex-col justify-between aspect-[4/3] p-5 rounded-xl cursor-pointer transition-all duration-200 hover:-translate-y-1 ${isFree
-                      ? 'border border-dashed border-[#483c23] bg-[#211911]/50 hover:bg-[#2c241b] hover:border-solid hover:border-[#eead2b]'
-                      : 'border-l-4 border-l-teal-500 border-y border-r border-[#483c23] bg-[#2c241b] hover:border-teal-500'
+                      ? 'border border-dashed border-border bg-background/50 hover:bg-card hover:border-solid hover:border-primary'
+                      : 'border-l-4 border-l-primary border-y border-r border-border bg-card hover:border-primary'
                       }`}
                   >
                     <div className="flex justify-between items-start">
                       <span
-                        className={`text-4xl font-black transition-colors ${isFree ? 'text-[#483c23] group-hover:text-[#eead2b]' : 'text-white opacity-90'
+                        className={`text-4xl font-black transition-colors ${isFree ? 'text-border group-hover:text-primary' : 'text-foreground opacity-90'
                           }`}
                       >
                         {t.name.replace(/^T-?/i, '')}
                       </span>
                       <div
                         className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${isFree
-                          ? 'bg-[#2c241b] text-[#c9b792]'
-                          : 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                          ? 'bg-card text-muted-foreground'
+                          : 'bg-primary/10 text-primary border border-primary/20'
                           }`}
                       >
                         {isFree ? 'Free' : t.status === 'Payment' ? 'Payment' : order?.status ?? 'Occupied'}
@@ -747,15 +747,15 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
 
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-[#c9b792]">{assignedName ? assignedName : 'Unassigned'}</span>
-                        <span className="text-xs font-bold text-[#c9b792]">{isOccupied ? `ETB ${displayTotal.toFixed(2)}` : ''}</span>
+                        <span className="text-xs text-muted-foreground">{assignedName ? assignedName : 'Unassigned'}</span>
+                        <span className="text-xs font-bold text-muted-foreground">{isOccupied ? `ETB ${displayTotal.toFixed(2)}` : ''}</span>
                       </div>
-                      <div className="flex justify-between items-center pt-2 border-t border-white/5">
-                        <span className="text-xs text-[#c9b792] flex items-center gap-1">
+                      <div className="flex justify-between items-center pt-2 border-t border-border">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
                           <span className="material-symbols-outlined text-sm">person</span>
                           {t.seats}
                         </span>
-                        <span className="text-[10px] text-[#c9b792]">{t.openOrderId ? order?.number : ''}</span>
+                        <span className="text-[10px] text-muted-foreground">{t.openOrderId ? order?.number : ''}</span>
                       </div>
                     </div>
                   </div>
@@ -767,19 +767,19 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
           {!rightOpen ? (
             <button
               onClick={() => setRightOpen(true)}
-              className="hidden xl:flex absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-2xl bg-[#eead2b] text-[#221c11] shadow-lg shadow-[#eead2b]/20 items-center justify-center"
+              className="hidden xl:flex absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 items-center justify-center"
               title="Open drafts/activity"
             >
               <span className="material-symbols-outlined text-[22px]">dock_to_right</span>
             </button>
           ) : null}
 
-          <aside className={`hidden xl:flex border-l border-[#483c23] bg-[#211911] flex-col transition-all ${rightOpen ? 'w-[440px]' : 'w-0 overflow-hidden border-l-0'}`}>
-            <div className="px-5 py-4 border-b border-[#483c23] bg-[#2c2417] flex items-center justify-between">
+          <aside className={`hidden xl:flex border-l border-border bg-background flex-col transition-all ${rightOpen ? 'w-[440px]' : 'w-0 overflow-hidden border-l-0'}`}>
+            <div className="px-5 py-4 border-b border-border bg-card flex items-center justify-between">
               {rightOpen ? (
                 <div className="flex flex-col">
                   <div className="text-sm font-black">Right Panel</div>
-                  <div className="text-[11px] text-[#c9b792] font-semibold">Drafts + Activity</div>
+                  <div className="text-[11px] text-muted-foreground font-semibold">Drafts + Activity</div>
                 </div>
               ) : null}
 
@@ -787,14 +787,14 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                 {rightOpen ? (
                   <button
                     onClick={() => (sideTab === 'drafts' ? loadDrafts() : loadAudit())}
-                    className="h-9 px-3 rounded-lg bg-[#483c23] hover:bg-[#5a4530] text-white font-bold text-xs"
+                    className="h-9 px-3 rounded-lg bg-secondary hover:bg-secondary text-foreground font-bold text-xs"
                   >
                     Refresh
                   </button>
                 ) : null}
                 <button
                   onClick={() => setRightOpen(false)}
-                  className="h-9 w-9 rounded-lg bg-[#221c11] border border-[#483c23] text-[#c9b792] hover:text-white"
+                  className="h-9 w-9 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground"
                   title="Collapse"
                 >
                   <span className="material-symbols-outlined text-[18px]">close_fullscreen</span>
@@ -809,8 +809,8 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                     <button
                       onClick={() => setSideTab('drafts')}
                       className={`h-9 px-3 rounded-lg text-xs font-black border ${sideTab === 'drafts'
-                        ? 'bg-[#eead2b] text-[#221c11] border-[#eead2b]'
-                        : 'bg-transparent text-[#c9b792] border-[#483c23] hover:text-white'
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-transparent text-muted-foreground border-border hover:text-foreground'
                         }`}
                     >
                       Draft Inbox
@@ -818,8 +818,8 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                     <button
                       onClick={() => setSideTab('activity')}
                       className={`h-9 px-3 rounded-lg text-xs font-black border ${sideTab === 'activity'
-                        ? 'bg-[#eead2b] text-[#221c11] border-[#eead2b]'
-                        : 'bg-transparent text-[#c9b792] border-[#483c23] hover:text-white'
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-transparent text-muted-foreground border-border hover:text-foreground'
                         }`}
                     >
                       Activity
@@ -831,12 +831,12 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                   {sideTab === 'drafts' ? (
                     <>
                       {draftErr ? (
-                        <div className="mb-3 p-3 rounded-lg bg-red-900/20 border border-red-800 text-red-200 text-sm">{draftErr}</div>
+                        <div className="mb-3 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">{draftErr}</div>
                       ) : null}
                       {draftLoading ? (
-                        <div className="text-sm text-[#c9b792]">Loading ¦</div>
+                        <div className="text-sm text-muted-foreground">Loading ¦</div>
                       ) : drafts.length === 0 ? (
-                        <div className="text-sm text-[#c9b792]">No submitted drafts.</div>
+                        <div className="text-sm text-muted-foreground">No submitted drafts.</div>
                       ) : (
                         <div className="flex flex-col gap-3">
                           {drafts.slice(0, 12).map((d) => {
@@ -845,13 +845,13 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                             const top = items.slice(0, 3);
                             const more = Math.max(0, items.length - top.length);
                             return (
-                              <div key={d.draft_id} className="rounded-xl border border-[#483c23] bg-[#1a1612] p-4">
+                              <div key={d.draft_id} className="rounded-xl border border-border bg-background p-4">
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
                                     <div className="text-sm font-black truncate">{d.draft_id}</div>
-                                    <div className="text-xs text-[#c9b792] font-semibold truncate">By: {staffName}</div>
+                                    <div className="text-xs text-muted-foreground font-semibold truncate">By: {staffName}</div>
                                   </div>
-                                  <div className="text-xs font-black text-[#eead2b]">ETB {Number(d.summary?.total ?? 0).toFixed(2)}</div>
+                                  <div className="text-xs font-black text-primary">ETB {Number(d.summary?.total ?? 0).toFixed(2)}</div>
                                 </div>
 
                                 {top.length > 0 ? (
@@ -859,27 +859,27 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                                     {top.map((it, idx) => (
                                       <div key={`${it.product_id || it.name || idx}`} className="flex items-center gap-3">
                                         <div
-                                          className="w-10 h-10 rounded-lg bg-[#2c241b] border border-[#483c23] bg-cover bg-center flex-none"
+                                          className="w-10 h-10 rounded-lg bg-card border border-border bg-cover bg-center flex-none"
                                           style={{ backgroundImage: `url('${it.image || ''}')` }}
                                         />
                                         <div className="flex-1 min-w-0">
-                                          <div className="text-xs text-white font-bold truncate">{it.name || it.product_id || 'Item'}</div>
-                                          <div className="text-[11px] text-[#c9b792]">x{Number(it.qty ?? 0)}</div>
+                                          <div className="text-xs text-foreground font-bold truncate">{it.name || it.product_id || 'Item'}</div>
+                                          <div className="text-[11px] text-muted-foreground">x{Number(it.qty ?? 0)}</div>
                                         </div>
-                                        <div className="text-xs text-white font-black">ETB {(Number(it.unit_price ?? 0) * Number(it.qty ?? 0)).toFixed(2)}</div>
+                                        <div className="text-xs text-foreground font-black">ETB {(Number(it.unit_price ?? 0) * Number(it.qty ?? 0)).toFixed(2)}</div>
                                       </div>
                                     ))}
-                                    {more > 0 ? <div className="text-[11px] text-[#c9b792] font-semibold">+{more} more ¦</div> : null}
+                                    {more > 0 ? <div className="text-[11px] text-muted-foreground font-semibold">+{more} more ¦</div> : null}
                                   </div>
                                 ) : null}
 
-                                {d.notes ? <div className="mt-3 text-xs text-[#c9b792] whitespace-pre-wrap break-words">{d.notes}</div> : null}
+                                {d.notes ? <div className="mt-3 text-xs text-muted-foreground whitespace-pre-wrap break-words">{d.notes}</div> : null}
 
                                 <div className="mt-3 flex items-center justify-between">
-                                  <div className="text-[11px] text-[#c9b792] font-semibold">Items: {Number(d.summary?.items ?? 0)}</div>
+                                  <div className="text-[11px] text-muted-foreground font-semibold">Items: {Number(d.summary?.items ?? 0)}</div>
                                   <button
                                     onClick={() => onNavigate(Screen.DESKTOP_DRAFT_INBOX)}
-                                    className="h-9 px-3 rounded-lg bg-[#eead2b] text-[#221c11] hover:bg-[#d49619] font-extrabold text-xs"
+                                    className="h-9 px-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-extrabold text-xs"
                                   >
                                     Open Inbox
                                   </button>
@@ -893,26 +893,26 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                   ) : (
                     <>
                       {auditErr ? (
-                        <div className="mb-3 p-3 rounded-lg bg-red-900/20 border border-red-800 text-red-200 text-sm">{auditErr}</div>
+                        <div className="mb-3 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">{auditErr}</div>
                       ) : null}
                       {auditLoading ? (
-                        <div className="text-sm text-[#c9b792]">Loading ¦</div>
+                        <div className="text-sm text-muted-foreground">Loading ¦</div>
                       ) : auditRows.length === 0 ? (
-                        <div className="text-sm text-[#c9b792]">No activity yet.</div>
+                        <div className="text-sm text-muted-foreground">No activity.</div>
                       ) : (
                         <div className="flex flex-col gap-2">
                           {auditRows.slice(0, 50).map((a, idx) => (
-                            <div key={String(a.id || idx)} className="rounded-xl border border-[#483c23] bg-[#1a1612] p-3">
+                            <div key={String(a.id || idx)} className="rounded-xl border border-border bg-background p-3">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <div className="text-xs text-white font-black truncate">{a.actor_name || a.actor_staff_id || ' ”'}</div>
-                                  <div className="text-[11px] text-[#c9b792] font-semibold truncate">{a.action || 'activity'}</div>
+                                  <div className="text-xs text-foreground font-black truncate">{a.actor_name || a.actor_staff_id || ' ”'}</div>
+                                  <div className="text-[11px] text-muted-foreground font-semibold truncate">{a.action || 'activity'}</div>
                                 </div>
-                                <div className="text-[11px] text-[#c9b792]">{String(a.at || '').slice(11, 19)}</div>
+                                <div className="text-[11px] text-muted-foreground">{String(a.at || '').slice(11, 19)}</div>
                               </div>
-                              {a.message ? <div className="mt-2 text-xs text-[#c9b792] whitespace-pre-wrap break-words">{a.message}</div> : null}
+                              {a.message ? <div className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap break-words">{a.message}</div> : null}
                               {a.entity_type || a.entity_id ? (
-                                <div className="mt-2 text-[11px] text-[#c9b792]">{a.entity_type || ''}{a.entity_id ? `: ${a.entity_id}` : ''}</div>
+                                <div className="mt-2 text-[11px] text-muted-foreground">{a.entity_type || ''}{a.entity_id ? `: ${a.entity_id}` : ''}</div>
                               ) : null}
                             </div>
                           ))}
@@ -927,20 +927,20 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </div>
 
-      <div className="flex-none border-t border-[#2c241b] bg-[#211911]">
-        <div className="px-6 py-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-[#c9b792]">
+      <div className="flex-none border-t border-card bg-background">
+        <div className="px-6 py-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-6">
-            <div><span className="text-white font-bold">Free</span> {counts.free}</div>
-            <div><span className="text-white font-bold">Occupied</span> {counts.occupied}</div>
-            <div><span className="text-white font-bold">Action</span> {counts.action}</div>
-            <div><span className="text-white font-bold">Capacity</span> {Math.round((counts.occupied / Math.max(1, counts.all)) * 100)}%</div>
+            <div><span className="text-foreground font-bold">Free</span> {counts.free}</div>
+            <div><span className="text-foreground font-bold">Occupied</span> {counts.occupied}</div>
+            <div><span className="text-foreground font-bold">Action</span> {counts.action}</div>
+            <div><span className="text-foreground font-bold">Capacity</span> {Math.round((counts.occupied / Math.max(1, counts.all)) * 100)}%</div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => onNavigate(Screen.WAITER_SHIFT_REPORT)} className="h-10 px-4 rounded-lg bg-[#2c241b] border border-[#483c23] text-[#c9b792] hover:text-white hover:border-[#eead2b]/30 font-bold flex items-center gap-2">
+            <button onClick={() => onNavigate(Screen.WAITER_SHIFT_REPORT)} className="h-10 px-4 rounded-lg border border-border bg-card hover:bg-secondary text-muted-foreground font-bold flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px]">assessment</span>
               Shift Report
             </button>
-            <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="h-10 px-4 rounded-lg bg-white text-black font-extrabold flex items-center gap-2">
+            <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-extrabold flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px]">soup_kitchen</span>
               Kitchen Status
             </button>

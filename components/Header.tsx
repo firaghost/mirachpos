@@ -1,17 +1,39 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { apiFetch } from '../api';
 import { readSession } from '../session';
+import { ThemeToggle } from './ui/theme-toggle';
 
 export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; action?: React.ReactNode }> = ({ title, subtitle, action }) => {
-  const session = useMemo(() => readSession<any>(), []);
+  const [session, setSession] = useState<any>(() => readSession<any>());
   const [updaterState, setUpdaterState] = useState<any>(null);
   const [updaterDismissed, setUpdaterDismissed] = useState(false);
   const [installingLocal, setInstallingLocal] = useState(false);
-  const displayName = (() => {
+  const [branchName, setBranchName] = useState<string>('');
+
+  useEffect(() => {
+    const onSessionChanged = () => {
+      setSession(readSession<any>());
+    };
+    try {
+      window.addEventListener('mirachpos-session-changed', onSessionChanged as any);
+    } catch {
+      // ignore
+    }
+    return () => {
+      try {
+        window.removeEventListener('mirachpos-session-changed', onSessionChanged as any);
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
+  const displayName = useMemo(() => {
     const n = typeof session?.staffName === 'string' ? session.staffName.trim() : '';
     if (n) return n;
     const tn = typeof session?.tenant?.name === 'string' ? session.tenant.name.trim() : '';
     return tn || 'User';
-  })();
+  }, [session?.staffName, session?.tenant?.name]);
 
   useEffect(() => {
     const u = (window as any)?.mirachpos?.updater;
@@ -45,11 +67,45 @@ export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; actio
     };
   }, []);
 
-  const branchLabel = (() => {
+  const branchLabel = useMemo(() => {
     const b = typeof session?.branchId === 'string' ? session.branchId.trim() : '';
     if (!b || b === 'global') return 'All Locations';
-    return b;
-  })();
+    const sName = typeof session?.branchName === 'string' ? session.branchName.trim() : '';
+    if (sName) return sName;
+    return branchName || b;
+  }, [branchName, session?.branchId, session?.branchName]);
+
+  useEffect(() => {
+    const b = typeof session?.branchId === 'string' ? session.branchId.trim() : '';
+    if (!b || b === 'global') {
+      setBranchName('');
+      return;
+    }
+    const sName = typeof session?.branchName === 'string' ? session.branchName.trim() : '';
+    if (sName) {
+      setBranchName('');
+      return;
+    }
+
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const res = await apiFetch('/api/branches');
+        if (!res.ok) return;
+        const json = (await res.json().catch(() => null)) as any;
+        const list = Array.isArray(json?.branches) ? (json.branches as any[]) : [];
+        const found = list.find((x) => String(x?.id || '').trim() === b) || null;
+        const name = found ? String(found?.name || '').trim() : '';
+        if (!cancelled) setBranchName(name);
+      } catch {
+        // ignore
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.branchId, session?.branchName]);
 
   const initials = (() => {
     const parts = displayName.split(/\s+/).filter(Boolean);
@@ -85,8 +141,8 @@ export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; actio
             : 'Checking updates';
 
     const tone = status === 'downloaded'
-      ? 'border-[#483c23] bg-[#221c11] text-[#c9b792]'
-      : 'border-[#483c23] bg-[#221c11] text-[#c9b792]';
+      ? 'border-border bg-card text-muted-foreground'
+      : 'border-border bg-card text-muted-foreground';
 
     const onInstall = async () => {
       try {
@@ -121,7 +177,7 @@ export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; actio
           <button
             type="button"
             disabled
-            className="h-7 px-3 rounded-full border border-[#483c23] bg-[#221c11] text-[#c9b792] text-[11px] font-extrabold opacity-80"
+            className="h-7 px-3 rounded-full border border-border bg-card text-muted-foreground text-[11px] font-extrabold opacity-80"
           >
             Restart
           </button>
@@ -139,25 +195,26 @@ export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; actio
   }, [installingLocal, updaterDismissed, updaterState]);
 
   return (
-    <header className="shrink-0 border-b border-border bg-surface/95 backdrop-blur px-4 sm:px-8 py-3 sm:py-0 min-h-16 z-10 relative">
+    <header className="shrink-0 border-b border-border bg-card/95 backdrop-blur px-4 sm:px-8 py-3 sm:py-0 min-h-16 z-10 relative">
       <div className="flex items-center justify-between gap-3 min-h-16">
         <div className="min-w-0">
-          <h2 className="text-white text-xl font-bold tracking-tight truncate">{title}</h2>
+          <h2 className="text-foreground text-xl font-bold tracking-tight truncate">{title}</h2>
           {subtitle ? (
             typeof subtitle === 'string'
-              ? <p className="text-text-muted text-xs mt-0.5 truncate">{subtitle}</p>
-              : <div className="text-text-muted text-xs mt-0.5 truncate">{subtitle}</div>
+              ? <p className="text-muted-foreground text-xs mt-0.5 truncate">{subtitle}</p>
+              : <div className="text-muted-foreground text-xs mt-0.5 truncate">{subtitle}</div>
           ) : null}
         </div>
 
         <div className="flex items-center gap-3">
           {action ? <div className="flex flex-wrap items-center justify-end gap-2">{action}</div> : null}
           <div className="flex items-center gap-3">
+            <ThemeToggle size="sm" />
             <div className="text-right hidden md:block">
-              <p className="text-sm font-bold text-white leading-none">{displayName}</p>
-              <p className="text-xs text-text-muted mt-1">{branchLabel}</p>
+              <p className="text-sm font-bold text-foreground leading-none">{displayName}</p>
+              <p className="text-xs text-muted-foreground mt-1">{branchLabel}</p>
             </div>
-            <div className="w-9 h-9 rounded-full border-2 border-border bg-surface-light flex items-center justify-center text-white text-xs font-black">
+            <div className="w-9 h-9 rounded-full border-2 border-border bg-card flex items-center justify-center text-foreground text-xs font-black">
               {initials}
             </div>
           </div>
