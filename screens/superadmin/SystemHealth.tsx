@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
 import { formatDeviceTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type HealthResponse = {
   ok: boolean;
   environment: string;
@@ -123,14 +124,14 @@ export const SA_SystemHealth: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <p className="text-xs text-muted-foreground font-mono">Last refreshed: {lastRefreshed || (loading ? 'Loading ¦' : ' ”')}</p>
+          <p className="text-xs text-muted-foreground font-mono">Last refreshed: {lastRefreshed || (loading ? 'Loading ' : ' ”')}</p>
           <div className="h-4 w-px bg-border"></div>
           <button
             onClick={onForceSync}
             disabled={syncing}
             className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded text-primary text-xs font-medium transition-colors disabled:opacity-50 disabled:hover:bg-primary/10"
           >
-            <span className="material-symbols-outlined text-[16px]">sync</span> Force Sync
+            <AppIcon name="sync" className="text-[16px]" size={16} /> Force Sync
           </button>
         </div>
       </header>
@@ -141,7 +142,7 @@ export const SA_SystemHealth: React.FC = () => {
           {/* KPI Card 1 */}
           <div className="bg-card border border-border p-5 rounded-md flex flex-col justify-between h-32 relative overflow-hidden group">
             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <span className="material-symbols-outlined text-6xl text-primary">speed</span>
+              <AppIcon name="speed" className="text-6xl text-primary" size={60} />
             </div>
             <div>
               <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Avg Sync Latency</p>
@@ -151,7 +152,7 @@ export const SA_SystemHealth: React.FC = () => {
               <span
                 className={`flex items-center justify-center w-4 h-4 rounded-full ${latencyTrendIsDown ? 'bg-emerald-500/15 text-emerald-500' : 'bg-primary/20 text-primary'} text-[10px]`}
               >
-                <span className="material-symbols-outlined text-[12px]">{latencyTrendIsDown ? 'arrow_downward' : 'arrow_upward'}</span>
+                <AppIcon name={latencyTrendIsDown ? 'arrow_downward' : 'arrow_upward'} className="text-[12px]" size={12} />
               </span>
               <p className={`${latencyTrendIsDown ? 'text-emerald-500' : 'text-primary'} text-xs font-medium`}>{latencyTrendText}</p>
             </div>
@@ -160,7 +161,7 @@ export const SA_SystemHealth: React.FC = () => {
           {/* KPI Card 2 */}
           <div className="bg-card border border-border p-5 rounded-md flex flex-col justify-between h-32 relative overflow-hidden group">
             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <span className="material-symbols-outlined text-6xl text-primary">warning</span>
+              <AppIcon name="warning" className="text-6xl text-primary" size={60} />
             </div>
             <div>
               <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Failed Syncs (24h)</p>
@@ -170,7 +171,7 @@ export const SA_SystemHealth: React.FC = () => {
               <span
                 className={`flex items-center justify-center w-4 h-4 rounded-full ${failedDeltaIsUp ? 'bg-primary/20 text-primary' : 'bg-emerald-500/15 text-emerald-500'} text-[10px]`}
               >
-                <span className="material-symbols-outlined text-[12px]">{failedDeltaIsUp ? 'arrow_upward' : 'arrow_downward'}</span>
+                <AppIcon name={failedDeltaIsUp ? 'arrow_upward' : 'arrow_downward'} className="text-[12px]" size={12} />
               </span>
               <p className={`${failedDeltaIsUp ? 'text-primary' : 'text-emerald-500'} text-xs font-medium`}>{failedDeltaText}</p>
             </div>
@@ -179,7 +180,7 @@ export const SA_SystemHealth: React.FC = () => {
           {/* KPI Card 4 */}
           <div className="bg-card border border-border p-5 rounded-md flex flex-col justify-between h-32 relative overflow-hidden group">
             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <span className="material-symbols-outlined text-6xl text-emerald-500">check_circle</span>
+              <AppIcon name="check_circle" className="text-6xl text-emerald-500" size={60} />
             </div>
             <div>
               <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">API Uptime</p>
@@ -253,7 +254,7 @@ export const SA_SystemHealth: React.FC = () => {
                     <span> ”</span>
                     <span className="text-primary font-bold">INFO</span>
                   </div>
-                  <p className="text-muted-foreground">Loading ¦</p>
+                  <p className="text-muted-foreground">Loading </p>
                 </div>
               )}
               {!error && !loading && errorFeed.length === 0 && (
@@ -303,7 +304,7 @@ export const SA_SystemHealth: React.FC = () => {
               <tbody className="divide-y divide-border text-sm">
                 {components.length === 0 && (
                   <tr className="hover:bg-accent transition-colors">
-                    <td className="px-5 py-3 text-muted-foreground" colSpan={5}>{loading ? 'Loading ¦' : 'No components reported.'}</td>
+                    <td className="px-5 py-3 text-muted-foreground" colSpan={5}>{loading ? 'Loading ' : 'No components reported.'}</td>
                   </tr>
                 )}
                 {components.map((c) => {
@@ -316,7 +317,7 @@ export const SA_SystemHealth: React.FC = () => {
                   return (
                     <tr key={c.id} className="hover:bg-accent transition-colors">
                       <td className="px-5 py-3 font-medium text-foreground flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-muted-foreground">{c.icon || 'dns'}</span>
+                        <AppIcon name={c.icon || 'dns'} className="text-[18px] text-muted-foreground" size={18} />
                         {c.name}
                       </td>
                       <td className="px-5 py-3 text-muted-foreground">{c.region}</td>

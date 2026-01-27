@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../api';
 import { Screen, UserRole } from '../types';
 import { writeSession } from '../session';
+import { AppIcon } from '@/components/ui/app-icon';
 
 interface LoginProps {
   onLogin: (role: UserRole) => void;
@@ -25,6 +26,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
   });
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(() => {
     try {
       const v = localStorage.getItem('mirachpos.rememberMe.v1');
@@ -342,7 +344,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <div className="text-sm text-muted-foreground mt-1">Sign in to your workspace</div>
         </div>
 
-        <div className="p-6 flex flex-col gap-4">
+        <form
+          className="p-6 flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+        >
           {error ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
 
           <div className="grid grid-cols-2 gap-2">
@@ -423,13 +431,23 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Password</span>
-                <input
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:border-primary"
-                  type="password"
-                  autoComplete="current-password"
-                />
+                <div className="relative">
+                  <input
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-11 w-full rounded-lg border border-border bg-background pl-3 pr-10 text-sm text-foreground focus:outline-none focus:border-primary"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    <AppIcon name={showPassword ? 'EyeOff' : 'Eye'} size={18} />
+                  </button>
+                </div>
               </label>
 
               <div className="flex items-center justify-between gap-3">
@@ -454,7 +472,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           )}
 
           <button
-            type="button"
+            type="submit"
             disabled={!canSubmit || loading}
             onClick={submit}
             className={cx(
@@ -462,7 +480,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               !canSubmit || loading ? 'bg-secondary text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 text-primary-foreground',
             )}
           >
-            {loading ? 'Signing in ¦' : 'Sign In'}
+            {loading ? 'Signing in ' : 'Sign In'}
           </button>
 
           {showForgot ? (
@@ -539,7 +557,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                           fpBusy ? 'bg-secondary text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 text-primary-foreground',
                         )}
                       >
-                        {fpBusy ? 'Sending ¦' : 'Send OTP'}
+                        {fpBusy ? 'Sending ' : 'Send OTP'}
                       </button>
                     ) : (
                       <button
@@ -551,7 +569,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                           fpBusy ? 'bg-secondary text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 text-primary-foreground',
                         )}
                       >
-                        {fpBusy ? 'Saving ¦' : 'Set New Password'}
+                        {fpBusy ? 'Saving ' : 'Set New Password'}
                       </button>
                     )}
                     <button
@@ -583,7 +601,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </div>
             </div>
           ) : null}
-        </div>
+        </form>
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ import {
   formatReadableDateTime,
 } from '../../utils/exportUtils';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type AuditRow = {
   id: string;
   branchId: string;
@@ -244,7 +245,7 @@ export const SA_Audit: React.FC = () => {
             <Card className="bg-destructive/10 border-destructive/20 mb-4">
               <CardContent className="p-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-destructive">error</span>
+                  <AppIcon name="error" className="text-destructive" />
                   <div className="text-xs font-bold text-destructive">{error}</div>
                 </div>
                 <Button variant="outline" size="sm" onClick={fetchAudit} className="h-9">Retry</Button>
@@ -273,7 +274,7 @@ export const SA_Audit: React.FC = () => {
                 <TableBody>
                   {loading && (
                     <TableRow>
-                      <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">Loading ¦</TableCell>
+                      <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">Loading </TableCell>
                     </TableRow>
                   )}
                   {!loading && filtered.length === 0 && (

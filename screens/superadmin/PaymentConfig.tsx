@@ -3,6 +3,7 @@ import { apiFetch } from '../../api';
 import { formatDeviceDate, formatDeviceDateTime } from '../../datetime';
 import { Modal } from '../../components/Modal';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type GatewayConfig = {
   enabled: boolean;
   publicKey?: string;
@@ -152,7 +153,7 @@ const TabButton: React.FC<{ active: boolean; onClick: () => void; icon: string; 
         }`}
       type="button"
     >
-      <span className={`material-symbols-outlined text-[20px] ${active ? 'text-primary' : ''}`}>{icon}</span>
+      <AppIcon name={icon} className={`text-[20px] ${active ? 'text-primary' : ''}`} size={20} />
       <span className={`text-sm ${active ? 'font-bold' : 'font-medium'}`}>{title}</span>
     </button>
   );
@@ -1180,7 +1181,7 @@ export const PaymentConfig: React.FC = () => {
               type="button"
               onClick={() => void downloadInvoicesCsv()}
             >
-              <span className="material-symbols-outlined text-lg">download</span>
+              <AppIcon name="download" className="text-lg" size={18} />
               Export CSV
             </button>
             <button
@@ -1192,7 +1193,7 @@ export const PaymentConfig: React.FC = () => {
                 setManualInvOpen(true);
               }}
             >
-              <span className="material-symbols-outlined text-lg">add</span>
+              <AppIcon name="add" className="text-lg" size={18} />
               Generate Invoice
             </button>
           </div>
@@ -1201,7 +1202,7 @@ export const PaymentConfig: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-1 relative overflow-hidden">
             <div className="absolute right-0 top-0 p-4 opacity-10">
-              <span className="material-symbols-outlined text-6xl text-primary">payments</span>
+              <AppIcon name="payments" className="text-6xl text-primary" size={60} />
             </div>
             <p className="text-muted-foreground text-sm font-medium z-10">Total Revenue ({monthLabel})</p>
             <div className="flex items-baseline gap-2 z-10">
@@ -1210,7 +1211,7 @@ export const PaymentConfig: React.FC = () => {
           </div>
           <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-1 relative overflow-hidden">
             <div className="absolute right-0 top-0 p-4 opacity-10">
-              <span className="material-symbols-outlined text-6xl text-orange-400">pending_actions</span>
+              <AppIcon name="pending_actions" className="text-6xl text-orange-400" size={60} />
             </div>
             <p className="text-muted-foreground text-sm font-medium z-10">Outstanding Invoices</p>
             <div className="flex items-baseline gap-2 z-10">
@@ -1220,7 +1221,7 @@ export const PaymentConfig: React.FC = () => {
           </div>
           <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-1 relative overflow-hidden">
             <div className="absolute right-0 top-0 p-4 opacity-10">
-              <span className="material-symbols-outlined text-6xl text-muted-foreground">analytics</span>
+              <AppIcon name="analytics" className="text-6xl text-muted-foreground" size={60} />
             </div>
             <p className="text-muted-foreground text-sm font-medium z-10">Avg Invoice Value</p>
             <div className="flex items-baseline gap-2 z-10">
@@ -1373,7 +1374,7 @@ export const PaymentConfig: React.FC = () => {
               <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="material-symbols-outlined text-muted-foreground text-lg">search</span>
+                    <AppIcon name="search" className="text-muted-foreground text-lg" size={18} />
                   </div>
                   <Input
                     value={invoiceSearch}
@@ -1413,7 +1414,7 @@ export const PaymentConfig: React.FC = () => {
                     <option value="failed">Failed</option>
                   </select>
                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-muted-foreground">
-                    <span className="material-symbols-outlined text-lg">expand_more</span>
+                    <AppIcon name="expand_more" className="text-lg" size={18} />
                   </div>
                 </div>
 
@@ -1433,7 +1434,7 @@ export const PaymentConfig: React.FC = () => {
                     <option value="Enterprise">Enterprise</option>
                   </select>
                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-muted-foreground">
-                    <span className="material-symbols-outlined text-lg">expand_more</span>
+                    <AppIcon name="expand_more" className="text-lg" size={18} />
                   </div>
                 </div>
               </div>
@@ -1487,7 +1488,7 @@ export const PaymentConfig: React.FC = () => {
                               className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-accent/50 transition-colors"
                               type="button"
                             >
-                              <span className="material-symbols-outlined text-lg">more_vert</span>
+                              <AppIcon name="more_vert" className="text-lg" size={18} />
                             </button>
                           </td>
                         </tr>
@@ -1508,7 +1509,7 @@ export const PaymentConfig: React.FC = () => {
                     onClick={() => setInvoicePage((p) => Math.max(1, p - 1))}
                     className="inline-flex items-center px-3 py-2 rounded-md border border-border bg-background text-sm font-medium text-muted-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <span className="material-symbols-outlined text-lg">chevron_left</span>
+                    <AppIcon name="chevron_left" className="text-lg" size={18} />
                   </button>
                   <button
                     type="button"
@@ -1516,7 +1517,7 @@ export const PaymentConfig: React.FC = () => {
                     onClick={() => setInvoicePage((p) => p + 1)}
                     className="inline-flex items-center px-3 py-2 rounded-md border border-border bg-background text-sm font-medium text-muted-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <span className="material-symbols-outlined text-lg">chevron_right</span>
+                    <AppIcon name="chevron_right" className="text-lg" size={18} />
                   </button>
                 </div>
               </div>
@@ -1647,7 +1648,7 @@ export const PaymentConfig: React.FC = () => {
           <div className="flex flex-col gap-1">
             <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">Taxation &amp; Compliance Engine</h1>
             <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
-              <span className="material-symbols-outlined text-sm">public</span>
+              <AppIcon name="public" className="text-sm" size={14} />
               <span>Region: Ethiopia (ET)</span>
               <span className="mx-1">•</span>
               <span>Fiscal Year 2023-2024</span>
@@ -1667,7 +1668,7 @@ export const PaymentConfig: React.FC = () => {
                 setTaxStatusOpen(true);
               }}
             >
-              <span className="material-symbols-outlined text-[20px]">tune</span>
+              <AppIcon name="tune" className="text-[20px]" size={20} />
               Edit Status
             </button>
             <button
@@ -1686,7 +1687,7 @@ export const PaymentConfig: React.FC = () => {
                 setAddTaxOpen(true);
               }}
             >
-              <span className="material-symbols-outlined text-[20px]">add_circle</span>
+              <AppIcon name="add_circle" className="text-[20px]" size={20} />
               Add New Tax Class
             </button>
           </div>
@@ -1695,19 +1696,19 @@ export const PaymentConfig: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border relative overflow-hidden">
             <div className="absolute right-4 top-4 text-emerald-400 bg-emerald-500/10 p-1 rounded-md">
-              <span className="material-symbols-outlined">print_connect</span>
+              <AppIcon name="print_connect" />
             </div>
             <p className="text-muted-foreground text-sm font-medium">Fiscal Printer Status</p>
             <p className="text-foreground text-2xl font-bold tracking-tight">{taxStatus?.fiscalPrinterStatus ? String(taxStatus.fiscalPrinterStatus) : 'N/A'}</p>
             <div className="flex items-center gap-1 mt-2 text-xs text-emerald-400 font-medium">
-              <span className="material-symbols-outlined text-[14px]">check_circle</span>
+              <AppIcon name="check_circle" className="text-[14px]" size={14} />
               <span>{taxStatus?.fiscalSignatureOk === true ? 'Signature OK' : 'Signature N/A'}</span>
             </div>
           </div>
 
           <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border relative overflow-hidden">
             <div className="absolute right-4 top-4 text-primary bg-primary/10 p-1 rounded-md">
-              <span className="material-symbols-outlined">percent</span>
+              <AppIcon name="percent" />
             </div>
             <p className="text-muted-foreground text-sm font-medium">Global VAT Rate</p>
             <p className="text-foreground text-2xl font-bold tracking-tight">{Number.isFinite(globalVat) ? `${globalVat.toFixed(1)}%` : '15.0%'}</p>
@@ -1716,7 +1717,7 @@ export const PaymentConfig: React.FC = () => {
 
           <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border relative overflow-hidden">
             <div className="absolute right-4 top-4 text-muted-foreground bg-muted/40 p-1 rounded-md">
-              <span className="material-symbols-outlined">sync</span>
+              <AppIcon name="sync" />
             </div>
             <p className="text-muted-foreground text-sm font-medium">Last ERCA Sync</p>
             <p className="text-foreground text-2xl font-bold tracking-tight">{taxStatus?.lastErcaSyncAt ? (formatDeviceDateTime(taxStatus.lastErcaSyncAt) || 'N/A') : 'N/A'}</p>
@@ -1832,7 +1833,7 @@ export const PaymentConfig: React.FC = () => {
                               type="button"
                               title="Rename"
                             >
-                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                              <AppIcon name="edit" className="text-[18px]" size={18} />
                             </button>
                             <button
                               onClick={() => void deleteTaxCategory(c.id)}
@@ -1840,7 +1841,7 @@ export const PaymentConfig: React.FC = () => {
                               type="button"
                               title="Delete"
                             >
-                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                              <AppIcon name="delete" className="text-[18px]" size={18} />
                             </button>
                           </div>
                         </td>
@@ -1939,7 +1940,7 @@ export const PaymentConfig: React.FC = () => {
               <div className="p-4 border-b border-border flex justify-between items-center">
                 <h3 className="font-bold text-foreground text-lg">Defined Tax Rules</h3>
                 <button className="text-muted-foreground hover:text-foreground transition-colors" type="button">
-                  <span className="material-symbols-outlined">filter_list</span>
+                  <AppIcon name="filter_list" />
                 </button>
               </div>
               <div className="overflow-x-auto flex-1">
@@ -1986,7 +1987,7 @@ export const PaymentConfig: React.FC = () => {
                               <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold ${statusColor}`}>{r.status}</span>
                             </td>
                             <td className="p-4 border-b border-border text-right">
-                              <span className="material-symbols-outlined text-muted-foreground text-sm">chevron_right</span>
+                              <AppIcon name="chevron_right" className="text-muted-foreground text-sm" size={14} />
                             </td>
                           </tr>
                         );
@@ -2001,7 +2002,7 @@ export const PaymentConfig: React.FC = () => {
               <div className="bg-card rounded-xl border border-border flex flex-col">
                 <div className="p-4 border-b border-border flex justify-between items-center bg-muted/40">
                   <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary">edit_document</span>
+                    <AppIcon name="edit_document" className="text-primary" />
                     Configuration
                   </h3>
                   <div className="text-xs text-muted-foreground font-mono bg-muted/40 px-2 py-1 rounded">{selected?.code || '-'}</div>
@@ -2045,7 +2046,7 @@ export const PaymentConfig: React.FC = () => {
                             }}
                             className="leading-none"
                           >
-                            <span className="material-symbols-outlined text-[14px] hover:text-destructive">close</span>
+                            <AppIcon name="close" className="text-[14px] hover:text-destructive" size={14} />
                           </button>
                         </span>
                       ))}
@@ -2098,7 +2099,7 @@ export const PaymentConfig: React.FC = () => {
 
               <div className="bg-card rounded-xl border border-border p-6">
                 <h4 className="text-foreground text-sm font-bold mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-muted-foreground">calculate</span>
+                  <AppIcon name="calculate" className="text-muted-foreground" />
                   Calculation Simulator
                 </h4>
                 <div className="flex flex-col gap-3">
@@ -2205,7 +2206,7 @@ export const PaymentConfig: React.FC = () => {
               className="px-6 py-2 bg-primary text-primary-foreground text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
             >
-              <span className="material-symbols-outlined text-[18px]">save</span>
+              <AppIcon name="save" className="text-[18px]" size={18} />
               {billingLoading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
@@ -2235,7 +2236,7 @@ export const PaymentConfig: React.FC = () => {
             <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                  <span className="material-symbols-outlined">autorenew</span>
+                  <AppIcon name="autorenew" />
                 </div>
                 <h3 className="text-foreground text-lg font-bold">Subscription Lifecycle</h3>
               </div>
@@ -2283,7 +2284,7 @@ export const PaymentConfig: React.FC = () => {
             <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-orange-500/10 rounded-lg text-orange-400">
-                  <span className="material-symbols-outlined">block</span>
+                  <AppIcon name="block" />
                 </div>
                 <h3 className="text-foreground text-lg font-bold">Suspension &amp; Grace Period</h3>
               </div>
@@ -2315,7 +2316,7 @@ export const PaymentConfig: React.FC = () => {
                 </div>
               </div>
               <div className="mt-6 p-4 rounded-lg bg-muted/40 border border-orange-500/20 flex gap-3">
-                <span className="material-symbols-outlined text-orange-400 mt-0.5">warning</span>
+                <AppIcon name="warning" className="text-orange-400 mt-0.5" />
                 <div className="flex flex-col gap-1">
                   <p className="text-orange-400 text-sm font-bold">Impact Warning</p>
                   <p className="text-muted-foreground text-xs">Changing the grace period does not affect invoices already past due.</p>
@@ -2327,7 +2328,7 @@ export const PaymentConfig: React.FC = () => {
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
-                    <span className="material-symbols-outlined">payments</span>
+                    <AppIcon name="payments" />
                   </div>
                   <div>
                     <h3 className="text-foreground text-lg font-bold">Offline Payment Destinations</h3>
@@ -2342,7 +2343,7 @@ export const PaymentConfig: React.FC = () => {
                     setAddOfflineOpen(true);
                   }}
                 >
-                  <span className="material-symbols-outlined text-[18px]">add</span> Add Account
+                  <AppIcon name="add" className="text-[18px]" size={18} /> Add Account
                 </button>
               </div>
 
@@ -2416,7 +2417,7 @@ export const PaymentConfig: React.FC = () => {
                                 className="h-10 w-10 rounded-lg bg-card border border-border hover:text-destructive transition-colors flex items-center justify-center"
                                 title="Delete"
                               >
-                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                                <AppIcon name="delete" className="text-[18px]" size={18} />
                               </button>
                             </div>
                           </td>
@@ -2428,7 +2429,7 @@ export const PaymentConfig: React.FC = () => {
               </div>
 
               <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="material-symbols-outlined text-[16px]">info</span>
+                <AppIcon name="info" className="text-[16px]" size={16} />
                 <span>Tenants must upload a receipt image after transfer. Verification is manual.</span>
               </div>
             </div>
@@ -2438,7 +2439,7 @@ export const PaymentConfig: React.FC = () => {
             <div className="bg-card rounded-xl border border-border p-6 h-full">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-purple-500/10 rounded-lg text-purple-300">
-                  <span className="material-symbols-outlined">notifications_active</span>
+                  <AppIcon name="notifications_active" />
                 </div>
                 <h3 className="text-foreground text-lg font-bold">Dunning Schedule</h3>
               </div>
@@ -2477,7 +2478,7 @@ export const PaymentConfig: React.FC = () => {
                                 }}
                                 title="Edit"
                               >
-                                <span className="material-symbols-outlined text-[18px]">edit</span>
+                                <AppIcon name="edit" className="text-[18px]" size={18} />
                               </button>
                               <button
                                 type="button"
@@ -2485,7 +2486,7 @@ export const PaymentConfig: React.FC = () => {
                                 onClick={() => void deleteDunningStep(s.id)}
                                 title="Delete"
                               >
-                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                                <AppIcon name="delete" className="text-[18px]" size={18} />
                               </button>
                             </div>
                           </div>
@@ -2532,7 +2533,7 @@ export const PaymentConfig: React.FC = () => {
                             ) : (
                               <>
                                 <div className="flex items-center gap-2 mb-1">
-                                  <span className="material-symbols-outlined text-xs text-foreground">mail</span>
+                                  <AppIcon name="mail" className="text-xs text-foreground" size={12} />
                                   <span className="text-foreground text-sm font-bold">{s.title}</span>
                                   {!s.enabled ? <span className="text-[10px] text-muted-foreground">(disabled)</span> : null}
                                 </div>
@@ -2555,7 +2556,7 @@ export const PaymentConfig: React.FC = () => {
                       setDunningEditDraft({ offsetDays: '0', title: '', bodyTemplate: '', channel: 'email', enabled: true, sortOrder: String((dunningSteps[dunningSteps.length - 1]?.sortOrder || 0) + 10) });
                     }}
                   >
-                    <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                    <AppIcon name="add_circle" className="text-[18px]" size={18} />
                     Add Reminder Step
                   </button>
                 </div>
@@ -2709,7 +2710,7 @@ export const PaymentConfig: React.FC = () => {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">layers</span>
+              <AppIcon name="layers" className="text-primary" />
               Subscription Tiers
             </h3>
             <button
@@ -2721,7 +2722,7 @@ export const PaymentConfig: React.FC = () => {
                 setCreateTierOpen(true);
               }}
             >
-              <span className="material-symbols-outlined text-sm">add</span>
+              <AppIcon name="add" className="text-sm" size={14} />
               Create New Tier
             </button>
           </div>
@@ -2764,7 +2765,7 @@ export const PaymentConfig: React.FC = () => {
                           setEditTierOpen(true);
                         }}
                       >
-                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                        <AppIcon name="edit" className="text-[18px]" size={18} />
                       </button>
                       <div className="size-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
                     </div>
@@ -2817,7 +2818,7 @@ export const PaymentConfig: React.FC = () => {
       <header className="flex-none flex items-center justify-between whitespace-nowrap border-b border-solid border-border px-6 py-3 bg-background z-20">
         <div className="flex items-center gap-4 text-foreground">
           <div className="size-8 flex items-center justify-center bg-primary/10 rounded text-primary">
-            <span className="material-symbols-outlined">account_balance_wallet</span>
+            <AppIcon name="account_balance_wallet" />
           </div>
           <h2 className="text-foreground text-xl font-bold leading-tight tracking-tight">
             MirachPos <span className="text-muted-foreground font-medium text-lg">/ Admin</span>
@@ -2902,7 +2903,7 @@ export const PaymentConfig: React.FC = () => {
               <section>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary">check_circle</span>
+                    <AppIcon name="check_circle" className="text-primary" />
                     Providers
                   </h3>
                   <button
@@ -2916,7 +2917,7 @@ export const PaymentConfig: React.FC = () => {
                     className="text-xs font-bold text-primary hover:text-foreground uppercase tracking-wider flex items-center gap-1"
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-sm">history</span>
+                    <AppIcon name="history" className="text-sm" size={14} />
                     View Audit Logs
                   </button>
                 </div>
@@ -3022,7 +3023,7 @@ export const PaymentConfig: React.FC = () => {
                 <div className="p-6 rounded-xl bg-card border border-border shadow-lg">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary">account_balance</span>
+                      <AppIcon name="account_balance" className="text-primary" />
                       Manual Bank Transfer
                     </h3>
                     <Toggle checked={draft.bankDetails.manualEnabled} onChange={(v) => setDraft((p) => ({ ...p, bankDetails: { ...p.bankDetails, manualEnabled: v } }))} />
@@ -3076,7 +3077,7 @@ export const PaymentConfig: React.FC = () => {
 
                 <div className="p-6 rounded-xl bg-card border border-border shadow-lg">
                   <h3 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
-                    <span className="material-symbols-outlined text-primary">price_change</span>
+                    <AppIcon name="price_change" className="text-primary" />
                     VAT & Pricing Preview
                   </h3>
 

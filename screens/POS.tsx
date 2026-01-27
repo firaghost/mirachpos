@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Header } from '../components/Header';
 import { usePos } from '../PosContext';
 
+import { AppIcon } from '@/components/ui/app-icon';
 export const POS: React.FC = () => {
   const {
     tables,
@@ -87,18 +88,18 @@ export const POS: React.FC = () => {
                             
                             <div className="flex flex-col gap-1 mt-2">
                                 <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                                    <span className="material-symbols-outlined text-[16px]">group</span>
+                                    <AppIcon name="group" className="text-[16px]" size={16} />
                                     <span>{table.seats} Seats</span>
                                 </div>
                                 {table.currentTotal ? (
                                     <div className="flex items-center gap-2 text-primary font-mono text-sm font-bold">
-                                        <span className="material-symbols-outlined text-[16px]">receipt</span>
+                                        <AppIcon name="receipt" className="text-[16px]" size={16} />
                                         <span>ETB {Number(table.currentTotal || 0).toFixed(2)}</span>
                                     </div>
                                 ) : null}
                                 {table.time ? (
                                     <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                                        <span className="material-symbols-outlined text-[14px]">schedule</span>
+                                        <AppIcon name="schedule" className="text-[14px]" size={14} />
                                         <span>{table.time}</span>
                                     </div>
                                 ) : null}
@@ -118,7 +119,7 @@ export const POS: React.FC = () => {
                       }}
                       className="flex items-center gap-2 text-muted-foreground hover:text-foreground w-fit"
                     >
-                        <span className="material-symbols-outlined">arrow_back</span> Back to Floor
+                        <AppIcon name="arrow_back" /> Back to Floor
                     </button>
                     
                     <div className="flex gap-2 overflow-x-auto pb-2">
@@ -171,7 +172,7 @@ export const POS: React.FC = () => {
                 <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
                     {cartItems.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50">
-                            <span className="material-symbols-outlined text-6xl mb-2">shopping_cart</span>
+                            <AppIcon name="shopping_cart" className="text-6xl mb-2" size={60} />
                             <p>No items added</p>
                         </div>
                     ) : (
@@ -190,7 +191,7 @@ export const POS: React.FC = () => {
                                     className="text-muted-foreground hover:text-foreground"
                                     aria-label="remove"
                                   >
-                                    <span className="material-symbols-outlined text-[18px]">close</span>
+                                    <AppIcon name="close" className="text-[18px]" size={18} />
                                   </button>
                                 </div>
 

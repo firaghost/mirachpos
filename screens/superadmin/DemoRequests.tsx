@@ -3,6 +3,7 @@ import { apiFetch } from '../../api';
 import { formatDeviceDateTime } from '../../datetime';
 import { PortalMenu } from '../../components/PortalMenu';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type DemoRequest = {
   id: string;
   status: string;
@@ -198,10 +199,10 @@ export const SA_DemoRequests: React.FC = () => {
             >
               <span className="text-muted-foreground">Status</span>
               <span className="text-foreground font-semibold">{status}</span>
-              <span className="material-symbols-outlined text-[18px] text-muted-foreground">expand_more</span>
+              <AppIcon name="expand_more" className="text-[18px] text-muted-foreground" size={18} />
             </button>
           </div>
-          <div className="text-xs text-muted-foreground">{loading ? 'Loading ¦' : `${filtered.length} requests`}</div>
+          <div className="text-xs text-muted-foreground">{loading ? 'Loading ' : `${filtered.length} requests`}</div>
         </div>
 
         <PortalMenu
@@ -330,7 +331,7 @@ export const SA_DemoRequests: React.FC = () => {
             <div className="p-5 border-b border-border bg-muted/40 flex items-center justify-between">
               <div className="text-foreground font-bold">Provision Tenant</div>
               <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => (provisionSaving ? null : setProvisionOpen(false))}>
-                <span className="material-symbols-outlined">close</span>
+                <AppIcon name="close" />
               </button>
             </div>
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -364,7 +365,7 @@ export const SA_DemoRequests: React.FC = () => {
                 Cancel
               </button>
               <button type="button" onClick={provision} disabled={provisionSaving} className="h-11 px-5 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-60">
-                {provisionSaving ? 'Provisioning ¦' : 'Provision'}
+                {provisionSaving ? 'Provisioning ' : 'Provision'}
               </button>
             </div>
           </div>

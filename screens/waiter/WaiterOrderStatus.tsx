@@ -3,6 +3,7 @@ import { Screen } from '../../types';
 import { usePos } from '../../PosContext';
 import { formatDeviceTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 interface Props {
   onNavigate: (screen: Screen) => void;
 }
@@ -110,21 +111,21 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
                 onClick={() => void refresh()}
                 className="h-10 px-4 rounded-lg bg-background border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 font-bold flex items-center gap-2"
               >
-                <span className="material-symbols-outlined text-[18px]">sync</span>
+                <AppIcon name="sync" className="text-[18px]" size={18} />
                 Refresh
               </button>
               <button onClick={() => onNavigate(Screen.WAITER_KDS)} className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px]">skillet</span>
+                <AppIcon name="skillet" className="text-[18px]" size={18} />
                 Full KDS
               </button>
               <button onClick={() => onNavigate(Screen.WAITER_NOTIFICATIONS)} className="h-10 px-4 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px]">notifications</span>
+                <AppIcon name="notifications" className="text-[18px]" size={18} />
                 Alerts
               </button>
             </div>
             <div className="relative group w-full sm:w-64">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="material-symbols-outlined text-muted-foreground group-focus-within:text-primary transition-colors">search</span>
+                <AppIcon name="search" className="text-muted-foreground group-focus-within:text-primary transition-colors" />
               </div>
               <input
                 value={query}
@@ -149,7 +150,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
       <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
-            <span className="material-symbols-outlined text-primary">notifications</span>
+            <AppIcon name="notifications" className="text-primary" />
             <h3 className="text-lg font-bold text-foreground uppercase tracking-wider">Ready to Serve</h3>
             <span className="bg-primary/20 text-primary px-2 py-0.5 rounded text-xs font-bold">{readyToRender.length}</span>
           </div>
@@ -203,7 +204,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
                     }}
                     className="flex-1 bg-primary hover:bg-primary/80 text-foreground font-bold py-2 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <span className="material-symbols-outlined text-lg">check_circle</span> Mark Served
+                    <AppIcon name="check_circle" className="text-lg" size={18} /> Mark Served
                   </button>
                   <button
                     onClick={() => {
@@ -214,7 +215,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
                     className="bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground p-2 rounded-lg transition-colors"
                     title="Print Receipt"
                   >
-                    <span className="material-symbols-outlined">print</span>
+                    <AppIcon name="print" />
                   </button>
                 </div>
               </div>
@@ -224,7 +225,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
 
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <span className="material-symbols-outlined text-muted-foreground">restaurant</span>
+            <AppIcon name="restaurant" className="text-muted-foreground" />
             <h3 className="text-lg font-bold text-foreground uppercase tracking-wider">In Progress</h3>
           </div>
 
@@ -281,7 +282,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
         {servedToRender.length > 0 && (
           <div className="mt-8">
             <div className="flex items-center gap-2 mb-4">
-              <span className="material-symbols-outlined text-muted-foreground">check_circle</span>
+              <AppIcon name="check_circle" className="text-muted-foreground" />
               <h3 className="text-lg font-bold text-foreground uppercase tracking-wider">Served</h3>
               <span className="bg-muted/40 text-muted-foreground px-2 py-0.5 rounded text-xs font-bold">{servedToRender.length}</span>
             </div>
@@ -335,7 +336,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
                       }}
                       className="flex-1 bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground font-bold py-2 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
                     >
-                      <span className="material-symbols-outlined text-lg">print</span>
+                      <AppIcon name="print" className="text-lg" size={18} />
                       Print
                     </button>
                   </div>
@@ -348,7 +349,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
         {voidedToRender.length > 0 && (
           <div className="mt-8">
             <div className="flex items-center gap-2 mb-4">
-              <span className="material-symbols-outlined text-destructive">cancel</span>
+              <AppIcon name="cancel" className="text-destructive" />
               <h3 className="text-lg font-bold text-foreground uppercase tracking-wider">Voided</h3>
               <span className="bg-destructive/10 text-destructive px-2 py-0.5 rounded text-xs font-bold">{voidedToRender.length}</span>
             </div>
@@ -372,7 +373,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
                       ) : null}
                     </div>
                     <div className="flex items-center gap-1 bg-destructive/10 px-2 py-1 rounded text-destructive font-bold font-mono border border-destructive/20">
-                      <span className="material-symbols-outlined text-sm">cancel</span>
+                      <AppIcon name="cancel" className="text-sm" size={14} />
                       VOID
                     </div>
                   </div>
@@ -406,7 +407,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
                       className="w-full bg-secondary hover:bg-secondary/80 text-foreground font-bold text-sm py-3 rounded-lg flex items-center justify-center gap-2 uppercase tracking-wide border border-border"
                     >
                       <span>Print</span>
-                      <span className="material-symbols-outlined">print</span>
+                      <AppIcon name="print" />
                     </button>
                   </div>
                 </div>

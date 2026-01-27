@@ -3,6 +3,7 @@ import { Screen } from '../../types';
 import { usePos } from '../../PosContext';
 import { Modal } from '../../components/Modal';
 
+import { AppIcon } from '@/components/ui/app-icon';
 interface Props {
   onNavigate: (screen: Screen) => void;
 }
@@ -77,12 +78,12 @@ export const WaiterActiveOrders: React.FC<Props> = ({ onNavigate }) => {
               onClick={() => void refresh()}
               className="h-10 px-4 rounded-lg bg-background border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 font-bold flex items-center justify-center gap-2"
             >
-              <span className="material-symbols-outlined text-[18px]">sync</span>
+              <AppIcon name="sync" className="text-[18px]" size={18} />
               Refresh
             </button>
             <div className="relative group w-full sm:w-64">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="material-symbols-outlined text-muted-foreground group-focus-within:text-primary transition-colors">search</span>
+                <AppIcon name="search" className="text-muted-foreground group-focus-within:text-primary transition-colors" />
               </div>
               <input
                 value={query}
@@ -166,7 +167,7 @@ export const WaiterActiveOrders: React.FC<Props> = ({ onNavigate }) => {
                     }}
                     className="flex-1 bg-secondary hover:bg-secondary/80 text-foreground font-bold py-2 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
                   >
-                    <span className="material-symbols-outlined text-lg">visibility</span>
+                    <AppIcon name="visibility" className="text-lg" size={18} />
                     View
                   </button>
                   <button
@@ -190,7 +191,7 @@ export const WaiterActiveOrders: React.FC<Props> = ({ onNavigate }) => {
                     className="bg-destructive/10 hover:bg-destructive/20 text-destructive font-bold py-2 px-3 rounded-lg text-sm transition-colors border border-destructive/30 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Void Order"
                   >
-                    <span className="material-symbols-outlined text-lg">cancel</span>
+                    <AppIcon name="cancel" className="text-lg" size={18} />
                   </button>
                 </div>
               </div>

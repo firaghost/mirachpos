@@ -1,10 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+
 import { Screen } from '../../types';
 import { usePos, useSelectedOrder } from '../../PosContext';
 import { apiFetch, resolveAssetUrl } from '../../api';
+import { readSession } from '../../session';
 import { Modal } from '../../components/Modal';
 import { usePersistedState } from '../../usePersistedState';
-import { readSession } from '../../session';
+
+import { AppIcon } from '@/components/ui/app-icon';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -38,7 +41,7 @@ type PosSettingsResponse = {
 const RECEIPT_SPLIT_KEY = 'mirachpos.receipt.splitId.v1';
 
 export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
-  const { confirmPayment, refreshFromServer, products, orders, tables, selectOrder, selectTable } = usePos();
+  const { confirmPayment, refreshFromServer, products, orders, tables, selectOrder, selectTable, queueOfflineWrite } = usePos();
   const order = useSelectedOrder();
   const [method, setMethod] = useState<'Cash' | 'Telebirr' | 'Bank Transfer' | 'Loyalty' | 'Mobile Pay'>('Cash');
   const [isOnline, setIsOnline] = useState(() => {
@@ -342,6 +345,10 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
   const initiateTelebirrOnline = async () => {
     if (!order) return;
+    if (!isOnline) {
+      setActionErr('Telebirr requires internet. Please reconnect and try again.');
+      return;
+    }
     setTelebirrOnlineLoading(true);
     setActionErr('');
     try {
@@ -377,6 +384,10 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
   const initiateChapaOnline = async () => {
     if (!order) return;
+    if (!isOnline) {
+      setActionErr('Mobile Pay requires internet. Please reconnect and try again.');
+      return;
+    }
     if (selectedSplitId) {
       setActionErr('Mobile Pay is not available for split payments yet. Please pay the full bill.');
       return;
@@ -607,83 +618,76 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
     setPaymentReference('');
   }, [selectedSplitId, method]);
 
-  if (!order) {
-    return (
-      <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
-        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-border bg-card px-6 py-3">
-          <div className="flex items-center gap-4 text-foreground">
-            <div className="size-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <span className="material-symbols-outlined">payments</span>
-            </div>
-            <h2 className="text-foreground text-xl font-bold leading-tight tracking-tight">Payment</h2>
-          </div>
-          <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-card transition-colors text-muted-foreground text-sm font-medium">
-            <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
-          </button>
-        </header>
+  const enqueueIfOffline = useCallback(
+    async (args: { url: string; method: string; body?: any; headers?: Record<string, string> }, message?: string) => {
+      const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
+      if (online) return false;
+      await queueOfflineWrite(args);
+      setActionErr(message || 'Saved offline. Will sync when online.');
+      return true;
+    },
+    [queueOfflineWrite],
+  );
 
-        {actionErr ? (
-          <div className="px-6 py-2 text-xs text-destructive font-semibold bg-destructive/10 border-b border-destructive/30">
-            {actionErr}
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-
-  const tableForOrder = (() => {
+  const applyManualTip = async () => {
+    if (!order) return;
+    if (manualTipValue <= 0) return;
     try {
-      const tableId = String((order as any)?.tableId || '').trim();
-      if (!tableId) return null;
-      return Array.isArray(tables) ? (tables as any[]).find((t: any) => String(t?.id || '').trim() === tableId) : null;
-    } catch {
-      return null;
+      const currentTip = Number((order as any)?.tip ?? 0) || 0;
+      const nextTip = Math.max(0, Math.round((currentTip + manualTipValue) * 100) / 100);
+      const payload = {
+        number: (order as any).number,
+        tableId: (order as any).tableId,
+        tableName: (order as any).tableName,
+        orderType: (order as any).orderType ?? (order as any)?.payload?.orderType ?? null,
+        takeawayFee: Number((order as any).takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0) || 0,
+        items: Array.isArray((order as any).items) ? (order as any).items : [],
+        subtotal: Number((order as any).subtotal ?? 0) || 0,
+        tax: Number((order as any).tax ?? 0) || 0,
+        serviceCharge: Number((order as any).serviceCharge ?? 0) || 0,
+        total: Number((order as any).total ?? 0) || 0,
+        createdAt: (order as any).createdAt,
+        paidAt: (order as any).paidAt ?? null,
+        createdByStaffId: (order as any).createdByStaffId ?? null,
+        createdByName: (order as any).createdByName ?? null,
+        paidByStaffId: (order as any).paidByStaffId ?? null,
+        paidByName: (order as any).paidByName ?? null,
+        paymentMethod: (order as any).paymentMethod ?? null,
+        tenderedAmount: (order as any).tenderedAmount ?? null,
+        paymentReference: (order as any).paymentReference ?? null,
+        splits: (order as any).splits ?? null,
+        notes: (order as any).notes ?? null,
+        tip: nextTip,
+        tipAmount: nextTip,
+        tipPct: 0,
+        tipPctAmount: 0,
+      };
+
+      const url = withBranchQuery(`/api/pos/orders/${encodeURIComponent(String(order.id))}`);
+      const body = { tip: nextTip, payload };
+      if (await enqueueIfOffline({ url, method: 'PUT', headers: { 'Content-Type': 'application/json' }, body })) return;
+      const res = await apiFetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => null);
+        const msg = String(j?.message || j?.error || '').trim();
+        throw new Error(msg || 'Failed to apply tip');
+      }
+
+      try {
+        await refreshFromServer();
+      } catch {
+        // ignore
+      }
+    } catch (e: any) {
+      setActionErr(e?.message || 'Failed to apply tip');
+      throw e;
     }
-  })();
-
-  const isTerminal = order.status === 'Voided' || order.status === 'Paid' || order.status === 'Refunded';
-  const isPaymentPhase = (() => {
-    if (order.status === 'Served') return true;
-    const tblStatus = String((tableForOrder as any)?.status || '').trim();
-    return tblStatus === 'Payment';
-  })();
-
-  if (isTerminal || !isPaymentPhase) {
-    const isPaid = order.status === 'Paid';
-    return (
-      <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
-        <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-border bg-card px-6 py-3">
-          <div className="flex items-center gap-4 text-foreground">
-            <div className="size-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <span className="material-symbols-outlined">payments</span>
-            </div>
-            <h2 className="text-foreground text-xl font-bold leading-tight tracking-tight">Payment</h2>
-          </div>
-          <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-card transition-colors text-muted-foreground text-sm font-medium">
-            <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
-          </button>
-        </header>
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="max-w-lg w-full bg-card border border-border rounded-xl p-6">
-            <div className="text-foreground font-bold text-lg mb-2">
-              {isPaid ? 'Order is already Paid' : 'Payment is not available yet'}
-            </div>
-            <div className="text-muted-foreground text-sm">
-              {isPaid ? 'This order has been fully paid.' : 'Orders can be paid only after they are marked Served.'}
-            </div>
-            <div className="mt-4 flex gap-3">
-              {isPaid ? (
-                <button onClick={() => onNavigate(Screen.WAITER_RECEIPT)} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-bold transition-colors">View Receipt</button>
-              ) : (
-                <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="flex-1 h-11 rounded-lg bg-card hover:bg-card border border-border text-foreground font-semibold transition-colors">Go to Kitchen</button>
-              )}
-              <button onClick={() => onNavigate(Screen.WAITER_ACTIVE_ORDERS)} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-bold transition-colors">Active Orders</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  };
 
   const handleConfirm = () => {
     setActionErr('');
@@ -713,62 +717,6 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       setActionErr('Tip is not supported for split payments yet. Please pay the full bill.');
       return;
     }
-
-    const applyManualTip = async () => {
-      if (!order) return;
-      if (manualTipValue <= 0) return;
-      try {
-        const currentTip = Number((order as any)?.tip ?? 0) || 0;
-        const nextTip = Math.max(0, Math.round((currentTip + manualTipValue) * 100) / 100);
-        const payload = {
-          number: (order as any).number,
-          tableId: (order as any).tableId,
-          tableName: (order as any).tableName,
-          orderType: (order as any).orderType ?? (order as any)?.payload?.orderType ?? null,
-          takeawayFee: Number((order as any).takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0) || 0,
-          items: Array.isArray((order as any).items) ? (order as any).items : [],
-          subtotal: Number((order as any).subtotal ?? 0) || 0,
-          tax: Number((order as any).tax ?? 0) || 0,
-          serviceCharge: Number((order as any).serviceCharge ?? 0) || 0,
-          total: Number((order as any).total ?? 0) || 0,
-          createdAt: (order as any).createdAt,
-          paidAt: (order as any).paidAt ?? null,
-          createdByStaffId: (order as any).createdByStaffId ?? null,
-          createdByName: (order as any).createdByName ?? null,
-          paidByStaffId: (order as any).paidByStaffId ?? null,
-          paidByName: (order as any).paidByName ?? null,
-          paymentMethod: (order as any).paymentMethod ?? null,
-          tenderedAmount: (order as any).tenderedAmount ?? null,
-          paymentReference: (order as any).paymentReference ?? null,
-          splits: (order as any).splits ?? null,
-          notes: (order as any).notes ?? null,
-          tip: nextTip,
-          tipAmount: nextTip,
-          tipPct: 0,
-          tipPctAmount: 0,
-        };
-
-        const res = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(String(order.id))}`), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tip: nextTip, payload }),
-        });
-        if (!res.ok) {
-          const j = await res.json().catch(() => null);
-          const msg = String(j?.message || j?.error || '').trim();
-          throw new Error(msg || 'Failed to apply tip');
-        }
-
-        try {
-          await refreshFromServer();
-        } catch {
-          // ignore
-        }
-      } catch (e: any) {
-        setActionErr(e?.message || 'Failed to apply tip');
-        throw e;
-      }
-    };
 
     void (async () => {
       try {
@@ -802,8 +750,6 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
         // actionErr already set
       }
     })();
-
-    return;
   };
 
   const split = selectedSplitId ? (order.splits || []).find((s) => s.id === selectedSplitId) ?? null : null;
@@ -867,7 +813,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-border bg-card px-6 py-3">
         <div className="flex items-center gap-4 text-foreground">
           <div className="size-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <span className="material-symbols-outlined">payments</span>
+            <AppIcon name="payments" />
           </div>
           <h2 className="text-foreground text-xl font-bold leading-tight tracking-tight">Payment</h2>
           <div className="h-6 w-px bg-border mx-2"></div>
@@ -877,7 +823,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
           </div>
         </div>
         <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-card transition-colors text-muted-foreground text-sm font-medium">
-          <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
+          <AppIcon name="arrow_back" className="text-lg mr-2" size={18} /> Back
         </button>
       </header>
 
@@ -896,7 +842,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 className="size-9 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground transition-colors flex items-center justify-center"
                 title={billCollapsed ? 'Expand bill' : 'Collapse bill'}
               >
-                <span className="material-symbols-outlined text-[20px]">{billCollapsed ? 'chevron_right' : 'chevron_left'}</span>
+                <AppIcon name={billCollapsed ? 'chevron_right' : 'chevron_left'} className="text-[20px]" size={20} />
               </button>
             </div>
           </div>
@@ -986,7 +932,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
               type="button"
               title="Discount"
             >
-              <span className="material-symbols-outlined text-[20px]">percent</span>
+              <AppIcon name="percent" className="text-[20px]" size={20} />
             </button>
           </div>
         </section>
@@ -1069,7 +1015,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                               : 'border border-border bg-card hover:bg-secondary text-muted-foreground hover:text-foreground'
                             }`}
                         >
-                          <span className="material-symbols-outlined text-4xl mb-1">{b.icon}</span>
+                          <AppIcon name={b.icon} className="text-4xl mb-1" size={36} />
                           <span className="font-bold text-sm">{b.label}</span>
                         </button>
                       );
@@ -1143,7 +1089,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                         </button>
                       ))}
                       <button onClick={backspaceTendered} className="h-16 bg-secondary hover:bg-secondary/80 rounded-xl text-xl font-semibold text-foreground transition-colors shadow-sm flex items-center justify-center">
-                        <span className="material-symbols-outlined">backspace</span>
+                        <AppIcon name="backspace" />
                       </button>
                     </div>
                   </>
@@ -1248,7 +1194,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                             Waiting for Payment
                           </div>
                           <button onClick={() => setTelebirrOnlineActive(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                            <span className="material-symbols-outlined text-lg">close</span>
+                            <AppIcon name="close" className="text-lg" size={18} />
                           </button>
                         </div>
                         <div className="flex flex-col items-center gap-4">
@@ -1305,11 +1251,11 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                   onClick={handleConfirm}
                   className="w-full sm:flex-1 h-12 rounded-xl bg-primary hover:bg-primary/80 disabled:bg-secondary disabled:text-muted-foreground text-primary-foreground font-extrabold shadow-lg shadow-black/20 transition-all transform active:scale-[0.99] flex items-center justify-center gap-3 disabled:cursor-not-allowed"
                 >
-                  <span className="material-symbols-outlined icon-filled">qr_code_2</span> {chapaOnlineLoading ? 'Generating…' : chapaOnlineActive ? 'Waiting…' : 'Generate QR'}
+                  <AppIcon name="qr_code_2" className="icon-filled" /> {chapaOnlineLoading ? 'Generating…' : chapaOnlineActive ? 'Waiting…' : 'Generate QR'}
                 </button>
               ) : (
                 <button disabled={!canConfirm} onClick={handleConfirm} className="w-full sm:flex-1 h-12 rounded-xl bg-primary hover:bg-primary/80 disabled:bg-secondary disabled:text-muted-foreground text-primary-foreground font-extrabold shadow-lg shadow-black/20 transition-all transform active:scale-[0.99] flex items-center justify-center gap-3 disabled:cursor-not-allowed">
-                  <span className="material-symbols-outlined icon-filled">check_circle</span> Charge {settingsUi.currency} {totalDueWithTip.toFixed(2)}
+                  <AppIcon name="check_circle" className="icon-filled" /> Charge {settingsUi.currency} {totalDueWithTip.toFixed(2)}
                 </button>
               )}
             </div>
@@ -1379,15 +1325,20 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                     notes: (order as any).notes ?? null,
                   };
 
-                  const res = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`), {
+                  const url = withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`);
+                  const body = {
+                    discountPct: pct,
+                    pin: discountPin.trim(),
+                    payload,
+                    paymentReference: paymentReference.trim(),
+                  };
+                  if (await enqueueIfOffline({ url, method: 'PUT', headers: { 'Content-Type': 'application/json' }, body })) return;
+                  const res = await apiFetch(url, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      discountPct: pct,
-                      payload,
-                      pin: discountPin.trim() || undefined,
-                    }),
+                    body: JSON.stringify(body),
                   });
+
                   const json = await res.json().catch(() => null);
                   if (!res.ok) {
                     const err = String(json?.error || json?.message || 'discount_failed');

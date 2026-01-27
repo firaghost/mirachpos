@@ -5,6 +5,7 @@ import { apiFetch } from '../../api';
 import { readSession } from '../../session';
 import { formatDeviceDate, formatDeviceTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type PosSettingsResponse = {
   ok?: boolean;
   branch?: { id?: string; name?: string };
@@ -827,12 +828,12 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
         <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-border bg-card px-6 py-3">
           <div className="flex items-center gap-4 text-foreground">
             <div className="size-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <span className="material-symbols-outlined">receipt_long</span>
+              <AppIcon name="receipt_long" />
             </div>
             <h2 className="text-foreground text-xl font-bold leading-tight tracking-tight">Receipt</h2>
           </div>
           <button onClick={() => onNavigate(Screen.WAITER_HISTORY)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-secondary transition-colors text-muted-foreground text-sm font-medium">
-            <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> Back
+            <AppIcon name="arrow_back" className="text-lg mr-2" size={18} /> Back
           </button>
         </header>
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground px-6 text-center gap-3">
@@ -848,7 +849,7 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
       <header className="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-solid border-border bg-card px-6 py-3">
         <div className="flex items-center gap-4 text-foreground">
           <div className="size-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <span className="material-symbols-outlined">receipt_long</span>
+            <AppIcon name="receipt_long" />
           </div>
           <h2 className="text-foreground text-xl font-bold leading-tight tracking-tight">Receipt</h2>
           <div className="h-6 w-px bg-border mx-2"></div>
@@ -859,7 +860,7 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
         </div>
         <div className="flex gap-3">
           <button onClick={() => onNavigate(Screen.WAITER_HISTORY)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-secondary transition-colors text-muted-foreground text-sm font-medium">
-            <span className="material-symbols-outlined text-lg mr-2">arrow_back</span> History
+            <AppIcon name="arrow_back" className="text-lg mr-2" size={18} /> History
           </button>
           <button
             onClick={() => {
@@ -886,7 +887,7 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
             }}
             className="h-11 px-4 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-bold flex items-center"
           >
-            <span className="material-symbols-outlined text-lg mr-2">print</span> Print
+            <AppIcon name="print" className="text-lg mr-2" size={18} /> Print
           </button>
         </div>
       </header>

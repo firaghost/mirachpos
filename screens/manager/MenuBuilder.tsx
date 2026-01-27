@@ -8,6 +8,7 @@ import { readSession } from '../../session';
 import { usePersistedNullableString } from '../../usePersistedState';
 import { formatDeviceDateTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 interface Props {
   onNavigate: (screen: Screen) => void;
 }
@@ -530,7 +531,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
 
             <div className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="material-symbols-outlined text-primary/70">search</span>
+                <AppIcon name="search" className="text-primary/70" />
               </div>
               <input
                 value={query}
@@ -590,7 +591,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                       <span
                         className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${pill}`}
                       >
-                        <span className="material-symbols-outlined text-[10px]">{icon}</span>
+                        <AppIcon name={icon} className="text-[10px]" size={10} />
                         {status.label}
                       </span>
                     </div>
@@ -605,7 +606,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
               onClick={() => setNewOpen(true)}
               className="w-full flex items-center justify-center gap-2 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground py-2.5 text-sm font-bold transition-all"
             >
-              <span className="material-symbols-outlined text-lg">add</span>
+              <AppIcon name="add" className="text-lg" size={18} />
               New Menu Item
             </button>
           </div>
@@ -633,7 +634,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                     </div>
                     <div className="flex gap-4 mt-3">
                       <div className="flex items-center gap-1.5 text-primary text-sm font-medium">
-                        <span className="material-symbols-outlined text-lg">category</span>
+                        <AppIcon name="category" className="text-lg" size={18} />
                         {selectedProduct.category}
                       </div>
                     </div>
@@ -645,25 +646,25 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                     onClick={() => setHistoryOpen(true)}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border text-foreground hover:bg-accent transition-all text-sm font-medium"
                   >
-                    <span className="material-symbols-outlined text-lg">history</span> History
+                    <AppIcon name="history" className="text-lg" size={18} /> History
                   </button>
                   <button
                     onClick={() => setEditOpen(true)}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border text-foreground hover:bg-accent transition-all text-sm font-medium"
                   >
-                    <span className="material-symbols-outlined text-lg">edit</span> Edit Menu
+                    <AppIcon name="edit" className="text-lg" size={18} /> Edit Menu
                   </button>
                   <button
                     onClick={() => setDeleteOpen(true)}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border text-red-200 hover:bg-red-500/10 hover:border-red-400/40 transition-all text-sm font-medium"
                   >
-                    <span className="material-symbols-outlined text-lg">delete</span> Delete
+                    <AppIcon name="delete" className="text-lg" size={18} /> Delete
                   </button>
                   <button
                     onClick={() => onNavigate(Screen.MANAGER_RECIPE_BUILDER)}
                     className="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-all shadow-lg shadow-primary/20 text-sm"
                   >
-                    <span className="material-symbols-outlined text-lg">edit_note</span> Edit Recipe
+                    <AppIcon name="edit_note" className="text-lg" size={18} /> Edit Recipe
                   </button>
                 </div>
               </div>
@@ -671,7 +672,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="p-4 rounded-xl bg-card border border-border relative overflow-hidden group">
                   <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <span className="material-symbols-outlined text-6xl text-foreground">payments</span>
+                    <AppIcon name="payments" className="text-6xl text-foreground" size={60} />
                   </div>
                   <p className="text-muted-foreground text-sm font-medium mb-1">Selling Price</p>
                   <div className="flex items-baseline gap-2">
@@ -684,7 +685,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                 </div>
                 <div className="p-4 rounded-xl bg-card border border-border relative overflow-hidden group">
                   <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <span className="material-symbols-outlined text-6xl text-red-400">shopping_cart</span>
+                    <AppIcon name="shopping_cart" className="text-6xl text-red-400" size={60} />
                   </div>
                   <p className="text-muted-foreground text-sm font-medium mb-1">Total COGS</p>
                   <div className="flex items-baseline gap-2">
@@ -696,7 +697,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                 </div>
                 <div className="p-4 rounded-xl bg-card border border-primary/30 relative overflow-hidden group">
                   <div className="absolute right-0 top-0 p-4 opacity-20 group-hover:opacity-30 transition-opacity">
-                    <span className="material-symbols-outlined text-6xl text-primary">pie_chart</span>
+                    <AppIcon name="pie_chart" className="text-6xl text-primary" size={60} />
                   </div>
                   <p className="text-primary/80 text-sm font-medium mb-1">Gross Margin</p>
                   <div className="flex items-baseline gap-2">
@@ -713,14 +714,14 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                 <div className="xl:col-span-2 flex flex-col bg-card rounded-xl border border-border shadow-sm overflow-hidden min-w-0">
                   <div className="p-5 border-b border-border flex justify-between items-center bg-card/50">
                     <h3 className="text-foreground font-bold text-lg flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary">kitchen</span>
+                      <AppIcon name="kitchen" className="text-primary" />
                       Ingredients List
                     </h3>
                     <button
                       onClick={() => onNavigate(Screen.MANAGER_RECIPE_BUILDER)}
                       className="text-xs text-primary hover:text-foreground font-medium flex items-center gap-1 transition-colors"
                     >
-                      <span className="material-symbols-outlined text-sm">add</span>
+                      <AppIcon name="add" className="text-sm" size={14} />
                       Add Ingredient
                     </button>
                   </div>
@@ -763,7 +764,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                                 <td className="px-5 py-4 align-top">
                                   <div className="flex items-center gap-3">
                                     <div className="size-8 rounded bg-muted flex items-center justify-center text-muted-foreground">
-                                      <span className="material-symbols-outlined text-lg">science</span>
+                                      <AppIcon name="science" className="text-lg" size={18} />
                                     </div>
                                     <div className="flex flex-col min-w-0">
                                       <span className="font-medium text-foreground truncate">{ing.name}</span>
@@ -872,11 +873,11 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                   <div className="p-6 rounded-xl bg-card border border-border flex flex-col gap-4">
                     <div className="flex justify-between items-center mb-1">
                       <h3 className="text-foreground font-bold text-sm uppercase tracking-wide opacity-80 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary text-lg">calculate</span>
+                        <AppIcon name="calculate" className="text-primary text-lg" size={18} />
                         Usage Forecaster
                       </h3>
                       <div className="group relative">
-                        <span className="material-symbols-outlined text-muted-foreground text-sm cursor-help">info</span>
+                        <AppIcon name="info" className="text-muted-foreground text-sm cursor-help" size={14} />
                         <div className="absolute right-0 bottom-full mb-2 w-48 p-2 bg-popover text-popover-foreground border border-border text-[10px] rounded hidden group-hover:block z-10">
                           Estimate stock usage based on sales volume.
                         </div>
@@ -1125,7 +1126,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
             <div className="mt-1 text-foreground font-semibold">{selectedProduct?.name ?? '  '}</div>
             <div className="text-muted-foreground text-xs font-mono">Code: {selectedProduct?.code ?? '  '}    SKU: {selectedProduct ? selectedProduct.id.slice(0, 12) : '  '}</div>
           </div>
-          {historyLoading ? <div className="text-muted-foreground text-xs">Loading history ¦</div> : null}
+          {historyLoading ? <div className="text-muted-foreground text-xs">Loading history </div> : null}
           {historyErr ? <div className="text-red-300 text-xs">{historyErr}</div> : null}
           {!historyLoading && !historyErr && historyEvents.length === 0 ? (
             <div className="text-muted-foreground text-xs">No recent menu/recipe changes for this item.</div>
@@ -1214,7 +1215,7 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
                                     : 'text-orange-400 bg-orange-400/10 border-orange-400/20'
                                   }`}
                               >
-                                <span className="material-symbols-outlined text-[14px]">{r.ok ? 'check' : 'warning'}</span>
+                                <AppIcon name={r.ok ? 'check' : 'warning'} className="text-[14px]" size={14} />
                                 {r.ok ? 'OK' : 'Short'}
                               </span>
                             </td>

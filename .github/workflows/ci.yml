@@ -17,5 +17,8 @@ jobs:
           node-version: 20
 
       - run: npm ci
-      - run: npm run test --if-present
+      - run: npx tsc -p tsconfig.json --noEmit
       - run: npm run build
+
+      - run: npm --prefix api ci
+      - run: npm --prefix api test

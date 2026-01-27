@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Screen, UserRole } from '../../types';
 import { apiFetch } from '../../api';
 import { writeSession } from '../../session';
+import { AppIcon } from '@/components/ui/app-icon';
 
 interface SuperAdminLoginProps {
   onLogin: (role: UserRole) => void;
@@ -82,7 +83,7 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({ onLogin }) => 
         <div className="relative z-20 w-full max-w-[460px] flex flex-col bg-white dark:bg-[#2c2219] rounded-xl shadow-2xl border border-stone-200 dark:border-[#654d34] overflow-hidden">
           <div className="flex flex-col items-center pt-10 pb-6 px-8">
             <div className="mb-4 p-3 bg-[#cf7317]/10 rounded-full">
-              <span className="material-symbols-outlined text-[#cf7317] text-[32px]">admin_panel_settings</span>
+              <AppIcon name="ShieldCheck" className="text-[#cf7317]" size={32} />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-center mb-1 dark:text-white">MirachPos</h1>
             <p className="text-sm text-stone-500 dark:text-[#c8ad93] text-center font-normal">Super Admin</p>
@@ -101,7 +102,7 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({ onLogin }) => 
               <label className="flex flex-col gap-1.5">
                 <span className="text-sm font-medium text-stone-700 dark:text-stone-200">Email</span>
                 <div className="relative flex items-center">
-                  <span className="absolute left-4 text-[#c8ad93] material-symbols-outlined text-[20px]">mail</span>
+                  <AppIcon name="Mail" className="absolute left-4 text-[#c8ad93]" size={20} />
                   <input
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -116,7 +117,7 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({ onLogin }) => 
               <label className="flex flex-col gap-1.5">
                 <span className="text-sm font-medium text-stone-700 dark:text-stone-200">Password</span>
                 <div className="relative flex items-center group">
-                  <span className="absolute left-4 text-[#c8ad93] material-symbols-outlined text-[20px]">lock</span>
+                  <AppIcon name="Lock" className="absolute left-4 text-[#c8ad93]" size={20} />
                   <input
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -130,7 +131,7 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({ onLogin }) => 
                     type="button"
                     onClick={() => setShowPw((s) => !s)}
                   >
-                    <span className="material-symbols-outlined text-[20px]">{showPw ? 'visibility_off' : 'visibility'}</span>
+                    <AppIcon name={showPw ? 'EyeOff' : 'Eye'} size={20} />
                   </button>
                 </div>
               </label>
@@ -141,7 +142,7 @@ export const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({ onLogin }) => 
                 type="submit"
               >
                 <span>{loading ? 'Logging in...' : 'Log In'}</span>
-                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                <AppIcon name="ArrowRight" size={18} />
               </button>
 
               <button

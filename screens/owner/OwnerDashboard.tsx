@@ -15,6 +15,7 @@ import {
   generateSectionHeader,
 } from '../../utils/exportUtils';
 
+import { AppIcon } from '@/components/ui/app-icon';
 export const OwnerDashboard: React.FC = () => {
   const [currency, setCurrency] = useState('ETB');
   const [range, setRange] = useState<'Daily' | 'Weekly' | 'Monthly'>('Daily');
@@ -369,24 +370,23 @@ export const OwnerDashboard: React.FC = () => {
         title="Overview"
         leftSlot={
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Branch:</span>
             <span className="text-xs font-bold px-2 py-1 rounded-full bg-muted text-foreground">{selectedBranchName || selectedBranchId || 'All Locations'}</span>
           </div>
         }
         rightSlot={
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center bg-muted rounded-lg h-10 w-64 px-3 gap-2">
-              <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: 20 }}>search</span>
+              <AppIcon name="search" className="text-muted-foreground text-[20px]" size={20} />
               <input
                 value={tableQuery}
                 onChange={(e) => setTableQuery(e.target.value)}
                 className="bg-transparent border-none text-sm text-foreground placeholder:text-muted-foreground focus:ring-0 w-full p-0"
-                placeholder="Search branches ¦"
+                placeholder="Search branches "
                 type="text"
               />
             </div>
             <button className="relative text-muted-foreground hover:text-foreground transition-colors" onClick={() => setTableStatus('All')} type="button">
-              <span className="material-symbols-outlined">notifications</span>
+              <AppIcon name="notifications" />
               {alertsCount > 0 ? <span className="absolute top-0 right-0 size-2 bg-destructive rounded-full border-2 border-background"></span> : null}
             </button>
             <button
@@ -394,7 +394,7 @@ export const OwnerDashboard: React.FC = () => {
               className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-muted text-foreground rounded-lg text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>refresh</span>
+              <AppIcon name="refresh" className="text-[20px]" size={20} />
               <span className="hidden sm:inline">Refresh</span>
             </button>
             <button
@@ -402,8 +402,7 @@ export const OwnerDashboard: React.FC = () => {
               className="flex items-center justify-center gap-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-md"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>swap_horiz</span>
-              <span className="hidden sm:inline">Switch Branch</span>
+              <AppIcon name="swap_horiz" />
             </button>
             {selectedBranchId ? (
               <button
@@ -411,8 +410,7 @@ export const OwnerDashboard: React.FC = () => {
                 className="hidden lg:flex items-center justify-center gap-2 h-10 px-4 bg-muted text-foreground rounded-lg text-sm font-bold hover:bg-accent transition-colors"
                 type="button"
               >
-                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>public</span>
-                <span className="hidden sm:inline">Global View</span>
+                <AppIcon name="public" />
               </button>
             ) : null}
             {posEmpty === true ? (
@@ -421,7 +419,7 @@ export const OwnerDashboard: React.FC = () => {
                 onClick={() => setPosInitOpen(true)}
                 className="hidden lg:flex items-center justify-center gap-2 h-10 px-4 bg-card border border-border text-primary rounded-lg text-sm font-black hover:bg-accent transition-colors"
               >
-                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>build</span>
+                <AppIcon name="build" className="text-[20px]" size={20} />
                 <span className="hidden sm:inline">Initialize POS</span>
               </button>
             ) : null}
@@ -446,17 +444,17 @@ export const OwnerDashboard: React.FC = () => {
 
           <div className="flex items-center justify-between">
             <div className="text-xs text-muted-foreground">{lastUpdatedAt ? `Last updated: ${lastUpdatedAt}` : null}</div>
-            {loading ? <div className="text-xs text-muted-foreground">Loading ¦</div> : null}
+            {loading ? <div className="text-xs text-muted-foreground">Loading </div> : null}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border shadow-lg">
               <div className="flex justify-between items-start">
                 <div className="p-2 bg-muted rounded-lg text-primary">
-                  <span className="material-symbols-outlined">attach_money</span>
+                  <AppIcon name="attach_money" />
                 </div>
                 <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-500 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>trending_up</span>
+                  <AppIcon name="trending_up" className="text-[14px]" size={14} />
                   {Math.round(Number((data.kpis as any).revenueDeltaPct || 0))}%
                 </span>
               </div>
@@ -469,10 +467,10 @@ export const OwnerDashboard: React.FC = () => {
             <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border shadow-lg">
               <div className="flex justify-between items-start">
                 <div className="p-2 bg-muted rounded-lg text-foreground">
-                  <span className="material-symbols-outlined">store</span>
+                  <AppIcon name="store" />
                 </div>
                 <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-500 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>trending_up</span>
+                  <AppIcon name="trending_up" className="text-[14px]" size={14} />
                   2%
                 </span>
               </div>
@@ -487,10 +485,10 @@ export const OwnerDashboard: React.FC = () => {
             <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border shadow-lg">
               <div className="flex justify-between items-start">
                 <div className="p-2 bg-muted rounded-lg text-foreground">
-                  <span className="material-symbols-outlined">receipt_long</span>
+                  <AppIcon name="receipt_long" />
                 </div>
                 <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-500 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>trending_up</span>
+                  <AppIcon name="trending_up" className="text-[14px]" size={14} />
                   {Math.round(Number((data.kpis as any).ordersDeltaPct || 0))}%
                 </span>
               </div>
@@ -503,10 +501,10 @@ export const OwnerDashboard: React.FC = () => {
             <div className="flex flex-col gap-1 rounded-xl p-5 bg-card border border-border shadow-lg">
               <div className="flex justify-between items-start">
                 <div className="p-2 bg-muted rounded-lg text-foreground">
-                  <span className="material-symbols-outlined">account_balance_wallet</span>
+                  <AppIcon name="account_balance_wallet" />
                 </div>
                 <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-500 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>trending_up</span>
+                  <AppIcon name="trending_up" className="text-[14px]" size={14} />
                   {Math.round(Number((data.kpis as any).netProfitDeltaPct || 0))}%
                 </span>
               </div>
@@ -566,9 +564,9 @@ export const OwnerDashboard: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-4">
-              <div className="rounded-xl border border-border bg-card p-5 shadow-lg flex-1">
+              <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5 shadow-lg flex-1">
                 <h3 className="text-foreground text-base font-bold mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">dns</span> System Health
+                  <AppIcon name="dns" className="text-primary" /> System Health
                 </h3>
                 <div className="flex flex-col gap-4">
                   {data.health.map((h) => {
@@ -578,7 +576,7 @@ export const OwnerDashboard: React.FC = () => {
                       <div key={h.label} className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className={`size-2 rounded-full ${dot}`}></div>
-                          <span className="text-sm text-foreground">{h.label}</span>
+                          <AppIcon name="settings" className="text-[18px]" size={18} />
                         </div>
                         <span className={`text-xs font-mono ${val}`}>{h.value}</span>
                       </div>
@@ -589,7 +587,7 @@ export const OwnerDashboard: React.FC = () => {
 
               <div className="rounded-xl border border-border bg-card p-5 shadow-lg flex-1">
                 <h3 className="text-foreground text-base font-bold mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-destructive">warning</span> Critical Alerts
+                  <AppIcon name="warning" className="text-destructive" /> Critical Alerts
                 </h3>
                 <div className="flex flex-col gap-3">
                   {data.alerts.map((a) => (
@@ -598,11 +596,11 @@ export const OwnerDashboard: React.FC = () => {
                       className={`p-3 rounded-lg bg-muted/50 border flex items-start gap-3 ${a.severity === 'Critical' ? 'border-destructive/30' : 'border-primary/30'
                         }`}
                     >
-                      <span
-                        className={`material-symbols-outlined text-lg shrink-0 mt-0.5 ${a.severity === 'Critical' ? 'text-destructive' : 'text-primary'}`}
-                      >
-                        {a.icon}
-                      </span>
+                      <AppIcon
+                        name={a.icon}
+                        className={`text-lg shrink-0 mt-0.5 ${a.severity === 'Critical' ? 'text-destructive' : 'text-primary'}`}
+                        size={18}
+                      />
                       <div>
                         <p className="text-foreground text-xs font-bold">{a.title}</p>
                         <p className="text-muted-foreground text-[11px] mt-0.5">{a.detail}</p>
@@ -622,12 +620,12 @@ export const OwnerDashboard: React.FC = () => {
               </div>
               <div className="flex gap-3">
                 <div className="hidden md:flex items-center bg-muted rounded-lg h-10 w-64 px-3 gap-2">
-                  <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: 20 }}>search</span>
+                  <AppIcon name="search" className="text-muted-foreground text-[20px]" size={20} />
                   <input
                     value={tableQuery}
                     onChange={(e) => setTableQuery(e.target.value)}
                     className="bg-transparent border-none text-sm text-foreground placeholder:text-muted-foreground focus:ring-0 w-full p-0"
-                    placeholder="Search in table ¦"
+                    placeholder="Search in table "
                     type="text"
                   />
                 </div>
@@ -644,7 +642,7 @@ export const OwnerDashboard: React.FC = () => {
                   onClick={exportCsv}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border text-muted-foreground text-sm hover:text-foreground hover:bg-accent transition-colors"
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>download</span>
+                  <AppIcon name="download" className="text-[18px]" size={18} />
                   Export CSV
                 </button>
               </div>
@@ -690,7 +688,7 @@ export const OwnerDashboard: React.FC = () => {
                             className="size-8 rounded hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                             title="Fiscal Settings"
                           >
-                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>settings</span>
+                            <AppIcon name="settings" />
                           </button>
                           <button
                             type="button"
@@ -698,7 +696,7 @@ export const OwnerDashboard: React.FC = () => {
                             className="size-8 rounded hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                             title="View Dashboard"
                           >
-                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>visibility</span>
+                            <AppIcon name="visibility" />
                           </button>
                         </div>
                       </td>
@@ -716,7 +714,7 @@ export const OwnerDashboard: React.FC = () => {
                   className="size-8 flex items-center justify-center rounded bg-muted text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
                   disabled={safePage <= 1}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>chevron_left</span>
+                  <AppIcon name="chevron_left" />
                 </button>
                 <button className="size-8 flex items-center justify-center rounded bg-primary text-primary-foreground font-bold">{safePage}</button>
                 <button
@@ -724,7 +722,7 @@ export const OwnerDashboard: React.FC = () => {
                   className="size-8 flex items-center justify-center rounded bg-muted text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
                   disabled={safePage >= totalPages}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>chevron_right</span>
+                  <AppIcon name="chevron_right" />
                 </button>
               </div>
             </div>

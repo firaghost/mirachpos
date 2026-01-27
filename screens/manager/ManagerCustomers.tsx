@@ -5,6 +5,7 @@ import { apiFetch } from '../../api';
 import { readSession } from '../../session';
 import { Button } from '../../components/ui/button';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type CustomerRow = {
   id: string;
   name: string;
@@ -239,7 +240,7 @@ export const ManagerCustomers: React.FC = () => {
           disabled={busy || loading}
           className="h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-bold text-sm flex items-center gap-2 transition-colors disabled:opacity-60"
         >
-          <span className="material-symbols-outlined text-[18px]">add</span>
+          <AppIcon name="add" className="text-[18px]" size={18} />
           Add Customer
         </button>
       </header>
@@ -261,7 +262,7 @@ export const ManagerCustomers: React.FC = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-2 w-full md:max-w-xl">
               <div className="relative w-full">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-muted-foreground text-lg">search</span>
+                <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg" size={18} />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -400,7 +401,7 @@ export const ManagerCustomers: React.FC = () => {
               className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors disabled:opacity-60"
               disabled={busy}
             >
-              {busy ? 'Saving ¦' : 'Save'}
+              {busy ? 'Saving ' : 'Save'}
             </button>
           </div>
         }
@@ -475,7 +476,7 @@ export const ManagerCustomers: React.FC = () => {
               className="flex-1 h-11 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-extrabold transition-colors disabled:opacity-60"
               disabled={busy}
             >
-              {busy ? 'Deleting ¦' : 'Delete'}
+              {busy ? 'Deleting ' : 'Delete'}
             </button>
           </div>
         }

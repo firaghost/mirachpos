@@ -6,6 +6,7 @@ import { Screen } from '../types';
 import { formatDeviceDateTime, formatDeviceTime } from '../datetime';
 import { readSession } from '../session';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type StaffMember = {
   id: string;
   name: string;
@@ -895,7 +896,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
 
         {loadingRemote ? (
           <div className="max-w-[1200px] mx-auto rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground font-bold mb-5">
-            Loading staff data ¦
+            Loading staff data 
           </div>
         ) : null}
         
@@ -906,14 +907,14 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                 onClick={exportCsv}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border bg-transparent hover:bg-accent text-foreground text-sm font-semibold transition-colors"
               >
-                <span className="material-symbols-outlined text-[20px]">file_download</span>
+                <AppIcon name="file_download" className="text-[20px]" size={20} />
                 Export Report
               </button>
               <button
                 onClick={() => setAddOpen(true)}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-background text-sm font-bold shadow-lg shadow-primary/20 transition-all"
               >
-                <span className="material-symbols-outlined text-[20px]">add</span>
+                <AppIcon name="add" className="text-[20px]" size={20} />
                 Add New Staff
               </button>
             </div>
@@ -1091,7 +1092,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-6xl text-primary">badge</span>
+                <AppIcon name="badge" className="text-6xl text-primary" size={60} />
               </div>
               <p className="text-muted-foreground text-sm font-medium uppercase tracking-wider">Active Staff</p>
               <div className="flex items-baseline gap-2">
@@ -1100,7 +1101,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="flex items-center text-green-500 font-medium bg-green-500/10 px-1.5 py-0.5 rounded">
-                  <span className="material-symbols-outlined text-[16px] mr-1">trending_flat</span>
+                  <AppIcon name="trending_flat" className="text-[16px] mr-1" size={16} />
                   Stable
                 </span>
                 <span className="text-muted-foreground">vs last week</span>
@@ -1109,7 +1110,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
 
             <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-6xl text-muted-foreground">calendar_clock</span>
+                <AppIcon name="calendar_clock" className="text-6xl text-muted-foreground" size={60} />
               </div>
               <p className="text-muted-foreground text-sm font-medium uppercase tracking-wider">Pending Approvals</p>
               <div className="flex items-baseline gap-2">
@@ -1124,7 +1125,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
 
             <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-6xl text-red-400">trending_up</span>
+                <AppIcon name="trending_up" className="text-6xl text-red-400" size={60} />
               </div>
               <p className="text-muted-foreground text-sm font-medium uppercase tracking-wider">Labor Cost %</p>
               <div className="flex items-baseline gap-2">
@@ -1132,7 +1133,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="flex items-center text-green-500 font-medium bg-green-500/10 px-1.5 py-0.5 rounded">
-                  <span className="material-symbols-outlined text-[16px] mr-1">arrow_downward</span>
+                  <AppIcon name="arrow_downward" className="text-[16px] mr-1" size={16} />
                   2%
                 </span>
                 <span className="text-muted-foreground">under budget target</span>
@@ -1144,7 +1145,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
             <div className="flex flex-col sm:flex-row justify-between gap-4 p-4 border border-border rounded-xl bg-card">
               <div className="flex items-center gap-2 flex-1 max-w-md">
                 <div className="relative flex-1">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]">search</span>
+                  <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]" size={20} />
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -1158,7 +1159,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                   className="flex items-center justify-center p-2.5 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground transition-colors"
                   title="Quick toggle role filter"
                 >
-                  <span className="material-symbols-outlined text-[20px]">filter_list</span>
+                  <AppIcon name="filter_list" className="text-[20px]" size={20} />
                 </button>
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
@@ -1313,7 +1314,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                   onClick={() => setActionsId((prev) => (prev === s.id ? null : s.id))}
                                   className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                                 >
-                                  <span className="material-symbols-outlined text-[20px]">more_vert</span>
+                                  <AppIcon name="more_vert" className="text-[20px]" size={20} />
                                 </button>
                                 {actionsId === s.id ? (
                                   <div className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-card shadow-xl z-20 overflow-hidden">
@@ -1532,7 +1533,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                           className="p-1.5 rounded hover:bg-accent text-foreground"
                           title="Previous week"
                         >
-                          <span className="material-symbols-outlined">chevron_left</span>
+                          <AppIcon name="chevron_left" />
                         </button>
                         <button
                           onClick={() => {
@@ -1543,7 +1544,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                           className="p-1.5 rounded hover:bg-accent text-foreground"
                           title="Next week"
                         >
-                          <span className="material-symbols-outlined">chevron_right</span>
+                          <AppIcon name="chevron_right" />
                         </button>
                       </div>
                     </div>
@@ -1660,7 +1661,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
                                 onClick={() => setEditingCell(null)}
                                 className="text-muted-foreground hover:text-foreground"
                               >
-                                <span className="material-symbols-outlined">close</span>
+                                <AppIcon name="close" />
                               </button>
                             </div>
 
@@ -1790,7 +1791,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
         footer={
           <div className="flex gap-3">
             <button onClick={closeAdd} className="flex-1 h-11 rounded-lg bg-muted hover:bg-accent border border-border text-foreground font-semibold transition-colors" disabled={busy}>Cancel</button>
-            <button onClick={saveAdd} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary-hover text-background font-extrabold transition-colors disabled:opacity-60" disabled={busy}>{busy ? 'Saving ¦' : 'Save'}</button>
+            <button onClick={saveAdd} className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary-hover text-background font-extrabold transition-colors disabled:opacity-60" disabled={busy}>{busy ? 'Saving ' : 'Save'}</button>
           </div>
         }
       >
@@ -1875,7 +1876,7 @@ export const Staff: React.FC<{ initialView?: 'list' | 'schedule' }> = ({ initial
               className="flex-1 h-11 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-extrabold transition-colors disabled:opacity-60"
               disabled={busy}
             >
-              {busy ? 'Deleting ¦' : 'Delete'}
+              {busy ? 'Deleting ' : 'Delete'}
             </button>
           </div>
         }

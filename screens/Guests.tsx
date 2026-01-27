@@ -3,6 +3,7 @@ import { Header } from '../components/Header';
 import { Modal } from '../components/Modal';
 import { apiFetch } from '../api';
 
+import { AppIcon } from '@/components/ui/app-icon';
 // --- Types & Interfaces ---
 interface GuestProfile {
   id: string;
@@ -251,7 +252,7 @@ export const Guests: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="flex w-full items-stretch rounded-lg h-10 bg-card border border-border focus-within:border-primary/50 transition-colors">
               <div className="text-muted-foreground flex items-center justify-center pl-3">
-                <span className="material-symbols-outlined text-[20px]">search</span>
+                <AppIcon name="search" className="text-[20px]" size={20} />
               </div>
               <input
                 className="w-full bg-transparent border-none text-foreground focus:ring-0 placeholder:text-muted-foreground/70 text-sm"
@@ -279,7 +280,7 @@ export const Guests: React.FC = () => {
                         onClick={() => setShowAddModal(true)}
                         className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-[0_0_15px_hsl(var(--primary)/0.15)]"
                     >
-                        <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                        <AppIcon name="add_circle" className="text-[20px]" size={20} />
                         <span>Add New Profile</span>
                     </button>
                 </div>
@@ -289,7 +290,7 @@ export const Guests: React.FC = () => {
                     <div className="bg-card rounded-xl p-6 border border-border flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-2 bg-background rounded-lg text-primary">
-                                <span className="material-symbols-outlined">payments</span>
+                                <AppIcon name="payments" />
                             </div>
                             <span className="text-emerald-700 dark:text-emerald-300 text-xs font-bold bg-emerald-500/10 px-2 py-1 rounded">+5% vs last mo</span>
                         </div>
@@ -301,7 +302,7 @@ export const Guests: React.FC = () => {
                     <div className="bg-card rounded-xl p-6 border border-border flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-2 bg-background rounded-lg text-primary">
-                                <span className="material-symbols-outlined">pie_chart</span>
+                                <AppIcon name="pie_chart" />
                             </div>
                             <span className="text-emerald-700 dark:text-emerald-300 text-xs font-bold bg-emerald-500/10 px-2 py-1 rounded">+12% vs last mo</span>
                         </div>
@@ -316,7 +317,7 @@ export const Guests: React.FC = () => {
                     <div className="bg-card rounded-xl p-6 border border-border flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-2 bg-background rounded-lg text-primary">
-                                <span className="material-symbols-outlined">group</span>
+                                <AppIcon name="group" />
                             </div>
                             <span className="text-emerald-700 dark:text-emerald-300 text-xs font-bold bg-emerald-500/10 px-2 py-1 rounded">{stats.activeCount} Active</span>
                         </div>
@@ -334,14 +335,14 @@ export const Guests: React.FC = () => {
                             onClick={() => setActiveTab('directory')}
                             className={`flex items-center gap-2 border-b-[3px] pb-3 pt-2 px-1 transition-colors ${activeTab === 'directory' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                         >
-                            <span className="material-symbols-outlined text-[20px]">contacts</span>
+                            <AppIcon name="contacts" className="text-[20px]" size={20} />
                             <span className="text-sm font-bold">Guest Directory</span>
                         </button>
                         <button 
                             onClick={() => setActiveTab('logs')}
                             className={`flex items-center gap-2 border-b-[3px] pb-3 pt-2 px-1 transition-colors ${activeTab === 'logs' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                         >
-                            <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+                            <AppIcon name="receipt_long" className="text-[20px]" size={20} />
                             <span className="text-sm font-bold">Transaction Log</span>
                         </button>
                     </div>
@@ -357,7 +358,7 @@ export const Guests: React.FC = () => {
                             <div className="bg-card rounded-xl p-4 border border-border">
                                 <h3 className="text-foreground font-bold text-sm mb-3 uppercase tracking-wider">Search</h3>
                                 <label className="flex items-center gap-2 bg-background rounded-lg px-3 py-2.5 border border-transparent focus-within:border-primary transition-all">
-                                    <span className="material-symbols-outlined text-muted-foreground text-[20px]">search</span>
+                                    <AppIcon name="search" className="text-muted-foreground text-[20px]" size={20} />
                                     <input 
                                         className="bg-transparent border-none text-foreground text-sm placeholder:text-muted-foreground/50 focus:ring-0 w-full p-0" 
                                         placeholder="Name or ID..."
@@ -419,11 +420,11 @@ export const Guests: React.FC = () => {
                                     <p className="text-foreground font-bold text-sm">Showing {filteredGuests.length} Profiles</p>
                                     <div className="flex gap-2">
                                         <button onClick={() => setSortMode((m) => (m === 'name_asc' ? 'none' : 'name_asc'))} className="flex items-center gap-1 text-muted-foreground hover:text-foreground px-3 py-1.5 rounded hover:bg-accent transition-colors text-sm">
-                                            <span className="material-symbols-outlined text-[18px]">sort</span>
+                                            <AppIcon name="sort" className="text-[18px]" size={18} />
                                             <span>{sortMode === 'name_asc' ? 'Sorted A “Z' : 'Sort'}</span>
                                         </button>
                                         <button onClick={() => window.print()} className="flex items-center gap-1 text-muted-foreground hover:text-foreground px-3 py-1.5 rounded hover:bg-accent transition-colors text-sm">
-                                            <span className="material-symbols-outlined text-[18px]">download</span>
+                                            <AppIcon name="download" className="text-[18px]" size={18} />
                                             <span>Export</span>
                                         </button>
                                     </div>
@@ -445,7 +446,7 @@ export const Guests: React.FC = () => {
                                             {filteredGuests.length === 0 ? (
                                                 <tr>
                                                     <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                                                        {loading ? 'Loading ¦' : 'No guests found matching your filters.'}
+                                                        {loading ? 'Loading ' : 'No guests found matching your filters.'}
                                                     </td>
                                                 </tr>
                                             ) : filteredGuests.map(guest => {
@@ -487,7 +488,7 @@ export const Guests: React.FC = () => {
                                                         </td>
                                                         <td className="p-4">
                                                             <span className={`text-sm font-bold ${isCritical ? 'text-destructive' : 'text-emerald-700 dark:text-emerald-300'}`}>ETB {balance.toLocaleString()}</span>
-                                                            {isCritical && <span className="material-symbols-outlined text-[14px] text-destructive ml-1 align-middle" title="Low Balance">warning</span>}
+                                                            {isCritical && <AppIcon name="warning" className="text-[14px] text-destructive ml-1 align-middle" size={14} />}
                                                         </td>
                                                         <td className="p-4">
                                                             <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${
@@ -507,7 +508,7 @@ export const Guests: React.FC = () => {
                                                                 className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-accent"
                                                                 title="Details"
                                                             >
-                                                                <span className="material-symbols-outlined">more_vert</span>
+                                                                <AppIcon name="more_vert" />
                                                             </button>
                                                         </td>
                                                     </tr>
@@ -559,7 +560,7 @@ export const Guests: React.FC = () => {
                 <div className="p-6 border-b border-border flex justify-between items-center bg-card rounded-t-2xl">
                     <h3 className="text-xl font-bold text-foreground">New Guest Profile</h3>
                     <button onClick={() => setShowAddModal(false)} className="text-muted-foreground hover:text-foreground">
-                        <span className="material-symbols-outlined">close</span>
+                        <AppIcon name="close" />
                     </button>
                 </div>
                 <form onSubmit={handleAddGuest} className="p-6 flex flex-col gap-4">
@@ -710,7 +711,7 @@ export const Guests: React.FC = () => {
               className="flex-1 h-11 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-extrabold transition-colors disabled:opacity-60"
               disabled={loading}
             >
-              {loading ? 'Deleting ¦' : 'Delete'}
+              {loading ? 'Deleting ' : 'Delete'}
             </button>
           </div>
         }

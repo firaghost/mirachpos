@@ -9,6 +9,7 @@ import { readSession } from '../session';
 import { hasPermission } from '../rbac';
 import { formatDeviceDateTime } from '../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 interface Props {
   onNavigate: (screen: Screen) => void;
 }
@@ -933,7 +934,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                       disabled={!canUpdateInventory}
                       className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg flex flex-col items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                        <span className="material-symbols-outlined mb-1">add_circle</span>
+                        <AppIcon name="add_circle" className="mb-1" />
                         <span>Add Stock Item</span>
                     </button>
                 </div>
@@ -1416,7 +1417,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                   className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg flex items-center gap-2 disabled:opacity-50"
                   disabled={!selectedProductId}
                 >
-                  <span className="material-symbols-outlined text-[18px]">edit</span> Edit Recipe
+                  <AppIcon name="edit" className="text-[18px]" size={18} /> Edit Recipe
                 </button>
               </div>
 
@@ -1492,7 +1493,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                   className="text-muted-foreground hover:text-foreground p-1"
                   title="Close"
                 >
-                  <span className="material-symbols-outlined">close</span>
+                  <AppIcon name="close" />
                 </button>
               </div>
 
@@ -1556,13 +1557,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                                           : 'bg-secondary border-border'
                                     }`}
                                   >
-                                    <span
-                                      className={`material-symbols-outlined text-sm ${
-                                        critical ? 'text-rose-300' : low || missing ? 'text-amber-200' : 'text-muted-foreground'
-                                      }`}
-                                    >
-                                      inventory_2
-                                    </span>
+                                    <AppIcon name="inventory_2" className={`text-sm ${ critical ? 'text-rose-300' : low || missing ? 'text-amber-200' : 'text-muted-foreground' }`} size={14} />
                                   </div>
                                   <div>
                                     <p className="text-sm text-foreground font-medium">{ing.name}</p>
@@ -1705,7 +1700,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                 onClick={openNewSupplier}
                 className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg flex items-center gap-2"
               >
-                <span className="material-symbols-outlined text-[18px]">add</span> Add Supplier
+                <AppIcon name="add" className="text-[18px]" size={18} /> Add Supplier
               </button>
             </div>
 
@@ -1790,7 +1785,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                 className="px-4 py-2 bg-card border border-border text-foreground hover:bg-accent rounded-lg text-sm font-bold"
                 disabled={auditLoading}
               >
-                {auditLoading ? 'Loading ¦' : 'Refresh'}
+                {auditLoading ? 'Loading ' : 'Refresh'}
               </button>
             </div>
 
@@ -1808,7 +1803,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                   {audit.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="p-6 text-muted-foreground text-sm">
-                        {auditLoading ? 'Loading audit ¦' : 'No audit events yet.'}
+                        {auditLoading ? 'Loading audit ' : 'No audit events yet.'}
                       </td>
                     </tr>
                   ) : (
@@ -1855,7 +1850,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                 className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors disabled:opacity-60"
                 disabled={supplierBusy}
               >
-                {supplierBusy ? 'Saving ¦' : 'Save'}
+                {supplierBusy ? 'Saving ' : 'Save'}
               </button>
             </div>
           }
@@ -1934,7 +1929,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                 className="flex-1 h-11 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-extrabold transition-colors disabled:opacity-60"
                 disabled={supplierBusy}
               >
-                {supplierBusy ? 'Deleting ¦' : 'Delete'}
+                {supplierBusy ? 'Deleting ' : 'Delete'}
               </button>
             </div>
           }
@@ -2059,7 +2054,7 @@ export const Inventory: React.FC<Props> = ({ onNavigate }) => {
                 className="flex-1 h-11 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-extrabold transition-colors disabled:opacity-60"
                 disabled={busy || !canUpdateInventory}
               >
-                {busy ? 'Deleting ¦' : 'Delete'}
+                {busy ? 'Deleting ' : 'Delete'}
               </button>
             </div>
           }

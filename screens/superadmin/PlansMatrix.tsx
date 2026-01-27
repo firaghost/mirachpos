@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type BillingRow = {
     tenantId: string;
     tenantName: string;
@@ -254,7 +255,7 @@ export const PlansMatrixView = () => {
         if (icon && v === 'Unlimited') {
             return (
                 <span className="text-foreground font-bold text-lg flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-[20px]">{icon}</span> {v}
+                    <AppIcon name={icon} className="text-primary text-[20px]" size={20} /> {v}
                 </span>
             );
         }
@@ -397,7 +398,7 @@ export const PlansMatrixView = () => {
                 </div>
                 <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="material-symbols-outlined text-[18px] text-primary">storefront</span>
+                        <AppIcon name="storefront" className="text-[18px] text-primary" size={18} />
                         <span className="uppercase tracking-wider font-bold">Cafe</span>
                     </div>
                     <select
@@ -461,7 +462,7 @@ export const PlansMatrixView = () => {
                                     <tr className="bg-muted/40">
                                         <td className="px-6 py-3 border-b border-border sticky left-0 z-10 bg-muted/40" colSpan={2}>
                                             <div className="flex items-center gap-2">
-                                                <span className="material-symbols-outlined text-primary text-[18px]">{s.icon}</span>
+                                                <AppIcon name={s.icon} className="text-primary text-[18px]" size={18} />
                                                 <span className="text-foreground font-bold text-sm uppercase tracking-wide">{s.title}</span>
                                             </div>
                                         </td>

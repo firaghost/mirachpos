@@ -15,6 +15,17 @@ const getClientIp = (req, res) => {
     return ipKeyGenerator(req, res);
 };
 
+const makeRateLimitHandler = (eventName, payload) => {
+    return (req, res) => {
+        try {
+            if (req.log?.warn) req.log.warn({ type: 'security_event', event: 'rate_limited', limiter: eventName }, 'Rate limit exceeded');
+        } catch {
+            // ignore
+        }
+        return res.status(429).json(payload);
+    };
+};
+
 // Global rate limiter - 100 requests per minute
 const globalLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
@@ -26,6 +37,11 @@ const globalLimiter = rateLimit({
         message: 'Too many requests from this IP, please try again later.',
         retryAfter: 60,
     },
+    handler: makeRateLimitHandler('global', {
+        error: 'too_many_requests',
+        message: 'Too many requests from this IP, please try again later.',
+        retryAfter: 60,
+    }),
     keyGenerator: getClientIp,
     skip: (req) => {
         // Skip rate limiting for health checks
@@ -44,6 +60,11 @@ const authLimiter = rateLimit({
         message: 'Too many login attempts. Please try again in 15 minutes.',
         retryAfter: 900,
     },
+    handler: makeRateLimitHandler('auth', {
+        error: 'too_many_login_attempts',
+        message: 'Too many login attempts. Please try again in 15 minutes.',
+        retryAfter: 900,
+    }),
     keyGenerator: getClientIp,
     skipSuccessfulRequests: true, // Don't count successful logins
 });
@@ -59,6 +80,30 @@ const strictLimiter = rateLimit({
         message: 'Rate limit exceeded for this operation. Please try again later.',
         retryAfter: 60,
     },
+    handler: makeRateLimitHandler('strict', {
+        error: 'rate_limit_exceeded',
+        message: 'Rate limit exceeded for this operation. Please try again later.',
+        retryAfter: 60,
+    }),
+    keyGenerator: getClientIp,
+});
+
+// Payment verification limiter - allow polling but prevent abuse
+const paymentVerifyLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: 'too_many_verification_attempts',
+        message: 'Too many verification attempts. Please wait before trying again.',
+        retryAfter: 60,
+    },
+    handler: makeRateLimitHandler('payment_verify', {
+        error: 'too_many_verification_attempts',
+        message: 'Too many verification attempts. Please wait before trying again.',
+        retryAfter: 60,
+    }),
     keyGenerator: getClientIp,
 });
 
@@ -73,6 +118,11 @@ const paymentLimiter = rateLimit({
         message: 'Too many payment attempts. Please wait before trying again.',
         retryAfter: 60,
     },
+    handler: makeRateLimitHandler('payment', {
+        error: 'too_many_payment_attempts',
+        message: 'Too many payment attempts. Please wait before trying again.',
+        retryAfter: 60,
+    }),
     keyGenerator: getClientIp,
 });
 
@@ -81,4 +131,5 @@ module.exports = {
     authLimiter,
     strictLimiter,
     paymentLimiter,
+    paymentVerifyLimiter,
 };

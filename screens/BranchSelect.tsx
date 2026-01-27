@@ -10,6 +10,7 @@ import { Modal } from '../components/ui/modal';
 import { Label } from '../components/ui/label';
 import { Select } from '../components/ui/select';
 
+import { AppIcon } from '@/components/ui/app-icon';
 export const BranchSelect: React.FC = () => {
   const session = useMemo(() => readSession<any>(), []);
 
@@ -190,7 +191,7 @@ export const BranchSelect: React.FC = () => {
       <header className="sticky top-0 z-50 flex items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 py-3 lg:px-10">
         <div className="flex items-center gap-4">
           <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground">
-            <span className="material-symbols-outlined">point_of_sale</span>
+            <AppIcon name="point_of_sale" />
           </div>
           <h2 className="text-xl font-bold leading-tight tracking-tight">MirachPos</h2>
         </div>
@@ -203,7 +204,7 @@ export const BranchSelect: React.FC = () => {
             {initials}
           </div>
           <Button variant="ghost" size="icon" onClick={logout} className="h-10 w-10 rounded-full hover:bg-destructive/10 hover:text-destructive">
-            <span className="material-symbols-outlined">logout</span>
+            <AppIcon name="logout" />
           </Button>
         </div>
       </header>
@@ -220,7 +221,7 @@ export const BranchSelect: React.FC = () => {
                   <p className="text-muted-foreground text-base">Choose a branch to manage orders and inventory.</p>
                 </div>
                 <Button onClick={openCreate} className="gap-2 shadow-lg">
-                  <span className="material-symbols-outlined text-lg">add_business</span>
+                  <AppIcon name="add_business" className="text-lg" size={18} />
                   New Branch
                 </Button>
               </div>
@@ -228,7 +229,7 @@ export const BranchSelect: React.FC = () => {
               {/* Search & Filter Bar */}
               <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center bg-card p-2 rounded-xl border shadow-sm">
                 <div className="flex-1 relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground material-symbols-outlined">search</span>
+                  <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -247,7 +248,7 @@ export const BranchSelect: React.FC = () => {
                     >
                       {c === 'Open' && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
                       {c === 'Closed' && <div className="w-2 h-2 rounded-full bg-destructive" />}
-                      {c === 'Maintenance' && <span className="material-symbols-outlined text-[16px]">build</span>}
+                      {c === 'Maintenance' && <AppIcon name="build" className="text-[16px]" size={16} />}
                       {c}
                     </Button>
                   ))}
@@ -304,24 +305,24 @@ export const BranchSelect: React.FC = () => {
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-bold text-lg leading-tight group-hover:text-primary transition-colors">{b.name}</h3>
                         <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors -mr-2 -mt-2">
-                          <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                          <AppIcon name="chevron_right" className="text-[20px]" size={20} />
                         </div>
                       </div>
 
                       <div className="space-y-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[18px]">badge</span>
+                          <AppIcon name="badge" className="text-[18px]" size={18} />
                           <span>Manager: <span className="text-foreground font-medium">{b.managerName || '  '}</span></span>
                         </div>
                         {location && (
                           <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[18px]">location_on</span>
+                            <AppIcon name="location_on" className="text-[18px]" size={18} />
                             <span className="truncate">{location}</span>
                           </div>
                         )}
                         {b.phone && (
                           <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[18px]">call</span>
+                            <AppIcon name="call" className="text-[18px]" size={18} />
                             <span>{b.phone}</span>
                           </div>
                         )}

@@ -159,46 +159,65 @@ const makeWaiterRouter = () => {
         });
       }
 
-      const rows0 = await base
-        .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'created_at', 'paid_at', 'payload'])
-        .orderBy('created_at', 'desc');
+      if (role !== 'Waiter Manager') {
+        base.andWhere({ created_by_staff_id: staffId });
+      }
 
-      const enriched = rows0
-        .map((o) => {
-          const payload = o.payload ? (() => {
-            try {
-              return JSON.parse(String(o.payload));
-            } catch {
-              return {};
-            }
-          })() : {};
-          return {
-            id: String(o.id),
-            number: String(payload?.number || ''),
-            tableName: String(payload?.tableName || ''),
-            timeLabel: String(payload?.timeLabel || ''),
-            createdByName: String(payload?.createdByName || ''),
-            createdByStaffId: String(payload?.createdByStaffId || ''),
-            items: Array.isArray(payload?.items) ? payload.items : [],
-            status: String(o.status || ''),
-            total: Number(o.total || 0),
-            createdAt: o.created_at ? new Date(o.created_at).toISOString() : '',
-            paidAt: o.paid_at ? new Date(o.paid_at).toISOString() : '',
-          };
-        })
-        .filter((o) => {
-          if (role === 'Waiter Manager') return true;
-          const createdBy = String(o.createdByStaffId || '').trim();
-          return createdBy && createdBy === staffId;
-        })
-        .filter((o) => {
-          if (!q) return true;
-          return String(o.number || '').toLowerCase().includes(q) || String(o.tableName || '').toLowerCase().includes(q);
+      if (q) {
+        const qLike = `%${q}%`;
+        base.andWhere((qb) => {
+          qb.whereRaw('LOWER(COALESCE(display_number, \'\')) LIKE ?', [qLike])
+            .orWhereRaw('LOWER(COALESCE(table_name, \'\')) LIKE ?', [qLike]);
         });
+      }
 
-      const total = enriched.length;
-      const start = (page - 1) * pageSize;
-      const items = enriched.slice(start, start + pageSize);
+      const countRow = await base.clone().clearSelect().clearOrder().count({ total: '*' }).first();
+      const total = Number(countRow?.total || 0);
+
+      const rows0 = await base
+        .select([
+          'id',
+          'status',
+          'total',
+          'tax',
+          'tip',
+          'discount',
+          'created_at',
+          'paid_at',
+          'payload',
+          'display_number',
+          'table_name',
+          'created_by_staff_id',
+          'created_by_name',
+        ])
+        .orderBy('created_at', 'desc')
+        .limit(pageSize)
+        .offset((page - 1) * pageSize);
+
+      const items = rows0.map((o) => {
+        const payload = o.payload
+          ? (() => {
+              try {
+                return JSON.parse(String(o.payload));
+              } catch {
+                return {};
+              }
+            })()
+          : {};
+        return {
+          id: String(o.id),
+          number: String(o.display_number || payload?.number || ''),
+          tableName: String(o.table_name || payload?.tableName || ''),
+          timeLabel: String(payload?.timeLabel || ''),
+          createdByName: String(o.created_by_name || payload?.createdByName || ''),
+          createdByStaffId: String(o.created_by_staff_id || payload?.createdByStaffId || ''),
+          items: Array.isArray(payload?.items) ? payload.items : [],
+          status: String(o.status || ''),
+          total: Number(o.total || 0),
+          createdAt: o.created_at ? new Date(o.created_at).toISOString() : '',
+          paidAt: o.paid_at ? new Date(o.paid_at).toISOString() : '',
+        };
+      });
 
       return res.json({ ok: true, orders: items, page, pageSize, total, branchId });
     } catch (e) {

@@ -6,6 +6,7 @@ import { apiFetch } from '../api';
 import { readSession } from '../session';
 import { formatDeviceDate, formatDeviceDateTime, formatDeviceTime } from '../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type RangeKey = 'Today' | 'Yesterday' | '7 Days' | 'This Month';
 
 type CashSession = {
@@ -827,7 +828,7 @@ export const Finance: React.FC = () => {
         setRegisterFilter('All');
         setStaffFilter('All');
         setLastGeneratedAt(now);
-        setFlash({ kind: 'success', message: 'Shift closed. Generating report ¦' });
+        setFlash({ kind: 'success', message: 'Shift closed. Generating report ' });
 
         const totals = {
           revenue: out.payments.reduce((s, p) => s + (p.total ?? 0), 0),
@@ -1495,7 +1496,7 @@ export const Finance: React.FC = () => {
                     onClick={() => setExpenseCreateOpen(false)}
                     className="size-8 flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground"
                   >
-                    <span className="material-symbols-outlined text-[20px]">close</span>
+                    <AppIcon name="close" className="text-[20px]" size={20} />
                   </button>
                 </div>
                 <div className="p-5 space-y-4">
@@ -1577,7 +1578,7 @@ export const Finance: React.FC = () => {
                     onClick={() => setSessionCreateOpen(false)}
                     className="size-8 flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground"
                   >
-                    <span className="material-symbols-outlined text-[20px]">close</span>
+                    <AppIcon name="close" className="text-[20px]" size={20} />
                   </button>
                 </div>
                 <div className="p-5 space-y-4">
@@ -1620,7 +1621,7 @@ export const Finance: React.FC = () => {
           ) : null}
           {loadingRemote ? (
             <div className="rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground font-bold">
-              Loading finance data ¦
+              Loading finance data 
             </div>
           ) : null}
           {flash && (
@@ -1661,7 +1662,7 @@ export const Finance: React.FC = () => {
                 onClick={exportCsv}
                 className="flex items-center gap-2 bg-card hover:bg-accent text-foreground px-4 py-2.5 rounded-lg text-sm font-bold border border-border transition-colors"
               >
-                <span className="material-symbols-outlined text-[18px]">download</span>
+                <AppIcon name="download" className="text-[18px]" size={18} />
                 Export Report
               </button>
 
@@ -1669,7 +1670,7 @@ export const Finance: React.FC = () => {
                 onClick={exportOrdersSoldPdf}
                 className="flex items-center gap-2 bg-card hover:bg-accent text-foreground px-4 py-2.5 rounded-lg text-sm font-bold border border-border transition-colors"
               >
-                <span className="material-symbols-outlined text-[18px]">inventory_2</span>
+                <AppIcon name="inventory_2" className="text-[18px]" size={18} />
                 Orders Sold PDF
               </button>
 
@@ -1677,7 +1678,7 @@ export const Finance: React.FC = () => {
                 onClick={exportProfitPdf}
                 className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-black transition-colors"
               >
-                <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                <AppIcon name="picture_as_pdf" className="text-[18px]" size={18} />
                 Profit PDF
               </button>
             </div>
@@ -1686,19 +1687,19 @@ export const Finance: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-card rounded-xl p-5 border border-border shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-4xl text-primary">payments</span>
+                <AppIcon name="payments" className="text-4xl text-primary" size={36} />
               </div>
               <p className="text-muted-foreground text-sm font-medium mb-1">Total Revenue</p>
               <h3 className="text-foreground text-2xl font-bold font-mono">{formatMoney(totalRevenue)}</h3>
               <div className="flex items-center gap-1 mt-2 text-emerald-500 text-xs font-bold">
-                <span className="material-symbols-outlined text-[14px]">trending_up</span>
+                <AppIcon name="trending_up" className="text-[14px]" size={14} />
                 <span>{payments.length} paid orders</span>
               </div>
             </div>
 
             <div className="bg-card rounded-xl p-5 border border-border shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-4xl text-emerald-500">account_balance_wallet</span>
+                <AppIcon name="account_balance_wallet" className="text-4xl text-emerald-500" size={36} />
               </div>
               <p className="text-muted-foreground text-sm font-medium mb-1">Net Cash in Hand</p>
               <h3 className="text-foreground text-2xl font-bold font-mono">{formatMoney(netCashInHand)}</h3>
@@ -1709,19 +1710,19 @@ export const Finance: React.FC = () => {
 
             <div className="bg-card rounded-xl p-5 border border-border shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-4xl text-destructive">receipt_long</span>
+                <AppIcon name="receipt_long" className="text-4xl text-destructive" size={36} />
               </div>
               <p className="text-muted-foreground text-sm font-medium mb-1">Total Expenses</p>
               <h3 className="text-foreground text-2xl font-bold font-mono">{formatMoney(totalExpenses)}</h3>
               <div className="flex items-center gap-1 mt-2 text-destructive text-xs font-bold">
-                <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
+                <AppIcon name="arrow_upward" className="text-[14px]" size={14} />
                 <span>{expenses.length} entries</span>
               </div>
             </div>
 
             <div className="bg-card rounded-xl p-5 border border-border shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-4xl text-amber-500">warning</span>
+                <AppIcon name="warning" className="text-4xl text-amber-500" size={36} />
               </div>
               <p className="text-muted-foreground text-sm font-medium mb-1">Discrepancies</p>
               <h3 className="text-amber-600 dark:text-amber-300 text-2xl font-bold font-mono">{(discrepancyTotal >= 0 ? '' : '-') + formatMoney(Math.abs(discrepancyTotal))}</h3>
@@ -1847,7 +1848,7 @@ export const Finance: React.FC = () => {
                   onClick={addExpense}
                   className="size-8 flex items-center justify-center rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-colors"
                 >
-                  <span className="material-symbols-outlined text-[20px]">add</span>
+                  <AppIcon name="add" className="text-[20px]" size={20} />
                 </button>
               </div>
               <div className="flex-1 p-0 overflow-y-auto max-h-[300px]">
@@ -1856,7 +1857,7 @@ export const Finance: React.FC = () => {
                     <div key={e.id} className="flex items-center justify-between p-4 border-b border-border hover:bg-accent transition-colors">
                       <div className="flex items-center gap-3">
                         <div className="size-10 rounded-lg bg-muted flex items-center justify-center text-primary">
-                          <span className="material-symbols-outlined text-[20px]">{e.icon}</span>
+                          <AppIcon name={e.icon} className="text-[20px]" size={20} />
                         </div>
                         <div>
                           <p className="text-foreground text-sm font-medium">{e.title}</p>
@@ -1922,7 +1923,7 @@ export const Finance: React.FC = () => {
 
             <div className="flex items-center justify-between p-4 bg-background">
               <div className="relative max-w-xl w-full">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-muted-foreground text-lg">search</span>
+                <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg" size={18} />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -1973,14 +1974,14 @@ export const Finance: React.FC = () => {
                   }}
                   className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <span className="material-symbols-outlined text-lg">filter_list</span>
+                  <AppIcon name="filter_list" className="text-lg" size={18} />
                   Reset
                 </button>
                 <button
                   onClick={openNewSession}
                   className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-card border border-border rounded-lg shadow-sm hover:bg-accent transition-colors"
                 >
-                  <span className="material-symbols-outlined text-lg">add</span>
+                  <AppIcon name="add" className="text-lg" size={18} />
                   Open Session
                 </button>
               </div>
@@ -2056,7 +2057,7 @@ export const Finance: React.FC = () => {
                                 onClick={() => setSessionEditingId(s.id)}
                                 className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                               >
-                                <span className="material-symbols-outlined text-sm">calculate</span>
+                                <AppIcon name="calculate" className="text-sm" size={14} />
                                 Count
                               </button>
                             )}
@@ -2065,7 +2066,7 @@ export const Finance: React.FC = () => {
                                 onClick={() => closeSession(s.id)}
                                 className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                               >
-                                <span className="material-symbols-outlined text-sm">lock</span>
+                                <AppIcon name="lock" className="text-sm" size={14} />
                                 Close
                               </button>
                             )}
@@ -2133,14 +2134,14 @@ export const Finance: React.FC = () => {
                                 onClick={() => saveExpenseEdit(e.id)}
                                 className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                               >
-                                <span className="material-symbols-outlined text-sm">save</span>
+                                <AppIcon name="save" className="text-sm" size={14} />
                                 Save
                               </button>
                               <button
                                 onClick={() => setExpenseEditingId(null)}
                                 className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                               >
-                                <span className="material-symbols-outlined text-sm">close</span>
+                                <AppIcon name="close" className="text-sm" size={14} />
                                 Cancel
                               </button>
                             </div>
@@ -2150,14 +2151,14 @@ export const Finance: React.FC = () => {
                                 onClick={() => startEditExpense(e)}
                                 className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                               >
-                                <span className="material-symbols-outlined text-sm">edit</span>
+                                <AppIcon name="edit" className="text-sm" size={14} />
                                 Edit
                               </button>
                               <button
                                 onClick={() => deleteExpense(e.id)}
                                 className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-destructive hover:bg-accent"
                               >
-                                <span className="material-symbols-outlined text-sm">delete</span>
+                                <AppIcon name="delete" className="text-sm" size={14} />
                                 Remove
                               </button>
                             </div>

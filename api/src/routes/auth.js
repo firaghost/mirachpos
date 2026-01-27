@@ -8,6 +8,9 @@ const { loginWithEmailPassword, loginWithCodePin } = require('../services/authSe
 const bcrypt = require('bcryptjs');
 const { makeId } = require('../utils/ids');
 
+const { safeJsonParse } = require('../utils/json');
+const { createMailTransporter } = require('../utils/mail');
+
 const { computeTenantEntitlements, upsertTenantEntitlementsSnapshot } = require('../services/entitlements');
 
 const safeIso = (v) => {
@@ -19,55 +22,32 @@ const safeIso = (v) => {
   }
 };
 
-const createMailTransporter = (overrides) => {
-  let nodemailer;
+const maskEmail = (email) => {
   try {
-    // eslint-disable-next-line global-require
-    nodemailer = require('nodemailer');
+    const s = String(email || '').trim().toLowerCase();
+    const at = s.indexOf('@');
+    if (at <= 1) return '';
+    const domain = s.slice(at + 1);
+    if (!domain) return '';
+    return `${s[0]}***@${domain}`;
   } catch {
-    return null;
+    return '';
   }
+};
 
-  const host = String(config.mail?.host || '').trim();
-  const port = Number(overrides?.port || config.mail?.port || 587);
-  const user = String(config.mail?.user || '').trim();
-  const pass = String(config.mail?.pass || '').trim();
-  if (!host || !user || !pass) return null;
-
-  const secure =
-    typeof overrides?.secure === 'boolean'
-      ? overrides.secure
-      : typeof config.mail?.secure === 'boolean'
-        ? config.mail.secure
-        : port === 465;
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-    // Windows sometimes prefers IPv6 first; forcing IPv4 avoids hanging greetings on some hosts.
-    family: 4,
-    requireTLS: !secure && port === 587,
-    tls: { minVersion: 'TLSv1.2', servername: host },
-    connectionTimeout: 20_000,
-    greetingTimeout: 20_000,
-    socketTimeout: 30_000,
-  });
+const maskCode = (code) => {
+  try {
+    const s = String(code || '').trim();
+    if (s.length <= 2) return '';
+    return `${s.slice(0, 2)}***`;
+  } catch {
+    return '';
+  }
 };
 
 const randomOtp = () => {
   const n = Math.floor(100000 + Math.random() * 900000);
   return String(n);
-};
-
-const safeJsonParse = (raw, fallback) => {
-  try {
-    if (!raw) return fallback;
-    const parsed = JSON.parse(String(raw));
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
 };
 
 const normalizePermissions = (raw) => {
@@ -120,7 +100,26 @@ const makeAuthRouter = () => {
         jwtSecret: config.jwtSecret,
       });
 
-      if (!out.ok) return res.status(401).json({ error: out.error });
+      if (!out.ok) {
+        try {
+          if (req.log?.warn) {
+            req.log.warn(
+              {
+                type: 'security_event',
+                event: 'login_failed',
+                method: 'email_password',
+                tenantId: String(req.tenant?.id || ''),
+                email: maskEmail(email),
+                reason: String(out.error || ''),
+              },
+              'Login failed'
+            );
+          }
+        } catch {
+          // ignore
+        }
+        return res.status(401).json({ error: out.error });
+      }
       return res.json(out);
     } catch (e) {
       return next(e);
@@ -138,7 +137,26 @@ const makeAuthRouter = () => {
       const code = typeof req.body?.code === 'string' ? req.body.code : '';
       const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
       const out = await loginWithCodePin({ tenantId: req.tenant.id, code, pin, jwtSecret: config.jwtSecret });
-      if (!out.ok) return res.status(out.error === 'forbidden' ? 403 : 401).json({ error: out.error });
+      if (!out.ok) {
+        try {
+          if (req.log?.warn) {
+            req.log.warn(
+              {
+                type: 'security_event',
+                event: 'login_failed',
+                method: 'code_pin',
+                tenantId: String(req.tenant?.id || ''),
+                code: maskCode(code),
+                reason: String(out.error || ''),
+              },
+              'Login failed'
+            );
+          }
+        } catch {
+          // ignore
+        }
+        return res.status(out.error === 'forbidden' ? 403 : 401).json({ error: out.error });
+      }
       return res.json(out);
     } catch (e) {
       return next(e);
@@ -150,7 +168,26 @@ const makeAuthRouter = () => {
       const code = typeof req.body?.code === 'string' ? req.body.code : '';
       const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
       const out = await loginWithCodePin({ tenantId: req.tenant.id, code, pin, jwtSecret: config.jwtSecret });
-      if (!out.ok) return res.status(out.error === 'forbidden' ? 403 : 401).json({ error: out.error });
+      if (!out.ok) {
+        try {
+          if (req.log?.warn) {
+            req.log.warn(
+              {
+                type: 'security_event',
+                event: 'login_failed',
+                method: 'code_pin',
+                tenantId: String(req.tenant?.id || ''),
+                code: maskCode(code),
+                reason: String(out.error || ''),
+              },
+              'Login failed'
+            );
+          }
+        } catch {
+          // ignore
+        }
+        return res.status(out.error === 'forbidden' ? 403 : 401).json({ error: out.error });
+      }
       return res.json(out);
     } catch (e) {
       return next(e);

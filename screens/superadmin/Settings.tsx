@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type PlatformSettings = {
   platformName: string;
   supportEmail: string;
@@ -154,8 +155,8 @@ export const SA_Settings: React.FC = () => {
                   Discard Changes
                 </button>
                 <button onClick={save} disabled={!dirty || loading || saving} className="px-4 py-2 text-sm font-bold text-primary-foreground bg-primary rounded hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 flex items-center gap-2 disabled:opacity-60">
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>save</span>
-                  {saving ? 'Saving ¦' : 'Save Changes'}
+                  <AppIcon name="save" />
+                  {saving ? 'Saving ' : 'Save Changes'}
                 </button>
               </div>
             </div>
@@ -168,7 +169,7 @@ export const SA_Settings: React.FC = () => {
               <nav className="flex flex-col gap-1 sticky top-4">
                 <button onClick={() => setActiveTab('general')} className="cursor-pointer group text-left">
                   <div className={(activeTab === 'general' ? 'bg-accent border-border' : 'border-transparent') + " flex items-center gap-3 p-3 rounded border hover:bg-accent/60 transition-all"}>
-                    <span className="material-symbols-outlined text-muted-foreground peer-checked:text-primary group-hover:text-foreground transition-colors" style={{ fontSize: '20px' }}>tune</span>
+                    <AppIcon name="tune" className="text-muted-foreground peer-checked:text-primary group-hover:text-foreground transition-colors" />
                     <div className="flex flex-col">
                       <span className={"text-sm font-medium group-hover:text-foreground " + (activeTab === 'general' ? 'text-foreground' : 'text-muted-foreground')}>General</span>
                     </div>
@@ -176,7 +177,7 @@ export const SA_Settings: React.FC = () => {
                 </button>
                 <button onClick={() => setActiveTab('security')} className="cursor-pointer group text-left">
                   <div className={(activeTab === 'security' ? 'bg-accent border-border' : 'border-transparent') + " flex items-center gap-3 p-3 rounded border hover:bg-accent/60 transition-all"}>
-                    <span className="material-symbols-outlined text-muted-foreground peer-checked:text-primary group-hover:text-foreground transition-colors" style={{ fontSize: '20px' }}>security</span>
+                    <AppIcon name="security" className="text-muted-foreground peer-checked:text-primary group-hover:text-foreground transition-colors" />
                     <div className="flex flex-col">
                       <span className={"text-sm font-medium group-hover:text-foreground " + (activeTab === 'security' ? 'text-foreground' : 'text-muted-foreground')}>Security & Access</span>
                     </div>
@@ -184,7 +185,7 @@ export const SA_Settings: React.FC = () => {
                 </button>
                 <button onClick={() => setActiveTab('limits')} className="cursor-pointer group text-left">
                   <div className={(activeTab === 'limits' ? 'bg-accent border-border' : 'border-transparent') + " flex items-center gap-3 p-3 rounded border hover:bg-accent/60 transition-all"}>
-                    <span className="material-symbols-outlined text-muted-foreground peer-checked:text-primary group-hover:text-foreground transition-colors" style={{ fontSize: '20px' }}>database</span>
+                    <AppIcon name="database" className="text-muted-foreground peer-checked:text-primary group-hover:text-foreground transition-colors" />
                     <div className="flex flex-col">
                       <span className={"text-sm font-medium group-hover:text-foreground " + (activeTab === 'limits' ? 'text-foreground' : 'text-muted-foreground')}>System Limits</span>
                     </div>
@@ -192,7 +193,7 @@ export const SA_Settings: React.FC = () => {
                 </button>
                 <button onClick={() => setActiveTab('branding')} className="cursor-pointer group text-left">
                   <div className={(activeTab === 'branding' ? 'bg-accent border-border' : 'border-transparent') + " flex items-center gap-3 p-3 rounded border hover:bg-accent/60 transition-all"}>
-                    <span className="material-symbols-outlined text-muted-foreground peer-checked:text-primary group-hover:text-foreground transition-colors" style={{ fontSize: '20px' }}>palette</span>
+                    <AppIcon name="palette" className="text-muted-foreground peer-checked:text-primary group-hover:text-foreground transition-colors" />
                     <div className="flex flex-col">
                       <span className={"text-sm font-medium group-hover:text-foreground " + (activeTab === 'branding' ? 'text-foreground' : 'text-muted-foreground')}>Branding</span>
                     </div>
@@ -201,7 +202,7 @@ export const SA_Settings: React.FC = () => {
                 <div className="h-px bg-border my-2"></div>
                 <button onClick={() => setActiveTab('environment')} className="cursor-pointer group text-left">
                   <div className={(activeTab === 'environment' ? 'bg-destructive/10 border-destructive/30' : 'border-transparent') + " flex items-center gap-3 p-3 rounded border hover:bg-accent/60 transition-all"}>
-                    <span className="material-symbols-outlined text-destructive/70 peer-checked:text-destructive group-hover:text-destructive transition-colors" style={{ fontSize: '20px' }}>warning</span>
+                    <AppIcon name="warning" className="text-destructive/70 peer-checked:text-destructive group-hover:text-destructive transition-colors" />
                     <div className="flex flex-col">
                       <span className={"text-sm font-medium group-hover:text-destructive " + (activeTab === 'environment' ? 'text-destructive' : 'text-muted-foreground')}>Environment</span>
                     </div>
@@ -216,7 +217,7 @@ export const SA_Settings: React.FC = () => {
                 <section className="bg-card border border-border rounded-lg overflow-hidden">
                   <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/40">
                     <h3 className="text-lg font-bold text-foreground">General Information</h3>
-                    <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: '20px' }}>info</span>
+                    <AppIcon name="info" className="text-muted-foreground" />
                   </div>
                   <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex flex-col gap-2">
@@ -237,7 +238,7 @@ export const SA_Settings: React.FC = () => {
                           <option>PST (Pacific Standard Time)</option>
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground">
-                          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>expand_more</span>
+                          <AppIcon name="expand_more" />
                         </div>
                       </div>
                     </div>
@@ -261,7 +262,7 @@ export const SA_Settings: React.FC = () => {
                 <section className="bg-card border border-border rounded-lg overflow-hidden">
                   <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/40">
                     <h3 className="text-lg font-bold text-foreground">System Limits</h3>
-                    <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: '20px' }}>database</span>
+                    <AppIcon name="database" className="text-muted-foreground" />
                   </div>
                   <div className="p-6 flex flex-col gap-6">
                     <div className="flex items-center justify-between gap-4 p-4 border border-border rounded bg-muted/40">
@@ -293,7 +294,7 @@ export const SA_Settings: React.FC = () => {
                 <section className="bg-card border border-border rounded-lg overflow-hidden">
                   <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/40">
                     <h3 className="text-lg font-bold text-foreground">Security & Access (Advanced)</h3>
-                    <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: '20px' }}>security</span>
+                    <AppIcon name="security" className="text-muted-foreground" />
                   </div>
                   <div className="p-6 flex flex-col gap-6">
                     <div className="flex items-center justify-between gap-4 p-4 border border-border rounded bg-muted/40">
@@ -331,7 +332,7 @@ export const SA_Settings: React.FC = () => {
                 <section className="bg-card border border-border rounded-lg overflow-hidden">
                   <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/40">
                     <h3 className="text-lg font-bold text-foreground">Branding</h3>
-                    <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: '20px' }}>palette</span>
+                    <AppIcon name="palette" className="text-muted-foreground" />
                   </div>
                   <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex flex-col gap-2 md:col-span-2">
@@ -354,7 +355,7 @@ export const SA_Settings: React.FC = () => {
                 <section className="bg-card border border-border rounded-lg overflow-hidden">
                   <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/40">
                     <h3 className="text-lg font-bold text-foreground">Environment (Advanced)</h3>
-                    <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: '20px' }}>warning</span>
+                    <AppIcon name="warning" className="text-muted-foreground" />
                   </div>
                   <div className="p-6 flex flex-col gap-6">
                     <div className="flex items-center justify-between gap-4 p-4 border border-border rounded bg-muted/40">

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTheme } from '../../ThemeContext';
 
+import { AppIcon } from '@/components/ui/app-icon';
 interface ThemeToggleProps {
   /** Size variant */
   size?: 'sm' | 'md' | 'lg';
@@ -50,9 +51,9 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
         title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       >
         {isDark ? (
-          <span className={`material-symbols-outlined ${iconSizes[size]}`}>light_mode</span>
+          <AppIcon name="light_mode" className={`${iconSizes[size]}`} />
         ) : (
-          <span className={`material-symbols-outlined ${iconSizes[size]}`}>dark_mode</span>
+          <AppIcon name="dark_mode" className={`${iconSizes[size]}`} />
         )}
       </button>
       {showLabel && (
@@ -73,9 +74,7 @@ export const ThemeSwitch: React.FC<{ className?: string }> = ({ className = '' }
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <span className={`material-symbols-outlined text-[18px] ${!isDark ? 'text-primary' : 'text-muted-foreground'}`}>
-        light_mode
-      </span>
+      <AppIcon name="light_mode" className={`text-[18px] ${!isDark ? 'text-primary' : 'text-muted-foreground'}`} size={18} />
       <button
         type="button"
         role="switch"
@@ -98,9 +97,7 @@ export const ThemeSwitch: React.FC<{ className?: string }> = ({ className = '' }
           `}
         />
       </button>
-      <span className={`material-symbols-outlined text-[18px] ${isDark ? 'text-primary' : 'text-muted-foreground'}`}>
-        dark_mode
-      </span>
+      <AppIcon name="dark_mode" className={`text-[18px] ${isDark ? 'text-primary' : 'text-muted-foreground'}`} size={18} />
     </div>
   );
 };
@@ -127,7 +124,7 @@ export const ThemeSelector: React.FC<{ className?: string }> = ({ className = ''
             }
           `}
         >
-          <span className="material-symbols-outlined text-[16px]">light_mode</span>
+          <AppIcon name="light_mode" className="text-[16px]" size={16} />
           Light
         </button>
         <button
@@ -142,7 +139,7 @@ export const ThemeSelector: React.FC<{ className?: string }> = ({ className = ''
             }
           `}
         >
-          <span className="material-symbols-outlined text-[16px]">dark_mode</span>
+          <AppIcon name="dark_mode" className="text-[16px]" size={16} />
           Dark
         </button>
       </div>

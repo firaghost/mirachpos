@@ -5,6 +5,7 @@ import { Modal } from '../../components/Modal';
 import { formatDeviceTime } from '../../datetime';
 import { readSession } from '../../session';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type SettingsTab = 'hardware' | 'general' | 'branch' | 'hours' | 'taxes' | 'integrations' | 'addons';
 
 type InstalledIntegration = {
@@ -558,7 +559,11 @@ export const BranchSettings: React.FC = () => {
       // ignore
     }
     try {
-      const raw = String(localStorage.getItem('mirachpos.manager.selectedBranchId.v1') || '').trim();
+      const raw = String(
+        localStorage.getItem('mirachpos.owner.selectedBranchId.v1') ||
+          localStorage.getItem('mirachpos.manager.selectedBranchId.v1') ||
+          '',
+      ).trim();
       if (raw && raw !== 'global') return raw;
     } catch {
       // ignore
@@ -1054,7 +1059,7 @@ export const BranchSettings: React.FC = () => {
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 text-muted-foreground text-sm">
                   <span>Settings</span>
-                  <span className="material-symbols-outlined text-sm">chevron_right</span>
+                  <AppIcon name="chevron_right" className="text-sm" size={14} />
                   <span className="text-primary">{currentTabMeta.crumb}</span>
                 </div>
                 <h1 className="text-foreground text-3xl md:text-4xl font-extrabold leading-tight tracking-[-0.033em]">{currentTabMeta.title}</h1>
@@ -1084,7 +1089,7 @@ export const BranchSettings: React.FC = () => {
                 className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'hardware' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
-                <span className="material-symbols-outlined text-lg">print</span>
+                <AppIcon name="print" className="text-lg" size={18} />
                 Printers &amp; Hardware
               </button>
               <button
@@ -1092,7 +1097,7 @@ export const BranchSettings: React.FC = () => {
                 className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'general' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
-                <span className="material-symbols-outlined text-lg">tune</span>
+                <AppIcon name="tune" className="text-lg" size={18} />
                 General Preferences
               </button>
               <button
@@ -1100,7 +1105,7 @@ export const BranchSettings: React.FC = () => {
                 className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'branch' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
-                <span className="material-symbols-outlined text-lg">store</span>
+                <AppIcon name="store" className="text-lg" size={18} />
                 Branch Info
               </button>
               <button
@@ -1108,7 +1113,7 @@ export const BranchSettings: React.FC = () => {
                 className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'hours' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
-                <span className="material-symbols-outlined text-lg">schedule</span>
+                <AppIcon name="schedule" className="text-lg" size={18} />
                 Operating Hours
               </button>
               <button
@@ -1116,7 +1121,7 @@ export const BranchSettings: React.FC = () => {
                 className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'taxes' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
-                <span className="material-symbols-outlined text-lg">percent</span>
+                <AppIcon name="percent" className="text-lg" size={18} />
                 Taxes &amp; Service
               </button>
 
@@ -1125,7 +1130,7 @@ export const BranchSettings: React.FC = () => {
                 className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'integrations' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
-                <span className="material-symbols-outlined text-lg">extension</span>
+                <AppIcon name="extension" className="text-lg" size={18} />
                 Integrations
               </button>
 
@@ -1134,7 +1139,7 @@ export const BranchSettings: React.FC = () => {
                 className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-bold transition-colors ${activeTab === 'addons' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
               >
-                <span className="material-symbols-outlined text-lg">widgets</span>
+                <AppIcon name="widgets" className="text-lg" size={18} />
                 Add-ons
               </button>
             </div>
@@ -1154,7 +1159,7 @@ export const BranchSettings: React.FC = () => {
                     }}
                     className="flex cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-5 bg-primary hover:bg-primary/90 text-primary-foreground gap-2 text-sm font-bold leading-normal tracking-[0.015em] transition-colors shadow-lg shadow-primary/20"
                   >
-                    <span className="material-symbols-outlined text-xl">add</span>
+                    <AppIcon name="add" className="text-xl" size={20} />
                     <span>Add New Device</span>
                   </button>
                 </div>
@@ -1166,7 +1171,7 @@ export const BranchSettings: React.FC = () => {
                         <div className="p-5 flex flex-col h-full">
                           <div className="flex justify-between items-start mb-4">
                             <div className="size-12 rounded-lg bg-secondary flex items-center justify-center text-foreground">
-                              <span className="material-symbols-outlined text-2xl">{d.kind === 'KDS' ? 'tv' : d.kind === 'CashDrawer' ? 'point_of_sale' : d.usage.toLowerCase().includes('kitchen') ? 'restaurant' : 'print'}</span>
+                              <AppIcon name={d.kind === 'KDS' ? 'tv' : d.kind === 'CashDrawer' ? 'point_of_sale' : d.usage.toLowerCase().includes('kitchen') ? 'restaurant' : 'print'} className="text-2xl" size={24} />
                             </div>
                             <span
                               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset ${online
@@ -1229,7 +1234,7 @@ export const BranchSettings: React.FC = () => {
                                 className="size-9 rounded bg-secondary hover:bg-secondary/80 text-foreground flex items-center justify-center transition-colors"
                                 title="Reconnect"
                               >
-                                <span className="material-symbols-outlined text-sm">sync</span>
+                                <AppIcon name="sync" className="text-sm" size={14} />
                               </button>
                             ) : (
                               <button
@@ -1239,7 +1244,7 @@ export const BranchSettings: React.FC = () => {
                                 className="size-9 rounded bg-secondary hover:bg-secondary/80 text-foreground flex items-center justify-center transition-colors"
                                 title="Settings"
                               >
-                                <span className="material-symbols-outlined text-sm">settings</span>
+                                <AppIcon name="settings" className="text-sm" size={14} />
                               </button>
                             )}
                             <button
@@ -1249,7 +1254,7 @@ export const BranchSettings: React.FC = () => {
                               className="size-9 rounded bg-secondary hover:bg-secondary/80 text-foreground flex items-center justify-center transition-colors"
                               title="Edit"
                             >
-                              <span className="material-symbols-outlined text-sm">edit</span>
+                              <AppIcon name="edit" className="text-sm" size={14} />
                             </button>
                           </div>
                         </div>
@@ -1329,7 +1334,7 @@ export const BranchSettings: React.FC = () => {
                   <div className="p-5 flex items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
                       <div className="p-2 rounded-lg bg-secondary text-foreground hidden sm:block">
-                        <span className="material-symbols-outlined">gavel</span>
+                        <AppIcon name="gavel" />
                       </div>
                       <div>
                         <p className="text-foreground font-bold text-base">Enable Fiscal Printer</p>
@@ -1448,7 +1453,7 @@ export const BranchSettings: React.FC = () => {
                   <div className="p-5 flex items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
                       <div className="p-2 rounded-lg bg-secondary text-foreground hidden sm:block">
-                        <span className="material-symbols-outlined">receipt</span>
+                        <AppIcon name="receipt" />
                       </div>
                       <div>
                         <p className="text-foreground font-bold text-base">Auto-print Receipts</p>
@@ -1464,7 +1469,7 @@ export const BranchSettings: React.FC = () => {
                   <div className="p-5 flex items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
                       <div className="p-2 rounded-lg bg-secondary text-foreground hidden sm:block">
-                        <span className="material-symbols-outlined">print</span>
+                        <AppIcon name="print" />
                       </div>
                       <div>
                         <p className="text-foreground font-bold text-base">Auto-print Kitchen Tickets</p>
@@ -1480,7 +1485,7 @@ export const BranchSettings: React.FC = () => {
                   <div className="p-5 flex items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
                       <div className="p-2 rounded-lg bg-secondary text-foreground hidden sm:block">
-                        <span className="material-symbols-outlined">soup_kitchen</span>
+                        <AppIcon name="soup_kitchen" />
                       </div>
                       <div>
                         <p className="text-foreground font-bold text-base">Kitchen Ticket Beep</p>
@@ -1496,7 +1501,7 @@ export const BranchSettings: React.FC = () => {
                   <div className="p-5 flex items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
                       <div className="p-2 rounded-lg bg-secondary text-foreground hidden sm:block">
-                        <span className="material-symbols-outlined">local_bar</span>
+                        <AppIcon name="local_bar" />
                       </div>
                       <div>
                         <p className="text-foreground font-bold text-base">Separate Drink Tickets</p>
@@ -1525,15 +1530,15 @@ export const BranchSettings: React.FC = () => {
                 <div className="rounded-xl border border-border bg-card p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className="text-sm font-bold text-muted-foreground">Header</label>
-                    <Input value={draft.receipt.header} onChange={(e) => setDraft((p) => ({ ...p, receipt: { ...p.receipt, header: e.target.value } }))} placeholder="Store name, address ¦" className="mt-2" />
+                    <Input value={draft.receipt.header} onChange={(e) => setDraft((p) => ({ ...p, receipt: { ...p.receipt, header: e.target.value } }))} placeholder="Store name, address " className="mt-2" />
                   </div>
                   <div>
                     <label className="text-sm font-bold text-muted-foreground">Footer Line 1</label>
-                    <Input value={draft.receipt.footer1} onChange={(e) => setDraft((p) => ({ ...p, receipt: { ...p.receipt, footer1: e.target.value } }))} placeholder="Thank you message ¦" className="mt-2" />
+                    <Input value={draft.receipt.footer1} onChange={(e) => setDraft((p) => ({ ...p, receipt: { ...p.receipt, footer1: e.target.value } }))} placeholder="Thank you message " className="mt-2" />
                   </div>
                   <div>
                     <label className="text-sm font-bold text-muted-foreground">Footer Line 2</label>
-                    <Input value={draft.receipt.footer2} onChange={(e) => setDraft((p) => ({ ...p, receipt: { ...p.receipt, footer2: e.target.value } }))} placeholder="Wifi, social, etc ¦" className="mt-2" />
+                    <Input value={draft.receipt.footer2} onChange={(e) => setDraft((p) => ({ ...p, receipt: { ...p.receipt, footer2: e.target.value } }))} placeholder="Wifi, social, etc " className="mt-2" />
                   </div>
                 </div>
               </section>

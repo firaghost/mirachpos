@@ -4,6 +4,7 @@ import { Screen } from '../../types';
 import { usePos } from '../../PosContext';
 import { formatDeviceTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 interface Props {
   onNavigate: (screen: Screen) => void;
 }
@@ -112,11 +113,11 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className="flex items-center gap-1 bg-background px-2 py-1 rounded text-primary font-bold font-mono border border-border">
-            <span className="material-symbols-outlined text-sm">schedule</span>
+            <AppIcon name="schedule" className="text-sm" size={14} />
             {o.timeLabel}
           </div>
           <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border bg-red-900/20 text-red-300 border-red-900/30 flex items-center gap-1">
-            <span className="material-symbols-outlined text-[14px]">cancel</span>
+            <AppIcon name="cancel" className="text-[14px]" size={14} />
             VOID
           </span>
         </div>
@@ -145,7 +146,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
       <div className="p-4 border-t border-border bg-background">
         <button className="w-full bg-secondary hover:bg-secondary/80 text-foreground font-bold text-lg py-4 rounded-lg flex items-center justify-center gap-2 uppercase tracking-wide border border-border">
           <span>Print</span>
-          <span className="material-symbols-outlined">print</span>
+          <AppIcon name="print" />
         </button>
       </div>
     </article>
@@ -169,7 +170,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className="flex items-center gap-1 bg-background px-2 py-1 rounded text-primary font-bold font-mono border border-border">
-            <span className="material-symbols-outlined text-sm">schedule</span>
+            <AppIcon name="schedule" className="text-sm" size={14} />
             {o.timeLabel}
           </div>
           <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
@@ -210,7 +211,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
             setOrderStatus(o.id, 'Cooking');
           }} className="w-full bg-secondary hover:bg-secondary/80 active:scale-[0.98] transition-all text-foreground font-extrabold text-lg py-4 rounded-lg flex items-center justify-center gap-2 uppercase tracking-wide border border-border">
             <span>Start Prep</span>
-            <span className="material-symbols-outlined">skillet</span>
+            <AppIcon name="skillet" />
           </button>
         )}
         {o.status === 'Cooking' && (
@@ -219,7 +220,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
             setOrderStatus(o.id, 'Ready');
           }} className="w-full bg-primary hover:bg-primary/90 active:scale-[0.98] transition-all text-primary-foreground font-extrabold text-lg py-4 rounded-lg flex items-center justify-center gap-2 uppercase tracking-wide shadow-lg shadow-primary/10">
             <span>Mark Ready</span>
-            <span className="material-symbols-outlined">check_circle</span>
+            <AppIcon name="check_circle" />
           </button>
         )}
         {o.status === 'Ready' && (
@@ -228,13 +229,13 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
             setOrderStatus(o.id, 'Served');
           }} className="w-full bg-primary hover:bg-primary/90 active:scale-[0.98] transition-all text-primary-foreground font-extrabold text-lg py-4 rounded-lg flex items-center justify-center gap-2 uppercase tracking-wide shadow-lg shadow-primary/10">
             <span>Served</span>
-            <span className="material-symbols-outlined">check_circle</span>
+            <AppIcon name="check_circle" />
           </button>
         )}
         {o.status === 'Served' && (
           <button className="w-full bg-secondary text-foreground font-bold text-lg py-4 rounded-lg flex items-center justify-center gap-2 uppercase tracking-wide border border-border">
             <span>Done</span>
-            <span className="material-symbols-outlined">check_circle</span>
+            <AppIcon name="check_circle" />
           </button>
         )}
       </div>
@@ -250,7 +251,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
               <h2 className="text-foreground tracking-tight text-2xl font-bold leading-tight">Kitchen Display</h2>
               {totalReady > 0 ? (
                 <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-xs font-bold border border-primary/20 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[16px]">notifications</span>
+                  <AppIcon name="notifications" className="text-[16px]" size={16} />
                   {totalReady}
                 </span>
               ) : null}
@@ -271,7 +272,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
               onClick={() => void refresh()}
               className="h-10 px-4 rounded-lg bg-background border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 font-bold flex items-center gap-2"
             >
-              <span className="material-symbols-outlined text-[18px]">sync</span>
+              <AppIcon name="sync" className="text-[18px]" size={18} />
               Refresh
             </button>
             
@@ -289,7 +290,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
 
             <div className="relative group w-full sm:w-64">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="material-symbols-outlined text-muted-foreground group-focus-within:text-primary transition-colors">search</span>
+                <AppIcon name="search" className="text-muted-foreground group-focus-within:text-primary transition-colors" />
               </div>
               <input
                 value={query}
@@ -315,7 +316,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
       <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
-            <span className="material-symbols-outlined text-primary">notifications</span>
+            <AppIcon name="notifications" className="text-primary" />
             <h3 className="text-lg font-bold text-foreground uppercase tracking-wider">Ready to Serve</h3>
             <span className="bg-primary/20 text-primary px-2 py-0.5 rounded text-xs font-bold">{readyToRender.length}</span>
           </div>
@@ -326,7 +327,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
 
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <span className="material-symbols-outlined text-muted-foreground">restaurant</span>
+            <AppIcon name="restaurant" className="text-muted-foreground" />
             <h3 className="text-lg font-bold text-foreground uppercase tracking-wider">In Progress</h3>
             <span className="bg-muted/40 text-muted-foreground px-2 py-0.5 rounded text-xs font-bold">{inProgressToRender.length}</span>
           </div>
@@ -338,7 +339,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
         {servedToRender.length > 0 && (
           <div className="mt-8">
             <div className="flex items-center gap-2 mb-4">
-              <span className="material-symbols-outlined text-muted-foreground">check_circle</span>
+              <AppIcon name="check_circle" className="text-muted-foreground" />
               <h3 className="text-lg font-bold text-foreground uppercase tracking-wider">Served</h3>
               <span className="bg-muted/40 text-muted-foreground px-2 py-0.5 rounded text-xs font-bold">{servedToRender.length}</span>
             </div>
@@ -351,7 +352,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
         {completedToRender.length > 0 && (
           <div className="mt-8">
             <div className="flex items-center gap-2 mb-4">
-              <span className="material-symbols-outlined text-emerald-600">paid</span>
+              <AppIcon name="paid" className="text-emerald-600" />
               <h3 className="text-lg font-bold text-foreground uppercase tracking-wider">Completed</h3>
               <span className="bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded text-xs font-bold">{completedToRender.length}</span>
             </div>
@@ -364,7 +365,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
         {voidedToRender.length > 0 && (
           <div className="mt-8">
             <div className="flex items-center gap-2 mb-4">
-              <span className="material-symbols-outlined text-destructive">cancel</span>
+              <AppIcon name="cancel" className="text-destructive" />
               <h3 className="text-lg font-bold text-foreground uppercase tracking-wider">Voided</h3>
               <span className="bg-destructive/10 text-destructive px-2 py-0.5 rounded text-xs font-bold">{voidedToRender.length}</span>
             </div>

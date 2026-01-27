@@ -4,6 +4,7 @@ import { OwnerPageHeader } from '../../components/OwnerPageHeader';
 import { PortalMenu, type PortalMenuAnchorRect } from '../../components/PortalMenu';
 import { Screen } from '../../types';
 
+import { AppIcon } from '@/components/ui/app-icon';
 export const OwnerBranches: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -269,12 +270,12 @@ export const OwnerBranches: React.FC = () => {
         rightSlot={
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center bg-muted rounded-lg h-10 w-72 px-3 gap-2">
-              <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: 20 }}>search</span>
+              <AppIcon name="search" className="text-muted-foreground" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="bg-transparent border-none text-sm text-foreground placeholder:text-muted-foreground focus:ring-0 w-full p-0"
-                placeholder="Search branches ¦"
+                placeholder="Search branches "
                 type="text"
               />
             </div>
@@ -283,7 +284,7 @@ export const OwnerBranches: React.FC = () => {
               className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-muted text-foreground rounded-lg text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>refresh</span>
+              <AppIcon name="refresh" />
               <span className="hidden sm:inline">Refresh</span>
             </button>
             <button
@@ -291,7 +292,7 @@ export const OwnerBranches: React.FC = () => {
               className="flex items-center justify-center gap-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-md"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>add_business</span>
+              <AppIcon name="add_business" />
               <span className="hidden sm:inline">Add Branch</span>
             </button>
           </div>
@@ -315,7 +316,7 @@ export const OwnerBranches: React.FC = () => {
                 <option value="Closed">Inactive / Closed</option>
                 <option value="Maintenance">Maintenance</option>
               </select>
-              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-lg">expand_more</span>
+              <AppIcon name="expand_more" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-lg" size={18} />
             </div>
             <div className="relative min-w-[180px]">
               <select
@@ -329,7 +330,7 @@ export const OwnerBranches: React.FC = () => {
                   </option>
                 ))}
               </select>
-              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-lg">expand_more</span>
+              <AppIcon name="expand_more" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-lg" size={18} />
             </div>
           </div>
         </div>
@@ -435,7 +436,7 @@ export const OwnerBranches: React.FC = () => {
                               setRowMenuId((prev) => (prev === b.id ? null : b.id));
                             }}
                           >
-                            <span className="material-symbols-outlined text-[20px]">more_vert</span>
+                            <AppIcon name="more_vert" className="text-[20px]" size={20} />
                           </button>
 
                           <PortalMenu
@@ -535,7 +536,7 @@ export const OwnerBranches: React.FC = () => {
                     <p className="text-3xl font-bold text-foreground">{branches.length}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                    <span className="material-symbols-outlined">store</span>
+                    <AppIcon name="store" />
                 </div>
             </div>
             <div className="bg-card p-6 rounded-xl border border-border flex items-start justify-between">
@@ -544,7 +545,7 @@ export const OwnerBranches: React.FC = () => {
                     <p className="text-3xl font-bold text-foreground">{totalStaff}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                    <span className="material-symbols-outlined">badge</span>
+                    <AppIcon name="badge" />
                 </div>
             </div>
              <div className="bg-card p-6 rounded-xl border border-border flex items-start justify-between">
@@ -554,7 +555,7 @@ export const OwnerBranches: React.FC = () => {
                     <p className="text-xs text-muted-foreground mt-1">Today: {topPerforming ? `ETB ${topPerforming.revenueToday.toLocaleString()}` : 'No data'}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                    <span className="material-symbols-outlined">trending_up</span>
+                    <AppIcon name="trending_up" />
                 </div>
             </div>
         </div>
@@ -566,7 +567,7 @@ export const OwnerBranches: React.FC = () => {
               <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                 <div className="text-lg font-black">{editingId ? 'Edit Branch' : 'Add Branch'}</div>
                 <button onClick={closeModal} disabled={saving} className="h-9 w-9 rounded-lg bg-muted hover:bg-accent disabled:opacity-60">
-                  <span className="material-symbols-outlined">close</span>
+                  <AppIcon name="close" />
                 </button>
               </div>
 
@@ -667,7 +668,7 @@ export const OwnerBranches: React.FC = () => {
               <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                 <div className="text-lg font-black">Delete Branch</div>
                 <button onClick={closeDelete} className="text-muted-foreground hover:text-foreground" type="button" disabled={saving}>
-                  <span className="material-symbols-outlined">close</span>
+                  <AppIcon name="close" />
                 </button>
               </div>
               <div className="px-6 py-5 text-sm text-muted-foreground">
@@ -678,7 +679,7 @@ export const OwnerBranches: React.FC = () => {
                   Cancel
                 </button>
                 <button onClick={confirmDelete} className="h-10 px-4 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold disabled:opacity-60" disabled={saving} type="button">
-                  {saving ? 'Deleting ¦' : 'Delete'}
+                  {saving ? 'Deleting ' : 'Delete'}
                 </button>
               </div>
             </div>

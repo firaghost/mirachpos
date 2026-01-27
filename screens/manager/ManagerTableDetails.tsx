@@ -4,6 +4,7 @@ import { usePos } from '../../PosContext';
 import { Screen } from '../../types';
 import { formatDeviceDateTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 interface Props {
   onNavigate: (screen: Screen) => void;
 }
@@ -101,7 +102,7 @@ export const ManagerTableDetails: React.FC<Props> = ({ onNavigate }) => {
                 onClick={() => onNavigate(Screen.MANAGER_FLOOR_MAP)}
                 className="h-11 px-5 rounded-lg bg-background border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 flex items-center gap-2 text-sm font-semibold"
               >
-                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                <AppIcon name="arrow_back" className="text-[18px]" size={18} />
                 Back
               </button>
               {order ? (
@@ -109,7 +110,7 @@ export const ManagerTableDetails: React.FC<Props> = ({ onNavigate }) => {
                   onClick={openOrderDetails}
                   className="h-11 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold text-sm flex items-center gap-2"
                 >
-                  <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                  <AppIcon name="receipt_long" className="text-[18px]" size={18} />
                   Open Order Details
                 </button>
               ) : null}
@@ -159,7 +160,7 @@ export const ManagerTableDetails: React.FC<Props> = ({ onNavigate }) => {
               {isVoided && order?.voidReason ? (
                 <div className="px-6 py-4 border-t border-border bg-destructive/10">
                   <div className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-red-400 text-[20px]">block</span>
+                    <AppIcon name="block" className="text-red-400 text-[20px]" size={20} />
                     <div className="flex flex-col">
                       <div className="text-sm font-bold text-red-300">Void Reason</div>
                       <div className="text-sm text-muted-foreground">{order.voidReason}</div>

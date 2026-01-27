@@ -1,5 +1,6 @@
+import { AppIcon } from '@/components/ui/app-icon';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Screen } from '../../types';
 import { usePos, useSelectedOrder } from '../../PosContext';
 import { Modal } from '../../components/Modal';
@@ -10,7 +11,7 @@ interface Props {
 }
 
 export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
-  const { voidOrder, voidOrderItem, setPendingOrderItemQty, setPendingOrderItemNote, setOrderCustomer, setOrderSplits, refreshFromServer } = usePos();
+  const { voidOrder, voidOrderItem, setPendingOrderItemQty, setPendingOrderItemNote, setOrderCustomer, setOrderSplits, refreshFromServer, queueOfflineWrite } = usePos();
   const order = useSelectedOrder();
 
   const [editMode, setEditMode] = useState(false);
@@ -52,6 +53,16 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
   const [customers, setCustomers] = useState<Array<{ id: string; name: string; phone: string; loyaltyPoints: number; loyaltyBalance: number }>>([]);
   const [customersLoading, setCustomersLoading] = useState(false);
   const [customersError, setCustomersError] = useState<string | null>(null);
+
+  const enqueueIfOffline = useCallback(
+    async (args: { url: string; method: string; body?: any; headers?: Record<string, string> }) => {
+      const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
+      if (online) return false;
+      await queueOfflineWrite(args);
+      return true;
+    },
+    [queueOfflineWrite],
+  );
 
   const loadCustomers = async (q?: string) => {
     setCustomersLoading(true);
@@ -209,7 +220,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
             onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground text-sm font-semibold transition-all hover:border-muted-foreground/30"
           >
-            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+            <AppIcon name="arrow_back" className="text-[20px]" size={20} />
             <span>Back</span>
           </button>
         </header>
@@ -235,7 +246,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
             onClick={() => onNavigate(Screen.WAITER_MENU)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground text-sm font-semibold transition-all hover:border-muted-foreground/30"
           >
-            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+            <AppIcon name="arrow_back" className="text-[20px]" size={20} />
             <span>Back</span>
           </button>
         </div>
@@ -249,7 +260,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
             <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
               <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-secondary/30">
                 <h3 className="text-foreground font-semibold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[20px]">list_alt</span> Order Items
+                  <AppIcon name="list_alt" className="text-primary text-[20px]" size={20} /> Order Items
                 </h3>
                 <button
                   onClick={() => setEditMode((v) => !v)}
@@ -301,7 +312,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                               className="w-6 h-6 rounded bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                               title="Decrease qty"
                             >
-                              <span className="material-symbols-outlined text-[16px]">remove</span>
+                              <AppIcon name="remove" className="text-[16px]" size={16} />
                             </button>
                             <button
                               onClick={() => {
@@ -312,7 +323,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                               className="w-6 h-6 rounded bg-background border border-destructive/50 flex items-center justify-center text-destructive hover:text-foreground hover:border-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Void 1"
                             >
-                              <span className="material-symbols-outlined text-[16px]">remove</span>
+                              <AppIcon name="remove" className="text-[16px]" size={16} />
                             </button>
                             <span className="text-foreground font-mono font-medium text-center">{effQty}/{item.qty}</span>
                             <button
@@ -321,7 +332,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                               className="w-6 h-6 rounded bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                               title="Increase qty"
                             >
-                              <span className="material-symbols-outlined text-[16px]">add</span>
+                              <AppIcon name="add" className="text-[16px]" size={16} />
                             </button>
                           </div>
                         </td>
@@ -359,7 +370,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
             {/* Notes Card */}
             <div className="bg-card rounded-xl border border-border overflow-hidden p-5 flex flex-col gap-3 shadow-sm">
               <label className="flex items-center gap-2 text-foreground text-sm font-semibold">
-                <span className="material-symbols-outlined text-primary text-[20px]">edit_note</span> Kitchen / Dietary Notes
+                <AppIcon name="edit_note" className="text-primary text-[20px]" size={20} /> Kitchen / Dietary Notes
               </label>
               <textarea
                 value={orderNotesDraft}
@@ -402,7 +413,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
             {/* Primary Action */}
             <div className="flex flex-col gap-3">
               <button disabled={!canPay} onClick={() => onNavigate(Screen.WAITER_PAYMENT)} className="w-full py-4 px-6 bg-primary hover:bg-primary/80 active:scale-[0.98] rounded-xl text-primary-foreground font-extrabold text-lg uppercase tracking-wide shadow-lg shadow-primary/10 transition-all flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed">
-                <span className="material-symbols-outlined text-primary-foreground text-[28px] group-hover:animate-pulse">skillet</span>
+                <AppIcon name="skillet" className="text-primary-foreground text-[28px] group-hover:animate-pulse" size={28} />
                 {canPay ? 'Proceed to Payment' : 'Payment available after Served'}
               </button>
               <div className="grid grid-cols-2 gap-3 mt-2">
@@ -410,13 +421,13 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                   onClick={() => setSplitBillOpen(true)}
                   className="py-3 px-4 bg-card hover:bg-secondary border border-border rounded-lg text-foreground font-medium text-sm transition-colors flex items-center justify-center gap-2"
                 >
-                  <span className="material-symbols-outlined text-muted-foreground text-[18px]">call_split</span> Split Bill
+                  <AppIcon name="call_split" className="text-muted-foreground text-[18px]" size={18} /> Split Bill
                 </button>
                 <button
                   onClick={() => setCustomerOpen(true)}
                   className="py-3 px-4 bg-card hover:bg-secondary border border-border rounded-lg text-foreground font-medium text-sm transition-colors flex items-center justify-center gap-2"
                 >
-                  <span className="material-symbols-outlined text-muted-foreground text-[18px]">person_add</span> Customer
+                  <AppIcon name="person_add" className="text-muted-foreground text-[18px]" size={18} /> Customer
                 </button>
               </div>
             </div>
@@ -608,10 +619,13 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                     };
                     (async () => {
                       try {
-                        await apiFetch(`/api/pos/customers/${encodeURIComponent(next.id)}`, {
+                        const url = `/api/pos/customers/${encodeURIComponent(next.id)}`;
+                        const body = { loyaltyPoints: next.loyaltyPoints, loyaltyBalance: next.loyaltyBalance };
+                        if (await enqueueIfOffline({ url, method: 'PUT', headers: { 'Content-Type': 'application/json' }, body })) return;
+                        await apiFetch(url, {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ loyaltyPoints: next.loyaltyPoints, loyaltyBalance: next.loyaltyBalance }),
+                          body: JSON.stringify(body),
                         });
                       } catch {
                         // ignore
@@ -666,7 +680,7 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                 </button>
               ))
             ) : (
-              <div className="px-4 py-4 text-sm text-muted-foreground">{customersLoading ? 'Loading ¦' : customersError ? customersError : 'No customers found.'}</div>
+              <div className="px-4 py-4 text-sm text-muted-foreground">{customersLoading ? 'Loading ' : customersError ? customersError : 'No customers found.'}</div>
             )}
           </div>
 
@@ -700,10 +714,18 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
                   if (!name || !phone) return;
                   (async () => {
                     try {
+                      const body = { name, phone };
+                      if (await enqueueIfOffline({ url: '/api/pos/customers', method: 'POST', headers: { 'Content-Type': 'application/json' }, body })) {
+                        setCustomerName('');
+                        setCustomerPhone('');
+                        setCustomerQuery('');
+                        setCustomerOpen(false);
+                        return;
+                      }
                       const res = await apiFetch('/api/pos/customers', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name, phone }),
+                        body: JSON.stringify(body),
                       });
                       const json = (await res.json().catch(() => null)) as any;
                       if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);

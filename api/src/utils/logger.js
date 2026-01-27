@@ -10,6 +10,8 @@
 
 const pino = require('pino');
 const { config } = require('../config');
+const { db } = require('../db');
+const { makeId } = require('./ids');
 
 const isDevelopment = config.env !== 'production';
 
@@ -94,9 +96,28 @@ const requestLogger = (req, res, next) => {
     next();
 };
 
+const logAudit = async ({ tenantId, branchId, actorStaffId, actorRole, type, summary, payload }) => {
+    try {
+        await db().from('audit_log').insert({
+            id: makeId('aud'),
+            tenant_id: tenantId || null,
+            branch_id: branchId || null,
+            actor_staff_id: actorStaffId || null,
+            actor_role: actorRole || null,
+            type,
+            summary: summary || null,
+            payload_json: payload != null ? JSON.stringify(payload) : null,
+            created_at: new Date().toISOString(),
+        });
+    } catch {
+        // ignore
+    }
+};
+
 module.exports = {
     logger,
     createRequestLogger,
     createServiceLogger,
     requestLogger,
+    logAudit,
 };

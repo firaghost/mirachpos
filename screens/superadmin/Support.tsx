@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type SupportStats = {
   totalOpen: number;
   slaBreaches: number;
@@ -207,7 +208,7 @@ export const SA_Support: React.FC = () => {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <button className="size-9 flex items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors relative">
-              <span className="material-symbols-outlined text-[20px]">notifications</span>
+              <AppIcon name="notifications" className="text-[20px]" size={20} />
               <span className="absolute top-2 right-2 size-2 bg-primary rounded-full border border-card"></span>
             </button>
           </div>
@@ -240,7 +241,7 @@ export const SA_Support: React.FC = () => {
           {/* Toolbar */}
           <div className="px-6 py-3 bg-card border-b border-border flex flex-wrap items-center gap-3 shrink-0">
             <div className="relative flex-1 min-w-[240px]">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground material-symbols-outlined text-[18px]">search</span>
+              <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]" size={18} />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -264,7 +265,7 @@ export const SA_Support: React.FC = () => {
               <div className="px-6 py-4 text-sm text-destructive">{error}</div>
             )}
             {!error && loading && (
-              <div className="px-6 py-4 text-sm text-muted-foreground">Loading ¦</div>
+              <div className="px-6 py-4 text-sm text-muted-foreground">Loading </div>
             )}
             {!error && !loading && filteredTickets.length === 0 && (
               <div className="px-6 py-4 text-sm text-muted-foreground">No tickets found.</div>
@@ -347,9 +348,9 @@ export const SA_Support: React.FC = () => {
           </div>
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             <div>
-              <h3 className="text-foreground text-lg font-bold leading-tight mb-2">{selected?.subject || (loadingDetail ? 'Loading ¦' : 'Select a ticket')}</h3>
+              <h3 className="text-foreground text-lg font-bold leading-tight mb-2">{selected?.subject || (loadingDetail ? 'Loading ' : 'Select a ticket')}</h3>
               <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                <span className="material-symbols-outlined text-[16px]">schedule</span>
+                <AppIcon name="schedule" className="text-[16px]" size={16} />
                 <span>{selected?.createdAt ? `Reported ${fmtAgo(selected.createdAt)} by ${selected?.reportedByRole || 'Client'}` : ' ”'}</span>
               </div>
             </div>
@@ -389,7 +390,7 @@ export const SA_Support: React.FC = () => {
                 <div key={a.id || idx} className="flex gap-3">
                   <div className="flex flex-col items-center">
                     <div className="size-6 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                      <span className="material-symbols-outlined text-[14px]">{String(a.by || '').toLowerCase().includes('system') ? 'smart_toy' : 'support_agent'}</span>
+                      <AppIcon name={String(a.by || '').toLowerCase().includes('system') ? 'smart_toy' : 'support_agent'} className="text-[14px]" size={14} />
                     </div>
                     <div className="w-px h-full bg-border my-1"></div>
                   </div>

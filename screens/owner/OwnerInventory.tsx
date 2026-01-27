@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type Branch = { id: string; name: string; status: string };
 type Item = {
   sku: string;
@@ -433,7 +434,7 @@ export const OwnerInventory: React.FC = () => {
         rightSlot={
           <div className="flex items-center gap-3">
             <div className="flex items-center bg-muted rounded-lg h-10 w-40 sm:w-56 md:w-72 px-3 gap-2 border border-border">
-              <span className="material-symbols-outlined text-muted-foreground" style={{ fontSize: 20 }}>search</span>
+              <AppIcon name="search" className="text-muted-foreground" />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
@@ -447,7 +448,7 @@ export const OwnerInventory: React.FC = () => {
               className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-secondary text-secondary-foreground rounded-lg text-sm font-bold hover:bg-secondary/80 transition-colors"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>refresh</span>
+              <AppIcon name="refresh" />
               <span className="hidden sm:inline">Refresh</span>
             </button>
             <button
@@ -455,7 +456,7 @@ export const OwnerInventory: React.FC = () => {
               className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-secondary text-secondary-foreground rounded-lg text-sm font-bold hover:bg-secondary/80 transition-colors"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>download</span>
+              <AppIcon name="download" />
               <span className="hidden sm:inline">Export</span>
             </button>
             <button
@@ -463,7 +464,7 @@ export const OwnerInventory: React.FC = () => {
               className="flex items-center justify-center gap-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>add</span>
+              <AppIcon name="add" />
               <span className="hidden sm:inline">Create PO</span>
             </button>
           </div>
@@ -498,7 +499,7 @@ export const OwnerInventory: React.FC = () => {
 
           <div className="flex flex-wrap gap-3 items-center pb-2">
             <div className="flex items-center gap-2 bg-card px-3 py-1.5 rounded-lg border border-border text-muted-foreground text-sm hover:border-primary/50 transition-colors">
-              <span className="material-symbols-outlined text-[18px]">store</span>
+              <AppIcon name="store" className="text-[18px]" size={18} />
               <span>Region: <strong className="text-foreground">{scopeLabel}</strong></span>
               <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="h-7 bg-transparent text-sm text-muted-foreground focus:ring-0 border-none">
                 <option value="">All Branches</option>
@@ -511,7 +512,7 @@ export const OwnerInventory: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 bg-card px-3 py-1.5 rounded-lg border border-border text-muted-foreground text-sm hover:border-primary/50 transition-colors">
-              <span className="material-symbols-outlined text-[18px]">category</span>
+              <AppIcon name="category" className="text-[18px]" size={18} />
               <span>Category: <strong className="text-foreground">{category || 'All'}</strong></span>
               <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-7 bg-transparent text-sm text-muted-foreground focus:ring-0 border-none">
                 <option value="">All</option>
@@ -582,11 +583,11 @@ export const OwnerInventory: React.FC = () => {
               <h3 className="text-foreground text-lg font-bold mb-4">Action Center</h3>
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <button onClick={() => openTransfer()} className="flex flex-col items-center justify-center gap-2 p-3 rounded-lg bg-muted hover:bg-accent border border-border hover:border-primary/30 transition-all group">
-                  <span className="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">swap_horiz</span>
+                  <AppIcon name="swap_horiz" className="text-primary group-hover:scale-110 transition-transform" />
                   <span className="text-xs font-bold text-foreground">Transfer</span>
                 </button>
                 <button onClick={openCount} className="flex flex-col items-center justify-center gap-2 p-3 rounded-lg bg-muted hover:bg-accent border border-border hover:border-primary/30 transition-all group">
-                  <span className="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">inventory</span>
+                  <AppIcon name="inventory" className="text-primary group-hover:scale-110 transition-transform" />
                   <span className="text-xs font-bold text-foreground">Count</span>
                 </button>
               </div>
@@ -629,7 +630,7 @@ export const OwnerInventory: React.FC = () => {
               </div>
               <div className="flex gap-2 shrink-0">
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]">filter_alt</span>
+                  <AppIcon name="filter_alt" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]" size={18} />
                   <select value={status} onChange={(e) => setStatus(e.target.value as any)} className="bg-background text-foreground text-sm rounded-lg pl-9 pr-8 py-2 border border-border focus:border-primary focus:ring-0 outline-none appearance-none cursor-pointer hover:bg-accent">
                     <option value="all">Status: All</option>
                     <option value="low">Low Stock</option>
@@ -712,7 +713,7 @@ export const OwnerInventory: React.FC = () => {
                               </button>
                             ) : (
                               <button onClick={() => openRowActions(it)} className="text-muted-foreground hover:text-foreground transition-colors">
-                                <span className="material-symbols-outlined">more_vert</span>
+                                <AppIcon name="more_vert" />
                               </button>
                             )}
                           </td>
@@ -749,7 +750,7 @@ export const OwnerInventory: React.FC = () => {
                   </div>
                 </div>
                 <button onClick={closeModal} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                  <span className="material-symbols-outlined text-[22px]">close</span>
+                  <AppIcon name="close" className="text-[22px]" size={22} />
                 </button>
               </div>
 
@@ -931,17 +932,17 @@ export const OwnerInventory: React.FC = () => {
                 </button>
                 {modal === 'po' ? (
                   <button onClick={submitPo} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 disabled:opacity-60" disabled={modalLoading}>
-                    {modalLoading ? 'Creating ¦' : 'Create PO'}
+                    {modalLoading ? 'Creating ' : 'Create PO'}
                   </button>
                 ) : null}
                 {modal === 'transfer' ? (
                   <button onClick={submitTransfer} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 disabled:opacity-60" disabled={modalLoading}>
-                    {modalLoading ? 'Requesting ¦' : 'Request'}
+                    {modalLoading ? 'Requesting ' : 'Request'}
                   </button>
                 ) : null}
                 {modal === 'count' ? (
                   <button onClick={submitCount} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 disabled:opacity-60" disabled={modalLoading}>
-                    {modalLoading ? 'Saving ¦' : 'Log Count'}
+                    {modalLoading ? 'Saving ' : 'Log Count'}
                   </button>
                 ) : null}
               </div>

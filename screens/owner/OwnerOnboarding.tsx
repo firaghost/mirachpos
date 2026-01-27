@@ -169,7 +169,7 @@ export const OwnerOnboarding: React.FC<{ onNavigate?: (screen: Screen) => void; 
         ) : null}
 
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading onboarding ¦</div>
+          <div className="text-sm text-muted-foreground">Loading onboarding </div>
         ) : null}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-4">

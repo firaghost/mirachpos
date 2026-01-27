@@ -5,6 +5,7 @@ import { Screen } from '../../types';
 import { updateSession } from '../../session';
 import { readSession } from '../../session';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type TenantRow = {
   id: string;
   name: string;
@@ -152,7 +153,7 @@ export const SA_Onboarding: React.FC<{ onNavigate?: (screen: Screen) => void }> 
               onClick={load}
               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-muted-foreground text-sm font-medium hover:text-foreground hover:bg-accent transition-colors"
             >
-              <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh
+              <AppIcon name="refresh" className="text-[18px]" size={18} /> Refresh
             </button>
           </div>
         </div>
@@ -180,7 +181,7 @@ export const SA_Onboarding: React.FC<{ onNavigate?: (screen: Screen) => void }> 
           </button>
           <div className="flex-1" />
           <div className="relative w-[320px]">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]">search</span>
+            <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]" size={20} />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -195,7 +196,7 @@ export const SA_Onboarding: React.FC<{ onNavigate?: (screen: Screen) => void }> 
       <div className="flex flex-1 overflow-hidden">
         <div className="w-[380px] bg-card border-r border-border flex flex-col shrink-0">
           <div className="p-4 border-b border-border text-xs text-muted-foreground">
-            {loading ? 'Loading ¦' : `${filtered.length} tenants`}
+            {loading ? 'Loading ' : `${filtered.length} tenants`}
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
             {filtered.map((t) => (

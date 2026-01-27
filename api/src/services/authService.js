@@ -2,17 +2,9 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { db } = require('../db');
 
-const { computeTenantEntitlements, upsertTenantEntitlementsSnapshot } = require('./entitlements');
+const { safeJsonParse } = require('../utils/json');
 
-const safeJsonParse = (raw, fallback) => {
-  try {
-    if (!raw) return fallback;
-    const parsed = JSON.parse(String(raw));
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
-};
+const { computeTenantEntitlements, upsertTenantEntitlementsSnapshot } = require('./entitlements');
 
 const normalizePermissions = (raw) => {
   const parsed = safeJsonParse(raw, []);

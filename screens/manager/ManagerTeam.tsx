@@ -5,6 +5,7 @@ import { Screen } from '../../types';
 import { readSession } from '../../session';
 import { Modal } from '../../components/Modal';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type ApiStaff = {
   id: string;
   code: string;
@@ -401,7 +402,7 @@ export const ManagerTeam: React.FC = () => {
                 onClick={openAdd}
                 className="flex items-center gap-2 px-5 h-11 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-bold transition-all"
               >
-                <span className="material-symbols-outlined text-[20px]">add</span>
+                <AppIcon name="add" className="text-[20px]" size={20} />
                 Add Staff
               </button>
             </div>
@@ -430,7 +431,7 @@ export const ManagerTeam: React.FC = () => {
                   tab === 'staff' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground',
                 )}
               >
-                <span className="material-symbols-outlined text-[20px]">group</span>
+                <AppIcon name="group" className="text-[20px]" size={20} />
                 Staff
               </button>
               <button
@@ -440,7 +441,7 @@ export const ManagerTeam: React.FC = () => {
                   tab === 'activity' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground',
                 )}
               >
-                <span className="material-symbols-outlined text-[20px]">history</span>
+                <AppIcon name="history" className="text-[20px]" size={20} />
                 Activity
               </button>
             </div>
@@ -450,7 +451,7 @@ export const ManagerTeam: React.FC = () => {
                 <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-border">
                   <div className="flex items-center gap-3 flex-1 min-w-[280px]">
                     <div className="relative w-full max-w-md">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-muted-foreground">search</span>
+                      <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                       <input
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
@@ -504,7 +505,7 @@ export const ManagerTeam: React.FC = () => {
                       {loading ? (
                         <tr>
                           <td colSpan={5} className="py-10 px-6 text-sm text-muted-foreground">
-                            Loading ¦
+                            Loading 
                           </td>
                         </tr>
                       ) : staff.length ? (
@@ -578,7 +579,7 @@ export const ManagerTeam: React.FC = () => {
                 <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-border">
                   <div className="flex items-center gap-3 flex-1 min-w-[280px]">
                     <div className="relative w-full max-w-md">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-muted-foreground">search</span>
+                      <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                       <input
                         value={activityQ}
                         onChange={(e) => setActivityQ(e.target.value)}
@@ -614,7 +615,7 @@ export const ManagerTeam: React.FC = () => {
 
                 <div className="divide-y divide-border">
                   {activityLoading ? (
-                    <div className="p-6 text-sm text-muted-foreground">Loading ¦</div>
+                    <div className="p-6 text-sm text-muted-foreground">Loading </div>
                   ) : activity?.events?.length ? (
                     activity.events.map((e) => (
                       <div key={e.id} className="p-5">
@@ -746,7 +747,7 @@ export const ManagerTeam: React.FC = () => {
               Cancel
             </button>
             <button disabled={editLoading} onClick={submitEdit} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-extrabold disabled:opacity-50">
-              {editLoading ? 'Saving ¦' : 'Save'}
+              {editLoading ? 'Saving ' : 'Save'}
             </button>
           </div>
         </div>

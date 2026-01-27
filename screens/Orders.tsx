@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Header } from '../components/Header';
 import { usePos } from '../PosContext';
 
+import { AppIcon } from '@/components/ui/app-icon';
 export const Orders: React.FC = () => {
   const { orders, refreshFromServer } = usePos();
   const [query, setQuery] = useState('');
@@ -43,7 +44,7 @@ export const Orders: React.FC = () => {
                 <button className="px-4 py-2 bg-card text-muted-foreground hover:text-foreground hover:bg-accent font-medium rounded-lg text-sm border border-border">Completed</button>
             </div>
             <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground text-[18px]">search</span>
+                <AppIcon name="search" className="absolute left-3 top-2.5 text-muted-foreground text-[18px]" size={18} />
                 <input 
                     type="text" 
                     placeholder="Search Order ID or Table..." 
@@ -89,7 +90,7 @@ export const Orders: React.FC = () => {
                             <td className="p-4 text-xs text-muted-foreground">{order.timeLabel}</td>
                             <td className="p-4 text-right">
                                 <button className="p-1 hover:bg-border rounded text-muted-foreground hover:text-foreground">
-                                    <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                                    <AppIcon name="more_vert" className="text-[18px]" size={18} />
                                 </button>
                             </td>
                         </tr>

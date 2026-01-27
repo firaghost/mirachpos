@@ -137,7 +137,7 @@ export const WaiterShiftReport: React.FC<Props> = ({ onNavigate }) => {
                   {loading ? (
                     <tr>
                       <td className="px-5 py-6 text-muted-foreground" colSpan={5}>
-                        Loading ¦
+                        Loading 
                       </td>
                     </tr>
                   ) : rows.length === 0 ? (

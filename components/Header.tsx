@@ -3,6 +3,7 @@ import { apiFetch } from '../api';
 import { readSession } from '../session';
 import { ThemeToggle } from './ui/theme-toggle';
 
+import { AppIcon } from '@/components/ui/app-icon';
 export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; action?: React.ReactNode }> = ({ title, subtitle, action }) => {
   const [session, setSession] = useState<any>(() => readSession<any>());
   const [updaterState, setUpdaterState] = useState<any>(null);
@@ -188,7 +189,7 @@ export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; actio
           className="h-6 w-6 rounded-full border border-current/20 bg-transparent text-current/80 hover:text-current flex items-center justify-center"
           aria-label="Dismiss update status"
         >
-          <span className="material-symbols-outlined text-[16px]">close</span>
+          <AppIcon name="close" className="text-[16px]" size={16} />
         </button>
       </div>
     );

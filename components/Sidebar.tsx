@@ -1,3 +1,4 @@
+import { AppIcon } from '@/components/ui/app-icon';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Screen, UserRole } from '../types';
@@ -234,9 +235,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
           'cursor-pointer select-none'
         )}
       >
-        <span className={cn('material-symbols-outlined text-[20px]', active ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground')}>
-          {icon}
-        </span>
+        <AppIcon
+          name={icon}
+          className={cn('text-[20px]', active ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground')}
+        />
+
         {!collapsed ? (
           <span className={cn('text-[11px] font-black uppercase tracking-widest flex-1', active ? 'opacity-100' : 'opacity-80')}>
             {label}
@@ -380,7 +383,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
             'absolute top-6 right-0 translate-x-1/2 size-9 rounded-lg border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground transition-colors flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.25)] z-[500] pointer-events-auto'
           )}
         >
-          <span className="material-symbols-outlined text-[20px]">{collapsed ? 'chevron_right' : 'chevron_left'}</span>
+          <AppIcon name={collapsed ? 'chevron_right' : 'chevron_left'} className="text-[20px]" size={20} />
         </button>
       </div>
 
@@ -498,16 +501,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
       <div className={cn('border-t border-border space-y-1', collapsed ? 'p-2' : 'p-4')}>
         {canReturnToSuperadmin && (
           <Button variant="ghost" onClick={returnToSuperadmin} title={collapsed ? 'Back to Admin' : undefined} className={cn('w-full h-10 rounded-lg hover:bg-accent hover:text-primary', collapsed ? 'justify-center px-0 text-primary' : 'justify-start gap-3 px-4 text-primary')}>
-            <span className="material-symbols-outlined text-[20px]">shield</span>
+            <AppIcon name="shield" className="text-[20px]" size={20} />
             {!collapsed ? <span className="text-[11px] font-black uppercase tracking-widest">Back to Admin</span> : null}
           </Button>
         )}
         <Button variant="ghost" onClick={toggleTheme} title={collapsed ? (theme === 'dark' ? 'Light Mode' : 'Dark Mode') : undefined} className={cn('w-full h-10 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground', collapsed ? 'justify-center px-0' : 'justify-start gap-3 px-4')}>
-          <span className="material-symbols-outlined text-[20px]">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
+          <AppIcon name={theme === 'dark' ? 'light_mode' : 'dark_mode'} className="text-[20px]" size={20} />
           {!collapsed ? <span className="text-[11px] font-black uppercase tracking-widest">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span> : null}
         </Button>
         <Button variant="ghost" onClick={logout} title={collapsed ? 'Sign Out' : undefined} className={cn('w-full h-10 rounded-lg text-red-300 hover:bg-red-500/10 hover:text-red-200', collapsed ? 'justify-center px-0' : 'justify-start gap-3 px-4')}>
-          <span className="material-symbols-outlined text-[20px]">logout</span>
+          <AppIcon name="logout" className="text-[20px]" size={20} />
           {!collapsed ? <span className="text-[11px] font-black uppercase tracking-widest">Sign Out</span> : null}
         </Button>
       </div>

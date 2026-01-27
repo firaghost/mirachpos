@@ -2,6 +2,7 @@ import React from 'react';
 import { Header } from '../components/Header';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 
+import { AppIcon } from '@/components/ui/app-icon';
 const salesData = [
   { name: 'Mon', coffee: 4000, food: 2400 },
   { name: 'Tue', coffee: 3000, food: 1398 },
@@ -72,7 +73,7 @@ export const Reports: React.FC = () => {
 
                 <div className="bg-card p-6 rounded-xl border border-border flex flex-col justify-center items-center text-center">
                     <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                        <span className="material-symbols-outlined text-4xl text-primary">download</span>
+                        <AppIcon name="download" className="text-4xl text-primary" size={36} />
                     </div>
                     <h3 className="text-foreground font-bold text-lg mb-2">Export Data</h3>
                     <p className="text-muted-foreground text-sm mb-6 max-w-xs">Download detailed CSV or PDF reports for tax filing and offline analysis.</p>

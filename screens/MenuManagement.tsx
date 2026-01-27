@@ -5,6 +5,7 @@ import { apiFetch } from '../api';
 import { PortalMenu, type PortalMenuAnchorRect } from '../components/PortalMenu';
 import { readSession } from '../session';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type ApiProduct = {
   id: string;
   branchId?: string | null;
@@ -115,7 +116,7 @@ const StatCard: React.FC<{ label: string; value: string; meta?: string; icon: st
         {meta ? <div className="text-muted-foreground text-xs mt-2">{meta}</div> : null}
       </div>
       <div className="w-11 h-11 rounded-xl border border-border bg-muted text-primary flex items-center justify-center">
-        <span className="material-symbols-outlined">{icon}</span>
+        <AppIcon name={icon} />
       </div>
     </div>
   );
@@ -131,7 +132,7 @@ const TabBtn: React.FC<{ active: boolean; label: string; icon: string; onClick: 
         active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent',
       )}
     >
-      <span className="material-symbols-outlined text-[18px]">{icon}</span>
+      <AppIcon name={icon} className="text-[18px]" size={18} />
       {label}
     </button>
   );
@@ -959,7 +960,7 @@ export const MenuManagement: React.FC = () => {
                 }
               }}
             />
-            <span className="material-symbols-outlined">upload</span>
+            <AppIcon name="upload" />
           </label>
         </div>
         {editImage ? (
@@ -987,7 +988,7 @@ export const MenuManagement: React.FC = () => {
             disabled={!selected || saving}
             className="flex-1 py-3 bg-primary text-background rounded-lg font-bold hover:bg-primary-hover transition-colors shadow-lg shadow-primary/20 disabled:opacity-60"
           >
-            {saving ? 'Saving ¦' : 'Save Item'}
+            {saving ? 'Saving ' : 'Save Item'}
           </button>
         </div>
       </div>
@@ -1006,9 +1007,7 @@ export const MenuManagement: React.FC = () => {
               className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-muted text-foreground text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                refresh
-              </span>
+              <AppIcon name="refresh" />
               Refresh
             </button>
             <button
@@ -1017,9 +1016,7 @@ export const MenuManagement: React.FC = () => {
               type="button"
               disabled={loading || !products.length}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                download
-              </span>
+              <AppIcon name="download" />
               Export
             </button>
             <button
@@ -1027,9 +1024,7 @@ export const MenuManagement: React.FC = () => {
               className="flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary-hover transition-colors"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                add
-              </span>
+              <AppIcon name="add" />
               <span className="hidden sm:inline">Add Product</span>
             </button>
           </div>
@@ -1090,7 +1085,7 @@ export const MenuManagement: React.FC = () => {
                       })}
                     </div>
                     <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]">search</span>
+                      <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]" size={18} />
                       <input
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
@@ -1139,7 +1134,7 @@ export const MenuManagement: React.FC = () => {
                         {loading ? (
                           <tr>
                             <td colSpan={8} className="p-6 text-sm text-muted-foreground">
-                              Loading ¦
+                              Loading 
                             </td>
                           </tr>
                         ) : error ? (
@@ -1174,7 +1169,7 @@ export const MenuManagement: React.FC = () => {
                                   <img src={prod.image} className="w-10 h-10 rounded-md object-cover border border-border" alt="" />
                                 ) : (
                                   <div className="w-10 h-10 rounded-md border border-border bg-muted flex items-center justify-center text-muted-foreground">
-                                    <span className="material-symbols-outlined text-[18px]">photo</span>
+                                    <AppIcon name="photo" className="text-[18px]" size={18} />
                                   </div>
                                 )}
                               </td>
@@ -1218,7 +1213,7 @@ export const MenuManagement: React.FC = () => {
                                     });
                                   }}
                                 >
-                                  <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                                  <AppIcon name="more_vert" className="text-[18px]" size={18} />
                                 </button>
                                 <PortalMenu
                                   open={rowMenuId === prod.id}
@@ -1319,7 +1314,7 @@ export const MenuManagement: React.FC = () => {
                       disabled={page <= 1 || loading}
                       className="w-9 h-9 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
                     >
-                      <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                      <AppIcon name="chevron_left" className="text-[18px]" size={18} />
                     </button>
                     <div className="px-3 py-2 rounded-lg bg-muted border border-border text-foreground font-bold">{page}</div>
                     <button
@@ -1328,7 +1323,7 @@ export const MenuManagement: React.FC = () => {
                       disabled={page >= pageCount || loading}
                       className="w-9 h-9 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
                     >
-                      <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                      <AppIcon name="chevron_right" className="text-[18px]" size={18} />
                     </button>
                   </div>
                 </div>
@@ -1395,7 +1390,7 @@ export const MenuManagement: React.FC = () => {
                     disabled={!selected || recipeSaving}
                     className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary-hover disabled:opacity-60"
                   >
-                    {recipeSaving ? 'Saving ¦' : 'Save Recipe'}
+                    {recipeSaving ? 'Saving ' : 'Save Recipe'}
                   </button>
                 </div>
 
@@ -1466,7 +1461,7 @@ export const MenuManagement: React.FC = () => {
                       Add
                     </button>
                   </div>
-                  {invLoading ? <div className="mt-3 text-xs text-muted-foreground">Loading inventory items ¦</div> : null}
+                  {invLoading ? <div className="mt-3 text-xs text-muted-foreground">Loading inventory items </div> : null}
                   {!invLoading && !invItems.length ? (
                     <div className="mt-3 text-xs text-red-300">
                       No inventory items found for this branch.
@@ -1642,7 +1637,7 @@ export const MenuManagement: React.FC = () => {
                 <p className="text-muted-foreground text-xs">Create a new menu item.</p>
               </div>
               <button type="button" onClick={closeAdd} className="text-muted-foreground hover:text-foreground">
-                <span className="material-symbols-outlined">close</span>
+                <AppIcon name="close" />
               </button>
             </div>
 
@@ -1701,7 +1696,7 @@ export const MenuManagement: React.FC = () => {
                         }
                       }}
                     />
-                    <span className="material-symbols-outlined">upload</span>
+                    <AppIcon name="upload" />
                   </label>
                 </div>
                 {newImage ? (
@@ -1721,7 +1716,7 @@ export const MenuManagement: React.FC = () => {
                 Cancel
               </button>
               <button type="button" onClick={submitAdd} className="px-4 py-2 rounded-lg bg-primary text-background font-bold hover:bg-primary-hover disabled:opacity-60" disabled={addSaving}>
-                {addSaving ? 'Creating ¦' : 'Create Product'}
+                {addSaving ? 'Creating ' : 'Create Product'}
               </button>
             </div>
           </div>
@@ -1742,7 +1737,7 @@ export const MenuManagement: React.FC = () => {
                 <p className="text-muted-foreground text-xs">Apply changes to {selectedCount} selected items.</p>
               </div>
               <button type="button" onClick={() => setBulkOpen(false)} className="text-muted-foreground hover:text-foreground">
-                <span className="material-symbols-outlined">close</span>
+                <AppIcon name="close" />
               </button>
             </div>
 
@@ -1797,7 +1792,7 @@ export const MenuManagement: React.FC = () => {
                 Cancel
               </button>
               <button type="button" onClick={submitBulk} className="px-4 py-2 rounded-lg bg-primary text-background font-bold hover:bg-primary-hover disabled:opacity-60" disabled={bulkSaving || !selectedCount}>
-                {bulkSaving ? 'Applying ¦' : 'Apply'}
+                {bulkSaving ? 'Applying ' : 'Apply'}
               </button>
             </div>
           </div>
@@ -1818,7 +1813,7 @@ export const MenuManagement: React.FC = () => {
                 <div className="text-muted-foreground text-sm mt-1">This cannot be undone.</div>
               </div>
               <button type="button" onClick={closeDeleteConfirm} className="text-muted-foreground hover:text-foreground">
-                <span className="material-symbols-outlined">close</span>
+                <AppIcon name="close" />
               </button>
             </div>
 

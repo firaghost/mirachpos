@@ -8,6 +8,7 @@ import { readSession } from '../../session';
 import { usePersistedNullableString } from '../../usePersistedState';
 import { formatDeviceDateTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 interface Props {
   onNavigate: (screen: Screen) => void;
 }
@@ -494,7 +495,7 @@ export const RecipeBuilder: React.FC<Props> = ({ onNavigate }) => {
               <div className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2">Menu Items</div>
               <div className="relative flex items-center w-full h-10 rounded-lg bg-secondary border border-transparent focus-within:border-primary/50 transition-colors">
                 <div className="absolute left-3 text-muted-foreground">
-                  <span className="material-symbols-outlined text-xl">search</span>
+                  <AppIcon name="search" className="text-xl" size={20} />
                 </div>
                 <input
                   value={query}
@@ -599,7 +600,7 @@ export const RecipeBuilder: React.FC<Props> = ({ onNavigate }) => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-card border border-primary/30 rounded-xl p-5 relative overflow-hidden">
                     <div className="absolute right-0 top-0 p-5 opacity-10">
-                      <span className="material-symbols-outlined text-[56px] text-primary">shopping_cart</span>
+                      <AppIcon name="shopping_cart" className="text-[56px] text-primary" size={56} />
                     </div>
                     <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Total COGS</div>
                     <div className="mt-2 text-foreground text-3xl font-black">ETB {totalCost.toFixed(2)}</div>

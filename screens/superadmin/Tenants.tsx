@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
 import { Screen } from '../../types';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type TenantItem = {
   id: string;
   name: string;
@@ -223,7 +224,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
           </div>
           <div className="flex gap-3">
             <button className="flex items-center justify-center gap-2 rounded-lg h-10 px-4 bg-card hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-sm font-semibold transition-colors">
-              <span className="material-symbols-outlined text-[20px]">download</span>
+              <AppIcon name="download" className="text-[20px]" size={20} />
               <span>Export List</span>
             </button>
             <button
@@ -231,7 +232,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
               onClick={openOnboard}
               className="flex items-center justify-center gap-2 rounded-lg h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold transition-colors shadow-lg shadow-primary/10"
             >
-              <span className="material-symbols-outlined text-[20px]">add</span>
+              <AppIcon name="add" className="text-[20px]" size={20} />
               <span>Onboard New Cafe</span>
             </button>
           </div>
@@ -241,7 +242,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
           <div className="flex flex-1 w-full gap-4">
             <div className="relative w-full max-w-md">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="material-symbols-outlined text-muted-foreground">search</span>
+                <AppIcon name="search" className="text-muted-foreground" />
               </div>
               <input
                 value={q}
@@ -283,7 +284,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
               className="flex items-center gap-1 text-foreground font-medium hover:text-primary transition-colors"
             >
               Last Activity
-              <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
+              <AppIcon name="arrow_downward" className="text-[16px]" size={16} />
             </button>
             <button
               type="button"
@@ -350,26 +351,26 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
                         onClick={(e) => e.stopPropagation()}
                         className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-accent transition-colors ml-1"
                       >
-                        <span className="material-symbols-outlined text-[20px]">more_vert</span>
+                        <AppIcon name="more_vert" className="text-[20px]" size={20} />
                       </button>
                     </div>
                   </div>
 
                   <div className="mt-4 grid grid-cols-1 gap-2 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <span className="material-symbols-outlined text-[18px] text-primary">person</span>
+                      <AppIcon name="person" className="text-[18px] text-primary" size={18} />
                       <span className="text-foreground font-medium">{ownerName || '-'}</span>
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <span className="material-symbols-outlined text-[18px] text-primary">mail</span>
+                      <AppIcon name="mail" className="text-[18px] text-primary" size={18} />
                       <span className="text-muted-foreground">{ownerEmail || '-'}</span>
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <span className="material-symbols-outlined text-[18px] text-primary">call</span>
+                      <AppIcon name="call" className="text-[18px] text-primary" size={18} />
                       <span className="text-muted-foreground">{ownerPhone || '-'}</span>
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <span className="material-symbols-outlined text-primary text-[18px]">verified</span>
+                      <AppIcon name="verified" className="text-primary text-[18px]" size={18} />
                       <span className="text-foreground font-medium">{t.plan || '-'}</span>
                     </div>
                   </div>
@@ -387,11 +388,11 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
 
                   <div className="mt-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-muted-foreground text-[18px]">storefront</span>
+                      <AppIcon name="storefront" className="text-muted-foreground text-[18px]" size={18} />
                       <span className="text-sm text-foreground">{Number(t.branches || 0)} Branches</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-muted-foreground text-[18px]">group</span>
+                      <AppIcon name="group" className="text-muted-foreground text-[18px]" size={18} />
                       <span className="text-sm text-foreground">{Number(t.users || 0)} Users</span>
                     </div>
                   </div>
@@ -399,7 +400,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
 
                 <div className="px-5 py-3 bg-muted/40 border-t border-border rounded-b-lg flex justify-between items-center">
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">schedule</span>
+                    <AppIcon name="schedule" className="text-[14px]" size={14} />
                     {activityLabel ? `Active ${activityLabel}` : 'No activity'}
                   </span>
                   <div className="flex gap-2">
@@ -436,7 +437,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-border bg-card text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+              <AppIcon name="chevron_left" className="text-[16px]" size={16} />
               Previous
             </button>
             <button
@@ -446,7 +447,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
               className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-border bg-card text-sm text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
             >
               Next
-              <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+              <AppIcon name="chevron_right" className="text-[16px]" size={16} />
             </button>
           </div>
         </div>
@@ -461,7 +462,7 @@ export const SA_Tenants: React.FC<{ onNavigate?: (screen: Screen) => void }> = (
                 <div className="text-xs text-muted-foreground">Create a tenant with owner account and default branch</div>
               </div>
               <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setOnboardOpen(false)}>
-                <span className="material-symbols-outlined">close</span>
+                <AppIcon name="close" />
               </button>
             </div>
 

@@ -1,4 +1,5 @@
 const { config } = require('./config');
+const { validateEnv } = require('./validateEnv');
 const { createApp } = require('./app');
 const { startScheduler } = require('./services/schedulerService');
 const { startJobWorker } = require('./services/jobService');
@@ -14,6 +15,8 @@ process.on('uncaughtException', (err) => {
   // eslint-disable-next-line no-console
   console.error(err);
 });
+
+validateEnv();
 
 const app = createApp();
 

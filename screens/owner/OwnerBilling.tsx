@@ -1,3 +1,4 @@
+import { AppIcon } from '@/components/ui/app-icon';
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Header } from '@/components/Header';
@@ -299,7 +300,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
             subtitle="Manage your cafe plan, payments, and view billing history"
             action={
                 <Button variant="ghost" size="sm" onClick={() => load(true)} disabled={refreshing} className="h-9 px-3 gap-2 text-muted-foreground hover:text-foreground">
-                    <span className={cn("material-symbols-outlined text-[18px]", refreshing && "animate-spin")}>sync</span>
+                    <AppIcon name="sync" className={cn("text-[18px]", refreshing && "animate-spin")} size={18} />
                     Refresh
                 </Button>
             }
@@ -312,14 +313,14 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
             {error && (
                 <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive flex justify-between items-center">
                     <p className="text-sm font-medium">{error}</p>
-                    <Button variant="ghost" size="sm" onClick={() => setError(null)} className="h-6 size-6 p-0 rounded-full"><span className="material-symbols-outlined text-sm">close</span></Button>
+                    <Button variant="ghost" size="sm" onClick={() => setError(null)} className="h-6 size-6 p-0 rounded-full"><AppIcon name="close" className="text-sm" size={14} /></Button>
                 </div>
             )}
 
             {success && (
                 <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 flex justify-between items-center">
                     <p className="text-sm font-medium">{success}</p>
-                    <Button variant="ghost" size="sm" onClick={() => setSuccess(null)} className="h-6 size-6 p-0 rounded-full"><span className="material-symbols-outlined text-sm">close</span></Button>
+                    <Button variant="ghost" size="sm" onClick={() => setSuccess(null)} className="h-6 size-6 p-0 rounded-full"><AppIcon name="close" className="text-sm" size={14} /></Button>
                 </div>
             )}
 
@@ -330,7 +331,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                     <p className="text-muted-foreground text-base">Manage your cafe plan, payments, and view billing history.</p>
                 </div>
                 <button className="text-primary hover:text-primary/80 text-sm font-medium flex items-center gap-1 transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">help</span>
+                    <AppIcon name="help" className="text-[18px]" size={18} />
                     Billing Support
                 </button>
             </div>
@@ -340,9 +341,11 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                 {/* Status Card */}
                 <Card className="relative overflow-hidden group border-border/50">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <span className={cn("material-symbols-outlined text-6xl", isActive ? "text-emerald-500" : "text-amber-500")}>
-                            {isActive ? 'check_circle' : 'warning'}
-                        </span>
+                        <AppIcon
+                            name={isActive ? 'check_circle' : 'warning'}
+                            className={cn("text-6xl", isActive ? "text-emerald-500" : "text-amber-500")}
+                            size={60}
+                        />
                     </div>
                     <CardContent className="p-5">
                         <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Subscription Status</p>
@@ -359,7 +362,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                 {/* Next Billing Date Card */}
                 <Card className="relative overflow-hidden group border-border/50">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <span className="material-symbols-outlined text-6xl text-primary">calendar_month</span>
+                        <AppIcon name="calendar_month" className="text-6xl text-primary" size={60} />
                     </div>
                     <CardContent className="p-5">
                         <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Next Billing Date</p>
@@ -371,7 +374,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                 {/* Amount Due Card */}
                 <Card className="relative overflow-hidden border-primary/30 shadow-lg shadow-primary/5">
                     <div className="absolute top-0 right-0 p-4 opacity-10">
-                        <span className="material-symbols-outlined text-6xl text-primary">payments</span>
+                        <AppIcon name="payments" className="text-6xl text-primary" size={60} />
                     </div>
                     <CardContent className="p-5">
                         <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Amount Due</p>
@@ -413,7 +416,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                                 <div className="flex-1 flex flex-col justify-center gap-3">
                                     {planFeatures.map((feature, i) => (
                                         <div key={i} className="flex items-center gap-3 text-sm text-foreground">
-                                            <span className="material-symbols-outlined text-primary text-[20px]">check</span>
+                                            <AppIcon name="check" className="text-primary text-[20px]" size={20} />
                                             {feature}
                                         </div>
                                     ))}
@@ -458,7 +461,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                                     <div className="flex items-center justify-end">
                                         <Button onClick={() => handlePayNow(pendingInvoice)} className="h-11 px-6 font-bold shadow-lg shadow-primary/20">
                                             Pay now
-                                            <span className="material-symbols-outlined text-[18px] ml-2">arrow_forward</span>
+                                            <AppIcon name="arrow_forward" className="text-[18px] ml-2" size={18} />
                                         </Button>
                                     </div>
                                 </div>
@@ -492,7 +495,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                                <span className="material-symbols-outlined text-[16px]">location_on</span>
+                                <AppIcon name="location_on" className="text-[16px]" size={16} />
                                 Addis Ababa, Ethiopia
                             </div>
                         </CardContent>
@@ -504,7 +507,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                             <div className="flex justify-between items-center">
                                 <CardTitle className="text-base font-bold">Billing History</CardTitle>
                                 <button className="text-muted-foreground hover:text-foreground transition-colors">
-                                    <span className="material-symbols-outlined">filter_list</span>
+                                    <AppIcon name="filter_list" />
                                 </button>
                             </div>
                         </CardHeader>
@@ -534,7 +537,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                                                         onClick={() => downloadInvoice(inv)}
                                                         className="text-muted-foreground hover:text-primary transition-colors p-1 rounded hover:bg-muted"
                                                     >
-                                                        <span className="material-symbols-outlined text-[20px]">download</span>
+                                                        <AppIcon name="download" className="text-[20px]" size={20} />
                                                     </button>
                                                 </td>
                                             </tr>
@@ -576,7 +579,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
             <ScrollArea className="flex-1">
                 {loading ? (
                     <div className="flex items-center justify-center h-64">
-                        <span className="material-symbols-outlined text-4xl animate-spin text-primary">sync</span>
+                        <AppIcon name="sync" className="text-4xl animate-spin text-primary" size={36} />
                     </div>
                 ) : content}
             </ScrollArea>
@@ -588,7 +591,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                         <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive flex justify-between items-start gap-3">
                             <p className="text-sm font-medium">{error}</p>
                             <Button variant="ghost" size="sm" onClick={() => setError(null)} className="h-6 size-6 p-0 rounded-full">
-                                <span className="material-symbols-outlined text-sm">close</span>
+                                <AppIcon name="close" className="text-sm" size={14} />
                             </Button>
                         </div>
                     )}
@@ -633,12 +636,12 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                                     , !isEnabled && "opacity-50 cursor-not-allowed")}
                                 >
                                     <div className={cn("size-10 rounded-xl bg-gradient-to-br flex items-center justify-center mb-3 transition-transform group-hover:scale-110", info.gradient)}>
-                                        <span className="material-symbols-outlined text-primary-foreground">{info.icon}</span>
+                                        <AppIcon name={info.icon} className="text-primary-foreground" />
                                     </div>
                                     <h4 className="text-sm font-bold">{info.name}</h4>
                                     {selectedGateway === id && (
                                         <div className="absolute top-3 right-3">
-                                            <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                                            <AppIcon name="check_circle" className="text-primary text-[18px]" size={18} />
                                         </div>
                                     )}
                                 </button>
@@ -689,7 +692,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                     >
                         {isSubmitting ? (
                             <>
-                                <span className="material-symbols-outlined text-[18px] animate-spin mr-2">sync</span>
+                                <AppIcon name="sync" className="text-[18px] animate-spin mr-2" size={18} />
                                 Processing...
                             </>
                         ) : (
@@ -750,7 +753,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                                         </div>
                                         {isSelected ? (
                                             <div className="absolute top-3 right-3">
-                                                <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                                                <AppIcon name="check_circle" className="text-primary text-[18px]" size={18} />
                                             </div>
                                         ) : null}
                                     </button>

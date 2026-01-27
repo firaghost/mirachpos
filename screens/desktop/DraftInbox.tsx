@@ -194,7 +194,7 @@ export const DraftInbox: React.FC = () => {
         {err ? <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">{err}</div> : null}
 
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading ¦</div>
+          <div className="text-sm text-muted-foreground">Loading </div>
         ) : drafts.length === 0 ? (
           <div className="text-sm text-muted-foreground">No drafts.</div>
         ) : (

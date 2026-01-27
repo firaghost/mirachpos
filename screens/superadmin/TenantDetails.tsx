@@ -5,6 +5,7 @@ import { formatDeviceDate, formatDeviceDateTime } from '../../datetime';
 import { readSession, updateSession } from '../../session';
 import { Screen } from '../../types';
 
+import { AppIcon } from '@/components/ui/app-icon';
 export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (screen: Screen) => void }> = ({ onBack, onNavigate }) => {
   const SELECTED_TENANT_KEY = 'mirachpos.sa.selectedTenantId.v1';
   const [loading, setLoading] = useState(false);
@@ -530,7 +531,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
       <header className="flex items-center justify-between whitespace-nowrap border-b border-border px-6 py-3 bg-background z-10">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="text-foreground mr-1">
-            <span className="material-symbols-outlined">arrow_back</span>
+            <AppIcon name="arrow_back" />
           </button>
           <div className="hidden md:flex flex-col">
             <h2 className="text-foreground text-lg font-bold leading-tight tracking-[-0.015em]">Tenant Details</h2>
@@ -540,7 +541,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
           <div className="hidden md:flex items-center w-full max-w-md">
             <div className="flex w-full items-stretch rounded-lg h-10 bg-card border border-border focus-within:ring-2 focus-within:ring-primary/30 transition-colors">
               <div className="text-muted-foreground flex items-center justify-center pl-3">
-                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>search</span>
+                <AppIcon name="search" />
               </div>
               <input
                 value={search}
@@ -552,11 +553,11 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
           </div>
           <div className="flex items-center gap-4">
             <button className="text-muted-foreground hover:text-foreground relative">
-              <span className="material-symbols-outlined">notifications</span>
+              <AppIcon name="notifications" />
               <span className="absolute top-0 right-0 size-2 bg-red-500 rounded-full"></span>
             </button>
             <button className="text-muted-foreground hover:text-foreground">
-              <span className="material-symbols-outlined">help</span>
+              <AppIcon name="help" />
             </button>
           </div>
         </div>
@@ -589,7 +590,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
               <span className={`px-2 py-0.5 rounded text-xs font-bold ${statusPill.cls}`}>{statusPill.label}</span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
-              <span className="material-symbols-outlined text-[18px]">fingerprint</span>
+              <AppIcon name="fingerprint" className="text-[18px]" size={18} />
               <span className="font-mono text-sm">ID: {tenant?.id || selectedTenantId || '-'}</span>
               <button
                 className="text-muted-foreground hover:text-foreground ml-1"
@@ -605,7 +606,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                   }
                 }}
               >
-                <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                <AppIcon name="content_copy" className="text-[16px]" size={16} />
               </button>
             </div>
           </div>
@@ -615,7 +616,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
               disabled={!tenant || loading}
               className="flex items-center gap-2 h-10 px-4 bg-card hover:bg-accent border border-border rounded-lg text-foreground text-sm font-bold transition-colors"
             >
-              <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+              <AppIcon name="admin_panel_settings" className="text-[20px]" size={20} />
               <span>Impersonate</span>
             </button>
             <button
@@ -623,7 +624,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
               className="flex items-center gap-2 h-10 px-4 bg-card hover:bg-accent border border-border rounded-lg text-foreground text-sm font-bold transition-colors"
               onClick={() => setEditOpen(true)}
             >
-              <span className="material-symbols-outlined text-[20px]">edit</span>
+              <AppIcon name="edit" className="text-[20px]" size={20} />
               <span>Edit Config</span>
             </button>
             <button
@@ -631,7 +632,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
               disabled={!tenant || loading}
               className="flex items-center gap-2 h-10 px-4 bg-red-900/20 hover:bg-red-900/30 border border-red-900/50 rounded-lg text-red-400 text-sm font-bold transition-colors"
             >
-              <span className="material-symbols-outlined text-[20px]">block</span>
+              <AppIcon name="block" className="text-[20px]" size={20} />
               <span>{isSuspended ? 'Reactivate' : 'Suspend'}</span>
             </button>
           </div>
@@ -641,18 +642,18 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
           <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
             <div className="flex justify-between items-start">
               <p className="text-muted-foreground text-sm font-medium">Total Branches</p>
-              <span className="material-symbols-outlined text-primary">store</span>
+              <AppIcon name="store" className="text-primary" />
             </div>
             <p className="text-2xl font-bold text-foreground">{Number(metrics.branches ?? tenant?.branches ?? 0) || 0}</p>
             <div className="flex items-center gap-1 text-xs text-green-400 mt-1">
-              <span className="material-symbols-outlined text-[16px]">trending_up</span>
+              <AppIcon name="trending_up" className="text-[16px]" size={16} />
               <span>+{Number(metrics.branchesNewMonth || 0) || 0} this month</span>
             </div>
           </div>
           <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
             <div className="flex justify-between items-start">
               <p className="text-muted-foreground text-sm font-medium">Active Users</p>
-              <span className="material-symbols-outlined text-primary">group</span>
+              <AppIcon name="group" className="text-primary" />
             </div>
             <p className="text-2xl font-bold text-foreground">{Number(metrics.users ?? tenant?.users ?? 0) || 0}</p>
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
@@ -662,18 +663,18 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
           <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
             <div className="flex justify-between items-start">
               <p className="text-muted-foreground text-sm font-medium">Monthly Orders</p>
-              <span className="material-symbols-outlined text-primary">shopping_cart</span>
+              <AppIcon name="shopping_cart" className="text-primary" />
             </div>
             <p className="text-2xl font-bold text-foreground">{fmtCompact(Number(metrics.ordersMonth || 0) || 0)}</p>
             <div className="flex items-center gap-1 text-xs text-green-400 mt-1">
-              <span className="material-symbols-outlined text-[16px]">trending_up</span>
+              <AppIcon name="trending_up" className="text-[16px]" size={16} />
               <span>+{Number(metrics.ordersPct || 0) || 0}% vs last mo</span>
             </div>
           </div>
           <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
             <div className="flex justify-between items-start">
               <p className="text-muted-foreground text-sm font-medium">Current MRR</p>
-              <span className="material-symbols-outlined text-primary">payments</span>
+              <AppIcon name="payments" className="text-primary" />
             </div>
             <p className="text-2xl font-bold text-foreground">{fmtEtb(Number(metrics.mrrEtb || 0) || 0)}</p>
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
@@ -698,25 +699,25 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                     <div className="flex flex-col gap-1">
                       <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Owner</p>
                       <div className="flex items-center gap-2 text-sm text-foreground">
-                        <span className="material-symbols-outlined text-[18px] text-primary">person</span>
+                        <AppIcon name="person" className="text-[18px] text-primary" size={18} />
                         {String(profile?.ownerName || profile?.contactName || profile?.owner || '-')}
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
                       <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Contact</p>
                       <div className="flex items-center gap-2 text-sm text-foreground">
-                        <span className="material-symbols-outlined text-[18px] text-primary">mail</span>
+                        <AppIcon name="mail" className="text-[18px] text-primary" size={18} />
                         {String(profile?.contactEmail || '-')}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-foreground mt-1">
-                        <span className="material-symbols-outlined text-[18px] text-primary">call</span>
+                        <AppIcon name="call" className="text-[18px] text-primary" size={18} />
                         {String(profile?.contactPhone || '-')}
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
                       <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Location</p>
                       <div className="flex items-center gap-2 text-sm text-foreground">
-                        <span className="material-symbols-outlined text-[18px] text-primary">location_on</span>
+                        <AppIcon name="location_on" className="text-[18px] text-primary" size={18} />
                         {String(profile?.city || '-')}{profile?.country ? `, ${String(profile.country)}` : ''}
                       </div>
                     </div>
@@ -815,7 +816,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                     onClick={reload}
                     className="text-xs font-bold text-primary flex items-center gap-1 hover:text-foreground transition-colors"
                   >
-                    <span className="material-symbols-outlined text-[16px]">refresh</span>
+                    <AppIcon name="refresh" className="text-[16px]" size={16} />
                     Refresh Data
                   </button>
                 </div>
@@ -889,7 +890,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                       setSearch('');
                     }}
                   >
-                    View All Branches <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                    View All Branches <AppIcon name="arrow_forward" className="text-[16px]" size={16} />
                   </button>
                 </div>
               </div>
@@ -905,7 +906,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                       disabled={usersLoading}
                       className="text-xs font-bold text-primary flex items-center gap-1 hover:text-foreground transition-colors disabled:opacity-60"
                     >
-                      <span className={`material-symbols-outlined text-[16px] ${usersLoading ? 'animate-spin' : ''}`}>refresh</span>
+                      <AppIcon name="refresh" className={`text-[16px] ${usersLoading ? 'animate-spin' : ''}`} size={16} />
                       Refresh
                     </button>
                   </div>
@@ -1000,13 +1001,13 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                             className="w-full flex items-center justify-between p-3 hover:bg-accent rounded-md transition-colors disabled:opacity-60"
                           >
                             <div className="flex items-center gap-3">
-                              <span className="material-symbols-outlined text-muted-foreground">{m.icon}</span>
+                              <AppIcon name={m.icon} className="text-muted-foreground" />
                               <div className="flex flex-col items-start">
                                 <span className="text-foreground text-sm">{m.label}</span>
                                 {!allowedByTier ? <span className="text-[11px] text-muted-foreground">Not in plan</span> : null}
                               </div>
                             </div>
-                            <span className={`material-symbols-outlined text-[20px] ${active ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>{active ? 'toggle_on' : 'toggle_off'}</span>
+                            <AppIcon name={active ? 'toggle_on' : 'toggle_off'} className={`text-[20px] ${active ? 'text-primary' : 'text-muted-foreground opacity-50'}`} size={20} />
                           </button>
                         );
                       })}
@@ -1024,10 +1025,10 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                             className="w-full flex items-center justify-between p-3 hover:bg-accent rounded-md transition-colors"
                           >
                             <div className="flex items-center gap-3">
-                              <span className="material-symbols-outlined text-muted-foreground">{f.icon}</span>
+                              <AppIcon name={f.icon} className="text-muted-foreground" />
                               <span className="text-foreground text-sm">{f.label}</span>
                             </div>
-                            <span className={`material-symbols-outlined text-[20px] ${active ? 'text-primary' : 'text-muted-foreground opacity-50'}`}>{active ? 'toggle_on' : 'toggle_off'}</span>
+                            <AppIcon name={active ? 'toggle_on' : 'toggle_off'} className={`text-[20px] ${active ? 'text-primary' : 'text-muted-foreground opacity-50'}`} size={20} />
                           </button>
                         );
                       })}
@@ -1084,7 +1085,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                         className="flex items-center gap-2 text-sm font-bold"
                         disabled={payLoading || paySaving}
                       >
-                        <span className={`material-symbols-outlined text-[22px] ${posChapaEnabled ? 'text-primary' : 'text-muted-foreground opacity-60'}`}>{posChapaEnabled ? 'toggle_on' : 'toggle_off'}</span>
+                        <AppIcon name={posChapaEnabled ? 'toggle_on' : 'toggle_off'} className={`text-[22px] ${posChapaEnabled ? 'text-primary' : 'text-muted-foreground opacity-60'}`} size={22} />
                         <span className={posChapaEnabled ? 'text-primary' : 'text-muted-foreground'}>{posChapaEnabled ? 'Enabled' : 'Disabled'}</span>
                       </button>
                     </div>
@@ -1151,7 +1152,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                       className="flex items-center gap-2 text-sm font-bold"
                       disabled={payLoading || paySaving}
                     >
-                      <span className={`material-symbols-outlined text-[22px] ${posSantimEnabled ? 'text-primary' : 'text-muted-foreground opacity-60'}`}>{posSantimEnabled ? 'toggle_on' : 'toggle_off'}</span>
+                      <AppIcon name={posSantimEnabled ? 'toggle_on' : 'toggle_off'} className={`text-[22px] ${posSantimEnabled ? 'text-primary' : 'text-muted-foreground opacity-60'}`} size={22} />
                       <span className={posSantimEnabled ? 'text-primary' : 'text-muted-foreground'}>{posSantimEnabled ? 'Enabled' : 'Disabled'}</span>
                     </button>
                   </div>
@@ -1262,7 +1263,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
               <div className="p-4 border-b border-border flex items-center justify-between">
                 <div className="font-bold text-foreground">Edit Tenant Config</div>
                 <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setEditOpen(false)}>
-                  <span className="material-symbols-outlined">close</span>
+                  <AppIcon name="close" />
                 </button>
               </div>
               <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1329,7 +1330,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
               <div className="p-4 border-b border-border flex items-center justify-between">
                 <div className="font-bold text-foreground">Audit Log (Recent)</div>
                 <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setAuditOpen(false)}>
-                  <span className="material-symbols-outlined">close</span>
+                  <AppIcon name="close" />
                 </button>
               </div>
               <div className="max-h-[70vh] overflow-y-auto p-4">

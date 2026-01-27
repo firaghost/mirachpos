@@ -8,6 +8,9 @@ const paymentGatewayService = require('../services/paymentGatewayService');
 const { provisionTenant } = require('../services/provisionService');
 const { fetch } = require('undici');
 
+const { safeJsonParse } = require('../utils/json');
+const { createMailTransporter } = require('../utils/mail');
+
 const makePublicRouter = () => {
   const r = express.Router();
 
@@ -64,35 +67,6 @@ const makePublicRouter = () => {
     if (!resp.ok) return { ok: false, error: 'turnstile_verify_failed' };
     if (!json || json.success !== true) return { ok: false, error: 'turnstile_invalid', details: json?.['error-codes'] };
     return { ok: true };
-  };
-
-  const createMailTransporter = () => {
-    let nodemailer;
-    try {
-      // eslint-disable-next-line global-require
-      nodemailer = require('nodemailer');
-    } catch {
-      return null;
-    }
-
-    const host = String(config.mail?.host || '').trim();
-    const port = Number(config.mail?.port || 587);
-    const user = String(config.mail?.user || '').trim();
-    const pass = String(config.mail?.pass || '').trim();
-    if (!host || !user || !pass) return null;
-
-    const secure = typeof config.mail?.secure === 'boolean' ? config.mail.secure : port === 465;
-    return nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: { user, pass },
-      requireTLS: port === 587,
-      tls: { minVersion: 'TLSv1.2', servername: host },
-      connectionTimeout: 20_000,
-      greetingTimeout: 20_000,
-      socketTimeout: 30_000,
-    });
   };
 
   const escapeHtml = (value = '') =>
@@ -536,16 +510,6 @@ const makePublicRouter = () => {
       .trim();
   };
 
-  const safeJsonParse = (raw, fallback) => {
-    try {
-      if (raw == null) return fallback;
-      if (typeof raw === 'object') return raw;
-      return JSON.parse(String(raw));
-    } catch {
-      return fallback;
-    }
-  };
-
   const clampMoney = (v) => {
     const n = Number(v ?? 0);
     if (!Number.isFinite(n)) return 0;
@@ -622,7 +586,19 @@ const makePublicRouter = () => {
 
   r.get('/public/platform-settings', async (_req, res, next) => {
     try {
-      const row = await db().select(['settings_json']).from('platform_settings').where({ id: 1 }).first();
+      // Super Admin UI stores settings in platform_settings_admin.
+      // Public clients (index.html branding) should reflect those changes.
+      let row = null;
+      try {
+        row = await db().select(['settings_json']).from('platform_settings_admin').where({ id: 1 }).first();
+      } catch {
+        row = null;
+      }
+
+      if (!row) {
+        row = await db().select(['settings_json']).from('platform_settings').where({ id: 1 }).first();
+      }
+
       const settings = (() => {
         try {
           return row?.settings_json ? JSON.parse(String(row.settings_json)) : {};
@@ -640,7 +616,8 @@ const makePublicRouter = () => {
           code === 'ER_NO_SUCH_TABLE' ||
           code === 'SQLITE_ERROR' ||
           /no such table/i.test(msg) ||
-          /platform_settings/i.test(msg);
+          /platform_settings/i.test(msg) ||
+          /platform_settings_admin/i.test(msg);
         if (looksLikeMissing) return res.json({ ok: true, settings: {} });
       } catch {
         // ignore

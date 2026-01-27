@@ -8,6 +8,7 @@ import { ThemeProvider } from './ThemeContext';
 import { PosProvider } from './PosContext';
 import { apiFetch, logoutAndReload } from './api';
 
+import { AppIcon } from '@/components/ui/app-icon';
 // Import Cafe Owner Screens
 import { OwnerDashboard } from './screens/owner/OwnerDashboard';
 import { OwnerInventory } from './screens/owner/OwnerInventory';
@@ -86,6 +87,9 @@ import { writeSession } from './session';
 
 import { canAccessScreenWithPermissions, canAccessScreenWithSubscription, homeForRoleWithSubscription } from './rbac';
 
+import { usePosIdleTimeout } from '@/hooks/usePosIdleTimeout';
+import { useSessionEventWiring } from '@/hooks/useSessionEventWiring';
+
 const LAST_SCREEN_KEY = 'mirachpos.lastScreen.v1';
 
 const isPosRole = (role: string | null) => role === UserRole.WAITER || role === UserRole.WAITER_MANAGER || role === UserRole.BRANCH_MANAGER;
@@ -149,53 +153,6 @@ const writeLastScreen = (screen: Screen) => {
 };
 
 const AppContent: React.FC = () => {
-  useEffect(() => {
-    const onError = (ev: any) => {
-      try {
-        const msg = String(ev?.message || ev?.error?.message || '');
-        if (msg.includes('cssRules') && msg.includes('putRootVars')) {
-          if (typeof ev?.preventDefault === 'function') ev.preventDefault();
-          return;
-        }
-      } catch {
-        // ignore
-      }
-    };
-    const onRejection = (ev: any) => {
-      try {
-        const msg = String(ev?.reason?.message || ev?.reason || '');
-        if (msg.includes('cssRules') && msg.includes('putRootVars')) {
-          if (typeof ev?.preventDefault === 'function') ev.preventDefault();
-          return;
-        }
-      } catch {
-        // ignore
-      }
-    };
-    window.addEventListener('error', onError as any);
-    window.addEventListener('unhandledrejection', onRejection as any);
-    initTabSession();
-    const onStorage = () => {
-      try {
-        const s = readSession<any>();
-        if (!s?.token) {
-          setUserRole(null);
-          setCurrentScreen(Screen.LOGIN);
-        }
-      } catch {
-        // ignore
-      }
-    };
-    window.addEventListener('storage', onStorage);
-    window.addEventListener('mirachpos-session-changed', onStorage as any);
-    return () => {
-      window.removeEventListener('error', onError as any);
-      window.removeEventListener('unhandledrejection', onRejection as any);
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('mirachpos-session-changed', onStorage as any);
-    };
-  }, []);
-
   useEffect(() => {
     try {
       const qs = new URLSearchParams(window.location.search || '');
@@ -342,71 +299,22 @@ const AppContent: React.FC = () => {
     }
   });
 
-  // POS security: idle session timeout (waiter/manager only)
-  const [posTimeoutMs, setPosTimeoutMs] = useState(0);
-  const [lastActivityMs, setLastActivityMs] = useState(() => Date.now());
+  useSessionEventWiring({
+    initTabSession,
+    readSession,
+    setUserRole,
+    setCurrentScreen,
+    loginScreen: Screen.LOGIN,
+  });
 
-  useEffect(() => {
-    if (!userRole || !isPosRole(userRole)) {
-      setPosTimeoutMs(0);
-      return;
-    }
-
-    let mounted = true;
-    const run = async () => {
-      try {
-        const res = await apiFetch('/api/pos/settings');
-        const json = (await res.json().catch(() => null)) as any;
-        if (!mounted) return;
-        if (!res.ok) return;
-        const mins = json?.security?.sessionTimeoutMins;
-        setPosTimeoutMs(safeSessionTimeoutMs(mins));
-      } catch {
-        if (!mounted) return;
-        setPosTimeoutMs(0);
-      }
-    };
-    void run();
-    return () => {
-      mounted = false;
-    };
-  }, [userRole]);
-
-  useEffect(() => {
-    if (!posTimeoutMs || !userRole || !isPosRole(userRole)) return;
-
-    const bump = () => setLastActivityMs(Date.now());
-    const opts: AddEventListenerOptions = { passive: true };
-    window.addEventListener('pointerdown', bump, opts);
-    window.addEventListener('keydown', bump, opts);
-    window.addEventListener('scroll', bump, opts);
-    window.addEventListener('touchstart', bump, opts);
-
-    return () => {
-      window.removeEventListener('pointerdown', bump);
-      window.removeEventListener('keydown', bump);
-      window.removeEventListener('scroll', bump);
-      window.removeEventListener('touchstart', bump);
-    };
-  }, [posTimeoutMs, userRole]);
-
-  useEffect(() => {
-    if (!posTimeoutMs || !userRole || !isPosRole(userRole)) return;
-
-    const t = window.setInterval(() => {
-      const idleMs = Date.now() - lastActivityMs;
-      if (idleMs >= posTimeoutMs) {
-        logoutAndReload();
-      }
-    }, 15000);
-
-    return () => window.clearInterval(t);
-  }, [lastActivityMs, posTimeoutMs, userRole]);
-
-  useEffect(() => {
-    // Any navigation counts as activity.
-    setLastActivityMs(Date.now());
-  }, [currentScreen]);
+  usePosIdleTimeout({
+    userRole,
+    currentScreen: String(currentScreen),
+    isPosRole,
+    safeSessionTimeoutMs,
+    apiFetch,
+    logoutAndReload,
+  });
 
   useEffect(() => {
     try {
@@ -468,6 +376,8 @@ const AppContent: React.FC = () => {
   const [accessDenied, setAccessDenied] = useState<{ error: string; path: string } | null>(null);
   const [updaterState, setUpdaterState] = useState<any>(null);
   const [updaterDismissed, setUpdaterDismissed] = useState(false);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
+
   const upgradeModalKey = (() => {
     if (userRole !== UserRole.CAFE_OWNER) return '';
     if (currentScreen === Screen.LOGIN) return '';
@@ -496,6 +406,8 @@ const AppContent: React.FC = () => {
       setUpgradeModalDismissed(false);
     }
   }, [upgradeModalKey]);
+
+  const shouldShowUpgradeModal = Boolean(upgradeModalKey) && !upgradeModalDismissed;
 
   useEffect(() => {
     const u = (window as any)?.mirachpos?.updater;
@@ -528,42 +440,82 @@ const AppContent: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const onBlocked = (ev: any) => {
-      const d = ev?.detail && typeof ev.detail === 'object' ? ev.detail : null;
-      const error = typeof d?.error === 'string' ? d.error : '';
-      const moduleKey = typeof d?.module === 'string' ? d.module : '';
-      const path = typeof d?.path === 'string' ? d.path : '';
-      if (!error) return;
-      setModuleBlocked({ error, module: moduleKey, path });
-
-      // For subscription-wide lockouts (trial ended / canceled / pending verification),
-      // route the user to Billing immediately so the app never feels "empty".
+  const updaterBadge = (() => {
+    if (updaterDismissed) return null;
+    const st = updaterState && typeof updaterState === 'object' ? updaterState : null;
+    const status = installingUpdate ? 'installing' : String(st?.status || '');
+    const percent = (() => {
       try {
-        if (error === 'subscription_inactive' || error === 'subscription_pending_verify') {
-          navigate(Screen.OWNER_BILLING);
-        }
+        const p = Number(st?.progress?.percent);
+        return Number.isFinite(p) ? Math.max(0, Math.min(100, p)) : null;
       } catch {
-        // ignore
+        return null;
+      }
+    })();
+    if (status !== 'checking' && status !== 'downloading' && status !== 'installing' && status !== 'downloaded') return null;
+
+    const label =
+      status === 'installing'
+        ? 'Installing update'
+        : status === 'downloading'
+          ? percent == null
+            ? 'Downloading update'
+            : `Downloading ${percent.toFixed(0)}%`
+          : status === 'downloaded'
+            ? 'Update ready'
+            : 'Checking updates';
+
+    const onInstall = async () => {
+      try {
+        const u = (window as any)?.mirachpos?.updater;
+        if (!u) return;
+        setInstallingUpdate(true);
+        await u.quitAndInstall();
+      } catch {
+        setInstallingUpdate(false);
       }
     };
-    window.addEventListener('mirachpos-module-blocked', onBlocked as any);
-    return () => window.removeEventListener('mirachpos-module-blocked', onBlocked as any);
-  }, []);
 
-  useEffect(() => {
-    const onDenied = (ev: any) => {
-      const d = ev?.detail && typeof ev.detail === 'object' ? ev.detail : null;
-      const error = typeof d?.error === 'string' ? d.error : '';
-      const path = typeof d?.path === 'string' ? d.path : '';
-      if (!error) return;
-      setAccessDenied({ error, path });
-    };
-    window.addEventListener('mirachpos-access-denied', onDenied as any);
-    return () => window.removeEventListener('mirachpos-access-denied', onDenied as any);
-  }, []);
-
-  const shouldShowUpgradeModal = Boolean(upgradeModalKey) && !upgradeModalDismissed;
+    return (
+      <div className="fixed bottom-6 right-6 z-50">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-full border border-border bg-card text-muted-foreground shadow-lg">
+          {status !== 'downloaded' ? (
+            <span className="h-3.5 w-3.5 rounded-full border-2 border-current/20 border-t-current animate-spin" />
+          ) : (
+            <span className="h-2.5 w-2.5 rounded-full bg-success" />
+          )}
+          <span className="text-xs font-bold whitespace-nowrap">{label}</span>
+          {status === 'downloaded' ? (
+            <button
+              type="button"
+              onClick={onInstall}
+              className="h-7 px-3 rounded-full border text-[11px] font-extrabold"
+              style={{ backgroundColor: 'var(--mirach-primary)', borderColor: 'var(--mirach-primary)', color: '#221c11' }}
+            >
+              Restart
+            </button>
+          ) : null}
+          {status === 'installing' ? (
+            <button
+              type="button"
+              disabled
+              className="h-7 px-3 rounded-full border border-border bg-card text-muted-foreground text-[11px] font-extrabold opacity-80"
+            >
+              Restart
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setUpdaterDismissed(true)}
+            className="h-6 w-6 rounded-full border border-current/20 bg-transparent text-current/80 hover:text-current flex items-center justify-center"
+            aria-label="Dismiss update status"
+          >
+            <AppIcon name="close" className="text-[16px]" size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  })();
 
   useEffect(() => {
     const onHash = () => {
@@ -690,6 +642,7 @@ const AppContent: React.FC = () => {
 
       <main className="flex-1 h-full overflow-hidden bg-background relative transition-colors duration-200 pb-8">
         {null}
+        {updaterBadge}
 
         {moduleBlocked ? (
           <div className="absolute top-0 left-0 right-0 z-[110] p-3">
@@ -791,7 +744,7 @@ const AppContent: React.FC = () => {
                     setUpgradeModalDismissed(true);
                   }}
                 >
-                  <span className="material-symbols-outlined">close</span>
+                  <AppIcon name="close" />
                 </button>
               </div>
               <div className="p-6">

@@ -46,7 +46,7 @@ interface Props {
 }
 
 export const WaiterDraftSim: React.FC<Props> = ({ onNavigate }) => {
-  const { products } = usePos();
+  const { products, queueOfflineWrite } = usePos();
   const session = useMemo(() => (readSession<SessionInfo>() || {}), []);
   const tenantId = typeof session.tenantId === 'string' ? session.tenantId : '';
   const branchId = typeof session.branchId === 'string' && session.branchId ? session.branchId : 'global';
@@ -125,6 +125,16 @@ export const WaiterDraftSim: React.FC<Props> = ({ onNavigate }) => {
   };
 
   const push = async (events: any[]) => {
+    const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    if (!online) {
+      await queueOfflineWrite({
+        url: '/api/sync/push',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: { events },
+      });
+      return { queued: true } as any;
+    }
     const res = await apiFetch('/api/sync/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -222,7 +232,7 @@ export const WaiterDraftSim: React.FC<Props> = ({ onNavigate }) => {
             onClick={syncAll}
             className="h-9 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-extrabold disabled:opacity-60"
           >
-            {busy ? 'Syncing ¦' : 'Sync Now'}
+            {busy ? 'Syncing ' : 'Sync Now'}
           </button>
         </div>
       </header>

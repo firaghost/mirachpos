@@ -5,6 +5,7 @@ import { Screen } from '../../types';
 import { updateSession } from '../../session';
 import { readSession } from '../../session';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type TenantProfile = {
   contactEmail?: string;
   contactPhone?: string;
@@ -276,14 +277,14 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-muted-foreground text-sm font-medium hover:text-foreground hover:bg-accent transition-colors"
               type="button"
             >
-              <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh
+              <AppIcon name="refresh" className="text-[18px]" size={18} /> Refresh
             </button>
             <button
               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-muted-foreground text-sm font-medium hover:text-foreground hover:bg-accent transition-colors"
               type="button"
               disabled
             >
-              <span className="material-symbols-outlined text-[18px]">tune</span> Configure Workflow
+              <AppIcon name="tune" className="text-[18px]" size={18} /> Configure Workflow
             </button>
           </div>
         </div>
@@ -324,7 +325,7 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
         <div className="w-[380px] bg-card border-r border-border flex flex-col shrink-0">
           <div className="p-4 border-b border-border flex flex-col gap-3">
             <div className="relative w-full">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]">search</span>
+              <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]" size={20} />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
@@ -338,13 +339,13 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                 Sorted by: <span className="text-foreground font-medium">Newest</span>
               </span>
               <button className="hover:text-foreground flex items-center gap-1" type="button" disabled>
-                <span className="material-symbols-outlined text-[16px]">filter_list</span> Filters
+                <AppIcon name="filter_list" className="text-[16px]" size={16} /> Filters
               </button>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
-            {loading ? <div className="p-3 text-xs text-muted-foreground">Loading ¦</div> : null}
+            {loading ? <div className="p-3 text-xs text-muted-foreground">Loading </div> : null}
             {filtered.map((t) => {
               const active = selected ? t.id === selected.id : t.id === selectedId;
               const risk = hasProfileRisk(t);
@@ -401,7 +402,7 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                 <div className="flex justify-between items-start mb-8 pb-6 border-b border-border">
                   <div className="flex gap-5">
                     <div className="w-16 h-16 rounded-xl bg-card border border-border flex items-center justify-center shrink-0 shadow-sm">
-                      <span className="material-symbols-outlined text-3xl text-muted-foreground">storefront</span>
+                      <AppIcon name="storefront" className="text-3xl text-muted-foreground" size={30} />
                     </div>
                     <div>
                       <div className="flex items-center gap-3 mb-2">
@@ -410,12 +411,12 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                       </div>
                       <div className="flex items-center gap-4 text-muted-foreground text-sm">
                         <span className="flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[18px]">location_on</span>
+                          <AppIcon name="location_on" className="text-[18px]" size={18} />
                           {(selected.profile?.city || '') + (selected.profile?.country ? `, ${selected.profile?.country}` : '')}
                         </span>
                         <span className="w-1 h-1 rounded-full bg-border"></span>
                         <span className="flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[18px]">calendar_today</span>
+                          <AppIcon name="calendar_today" className="text-[18px]" size={18} />
                           Submitted {fmtWhen(selected.createdAt)}
                         </span>
                       </div>
@@ -436,7 +437,7 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                       className="px-4 py-2 text-sm font-bold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors shadow-[0_0_15px_rgba(238,173,43,0.15)] flex items-center gap-2 disabled:opacity-50"
                       type="button"
                     >
-                      <span className="material-symbols-outlined text-[18px]">check</span> Approve &amp; Next
+                      <AppIcon name="check" className="text-[18px]" size={18} /> Approve &amp; Next
                     </button>
                   </div>
                 </div>
@@ -444,7 +445,7 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                 {hasProfileRisk(selected) ? (
                   <div className="mb-8 p-4 rounded-lg border border-red-900/40 bg-red-950/10 flex gap-4 items-start shadow-sm">
                     <div className="p-2 bg-red-900/20 rounded-md shrink-0">
-                      <span className="material-symbols-outlined text-red-400">warning</span>
+                      <AppIcon name="warning" className="text-red-400" />
                     </div>
                     <div>
                       <h4 className="text-red-400 font-bold text-sm mb-1 uppercase tracking-wide">RISK FLAG: INCOMPLETE PROFILE</h4>
@@ -461,7 +462,7 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                     <div className="bg-card border border-border rounded-xl overflow-hidden">
                       <div className="px-5 py-3 border-b border-border bg-muted/40 flex justify-between items-center">
                         <h3 className="text-foreground font-bold text-sm flex items-center gap-2">
-                          <span className="material-symbols-outlined text-primary text-[18px]">domain</span> Business Details
+                          <AppIcon name="domain" className="text-primary text-[18px]" size={18} /> Business Details
                         </h3>
                         <span className="text-muted-foreground text-xs">Verified via API</span>
                       </div>
@@ -488,7 +489,7 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                     <div className="bg-card border border-border rounded-xl overflow-hidden">
                       <div className="px-5 py-3 border-b border-border bg-muted/40 flex justify-between items-center">
                         <h3 className="text-foreground font-bold text-sm flex items-center gap-2">
-                          <span className="material-symbols-outlined text-primary text-[18px]">credit_card</span> Plan Assignment
+                          <AppIcon name="credit_card" className="text-primary text-[18px]" size={18} /> Plan Assignment
                         </h3>
                       </div>
                       <div className="p-5 flex flex-wrap gap-2">
@@ -514,7 +515,7 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                     <div className="bg-card border border-border rounded-xl overflow-hidden">
                       <div className="px-5 py-3 border-b border-border bg-muted/40 flex justify-between items-center">
                         <h3 className="text-foreground font-bold text-sm flex items-center gap-2">
-                          <span className="material-symbols-outlined text-primary text-[18px]">toggle_on</span> Activation
+                          <AppIcon name="toggle_on" className="text-primary text-[18px]" size={18} /> Activation
                         </h3>
                       </div>
                       <div className="p-5 flex flex-wrap gap-2">
@@ -554,7 +555,7 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                               type="button"
                               disabled={saving}
                             >
-                              <span className="material-symbols-outlined text-[14px]">close</span>
+                              <AppIcon name="close" className="text-[14px]" size={14} />
                             </button>
                           </span>
                         ))}
@@ -577,11 +578,11 @@ export const SA_OnboardingDesign: React.FC<{ onNavigate?: (screen: Screen) => vo
                     <div className="bg-card border border-border rounded-xl flex flex-col overflow-hidden h-[400px]">
                       <div className="px-5 py-3 border-b border-border bg-muted/40">
                         <h3 className="text-foreground font-bold text-sm flex items-center gap-2">
-                          <span className="material-symbols-outlined text-muted-foreground text-[18px]">history_edu</span> Activity Log
+                          <AppIcon name="history_edu" className="text-muted-foreground text-[18px]" size={18} /> Activity Log
                         </h3>
                       </div>
                       <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
-                        {activityLoading ? <div className="text-xs text-muted-foreground">Loading ¦</div> : null}
+                        {activityLoading ? <div className="text-xs text-muted-foreground">Loading </div> : null}
                         {activity.map((a) => (
                           <div key={a.id} className="relative pl-6 border-l border-border">
                             <div className="absolute -left-[5px] top-0 w-[9px] h-[9px] rounded-full bg-border border border-card"></div>

@@ -71,7 +71,7 @@ export const InitializePosModal: React.FC<Props> = ({ open, onClose, onInitializ
             onClick={submit}
             className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 disabled:opacity-60"
           >
-            {saving ? 'Initializing ¦' : 'Initialize'}
+            {saving ? 'Initializing ' : 'Initialize'}
           </button>
         </div>
       }

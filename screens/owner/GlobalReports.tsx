@@ -26,6 +26,7 @@ import {
   generateFilename,
 } from '../../utils/exportUtils';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type Branch = { id: string; name: string };
 
 type ReportsResponse = {
@@ -585,7 +586,7 @@ export const GlobalReports: React.FC = () => {
               className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-muted text-foreground rounded-lg text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>schedule_send</span>
+              <AppIcon name="schedule_send" />
               <span className="hidden sm:inline">Schedule</span>
             </button>
             <button
@@ -593,7 +594,7 @@ export const GlobalReports: React.FC = () => {
               className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-muted text-foreground rounded-lg text-sm font-bold hover:bg-accent transition-colors"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>refresh</span>
+              <AppIcon name="refresh" />
               <span className="hidden sm:inline">Refresh</span>
             </button>
             <button
@@ -601,7 +602,7 @@ export const GlobalReports: React.FC = () => {
               className="flex items-center justify-center gap-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-md"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>download</span>
+              <AppIcon name="download" />
               <span className="hidden sm:inline">Export</span>
             </button>
             <button
@@ -652,7 +653,7 @@ export const GlobalReports: React.FC = () => {
                     onClick={() => setScheduleOpen(false)}
                     className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <span className="material-symbols-outlined text-[22px]">close</span>
+                    <AppIcon name="close" className="text-[22px]" size={22} />
                   </button>
                 </div>
 
@@ -703,7 +704,7 @@ export const GlobalReports: React.FC = () => {
                     className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 disabled:opacity-60"
                     disabled={scheduleLoading}
                   >
-                    {scheduleLoading ? 'Scheduling ¦' : 'Schedule'}
+                    {scheduleLoading ? 'Scheduling ' : 'Schedule'}
                   </button>
                 </div>
               </div>
@@ -740,9 +741,9 @@ export const GlobalReports: React.FC = () => {
                   className="group flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-xl bg-background border border-border px-4 transition-colors hover:border-primary/50"
                   type="button"
                 >
-                  <span className="material-symbols-outlined text-muted-foreground group-hover:text-foreground text-[18px]">calendar_today</span>
+                  <AppIcon name="calendar_today" className="text-muted-foreground group-hover:text-foreground text-[18px]" size={18} />
                   <span className="text-muted-foreground group-hover:text-foreground text-sm font-medium">{rangeLabel}</span>
-                  <span className="material-symbols-outlined text-muted-foreground group-hover:text-foreground text-[18px]">keyboard_arrow_down</span>
+                  <AppIcon name="keyboard_arrow_down" className="text-muted-foreground group-hover:text-foreground text-[18px]" size={18} />
                 </button>
 
                 <PortalMenu
@@ -812,7 +813,7 @@ export const GlobalReports: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2 rounded-xl bg-background border border-border px-4 h-10">
-                <span className="material-symbols-outlined text-muted-foreground text-[18px]">storefront</span>
+                <AppIcon name="storefront" className="text-muted-foreground text-[18px]" size={18} />
                 <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Location</span>
                 <select
                   value={locationId}
@@ -843,7 +844,7 @@ export const GlobalReports: React.FC = () => {
             <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Total Revenue (Net)</p>
-                <span className="material-symbols-outlined text-primary text-[18px]">payments</span>
+                <AppIcon name="payments" className="text-primary text-[18px]" size={18} />
               </div>
               <p className="text-foreground text-3xl font-black tracking-tight mt-2">{money.format(kpis.totalRevenueNet)}</p>
               <p className="text-xs text-muted-foreground mt-1">Location: {locationLabel}</p>
@@ -852,7 +853,7 @@ export const GlobalReports: React.FC = () => {
             <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Transactions</p>
-                <span className="material-symbols-outlined text-muted-foreground text-[18px]">receipt_long</span>
+                <AppIcon name="receipt_long" className="text-muted-foreground text-[18px]" size={18} />
               </div>
               <p className="text-foreground text-3xl font-black tracking-tight mt-2">{Number(totals.txCount || 0).toLocaleString()}</p>
               <p className="text-xs text-muted-foreground mt-1">Paid orders in range</p>
@@ -861,7 +862,7 @@ export const GlobalReports: React.FC = () => {
             <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Avg Ticket (Net)</p>
-                <span className="material-symbols-outlined text-muted-foreground text-[18px]">query_stats</span>
+                <AppIcon name="query_stats" className="text-muted-foreground text-[18px]" size={18} />
               </div>
               <p className="text-foreground text-3xl font-black tracking-tight mt-2">{money.format(avgTicket)}</p>
               <p className="text-xs text-muted-foreground mt-1">Net sales / tx</p>
@@ -870,7 +871,7 @@ export const GlobalReports: React.FC = () => {
             <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Top Sold Item</p>
-                <span className="material-symbols-outlined text-muted-foreground text-[18px]">restaurant</span>
+                <AppIcon name="restaurant" className="text-muted-foreground text-[18px]" size={18} />
               </div>
               <p className="text-foreground text-lg font-black tracking-tight mt-2 truncate">{topSoldItem?.name || '—'}</p>
               <p className="text-xs text-muted-foreground mt-1">{topSoldItem ? money.format(Number(topSoldItem.revenue || 0) || 0) : 'No sales yet'}</p>
@@ -919,7 +920,7 @@ export const GlobalReports: React.FC = () => {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="relative w-full sm:w-[260px]">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]">search</span>
+                      <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]" size={18} />
                       <input
                         value={soldSearch}
                         onChange={(e) => setSoldSearch(e.target.value)}
@@ -934,7 +935,7 @@ export const GlobalReports: React.FC = () => {
                           type="button"
                           title="Clear"
                         >
-                          <span className="material-symbols-outlined text-[18px]">close</span>
+                          <AppIcon name="close" className="text-[18px]" size={18} />
                         </button>
                       ) : null}
                     </div>
@@ -1078,7 +1079,7 @@ export const GlobalReports: React.FC = () => {
                     className="h-11 rounded-xl bg-primary text-primary-foreground font-black text-sm hover:bg-primary/90 flex items-center justify-center gap-2"
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-[18px]">download</span>
+                    <AppIcon name="download" className="text-[18px]" size={18} />
                     Export Report
                   </button>
                   <button
@@ -1086,7 +1087,7 @@ export const GlobalReports: React.FC = () => {
                     className="h-11 rounded-xl bg-background border border-border text-foreground font-black text-sm hover:bg-accent hover:border-primary/50 flex items-center justify-center gap-2"
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-[18px]">table_view</span>
+                    <AppIcon name="table_view" className="text-[18px]" size={18} />
                     Export Sold
                   </button>
                   <button
@@ -1097,7 +1098,7 @@ export const GlobalReports: React.FC = () => {
                     className="h-11 rounded-xl bg-background border border-border text-foreground font-black text-sm hover:bg-accent hover:border-primary/50 flex items-center justify-center gap-2 col-span-2"
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-[18px]">schedule_send</span>
+                    <AppIcon name="schedule_send" className="text-[18px]" size={18} />
                     Schedule
                   </button>
                 </div>
@@ -1114,7 +1115,7 @@ export const GlobalReports: React.FC = () => {
                   <p className="text-muted-foreground text-sm truncate" title={`${rangeLabel} • ${locationLabel}`}>{rangeLabel} • {locationLabel}</p>
                 </div>
                 <div className="shrink-0 size-10 rounded-xl border border-border bg-background flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary text-[20px]">monitoring</span>
+                  <AppIcon name="monitoring" className="text-primary text-[20px]" size={20} />
                 </div>
               </div>
 
@@ -1220,7 +1221,7 @@ export const GlobalReports: React.FC = () => {
                   <div className="text-muted-foreground text-sm mt-1">By revenue</div>
                 </div>
                 <div className="shrink-0 size-10 rounded-xl border border-border bg-background flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary text-[20px]">leaderboard</span>
+                  <AppIcon name="leaderboard" className="text-primary text-[20px]" size={20} />
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-1 gap-3">
@@ -1356,7 +1357,7 @@ export const GlobalReports: React.FC = () => {
               </button>
               <div className="ml-auto pb-3">
                 <button className="flex items-center gap-1 text-xs text-primary font-bold uppercase tracking-wide hover:underline">
-                  <span className="material-symbols-outlined text-[16px]">tune</span>
+                  <AppIcon name="tune" className="text-[16px]" size={16} />
                   Customize Columns
                 </button>
               </div>
@@ -1365,7 +1366,7 @@ export const GlobalReports: React.FC = () => {
             {tab === 'ledger' ? (
               <div className="flex items-center justify-between gap-4 p-4">
                 <div className="relative max-w-sm w-full">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]">search</span>
+                  <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]" size={20} />
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -1382,14 +1383,14 @@ export const GlobalReports: React.FC = () => {
                       className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-50"
                       disabled={safePage <= 1}
                     >
-                      <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+                      <AppIcon name="chevron_left" className="text-[20px]" size={20} />
                     </button>
                     <button
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                       className="p-1 rounded hover:bg-accent text-foreground disabled:opacity-50"
                       disabled={safePage >= totalPages}
                     >
-                      <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                      <AppIcon name="chevron_right" className="text-[20px]" size={20} />
                     </button>
                   </div>
                 </div>
@@ -1436,7 +1437,7 @@ export const GlobalReports: React.FC = () => {
                           <td className="whitespace-nowrap px-6 py-4 text-right font-bold text-foreground">{money.format(r.totalCollected)}</td>
                           <td className="px-4 py-4 text-right">
                             <button className="text-muted-foreground hover:text-primary">
-                              <span className="material-symbols-outlined">more_vert</span>
+                              <AppIcon name="more_vert" />
                             </button>
                           </td>
                         </tr>

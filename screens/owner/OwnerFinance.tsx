@@ -18,6 +18,7 @@ import autoTable from 'jspdf-autotable';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
 import { PortalMenu, type PortalMenuAnchorRect } from '../../components/PortalMenu';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type FinanceKpis = {
   revenue: number;
   revenueDeltaPct: number;
@@ -97,7 +98,7 @@ const badge = (kind: 'up' | 'down' | 'flat', pct: number) => {
   if (kind === 'up') {
     return (
       <span className="text-xs font-bold text-green-400 flex items-center gap-1 bg-green-400/10 px-2 py-1 rounded">
-        <span className="material-symbols-outlined text-[14px]">trending_up</span>
+        <AppIcon name="trending_up" className="text-[14px]" size={14} />
         {pct.toFixed(1)}%
       </span>
     );
@@ -105,7 +106,7 @@ const badge = (kind: 'up' | 'down' | 'flat', pct: number) => {
   if (kind === 'down') {
     return (
       <span className="text-xs font-bold text-red-400 flex items-center gap-1 bg-red-400/10 px-2 py-1 rounded">
-        <span className="material-symbols-outlined text-[14px]">trending_down</span>
+        <AppIcon name="trending_down" className="text-[14px]" size={14} />
         {Math.abs(pct).toFixed(1)}%
       </span>
     );
@@ -516,7 +517,7 @@ export const OwnerFinance: React.FC = () => {
         rightSlot={
           <div className="flex items-center gap-3">
             <div className="hidden md:block relative w-96">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground material-symbols-outlined text-[20px]">search</span>
+              <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]" size={20} />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -527,13 +528,13 @@ export const OwnerFinance: React.FC = () => {
             </div>
             <button className="size-10 flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors relative" type="button">
               <span className="absolute top-2.5 right-2.5 size-2 bg-destructive rounded-full border border-background"></span>
-              <span className="material-symbols-outlined">notifications</span>
+              <AppIcon name="notifications" />
             </button>
             <button className="size-10 flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" type="button">
-              <span className="material-symbols-outlined">help</span>
+              <AppIcon name="help" />
             </button>
             <button className="size-10 flex items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" type="button">
-              <span className="material-symbols-outlined">settings</span>
+              <AppIcon name="settings" />
             </button>
           </div>
         }
@@ -544,7 +545,7 @@ export const OwnerFinance: React.FC = () => {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <nav className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="hover:text-primary transition-colors">Dashboard</span>
-              <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+              <AppIcon name="chevron_right" className="text-[14px]" size={14} />
               <span className="text-foreground font-medium">Finance &amp; Accounting</span>
             </nav>
 
@@ -575,7 +576,7 @@ export const OwnerFinance: React.FC = () => {
 
               <div className="relative">
                 <div className="flex items-center gap-2 bg-muted border border-border hover:border-primary/50 text-foreground px-4 py-2 rounded-lg text-sm font-medium transition-all">
-                  <span className="material-symbols-outlined text-[18px] text-primary">calendar_month</span>
+                  <AppIcon name="calendar_month" className="text-[18px] text-primary" size={18} />
                   <select
                     value={period}
                     onChange={(e) => setPeriod(e.target.value)}
@@ -587,7 +588,7 @@ export const OwnerFinance: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                  <span className="material-symbols-outlined text-[18px] text-muted-foreground">expand_more</span>
+                  <AppIcon name="expand_more" className="text-[18px] text-muted-foreground" size={18} />
                 </div>
               </div>
 
@@ -597,7 +598,7 @@ export const OwnerFinance: React.FC = () => {
                 className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-primary/10 transition-all disabled:opacity-60"
                 disabled={!data || loading}
               >
-                <span className="material-symbols-outlined text-[18px]">download</span>
+                <AppIcon name="download" className="text-[18px]" size={18} />
                 <span>Export Report</span>
               </button>
 
@@ -607,7 +608,7 @@ export const OwnerFinance: React.FC = () => {
                 className="flex items-center gap-2 bg-card hover:bg-accent border border-border text-primary px-4 py-2 rounded-lg text-sm font-bold transition-all disabled:opacity-60"
                 disabled={!data || loading}
               >
-                <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                <AppIcon name="picture_as_pdf" className="text-[18px]" size={18} />
                 <span>Profit PDF</span>
               </button>
             </div>
@@ -626,7 +627,7 @@ export const OwnerFinance: React.FC = () => {
             <div className="bg-card border border-border p-5 rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-colors group">
               <div className="flex items-center justify-between">
                 <div className="p-2 bg-muted rounded-lg text-muted-foreground group-hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined">account_balance_wallet</span>
+                  <AppIcon name="account_balance_wallet" />
                 </div>
                 {badge((kpis?.revenueDeltaPct ?? 0) > 0 ? 'up' : (kpis?.revenueDeltaPct ?? 0) < 0 ? 'down' : 'flat', kpis?.revenueDeltaPct ?? 0)}
               </div>
@@ -639,7 +640,7 @@ export const OwnerFinance: React.FC = () => {
             <div className="bg-card border border-border p-5 rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-colors group">
               <div className="flex items-center justify-between">
                 <div className="p-2 bg-muted rounded-lg text-muted-foreground group-hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined">savings</span>
+                  <AppIcon name="savings" />
                 </div>
                 {badge((kpis?.netProfitDeltaPct ?? 0) > 0 ? 'up' : (kpis?.netProfitDeltaPct ?? 0) < 0 ? 'down' : 'flat', kpis?.netProfitDeltaPct ?? 0)}
               </div>
@@ -652,7 +653,7 @@ export const OwnerFinance: React.FC = () => {
             <div className="bg-card border border-border p-5 rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-colors group">
               <div className="flex items-center justify-between">
                 <div className="p-2 bg-muted rounded-lg text-muted-foreground group-hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined">inventory</span>
+                  <AppIcon name="inventory" />
                 </div>
                 {badge((kpis?.cogsDeltaPct ?? 0) > 0 ? 'down' : (kpis?.cogsDeltaPct ?? 0) < 0 ? 'up' : 'flat', kpis?.cogsDeltaPct ?? 0)}
               </div>
@@ -665,7 +666,7 @@ export const OwnerFinance: React.FC = () => {
             <div className="bg-card border border-border p-5 rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-colors group">
               <div className="flex items-center justify-between">
                 <div className="p-2 bg-muted rounded-lg text-muted-foreground group-hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined">shopping_cart</span>
+                  <AppIcon name="shopping_cart" />
                 </div>
                 {badge((kpis?.opexDeltaPct ?? 0) > 0 ? 'down' : (kpis?.opexDeltaPct ?? 0) < 0 ? 'up' : 'flat', kpis?.opexDeltaPct ?? 0)}
               </div>
@@ -681,7 +682,7 @@ export const OwnerFinance: React.FC = () => {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-foreground">Profit &amp; Loss Overview</h3>
                 <button className="text-muted-foreground hover:text-foreground" type="button" onClick={fetchFinance}>
-                  <span className="material-symbols-outlined">refresh</span>
+                  <AppIcon name="refresh" />
                 </button>
               </div>
 
@@ -724,7 +725,7 @@ export const OwnerFinance: React.FC = () => {
                   >
                     <div className="flex items-center gap-3">
                       <div className="size-10 rounded-lg bg-muted border border-border flex items-center justify-center text-muted-foreground">
-                        <span className="material-symbols-outlined">store</span>
+                        <AppIcon name="store" />
                       </div>
                       <div>
                         <p className="text-foreground text-sm font-bold">{b.name}</p>
@@ -764,10 +765,10 @@ export const OwnerFinance: React.FC = () => {
                   onClick={openAddExpense}
                   className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold"
                 >
-                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  <AppIcon name="add" className="text-[18px]" size={18} />
                 </button>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground material-symbols-outlined text-[18px]">filter_list</span>
+                  <AppIcon name="filter_list" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]" size={18} />
                   <select
                     value={ledgerCategory}
                     onChange={(e) => setLedgerCategory(e.target.value)}
@@ -783,7 +784,7 @@ export const OwnerFinance: React.FC = () => {
                 </div>
 
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground material-symbols-outlined text-[18px]">sort</span>
+                  <AppIcon name="sort" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]" size={18} />
                   <select
                     value={ledgerSort}
                     onChange={(e) => setLedgerSort(e.target.value as any)}
@@ -815,7 +816,7 @@ export const OwnerFinance: React.FC = () => {
                   {loading ? (
                     <tr>
                       <td colSpan={8} className="p-6 text-sm text-muted-foreground">
-                        Loading ¦
+                        Loading 
                       </td>
                     </tr>
                   ) : ledger?.items?.length ? (
@@ -863,7 +864,7 @@ export const OwnerFinance: React.FC = () => {
                               });
                             }}
                           >
-                            <span className="material-symbols-outlined">more_vert</span>
+                            <AppIcon name="more_vert" />
                           </button>
                           <PortalMenu
                             open={rowMenuId === r.id}
@@ -923,7 +924,7 @@ export const OwnerFinance: React.FC = () => {
                   disabled={page <= 1 || loading}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                  <AppIcon name="chevron_left" className="text-[18px]" size={18} />
                 </button>
                 <button type="button" className="size-8 flex items-center justify-center rounded bg-primary text-primary-foreground font-bold">
                   {page}
@@ -934,7 +935,7 @@ export const OwnerFinance: React.FC = () => {
                   disabled={page >= pageCount || loading}
                   onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
                 >
-                  <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                  <AppIcon name="chevron_right" className="text-[18px]" size={18} />
                 </button>
               </div>
             </div>
@@ -958,7 +959,7 @@ export const OwnerFinance: React.FC = () => {
                 <div className="text-xs text-muted-foreground mt-1">Saved to MySQL finance ledger</div>
               </div>
               <button type="button" className="text-muted-foreground hover:text-foreground" onClick={closeExpenseModal}>
-                <span className="material-symbols-outlined">close</span>
+                <AppIcon name="close" />
               </button>
             </div>
 
@@ -1074,7 +1075,7 @@ export const OwnerFinance: React.FC = () => {
                 onClick={submitExpense}
                 disabled={expenseSaving}
               >
-                {expenseSaving ? 'Saving ¦' : 'Save'}
+                {expenseSaving ? 'Saving ' : 'Save'}
               </button>
             </div>
           </div>
@@ -1095,7 +1096,7 @@ export const OwnerFinance: React.FC = () => {
                 <div className="text-muted-foreground text-sm mt-1">This cannot be undone.</div>
               </div>
               <button type="button" onClick={closeDeleteConfirm} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground">
-                <span className="material-symbols-outlined text-[22px]">close</span>
+                <AppIcon name="close" className="text-[22px]" size={22} />
               </button>
             </div>
             <div className="p-5 flex items-center justify-end gap-3">

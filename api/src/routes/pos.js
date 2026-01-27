@@ -2168,6 +2168,10 @@ const makePosRouter = () => {
 
         const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
         const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 100) || 100));
+        const light = (() => {
+          const raw = String(req.query?.light || '').trim().toLowerCase();
+          return raw === '1' || raw === 'true' || raw === 'yes';
+        })();
 
         let q = db()
           .select([
@@ -2201,16 +2205,16 @@ const makePosRouter = () => {
         const rows = await q;
 
         const orderIds = rows.map((r0) => String(r0.id || '')).filter(Boolean);
-        const itemRows = orderIds.length
+        const itemRows = !light && orderIds.length
           ? await db().from('order_items').where({ tenant_id: req.tenant.id, branch_id: branchId }).whereIn('order_id', orderIds)
           : [];
-        const splitRows = orderIds.length
+        const splitRows = !light && orderIds.length
           ? await db().from('order_splits').where({ tenant_id: req.tenant.id, branch_id: branchId }).whereIn('order_id', orderIds)
           : [];
-        const splitItemRows = orderIds.length
+        const splitItemRows = !light && orderIds.length
           ? await db().from('order_split_items').where({ tenant_id: req.tenant.id, branch_id: branchId }).whereIn('order_id', orderIds)
           : [];
-        const paymentRows = orderIds.length
+        const paymentRows = !light && orderIds.length
           ? await db().from('order_payments').where({ tenant_id: req.tenant.id, branch_id: branchId }).whereIn('order_id', orderIds)
           : [];
 
@@ -2247,29 +2251,34 @@ const makePosRouter = () => {
           paymentsByOrder.set(oid, list);
         }
 
-        const orders = rows.map((row) => ({
-          id: row.id,
-          status: row.status,
-          total: Number(row.total || 0) || 0,
-          tax: Number(row.tax || 0) || 0,
-          tip: Number(row.tip || 0) || 0,
-          discount: Number(row.discount || 0) || 0,
-          discountPct: (() => {
-            const p = safeJsonParse(row.payload, null);
-            const v = p?.discountPct;
+        const orders = rows.map((row) => {
+          const payloadFallback = safeJsonParse(row.payload, null);
+          const discountPct = (() => {
+            const v = payloadFallback?.discountPct;
             return v == null ? 0 : Number(v || 0) || 0;
-          })(),
-          createdAt: row.created_at,
-          paidAt: row.paid_at,
-          payload: hydratePayloadFromNormalized({
-            orderRow: row,
-            payloadFallback: safeJsonParse(row.payload, null),
-            itemRows: itemsByOrder.get(String(row.id)) || [],
-            splitRows: splitsByOrder.get(String(row.id)) || [],
-            splitItemRows: splitItemsByOrder.get(String(row.id)) || [],
-            paymentRows: paymentsByOrder.get(String(row.id)) || [],
-          }),
-        }));
+          })();
+          return {
+            id: row.id,
+            status: row.status,
+            total: Number(row.total || 0) || 0,
+            tax: Number(row.tax || 0) || 0,
+            tip: Number(row.tip || 0) || 0,
+            discount: Number(row.discount || 0) || 0,
+            discountPct,
+            createdAt: row.created_at,
+            paidAt: row.paid_at,
+            payload: light
+              ? payloadFallback
+              : hydratePayloadFromNormalized({
+                  orderRow: row,
+                  payloadFallback,
+                  itemRows: itemsByOrder.get(String(row.id)) || [],
+                  splitRows: splitsByOrder.get(String(row.id)) || [],
+                  splitItemRows: splitItemsByOrder.get(String(row.id)) || [],
+                  paymentRows: paymentsByOrder.get(String(row.id)) || [],
+                }),
+          };
+        });
 
         return res.json({ ok: true, tenantId: req.tenant.id, branchId, orders });
       } catch (e) {

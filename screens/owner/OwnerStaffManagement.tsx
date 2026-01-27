@@ -3,6 +3,7 @@ import { apiFetch } from '../../api';
 import { PortalMenu, type PortalMenuAnchorRect } from '../../components/PortalMenu';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type ApiRole = { id: string; name: string; scope: 'global' | 'branch'; permissions: string[] };
 type ApiBranch = { id: string; name: string; status: string };
 
@@ -111,8 +112,8 @@ const ModalSelect: React.FC<{
         onClick={toggle}
         className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-left text-foreground focus:border-primary focus:outline-none flex items-center justify-between"
       >
-        <span className={cx('truncate', label ? '' : 'text-muted-foreground')}>{label || placeholder || 'Select ¦'}</span>
-        <span className="material-symbols-outlined text-[18px] opacity-70">expand_more</span>
+        <span className={cx('truncate', label ? '' : 'text-muted-foreground')}>{label || placeholder || 'Select '}</span>
+        <AppIcon name="expand_more" className="text-[18px] opacity-70" size={18} />
       </button>
 
       <PortalMenu
@@ -182,7 +183,7 @@ const statCard = (label: string, value: number, icon: string, iconClass: string)
   return (
     <div className="bg-card p-4 rounded-xl shadow-soft border border-border flex items-center gap-4">
       <div className={cx('size-12 rounded-full flex items-center justify-center', iconClass)}>
-        <span className="material-symbols-outlined">{icon}</span>
+        <AppIcon name={icon} />
       </div>
       <div>
         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{label}</p>
@@ -839,7 +840,7 @@ export const OwnerStaffManagement: React.FC = () => {
               className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-secondary text-secondary-foreground rounded-lg text-sm font-bold hover:bg-secondary/80 transition-colors"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>shield_person</span>
+              <AppIcon name="shield_person" />
               <span className="hidden sm:inline">Create Role</span>
             </button>
             <button
@@ -847,7 +848,7 @@ export const OwnerStaffManagement: React.FC = () => {
               className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-secondary text-secondary-foreground rounded-lg text-sm font-bold hover:bg-secondary/80 transition-colors"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>download</span>
+              <AppIcon name="download" />
               <span className="hidden sm:inline">Export</span>
             </button>
             <button
@@ -855,7 +856,7 @@ export const OwnerStaffManagement: React.FC = () => {
               className="hidden sm:flex items-center justify-center gap-2 h-10 px-4 bg-secondary text-secondary-foreground rounded-lg text-sm font-bold hover:bg-secondary/80 transition-colors"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>refresh</span>
+              <AppIcon name="refresh" />
               <span className="hidden sm:inline">Refresh</span>
             </button>
             <button
@@ -863,7 +864,7 @@ export const OwnerStaffManagement: React.FC = () => {
               className="flex items-center justify-center gap-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow"
               type="button"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>add</span>
+              <AppIcon name="add" />
               <span className="hidden sm:inline">Add Staff</span>
             </button>
           </div>
@@ -914,7 +915,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   tab === 'staff' ? 'text-primary border-primary' : 'text-muted-foreground border-transparent hover:text-foreground',
                 )}
               >
-                <span className={cx('material-symbols-outlined text-[20px]', tab === 'staff' ? 'icon-filled' : '')}>group</span>
+                <AppIcon name="group" className={cx('text-[20px]', tab === 'staff' ? 'icon-filled' : '')} size={20} />
                 Staff List
               </button>
               <button
@@ -924,7 +925,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   tab === 'roles' ? 'text-primary border-primary font-bold' : 'text-muted-foreground border-transparent hover:text-foreground',
                 )}
               >
-                <span className="material-symbols-outlined text-[20px]">verified_user</span>
+                <AppIcon name="verified_user" className="text-[20px]" size={20} />
                 Role Definitions
               </button>
               <button
@@ -934,7 +935,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   tab === 'invites' ? 'text-primary border-primary font-bold' : 'text-muted-foreground border-transparent hover:text-foreground',
                 )}
               >
-                <span className="material-symbols-outlined text-[20px]">mail</span>
+                <AppIcon name="mail" className="text-[20px]" size={20} />
                 Invites
               </button>
               <button
@@ -944,7 +945,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   tab === 'activity' ? 'text-primary border-primary font-bold' : 'text-muted-foreground border-transparent hover:text-foreground',
                 )}
               >
-                <span className="material-symbols-outlined text-[20px]">history</span>
+                <AppIcon name="history" className="text-[20px]" size={20} />
                 Activity Log
               </button>
             </div>
@@ -954,7 +955,7 @@ export const OwnerStaffManagement: React.FC = () => {
                 <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-border">
                   <div className="flex items-center gap-3 flex-1 min-w-[280px]">
                     <div className="relative w-full max-w-md">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-muted-foreground">search</span>
+                      <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                       <input
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
@@ -992,7 +993,7 @@ export const OwnerStaffManagement: React.FC = () => {
                       disabled={loading || !staff.length}
                       className="flex items-center gap-2 px-3 h-10 bg-background rounded-lg border border-border hover:bg-accent transition-all text-sm font-semibold text-foreground disabled:opacity-50"
                     >
-                      <span className="material-symbols-outlined text-muted-foreground text-[20px]">download</span>
+                      <AppIcon name="download" className="text-muted-foreground text-[20px]" size={20} />
                       Export
                     </button>
                   </div>
@@ -1026,7 +1027,7 @@ export const OwnerStaffManagement: React.FC = () => {
                       {loading ? (
                         <tr>
                           <td colSpan={6} className="py-10 px-6 text-sm text-muted-foreground">
-                            Loading ¦
+                            Loading 
                           </td>
                         </tr>
                       ) : staff.length ? (
@@ -1040,8 +1041,8 @@ export const OwnerStaffManagement: React.FC = () => {
                             </td>
                             <td className="py-4 px-6">
                               <span className={roleBadgeClass(s.roleName, s.roleKind)}>
-                                <span className="material-symbols-outlined text-[14px]">
-                                  {s.roleKind === 'super'
+                                <AppIcon
+                                  name={s.roleKind === 'super'
                                     ? 'admin_panel_settings'
                                     : s.roleKind === 'manager'
                                       ? 'manage_accounts'
@@ -1050,7 +1051,9 @@ export const OwnerStaffManagement: React.FC = () => {
                                         : s.roleName.toLowerCase().includes('server')
                                           ? 'room_service'
                                           : 'coffee_maker'}
-                                </span>
+                                  className="text-[14px]"
+                                  size={14}
+                                />
                                 {s.roleName}
                               </span>
                             </td>
@@ -1101,7 +1104,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                 }}
                                 className="text-muted-foreground hover:text-primary transition-colors p-1"
                               >
-                                <span className="material-symbols-outlined">more_vert</span>
+                                <AppIcon name="more_vert" />
                               </button>
                               <PortalMenu
                                 open={rowMenuStaffId === s.id}
@@ -1302,7 +1305,7 @@ export const OwnerStaffManagement: React.FC = () => {
                       disabled={page <= 1 || loading}
                       className="flex items-center justify-center size-9 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-colors disabled:opacity-50"
                     >
-                      <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+                      <AppIcon name="chevron_left" className="text-[20px]" size={20} />
                     </button>
                     <button className="flex items-center justify-center size-9 rounded-lg bg-primary text-primary-foreground font-bold shadow-sm">{page}</button>
                     <button
@@ -1310,7 +1313,7 @@ export const OwnerStaffManagement: React.FC = () => {
                       disabled={page >= pageCount || loading}
                       className="flex items-center justify-center size-9 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-colors disabled:opacity-50"
                     >
-                      <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                      <AppIcon name="chevron_right" className="text-[20px]" size={20} />
                     </button>
                   </div>
                 </div>
@@ -1325,7 +1328,7 @@ export const OwnerStaffManagement: React.FC = () => {
                         onClick={openRoleCreate}
                         className="flex items-center gap-2 px-3 h-10 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-bold"
                       >
-                        <span className="material-symbols-outlined text-[18px]">add</span>
+                        <AppIcon name="add" className="text-[18px]" size={18} />
                         New Role
                       </button>
                     </div>
@@ -1353,7 +1356,7 @@ export const OwnerStaffManagement: React.FC = () => {
                           {rolesLoading ? (
                             <tr>
                               <td colSpan={4} className="py-10 px-6 text-sm text-muted-foreground">
-                                Loading ¦
+                                Loading 
                               </td>
                             </tr>
                           ) : rolesData.length ? (
@@ -1369,7 +1372,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                 <td className="py-4 px-6">
                                   <div className="text-sm text-muted-foreground">
                                     {(r.permissions || []).slice(0, 5).join(', ') || ' ”'}
-                                    {(r.permissions || []).length > 5 ? ' ¦' : ''}
+                                    {(r.permissions || []).length > 5 ? ' ' : ''}
                                   </div>
                                 </td>
                                 <td className="py-4 px-6 text-right">
@@ -1402,7 +1405,7 @@ export const OwnerStaffManagement: React.FC = () => {
                                     }}
                                     className="text-muted-foreground hover:text-primary transition-colors p-1"
                                   >
-                                    <span className="material-symbols-outlined">more_vert</span>
+                                    <AppIcon name="more_vert" />
                                   </button>
                                   <PortalMenu
                                     open={roleRowMenuId === r.id}
@@ -1475,7 +1478,7 @@ export const OwnerStaffManagement: React.FC = () => {
                         onClick={fetchInvites}
                         className="h-10 px-4 rounded-lg border border-border bg-background text-sm font-bold hover:bg-accent transition-colors flex items-center gap-2"
                       >
-                        <span className="material-symbols-outlined text-[18px]">refresh</span>
+                        <AppIcon name="refresh" className="text-[18px]" size={18} />
                         Refresh
                       </button>
                     </div>
@@ -1528,7 +1531,7 @@ export const OwnerStaffManagement: React.FC = () => {
                             disabled={inviteCreating}
                             className="w-full h-11 rounded-lg bg-primary text-primary-foreground text-sm font-black hover:bg-primary/90 disabled:opacity-60 transition-opacity"
                           >
-                            {inviteCreating ? 'Creating ¦' : 'Create Invite'}
+                            {inviteCreating ? 'Creating ' : 'Create Invite'}
                           </button>
                         </div>
                       </div>
@@ -1539,7 +1542,7 @@ export const OwnerStaffManagement: React.FC = () => {
                     <div className="p-5">
                       <div className="flex items-center justify-between mb-3">
                         <div className="text-sm font-bold text-foreground">Recent Invites</div>
-                        <div className="text-xs text-muted-foreground font-mono">{invitesLoading ? 'Loading ¦' : `${invites.length} total`}</div>
+                        <div className="text-xs text-muted-foreground font-mono">{invitesLoading ? 'Loading ' : `${invites.length} total`}</div>
                       </div>
 
                       <div className="overflow-x-auto rounded-xl border border-border">
@@ -1594,7 +1597,7 @@ export const OwnerStaffManagement: React.FC = () => {
                     <div className="p-5 flex items-center justify-between gap-4 border-b border-border">
                       <div className="flex items-center gap-3 flex-1 min-w-[280px]">
                         <div className="relative w-full max-w-md">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-muted-foreground">search</span>
+                          <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                           <input
                             value={activityQ}
                             onChange={(e) => setActivityQ(e.target.value)}
@@ -1621,7 +1624,7 @@ export const OwnerStaffManagement: React.FC = () => {
                           onClick={fetchActivity}
                           className="flex items-center gap-2 px-3 h-10 bg-background rounded-lg border border-border hover:bg-accent transition-all text-sm font-semibold text-foreground"
                         >
-                          <span className="material-symbols-outlined text-muted-foreground text-[20px]">refresh</span>
+                          <AppIcon name="refresh" className="text-muted-foreground text-[20px]" size={20} />
                           Refresh
                         </button>
                       </div>
@@ -1650,7 +1653,7 @@ export const OwnerStaffManagement: React.FC = () => {
                           {activityLoading ? (
                             <tr>
                               <td colSpan={4} className="py-10 px-6 text-sm text-muted-foreground">
-                                Loading ¦
+                                Loading 
                               </td>
                             </tr>
                           ) : activity?.events?.length ? (
@@ -1691,7 +1694,7 @@ export const OwnerStaffManagement: React.FC = () => {
                           disabled={activityPage <= 1 || activityLoading}
                           className="flex items-center justify-center size-9 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-colors disabled:opacity-50"
                         >
-                          <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+                          <AppIcon name="chevron_left" className="text-[20px]" size={20} />
                         </button>
                         <button className="flex items-center justify-center size-9 rounded-lg bg-primary text-primary-foreground font-bold shadow-sm">{activityPage}</button>
                         <button
@@ -1702,7 +1705,7 @@ export const OwnerStaffManagement: React.FC = () => {
                           disabled={activityLoading || activityPage >= Math.max(1, Math.ceil((activity?.total ?? 0) / 10))}
                           className="flex items-center justify-center size-9 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-primary transition-colors disabled:opacity-50"
                         >
-                          <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                          <AppIcon name="chevron_right" className="text-[20px]" size={20} />
                         </button>
                       </div>
                     </div>
@@ -1727,7 +1730,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   <div className="text-muted-foreground text-sm mt-1">Create a staff account (name + role + contact).</div>
                 </div>
                 <button onClick={closeAdd} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                  <span className="material-symbols-outlined text-[22px]">close</span>
+                  <AppIcon name="close" className="text-[22px]" size={22} />
                 </button>
               </div>
 
@@ -1793,7 +1796,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   Cancel
                 </button>
                 <button onClick={submitAdd} className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold disabled:opacity-60" disabled={addLoading}>
-                  {addLoading ? 'Creating ¦' : 'Add Staff'}
+                  {addLoading ? 'Creating ' : 'Add Staff'}
                 </button>
               </div>
             </div>
@@ -1814,7 +1817,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   <div className="text-muted-foreground text-sm mt-1">Update details, role, branch, or status.</div>
                 </div>
                 <button onClick={closeEditStaff} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                  <span className="material-symbols-outlined text-[22px]">close</span>
+                  <AppIcon name="close" className="text-[22px]" size={22} />
                 </button>
               </div>
 
@@ -1891,7 +1894,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold disabled:opacity-60"
                   disabled={staffEditLoading}
                 >
-                  {staffEditLoading ? 'Saving ¦' : 'Save Changes'}
+                  {staffEditLoading ? 'Saving ' : 'Save Changes'}
                 </button>
               </div>
             </div>
@@ -1912,7 +1915,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   <div className="text-muted-foreground text-sm mt-1">Define a role and its permissions.</div>
                 </div>
                 <button onClick={closeRoleCreate} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                  <span className="material-symbols-outlined text-[22px]">close</span>
+                  <AppIcon name="close" className="text-[22px]" size={22} />
                 </button>
               </div>
 
@@ -1952,7 +1955,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold disabled:opacity-60"
                   disabled={roleCreateLoading}
                 >
-                  {roleCreateLoading ? 'Creating ¦' : 'Create Role'}
+                  {roleCreateLoading ? 'Creating ' : 'Create Role'}
                 </button>
               </div>
             </div>
@@ -1973,7 +1976,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   <div className="text-muted-foreground text-sm mt-1">Update role name, scope and permissions.</div>
                 </div>
                 <button onClick={closeRoleEdit} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                  <span className="material-symbols-outlined text-[22px]">close</span>
+                  <AppIcon name="close" className="text-[22px]" size={22} />
                 </button>
               </div>
 
@@ -2012,7 +2015,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold disabled:opacity-60"
                   disabled={roleEditLoading}
                 >
-                  {roleEditLoading ? 'Saving ¦' : 'Save'}
+                  {roleEditLoading ? 'Saving ' : 'Save'}
                 </button>
               </div>
             </div>
@@ -2033,7 +2036,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   <div className="text-muted-foreground text-sm mt-1">This cannot be undone.</div>
                 </div>
                 <button onClick={closeRoleDelete} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                  <span className="material-symbols-outlined text-[22px]">close</span>
+                  <AppIcon name="close" className="text-[22px]" size={22} />
                 </button>
               </div>
 
@@ -2056,7 +2059,7 @@ export const OwnerStaffManagement: React.FC = () => {
                   className="h-10 px-4 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold disabled:opacity-60"
                   disabled={roleDeleteLoading}
                 >
-                  {roleDeleteLoading ? 'Deleting ¦' : 'Delete'}
+                  {roleDeleteLoading ? 'Deleting ' : 'Delete'}
                 </button>
               </div>
             </div>

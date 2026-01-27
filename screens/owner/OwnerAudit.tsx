@@ -4,6 +4,7 @@ import { Screen } from '../../types';
 import { Header } from '../../components/Header';
 import { formatDeviceDateTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 export const OwnerAudit: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +83,7 @@ export const OwnerAudit: React.FC = () => {
         action={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <div className="relative w-[240px]">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]">search</span>
+              <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[18px]" size={18} />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -97,7 +98,7 @@ export const OwnerAudit: React.FC = () => {
                   type="button"
                   title="Clear"
                 >
-                  <span className="material-symbols-outlined text-[18px]">close</span>
+                  <AppIcon name="close" className="text-[18px]" size={18} />
                 </button>
               ) : null}
             </div>
@@ -123,7 +124,7 @@ export const OwnerAudit: React.FC = () => {
               className="h-10 px-4 rounded-xl border border-border bg-background text-foreground font-black text-sm hover:bg-accent hover:border-primary/50 flex items-center gap-2"
               type="button"
             >
-              <span className={`material-symbols-outlined text-[18px] ${loading ? 'animate-spin' : ''}`}>sync</span>
+              <AppIcon name="sync" className={`text-[18px] ${loading ? 'animate-spin' : ''}`} size={18} />
               Refresh
             </button>
           </div>
@@ -144,7 +145,7 @@ export const OwnerAudit: React.FC = () => {
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
             <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/20 px-6 py-4">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-[20px]">policy</span>
+                <AppIcon name="policy" className="text-primary text-[20px]" size={20} />
                 <div className="text-foreground font-black">Audit Events</div>
               </div>
               <div className="text-xs text-muted-foreground">Showing {filtered.length}</div>

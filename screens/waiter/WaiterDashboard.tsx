@@ -5,6 +5,7 @@ import { apiFetch } from '../../api';
 import { readSession } from '../../session';
 import { formatDeviceDate, formatDeviceTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 const readStaffNameCache = (): Record<string, string> => {
   try {
     const raw = localStorage.getItem('mirachpos.staffNameCache.v1');
@@ -634,7 +635,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
               <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">OPEN</span>
             </div>
             <p className="text-muted-foreground text-sm font-medium mt-1 flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">schedule</span>
+              <AppIcon name="schedule" className="text-sm" size={14} />
               {formatDeviceTime(now, { hour: '2-digit', minute: '2-digit' })}    {formatDeviceDate(now, { month: 'short', day: '2-digit', year: 'numeric' })}
             </p>
             {actionErr ? <p className="mt-2 text-xs text-destructive font-semibold">{actionErr}</p> : null}
@@ -650,7 +651,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                 }}
                 className="hidden md:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors text-sm font-bold"
               >
-                <span className="material-symbols-outlined text-lg">badge</span>
+                <AppIcon name="badge" className="text-lg" size={18} />
                 Active Waiter
               </button>
             )}
@@ -658,14 +659,14 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
               onClick={() => void handleRefresh()}
               className="hidden md:flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-secondary text-foreground hover:bg-secondary transition-colors text-sm font-bold"
             >
-              <span className="material-symbols-outlined text-lg">sync</span>
+              <AppIcon name="sync" className="text-lg" size={18} />
               Refresh
             </button>
             <button
               onClick={handleNewWalkIn}
               className="flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all text-sm font-bold"
             >
-              <span className="material-symbols-outlined text-lg">add</span>
+              <AppIcon name="add" className="text-lg" size={18} />
               New Walk-in
             </button>
           </div>
@@ -695,7 +696,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
               <span className="text-[10px] opacity-60">{counts.occupied}</span>
             </button>
             <button onClick={() => setFilter('Action')} className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-4 transition-colors ${filter === 'Action' ? 'border border-primary bg-primary/10 text-primary' : 'border border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
-              <span className="material-symbols-outlined text-sm animate-pulse">notifications_active</span>
+              <AppIcon name="notifications_active" className="text-sm animate-pulse" size={14} />
               <span className="text-xs font-bold uppercase">Action</span>
               <span className="text-[10px] font-bold">{counts.action}</span>
             </button>
@@ -752,7 +753,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                       </div>
                       <div className="flex justify-between items-center pt-2 border-t border-border">
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <span className="material-symbols-outlined text-sm">person</span>
+                          <AppIcon name="person" className="text-sm" size={14} />
                           {t.seats}
                         </span>
                         <span className="text-[10px] text-muted-foreground">{t.openOrderId ? order?.number : ''}</span>
@@ -770,7 +771,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
               className="hidden xl:flex absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 items-center justify-center"
               title="Open drafts/activity"
             >
-              <span className="material-symbols-outlined text-[22px]">dock_to_right</span>
+              <AppIcon name="dock_to_right" className="text-[22px]" size={22} />
             </button>
           ) : null}
 
@@ -797,7 +798,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                   className="h-9 w-9 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground"
                   title="Collapse"
                 >
-                  <span className="material-symbols-outlined text-[18px]">close_fullscreen</span>
+                  <AppIcon name="close_fullscreen" className="text-[18px]" size={18} />
                 </button>
               </div>
             </div>
@@ -834,7 +835,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                         <div className="mb-3 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">{draftErr}</div>
                       ) : null}
                       {draftLoading ? (
-                        <div className="text-sm text-muted-foreground">Loading ¦</div>
+                        <div className="text-sm text-muted-foreground">Loading </div>
                       ) : drafts.length === 0 ? (
                         <div className="text-sm text-muted-foreground">No submitted drafts.</div>
                       ) : (
@@ -869,7 +870,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                                         <div className="text-xs text-foreground font-black">ETB {(Number(it.unit_price ?? 0) * Number(it.qty ?? 0)).toFixed(2)}</div>
                                       </div>
                                     ))}
-                                    {more > 0 ? <div className="text-[11px] text-muted-foreground font-semibold">+{more} more ¦</div> : null}
+                                    {more > 0 ? <div className="text-[11px] text-muted-foreground font-semibold">+{more} more </div> : null}
                                   </div>
                                 ) : null}
 
@@ -896,7 +897,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
                         <div className="mb-3 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">{auditErr}</div>
                       ) : null}
                       {auditLoading ? (
-                        <div className="text-sm text-muted-foreground">Loading ¦</div>
+                        <div className="text-sm text-muted-foreground">Loading </div>
                       ) : auditRows.length === 0 ? (
                         <div className="text-sm text-muted-foreground">No activity.</div>
                       ) : (
@@ -937,11 +938,11 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => onNavigate(Screen.WAITER_SHIFT_REPORT)} className="h-10 px-4 rounded-lg border border-border bg-card hover:bg-secondary text-muted-foreground font-bold flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px]">assessment</span>
+              <AppIcon name="assessment" className="text-[18px]" size={18} />
               Shift Report
             </button>
             <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-extrabold flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px]">soup_kitchen</span>
+              <AppIcon name="soup_kitchen" className="text-[18px]" size={18} />
               Kitchen Status
             </button>
           </div>

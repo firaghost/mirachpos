@@ -17,6 +17,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { AppIcon } from '@/components/ui/app-icon';
 // removed fmtEtb
 
 const fmtPct = (n: number | null) => {
@@ -217,42 +218,50 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
         // ignore
       }
 
-      // Fetch Currency Settings
-      try {
-        const settingsRes = await apiFetch('/api/pos/settings');
-        if (settingsRes.ok) {
-          const s = await settingsRes.json();
-          if (s?.general?.currency) setCurrency(s.general.currency);
-        }
-      } catch {
-        // ignore
-      }
-
-
       const session = readSession<any>();
       const role = typeof session?.role === 'string' ? session.role : '';
       const tokenBranchId = typeof session?.branchId === 'string' ? session.branchId : '';
       const branchOverride = role === 'Cafe Owner' && (!tokenBranchId || tokenBranchId === 'global') ? resolveOwnerBranchOverride() : '';
 
-      try {
-        const br = await apiFetch('/api/branches');
-        if (br.ok) {
-          const data = (await br.json().catch(() => null)) as any;
-          const branches = Array.isArray(data?.branches) ? data.branches : [];
-          if (branchOverride) {
-            const match = branches.find((b: any) => String(b?.id || '') === branchOverride);
-            setBranchName(match ? String(match?.name || '') : '');
-          } else {
-            setBranchName(branches.length === 1 ? String(branches[0]?.name || '') : '');
-          }
-        }
-      } catch {
-        // ignore
-      }
-
       const ovQs = new URLSearchParams({ range });
       if (branchOverride) ovQs.set('branchId', branchOverride);
-      const ov = await apiFetch(`/api/manager/overview?${ovQs.toString()}`);
+
+      const [settingsRes, branchesRes, overviewRes] = await Promise.allSettled([
+        apiFetch('/api/pos/settings'),
+        apiFetch('/api/branches'),
+        apiFetch(`/api/manager/overview?${ovQs.toString()}`),
+      ]);
+
+      if (settingsRes.status === 'fulfilled') {
+        try {
+          if (settingsRes.value.ok) {
+            const s = await settingsRes.value.json().catch(() => null);
+            if (s?.general?.currency) setCurrency(s.general.currency);
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (branchesRes.status === 'fulfilled') {
+        try {
+          if (branchesRes.value.ok) {
+            const data = (await branchesRes.value.json().catch(() => null)) as any;
+            const branches = Array.isArray(data?.branches) ? data.branches : [];
+            if (branchOverride) {
+              const match = branches.find((b: any) => String(b?.id || '') === branchOverride);
+              setBranchName(match ? String(match?.name || '') : '');
+            } else {
+              setBranchName(branches.length === 1 ? String(branches[0]?.name || '') : '');
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (overviewRes.status !== 'fulfilled') throw overviewRes.reason;
+      const ov = overviewRes.value;
       const ovJson = (await ov.json().catch(() => null)) as any;
       if (!ov.ok) throw new Error(`HTTP ${ov.status}`);
 
@@ -680,14 +689,14 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
             className="size-9 rounded-full bg-card text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center transition-all"
             aria-label="Refresh"
           >
-            <span className="material-symbols-outlined text-[20px]">refresh</span>
+            <AppIcon name="refresh" className="text-[20px]" size={20} />
           </button>
 
           <button
             onClick={() => onNavigate(Screen.MANAGER_ORDERS)}
             className="h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg shadow-primary/10"
           >
-            <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+            <AppIcon name="receipt_long" className="text-[20px]" size={20} />
             <span>Orders</span>
           </button>
         </div>
@@ -701,12 +710,12 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="bg-card p-4 rounded-xl border border-border flex flex-col gap-1 relative overflow-hidden group hover:border-primary/30 transition-colors">
               <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-[64px] text-primary">payments</span>
+                <AppIcon name="payments" className="text-[64px] text-primary" size={64} />
               </div>
               <p className="text-muted-foreground text-sm font-medium">Total Sales (Today)</p>
               <h3 className="text-foreground text-2xl font-bold tracking-tight">{fmtMoney(salesToday)}</h3>
               <div className="flex items-center gap-1 mt-2">
-                <span className={`material-symbols-outlined text-sm ${Number(salesDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Number(salesDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'}</span>
+                <AppIcon name={Number(salesDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'} className={`text-sm ${Number(salesDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`} size={14} />
                 <span className={`text-sm font-bold ${Number(salesDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtPct(salesDeltaPct) ?? '—'}</span>
                 <span className="text-muted-foreground text-xs ml-1">vs yesterday</span>
               </div>
@@ -714,12 +723,12 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
 
             <div className="bg-card p-4 rounded-xl border border-border flex flex-col gap-1 relative overflow-hidden group hover:border-primary/30 transition-colors">
               <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-[64px] text-primary">savings</span>
+                <AppIcon name="savings" className="text-[64px] text-primary" size={64} />
               </div>
               <p className="text-muted-foreground text-sm font-medium">Net Profit</p>
               <h3 className="text-foreground text-2xl font-bold tracking-tight">{fmtMoney(netProfitToday)}</h3>
               <div className="flex items-center gap-1 mt-2">
-                <span className={`material-symbols-outlined text-sm ${Number(profitDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Number(profitDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'}</span>
+                <AppIcon name={Number(profitDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'} className={`text-sm ${Number(profitDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`} size={14} />
                 <span className={`text-sm font-bold ${Number(profitDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtPct(profitDeltaPct) ?? '—'}</span>
                 <span className="text-muted-foreground text-xs ml-1">vs yesterday</span>
               </div>
@@ -727,12 +736,12 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
 
             <div className="bg-card p-4 rounded-xl border border-border flex flex-col gap-1 relative overflow-hidden group hover:border-primary/30 transition-colors">
               <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-[64px] text-primary">receipt_long</span>
+                <AppIcon name="receipt_long" className="text-[64px] text-primary" size={64} />
               </div>
               <p className="text-muted-foreground text-sm font-medium">Total Orders</p>
               <h3 className="text-foreground text-2xl font-bold tracking-tight">{ordersToday.toLocaleString()}</h3>
               <div className="flex items-center gap-1 mt-2">
-                <span className={`material-symbols-outlined text-sm ${Number(ordersDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Number(ordersDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'}</span>
+                <AppIcon name={Number(ordersDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'} className={`text-sm ${Number(ordersDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`} size={14} />
                 <span className={`text-sm font-bold ${Number(ordersDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtPct(ordersDeltaPct) ?? '—'}</span>
                 <span className="text-muted-foreground text-xs ml-1">vs yesterday</span>
               </div>
@@ -740,12 +749,12 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
 
             <div className="bg-card p-4 rounded-xl border border-border flex flex-col gap-1 relative overflow-hidden group hover:border-primary/30 transition-colors">
               <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-[64px] text-primary">point_of_sale</span>
+                <AppIcon name="point_of_sale" className="text-[64px] text-primary" size={64} />
               </div>
               <p className="text-muted-foreground text-sm font-medium">Avg. Ticket Size</p>
               <h3 className="text-foreground text-2xl font-bold tracking-tight">{fmtMoney(avgTicket)}</h3>
               <div className="flex items-center gap-1 mt-2">
-                <span className={`material-symbols-outlined text-sm ${Number(avgTicketDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{Number(avgTicketDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'}</span>
+                <AppIcon name={Number(avgTicketDeltaPct || 0) >= 0 ? 'trending_up' : 'trending_down'} className={`text-sm ${Number(avgTicketDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`} size={14} />
                 <span className={`text-sm font-bold ${Number(avgTicketDeltaPct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtPct(avgTicketDeltaPct) ?? '—'}</span>
                 <span className="text-muted-foreground text-xs ml-1">vs yesterday</span>
               </div>
@@ -867,7 +876,7 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                     return (
                       <div key={e.id} className="flex items-center gap-4 p-4 border-b border-border/50 hover:bg-accent transition-colors">
                         <div className={`size-10 rounded-full flex items-center justify-center shrink-0 ${iconTone}`}>
-                          <span className="material-symbols-outlined">{icon}</span>
+                          <AppIcon name={icon} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-foreground text-sm font-medium truncate">{e.title}</p>
@@ -908,7 +917,7 @@ export const BranchDashboard: React.FC<Props> = ({ onNavigate }) => {
                 <div className="rounded-xl border border-border bg-background p-4">
                   <div className="flex items-center gap-3">
                     <div className="size-9 rounded-lg border border-border bg-card flex items-center justify-center text-primary">
-                      <span className="material-symbols-outlined">dns</span>
+                      <AppIcon name="dns" />
                     </div>
                     <div>
                       <p className="text-foreground font-bold">System Health</p>

@@ -332,6 +332,7 @@ type PosContextType = {
   markAllNotificationsRead: () => void;
   resetDemoData: () => void;
   refreshFromServer: () => Promise<void>;
+  queueOfflineWrite: (args: { url: string; method: string; body?: any; headers?: Record<string, string> }) => Promise<void>;
 };
 
 type PersistedState = {
@@ -906,6 +907,13 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [electronApis],
   );
 
+  const queueOfflineWrite = useCallback(
+    async (args: { url: string; method: string; body?: any; headers?: Record<string, string> }) => {
+      await enqueueOutboxHttp(args);
+    },
+    [enqueueOutboxHttp],
+  );
+
   const [sessionRev, setSessionRev] = useState(0);
 
   useEffect(() => {
@@ -1416,7 +1424,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // 2) Refresh authoritative orders list from DB
       try {
-        const res = await apiFetch(withBranchQuery('/api/pos/orders?limit=200'));
+        const res = await apiFetch(withBranchQuery('/api/pos/orders?limit=200&light=1'));
         if (!res.ok) return;
         const json = (await res.json().catch(() => null)) as any;
         const rows = Array.isArray(json?.orders) ? (json.orders as any[]) : [];
@@ -1874,8 +1882,6 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const persistOrder = useCallback(
     async (order: PosOrder) => {
       if (!isBranchUser) return false;
-      if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
-      if (!remoteReady) return false;
 
       const tip = Number((order as any)?.tip ?? 0) || 0;
       const discount = Number((order as any)?.discount ?? 0) || 0;
@@ -1912,6 +1918,18 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         },
       };
 
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+      if (offline) {
+        void enqueueOutboxHttp({
+          url: withBranchQuery('/api/pos/orders'),
+          method: 'POST',
+          body: payload,
+          headers: { 'Content-Type': 'application/json' },
+        });
+        return false;
+      }
+      if (!remoteReady) return false;
+
       try {
         const putRes = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`), {
           method: 'PUT',
@@ -1921,6 +1939,12 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (putRes.ok) return true;
         if (putRes.status !== 404) return false;
       } catch {
+        void enqueueOutboxHttp({
+          url: withBranchQuery('/api/pos/orders'),
+          method: 'POST',
+          body: payload,
+          headers: { 'Content-Type': 'application/json' },
+        });
         return false;
       }
 
@@ -1932,10 +1956,16 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         return postRes.ok;
       } catch {
+        void enqueueOutboxHttp({
+          url: withBranchQuery('/api/pos/orders'),
+          method: 'POST',
+          body: payload,
+          headers: { 'Content-Type': 'application/json' },
+        });
         return false;
       }
     },
-    [isBranchUser, remoteReady],
+    [enqueueOutboxHttp, isBranchUser, remoteReady],
   );
 
   // On Manager/Waiter login: load the branch-scoped POS state from the API.
@@ -3572,6 +3602,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     markAllNotificationsRead,
     resetDemoData,
     refreshFromServer,
+    queueOfflineWrite,
   };
 
   return <PosContext.Provider value={value}>{children}</PosContext.Provider>;

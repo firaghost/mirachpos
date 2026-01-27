@@ -3,6 +3,7 @@ import { usePos } from '../../PosContext';
 import { Screen } from '../../types';
 import { formatDeviceDate, formatDeviceTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 interface Props {
   onNavigate: (screen: Screen) => void;
 }
@@ -88,11 +89,11 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
     <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <header className="h-16 shrink-0 border-b border-border flex items-center justify-between px-8 bg-background">
          <div className="flex items-center gap-4">
-             <span className="material-symbols-outlined text-primary text-2xl">receipt_long</span>
+             <AppIcon name="receipt_long" className="text-primary text-2xl" size={24} />
              <h2 className="text-xl font-bold">Orders Management</h2>
          </div>
          <button onClick={() => onNavigate(Screen.TABLE_ASSIGNMENT)} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2">
-            <span className="material-symbols-outlined text-lg">add</span> New Order
+            <AppIcon name="add" className="text-lg" size={18} /> New Order
          </button>
       </header>
 
@@ -115,7 +116,7 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
 
         <div className="flex gap-4 mb-6">
             <div className="flex-1 relative">
-                <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground">search</span>
+                <AppIcon name="search" className="absolute left-3 top-2.5 text-muted-foreground" />
                 <input value={query} onChange={(e) => setQuery(e.target.value)} className="w-full bg-card border border-border rounded-lg py-2 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:border-primary" placeholder="Search Order ID, Table..."/>
             </div>
              <div className="flex gap-2">

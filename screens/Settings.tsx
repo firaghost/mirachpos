@@ -6,6 +6,7 @@ import { formatDeviceDateTime } from '../datetime';
 import { Screen } from '../types';
 import OwnerBilling from './owner/OwnerBilling';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type OwnerSettings = {
   business: {
     businessName: string;
@@ -916,7 +917,7 @@ export const Settings: React.FC = () => {
                           : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-accent',
                       )}
                     >
-                      <span className="material-symbols-outlined text-[20px]">{t.icon}</span>
+                      <AppIcon name={t.icon} className="text-[20px]" size={20} />
                       <span className="text-sm font-bold">{t.label}</span>
                     </button>
                   ))}
@@ -944,7 +945,7 @@ export const Settings: React.FC = () => {
                       canSave ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20' : 'bg-border text-muted-foreground cursor-not-allowed',
                     )}
                   >
-                    {saving ? 'Saving ¦' : 'Save'}
+                    {saving ? 'Saving ' : 'Save'}
                   </button>
                 </div>
               </div>
@@ -957,13 +958,13 @@ export const Settings: React.FC = () => {
                     {tabs.find((t) => t.key === activeTab)?.label ?? 'Settings'}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {loading ? 'Loading ¦' : dirty ? 'Unsaved changes' : 'Up to date'}
+                    {loading ? 'Loading ' : dirty ? 'Unsaved changes' : 'Up to date'}
                   </div>
                 </div>
 
                 <div className="p-6">
                   {!s ? (
-                    <div className="text-muted-foreground">{loading ? 'Loading ¦' : 'No settings loaded.'}</div>
+                    <div className="text-muted-foreground">{loading ? 'Loading ' : 'No settings loaded.'}</div>
                   ) : null}
 
                   {lockedBySubscription ? (
@@ -1019,7 +1020,7 @@ export const Settings: React.FC = () => {
                         </div>
 
                         {integrationsError ? <div className="text-xs text-danger">{integrationsError}</div> : null}
-                        {integrationsLoading ? <div className="text-xs text-muted-foreground">Loading ¦</div> : null}
+                        {integrationsLoading ? <div className="text-xs text-muted-foreground">Loading </div> : null}
 
                         <div className="p-4 border border-border rounded-lg">
                           <div className="text-foreground font-extrabold text-sm">Installed</div>
@@ -1114,7 +1115,7 @@ export const Settings: React.FC = () => {
                         </div>
 
                         {addonsError ? <div className="text-xs text-danger">{addonsError}</div> : null}
-                        {addonsLoading ? <div className="text-xs text-muted-foreground">Loading ¦</div> : null}
+                        {addonsLoading ? <div className="text-xs text-muted-foreground">Loading </div> : null}
 
                         <div className="p-4 border border-border rounded-lg">
                           <div className="text-foreground font-extrabold text-sm">Active Subscriptions</div>
@@ -1197,7 +1198,7 @@ export const Settings: React.FC = () => {
                             </div>
                             <div className="text-xs text-muted-foreground">Tier: <span className="text-foreground font-bold">{tier}</span></div>
                           </div>
-                          {subLoading ? <div className="text-xs text-muted-foreground mt-3">Loading ¦</div> : null}
+                          {subLoading ? <div className="text-xs text-muted-foreground mt-3">Loading </div> : null}
                           {subError ? <div className="text-xs text-danger mt-3">{subError}</div> : null}
                           {!subLoading && !subError ? (
                             <div className="mt-4 flex flex-wrap gap-2">
@@ -1230,7 +1231,7 @@ export const Settings: React.FC = () => {
                                   : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20',
                               )}
                             >
-                              {modulesSaving ? 'Saving ¦' : 'Save Modules'}
+                              {modulesSaving ? 'Saving ' : 'Save Modules'}
                             </button>
                           </div>
 
@@ -1324,7 +1325,7 @@ export const Settings: React.FC = () => {
                           {paymentMethods.map((m) => (
                             <div key={m.id} className="p-4 border border-border rounded-lg flex items-center justify-between gap-4">
                               <div className="flex items-center gap-3">
-                                <span className="material-symbols-outlined text-muted-foreground">{m.icon}</span>
+                                <AppIcon name={m.icon} className="text-muted-foreground" />
                                 <div className="flex flex-col">
                                   <div className="text-foreground font-bold text-sm">{m.label}</div>
                                   <div className="text-xs text-muted-foreground">{m.id}</div>

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 
+import { AppIcon } from '@/components/ui/app-icon';
 interface Props {
   open: boolean;
   title: string;
@@ -27,7 +28,7 @@ export const Modal: React.FC<Props> = ({ open, title, children, onClose, footer 
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
           <div className="text-lg font-bold">{title}</div>
           <button onClick={onClose} className="w-9 h-9 rounded-lg bg-accent hover:bg-accent/80 border border-border flex items-center justify-center transition-colors">
-            <span className="material-symbols-outlined">close</span>
+            <AppIcon name="close" />
           </button>
         </div>
         <div className="px-6 py-5">{children}</div>

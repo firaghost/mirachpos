@@ -3,6 +3,7 @@ import { apiFetch } from '../../api';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
 import { formatDeviceDateTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type MyTicketRow = {
   id: string;
   severity: string;
@@ -118,9 +119,7 @@ export const SupportRequest: React.FC = () => {
             className="flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors"
             type="button"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-              refresh
-            </span>
+            <AppIcon name="refresh" />
             Refresh
           </button>
         }
@@ -173,7 +172,7 @@ export const SupportRequest: React.FC = () => {
                 disabled={submitting}
                 className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 disabled:opacity-60 transition-opacity"
               >
-                {submitting ? 'Submitting ¦' : 'Submit Ticket'}
+                {submitting ? 'Submitting ' : 'Submit Ticket'}
               </button>
             </div>
           </div>
@@ -181,7 +180,7 @@ export const SupportRequest: React.FC = () => {
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h3 className="text-foreground font-bold text-sm uppercase tracking-wider">My Tickets</h3>
-              <span className="text-xs text-muted-foreground font-mono">{loading ? 'Loading ¦' : `${tickets.length} total`}</span>
+              <span className="text-xs text-muted-foreground font-mono">{loading ? 'Loading ' : `${tickets.length} total`}</span>
             </div>
 
             <div className="overflow-x-auto">

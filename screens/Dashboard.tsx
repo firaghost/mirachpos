@@ -4,6 +4,7 @@ import { STATS, SYSTEM_STATS, RECENT_ORDERS } from '../mockData';
 import { UserRole } from '../types';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 
+import { AppIcon } from '@/components/ui/app-icon';
 const data = [
   { name: '8am', uv: 4000 },
   { name: '10am', uv: 3000 },
@@ -32,12 +33,12 @@ export const Dashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                 {currentStats.map((stat, idx) => (
                     <div key={idx} className="bg-card p-5 rounded-xl border border-border flex flex-col gap-1 relative overflow-hidden group hover:border-primary/30 transition-colors">
                         <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <span className="material-symbols-outlined text-[64px] text-primary">{stat.icon}</span>
+                            <AppIcon name={stat.icon} className="text-[64px] text-primary" size={64} />
                         </div>
                         <p className="text-muted-foreground text-sm font-medium">{stat.label}</p>
                         <h3 className="text-foreground text-3xl font-bold tracking-tight mt-1">{stat.value}</h3>
                         <div className={`flex items-center gap-1 mt-2 text-xs font-bold ${stat.positive ? 'text-success' : 'text-danger'} bg-${stat.positive ? 'success' : 'danger'}/10 w-fit px-2 py-1 rounded`}>
-                            <span className="material-symbols-outlined text-[14px]">{stat.positive ? 'trending_up' : 'trending_down'}</span>
+                            <AppIcon name={stat.positive ? 'trending_up' : 'trending_down'} className="text-[14px]" size={14} />
                             <span>{stat.trend}</span>
                         </div>
                     </div>
@@ -91,7 +92,7 @@ export const Dashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                              <div className="flex flex-col">
                                 {[1, 2, 3].map((i) => (
                                     <div key={i} className="flex items-start gap-3 p-4 border-b border-border/50">
-                                        <span className="material-symbols-outlined text-warning mt-1">warning</span>
+                                        <AppIcon name="warning" className="text-warning mt-1" />
                                         <div>
                                             <p className="text-foreground text-sm font-bold">High Server Load</p>
                                             <p className="text-muted-foreground text-xs">US-East Region database latency spike.</p>
@@ -106,7 +107,7 @@ export const Dashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                                     <div key={i} className="flex items-center justify-between p-4 border-b border-border/50 hover:bg-accent transition-colors cursor-pointer">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center text-primary">
-                                                <span className="material-symbols-outlined">restaurant</span>
+                                                <AppIcon name="restaurant" />
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="text-foreground text-sm font-bold">{order.id} <span className="text-muted-foreground font-normal">• {order.table}</span></span>

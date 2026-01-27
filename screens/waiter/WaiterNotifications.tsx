@@ -1,3 +1,4 @@
+import { AppIcon } from '@/components/ui/app-icon';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { usePos } from '../../PosContext';
@@ -64,7 +65,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
           : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/30'
       }`}
     >
-      <span className="material-symbols-outlined text-[18px]">{icon}</span>
+      <AppIcon name={icon} className="text-[18px]" size={18} />
       <span className={filter === value ? 'font-bold' : 'font-semibold'}>{label}</span>
     </button>
   );
@@ -88,7 +89,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
               onClick={markAllNotificationsRead}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card text-foreground text-sm font-semibold hover:bg-card/80 border border-border"
             >
-              <span className="material-symbols-outlined text-[18px]">done_all</span>
+              <AppIcon name="done_all" className="text-[18px]" size={18} />
               Mark all as read
             </button>
           </div>
@@ -116,7 +117,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
                       }`}
                     >
                       <div className={`mt-1 flex items-center justify-center rounded-full shrink-0 size-10 ${iconBgFor(n.type)}`}>
-                        <span className="material-symbols-outlined icon-filled">{iconFor(n.type)}</span>
+                        <AppIcon name={iconFor(n.type)} className="icon-filled" />
                       </div>
 
                       <div className="flex flex-col flex-1 min-w-0">
@@ -209,7 +210,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
                       className={`group relative flex items-start gap-4 bg-card p-4 rounded-xl border-l-4 shadow-sm transition-all cursor-pointer hover:bg-card/80 ${accentFor(n.type)} opacity-70`}
                     >
                       <div className={`mt-1 flex items-center justify-center rounded-full shrink-0 size-10 ${iconBgFor(n.type)}`}>
-                        <span className="material-symbols-outlined icon-filled">{iconFor(n.type)}</span>
+                        <AppIcon name={iconFor(n.type)} className="icon-filled" />
                       </div>
                       <div className="flex flex-col flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-3">
@@ -235,7 +236,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
                       className={`group relative flex items-start gap-4 bg-card p-4 rounded-xl border-l-4 shadow-sm transition-all cursor-pointer hover:bg-card/80 ${accentFor(n.type)} opacity-70`}
                     >
                       <div className={`mt-1 flex items-center justify-center rounded-full shrink-0 size-10 ${iconBgFor(n.type)}`}>
-                        <span className="material-symbols-outlined icon-filled">{iconFor(n.type)}</span>
+                        <AppIcon name={iconFor(n.type)} className="icon-filled" />
                       </div>
                       <div className="flex flex-col flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-3">

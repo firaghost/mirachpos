@@ -1,3 +1,4 @@
+import { AppIcon } from '@/components/ui/app-icon';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Screen } from '../../types';
@@ -188,7 +189,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
               All Time
             </button>
             <div className="hidden md:flex items-center bg-card rounded-lg border border-border h-10 px-3">
-              <span className="material-symbols-outlined text-muted-foreground text-[20px] mr-2">calendar_today</span>
+              <AppIcon name="calendar_today" className="text-muted-foreground text-[20px] mr-2" size={20} />
               <span className="text-sm text-foreground font-medium">{todayLabel}</span>
             </div>
           </div>
@@ -201,7 +202,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
             <button onClick={() => setStatusFilter('Voided')} className={`px-4 py-1.5 rounded-lg text-sm shadow-sm ${statusFilter === 'Voided' ? 'bg-destructive text-destructive-foreground font-bold' : 'bg-card text-muted-foreground border border-transparent hover:border-destructive/30 hover:text-foreground font-medium transition-all'}`}>Voided</button>
           </div>
           <div className="relative w-full xl:w-96">
-            <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground text-[20px]">search</span>
+            <AppIcon name="search" className="absolute left-3 top-2.5 text-muted-foreground text-[20px]" size={20} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} className="block w-full pl-10 pr-3 py-2 border-none rounded-lg bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm" placeholder="Search by Order ID or Table #" type="text"/>
           </div>
         </div>
@@ -238,7 +239,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
                 {loading ? (
                   <tr>
                     <td colSpan={8} className="px-6 py-8 text-muted-foreground">
-                      Loading ¦
+                      Loading 
                     </td>
                   </tr>
                 ) : null}
@@ -270,7 +271,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
                         }}
                         className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/40 transition-colors"
                       >
-                        <span className="material-symbols-outlined text-[20px]">visibility</span>
+                        <AppIcon name="visibility" className="text-[20px]" size={20} />
                       </button>
                     </td>
                   </tr>

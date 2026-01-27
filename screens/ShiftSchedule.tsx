@@ -278,7 +278,7 @@ export const ShiftSchedule: React.FC<{ readOnly?: boolean }> = ({ readOnly }) =>
                   className="h-10 px-4 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground font-extrabold disabled:opacity-50"
                   type="button"
                 >
-                  {saving ? 'Saving ¦' : 'Save'}
+                  {saving ? 'Saving ' : 'Save'}
                 </button>
               </>
             ) : null}
@@ -326,7 +326,7 @@ export const ShiftSchedule: React.FC<{ readOnly?: boolean }> = ({ readOnly }) =>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {loading ? (
-                    <tr><td colSpan={2 + dayKeys.length} className="px-4 py-6 text-muted-foreground">Loading ¦</td></tr>
+                    <tr><td colSpan={2 + dayKeys.length} className="px-4 py-6 text-muted-foreground">Loading </td></tr>
                   ) : mergedRows.length === 0 ? (
                     <tr><td colSpan={2 + dayKeys.length} className="px-4 py-6 text-muted-foreground">No staff found for this branch.</td></tr>
                   ) : (

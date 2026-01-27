@@ -1,13 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
 import { Screen } from '../../types';
 import { readSession } from '../../session';
+import { usePos } from '../../PosContext';
 
+import { AppIcon } from '@/components/ui/app-icon';
 interface Props {
   onNavigate: (screen: Screen) => void;
 }
 
 export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
+  const { queueOfflineWrite } = usePos();
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string>('');
   const [ok, setOk] = useState<string>('');
@@ -64,6 +67,17 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
 
   const canSubmit = (wantsPassword || wantsPin) && !passwordError && !pinError && !saving;
 
+  const enqueueIfOffline = useCallback(
+    async (args: { url: string; method: string; body?: any; headers?: Record<string, string> }) => {
+      const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
+      if (online) return false;
+      await queueOfflineWrite(args);
+      setOk('Saved offline. Will sync when online.');
+      return true;
+    },
+    [queueOfflineWrite],
+  );
+
   const submit = async () => {
     if (saving) return;
     setSaving(true);
@@ -74,15 +88,17 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
       if (passwordError) throw new Error(passwordError);
       if (pinError) throw new Error(pinError);
 
+      const body = {
+        currentPassword: currentPassword,
+        newPassword: wantsPassword ? newPassword : '',
+        currentPin: currentPin,
+        newPin: wantsPin ? newPin : '',
+      };
+      if (await enqueueIfOffline({ url: '/api/staff/account', method: 'PUT', headers: { 'Content-Type': 'application/json' }, body })) return;
       const res = await apiFetch('/api/staff/account', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentPassword: currentPassword,
-          newPassword: wantsPassword ? newPassword : '',
-          currentPin: currentPin,
-          newPin: wantsPin ? newPin : '',
-        }),
+        body: JSON.stringify(body),
       });
       const json = (await res.json().catch(() => null)) as any;
       if (!res.ok) throw new Error(json?.error || String(res.status));
@@ -127,7 +143,7 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
           className="h-11 px-3 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground"
           title={show ? 'Hide' : 'Show'}
         >
-          <span className="material-symbols-outlined text-[18px]">{show ? 'visibility_off' : 'visibility'}</span>
+          <AppIcon name={show ? 'visibility_off' : 'visibility'} className="text-[18px]" size={18} />
         </button>
       </div>
     );
@@ -219,7 +235,7 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
               onClick={submit}
               className="h-11 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold disabled:opacity-50"
             >
-              {saving ? 'Saving ¦' : 'Save Changes'}
+              {saving ? 'Saving ' : 'Save Changes'}
             </button>
           </div>
         </div>

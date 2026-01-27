@@ -17,6 +17,7 @@ import {
   generateFilename,
 } from '../../utils/exportUtils';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type Period = 'Daily' | 'Weekly' | 'Monthly';
 
 type DateMode = 'Period' | 'Custom';
@@ -1681,9 +1682,9 @@ export const BranchReports: React.FC = () => {
                     onClick={() => setExportMenuOpen(!exportMenuOpen)}
                     className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold flex items-center gap-2"
                   >
-                    <span className="material-symbols-outlined text-lg">download</span>
+                    <AppIcon name="download" className="text-lg" size={18} />
                     Export Report
-                    <span className="material-symbols-outlined text-lg">{exportMenuOpen ? 'expand_less' : 'expand_more'}</span>
+                    <AppIcon name={exportMenuOpen ? 'expand_less' : 'expand_more'} className="text-lg" size={18} />
                   </button>
                   {exportMenuOpen && (
                     <>
@@ -1701,7 +1702,7 @@ export const BranchReports: React.FC = () => {
                           onClick={() => { exportCsv(); setExportMenuOpen(false); }}
                           className="w-full px-4 py-3 text-left hover:bg-accent flex items-center gap-3 text-foreground"
                         >
-                          <span className="material-symbols-outlined text-primary">table_view</span>
+                          <AppIcon name="table_view" className="text-primary" />
                           <div>
                             <div className="font-bold text-sm">CSV Summary</div>
                             <div className="text-xs text-muted-foreground">Key metrics for accounting</div>
@@ -1711,7 +1712,7 @@ export const BranchReports: React.FC = () => {
                           onClick={() => { void exportExcel(); setExportMenuOpen(false); }}
                           className="w-full px-4 py-3 text-left hover:bg-accent flex items-center gap-3 text-foreground"
                         >
-                          <span className="material-symbols-outlined text-green-500">grid_on</span>
+                          <AppIcon name="grid_on" className="text-green-500" />
                           <div>
                             <div className="font-bold text-sm">Excel Workbook</div>
                             <div className="text-xs text-muted-foreground">Full data with sheets</div>
@@ -1721,7 +1722,7 @@ export const BranchReports: React.FC = () => {
                           onClick={() => { exportPdf(); setExportMenuOpen(false); }}
                           className="w-full px-4 py-3 text-left hover:bg-accent flex items-center gap-3 text-foreground"
                         >
-                          <span className="material-symbols-outlined text-red-500">picture_as_pdf</span>
+                          <AppIcon name="picture_as_pdf" className="text-red-500" />
                           <div>
                             <div className="font-bold text-sm">PDF Report</div>
                             <div className="text-xs text-muted-foreground">Print-ready document</div>
@@ -1732,14 +1733,14 @@ export const BranchReports: React.FC = () => {
                           onClick={() => { exportFullCsv(); setExportMenuOpen(false); }}
                           className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-3 text-muted-foreground"
                         >
-                          <span className="material-symbols-outlined text-lg">database</span>
+                          <AppIcon name="database" className="text-lg" size={18} />
                           <div className="text-xs">Raw Data (CSV)</div>
                         </button>
                         <button
                           onClick={() => { exportStaffCsv(); setExportMenuOpen(false); }}
                           className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-3 text-muted-foreground"
                         >
-                          <span className="material-symbols-outlined text-lg">groups</span>
+                          <AppIcon name="groups" className="text-lg" size={18} />
                           <div className="text-xs">Staff Report (CSV)</div>
                         </button>
                       </div>
@@ -1829,11 +1830,11 @@ export const BranchReports: React.FC = () => {
             <div className="flex flex-col gap-2 rounded-xl p-5 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-start">
                 <p className="text-muted-foreground text-sm font-medium">Total Revenue</p>
-                <span className="material-symbols-outlined text-primary bg-primary/10 p-1 rounded">payments</span>
+                <AppIcon name="payments" className="text-primary bg-primary/10 p-1 rounded" />
               </div>
               <p className="text-foreground text-2xl font-bold tracking-tight font-mono">{formatMoney(totalRevenue)}</p>
               <div className="flex items-center gap-1">
-                <span className={`material-symbols-outlined text-sm ${revenueDelta >= 0 ? 'text-green-300' : 'text-red-300'}`}>{revenueDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
+                <AppIcon name={revenueDelta >= 0 ? 'trending_up' : 'trending_down'} className={`text-sm ${revenueDelta >= 0 ? 'text-green-300' : 'text-red-300'}`} size={14} />
                 <p className={`${revenueDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{revenueDelta >= 0 ? '+' : ''}{revenueDelta.toFixed(1)}% <span className="text-muted-foreground font-normal">vs prev</span></p>
               </div>
             </div>
@@ -1841,11 +1842,11 @@ export const BranchReports: React.FC = () => {
             <div className="flex flex-col gap-2 rounded-xl p-5 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-start">
                 <p className="text-muted-foreground text-sm font-medium">Net Profit</p>
-                <span className="material-symbols-outlined text-primary bg-primary/10 p-1 rounded">account_balance_wallet</span>
+                <AppIcon name="account_balance_wallet" className="text-primary bg-primary/10 p-1 rounded" />
               </div>
               <p className="text-foreground text-2xl font-bold tracking-tight font-mono">{formatMoney(netProfit)}</p>
               <div className="flex items-center gap-1">
-                <span className={`material-symbols-outlined text-sm ${profitDelta >= 0 ? 'text-green-300' : 'text-red-300'}`}>{profitDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
+                <AppIcon name={profitDelta >= 0 ? 'trending_up' : 'trending_down'} className={`text-sm ${profitDelta >= 0 ? 'text-green-300' : 'text-red-300'}`} size={14} />
                 <p className={`${profitDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{profitDelta >= 0 ? '+' : ''}{profitDelta.toFixed(1)}% <span className="text-muted-foreground font-normal">vs prev</span></p>
               </div>
             </div>
@@ -1853,11 +1854,11 @@ export const BranchReports: React.FC = () => {
             <div className="flex flex-col gap-2 rounded-xl p-5 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-start">
                 <p className="text-muted-foreground text-sm font-medium">Orders Processed</p>
-                <span className="material-symbols-outlined text-primary bg-primary/10 p-1 rounded">receipt_long</span>
+                <AppIcon name="receipt_long" className="text-primary bg-primary/10 p-1 rounded" />
               </div>
               <p className="text-foreground text-2xl font-bold tracking-tight">{ordersProcessed}</p>
               <div className="flex items-center gap-1">
-                <span className={`material-symbols-outlined text-sm ${ordersDelta >= 0 ? 'text-green-300' : 'text-red-300'}`}>{ordersDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
+                <AppIcon name={ordersDelta >= 0 ? 'trending_up' : 'trending_down'} className={`text-sm ${ordersDelta >= 0 ? 'text-green-300' : 'text-red-300'}`} size={14} />
                 <p className={`${ordersDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{ordersDelta >= 0 ? '+' : ''}{ordersDelta.toFixed(1)}% <span className="text-muted-foreground font-normal">vs prev</span></p>
               </div>
             </div>
@@ -1865,11 +1866,11 @@ export const BranchReports: React.FC = () => {
             <div className="flex flex-col gap-2 rounded-xl p-5 bg-card border border-border shadow-sm">
               <div className="flex justify-between items-start">
                 <p className="text-muted-foreground text-sm font-medium">Avg Order Value</p>
-                <span className="material-symbols-outlined text-primary bg-primary/10 p-1 rounded">shopping_basket</span>
+                <AppIcon name="shopping_basket" className="text-primary bg-primary/10 p-1 rounded" />
               </div>
               <p className="text-foreground text-2xl font-bold tracking-tight font-mono">{formatMoney(avgOrderValue)}</p>
               <div className="flex items-center gap-1">
-                <span className={`material-symbols-outlined text-sm ${aovDelta >= 0 ? 'text-green-300' : 'text-red-300'}`}>{aovDelta >= 0 ? 'trending_up' : 'trending_down'}</span>
+                <AppIcon name={aovDelta >= 0 ? 'trending_up' : 'trending_down'} className={`text-sm ${aovDelta >= 0 ? 'text-green-300' : 'text-red-300'}`} size={14} />
                 <p className={`${aovDelta >= 0 ? 'text-green-300' : 'text-red-300'} text-sm font-medium`}>{aovDelta >= 0 ? '+' : ''}{aovDelta.toFixed(1)}% <span className="text-muted-foreground font-normal">vs prev</span></p>
               </div>
             </div>
@@ -2157,7 +2158,7 @@ export const BranchReports: React.FC = () => {
                           <td className="px-5 py-3 text-sm text-foreground font-medium">
                             <div className="flex items-center gap-3">
                               <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center">
-                                <span className="material-symbols-outlined text-muted-foreground">person</span>
+                                <AppIcon name="person" className="text-muted-foreground" />
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-foreground">{idx === 0 ? `#1 ${r.name}` : r.name}</span>
@@ -2215,7 +2216,7 @@ export const BranchReports: React.FC = () => {
             <div className="flex justify-between items-center">
               <h3 className="text-foreground text-lg font-bold">Recent Transactions</h3>
               <button onClick={() => setShowAll((s) => !s)} className="text-primary hover:text-primary/90 text-sm font-bold flex items-center gap-1">
-                {showAll ? 'Show Less' : 'View All'} <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                {showAll ? 'Show Less' : 'View All'} <AppIcon name="arrow_forward" className="text-sm" size={14} />
               </button>
             </div>
             <div className="overflow-x-auto rounded-xl border border-border bg-background shadow-sm">
@@ -2244,7 +2245,7 @@ export const BranchReports: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground font-medium">{t.date}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground font-mono">{t.id}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground flex items-center gap-2">
-                            <span className="material-symbols-outlined text-lg text-muted-foreground">{icon}</span>
+                            <AppIcon name={icon} className="text-lg text-muted-foreground" size={18} />
                             {t.payment}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground font-bold text-right font-mono">{formatMoney(t.amount)}</td>

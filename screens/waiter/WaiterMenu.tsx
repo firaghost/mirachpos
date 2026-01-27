@@ -1,3 +1,4 @@
+import { AppIcon } from '@/components/ui/app-icon';
 
 import React, { useMemo, useState } from 'react';
 import { Screen } from '../../types';
@@ -114,7 +115,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
         <header className="flex-none flex items-center justify-between whitespace-nowrap bg-card px-6 py-4 z-20 shadow-sm border-b border-border/50">
           <div className="flex items-center gap-3 text-foreground">
             <div className="w-10 h-10 flex items-center justify-center bg-primary text-primary-foreground rounded-xl shadow-md">
-              <span className="material-symbols-outlined text-2xl">menu_book</span>
+              <AppIcon name="menu_book" className="text-2xl" size={24} />
             </div>
             <h2 className="text-foreground text-2xl font-bold tracking-tight">Order<span className="font-light text-primary">Builder</span></h2>
           </div>
@@ -143,14 +144,14 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-3 text-foreground group cursor-pointer" onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}>
               <div className="w-10 h-10 flex items-center justify-center bg-primary text-primary-foreground rounded-xl shadow-md group-hover:bg-primary/80 transition-colors">
-                <span className="material-symbols-outlined text-2xl">arrow_back</span>
+                <AppIcon name="arrow_back" className="text-2xl" size={24} />
               </div>
               <h2 className="text-foreground text-2xl font-bold tracking-tight">Order<span className="font-light text-primary">Builder</span></h2>
             </div>
             <label className="flex flex-col min-w-80 h-11 hidden md:flex">
               <div className="flex w-full flex-1 items-center rounded-2xl h-full bg-secondary border border-transparent focus-within:border-primary/50 focus-within:shadow-sm transition-all duration-300">
                 <div className="text-muted-foreground flex items-center justify-center pl-4">
-                  <span className="material-symbols-outlined text-[22px]">search</span>
+                  <AppIcon name="search" className="text-[22px]" size={22} />
                 </div>
                 <input
                   value={menuQuery}
@@ -183,7 +184,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                           : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary'
                       }`}
                     >
-                      <span className={`material-symbols-outlined text-[16px] ${active ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{categoryIcon(cat)}</span>
+                      <AppIcon name={categoryIcon(cat)} className={`text-[16px] ${active ? 'text-primary-foreground' : 'text-muted-foreground'}`} size={16} />
                       <span className="truncate max-w-[9rem]">{cat}</span>
                     </button>
                   );
@@ -243,7 +244,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                               isSoldOut ? 'bg-secondary text-muted-foreground' : 'bg-primary text-primary-foreground shadow-primary/20 group-hover:scale-105'
                             }`}
                           >
-                            <span className="material-symbols-outlined text-xl">add</span>
+                            <AppIcon name="add" className="text-xl" size={20} />
                           </div>
                         </div>
                       </div>
@@ -263,7 +264,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex justify-between items-center mb-3">
               <div className="flex items-center gap-3">
                 <div className="bg-primary/10 text-primary p-2.5 rounded-xl">
-                  <span className="material-symbols-outlined">table_restaurant</span>
+                  <AppIcon name="table_restaurant" />
                 </div>
                 <div>
                   <h2 className="font-bold text-xl text-foreground">{selectedTable.name}</h2>
@@ -275,7 +276,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                 </div>
               </div>
               <div className="flex items-center gap-2 text-sm text-foreground bg-secondary border border-border shadow-sm px-4 py-1.5 rounded-full font-semibold">
-                <span className="material-symbols-outlined text-[18px]">group</span>
+                <AppIcon name="group" className="text-[18px]" size={18} />
                 <span>{selectedTable.seats}</span>
               </div>
             </div>
@@ -360,7 +361,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                       }}
                       className="text-primary hover:text-[#d49619] font-semibold text-xs uppercase tracking-wide flex items-center gap-1"
                     >
-                      <span className="material-symbols-outlined text-[16px]">edit_note</span> Edit
+                      <AppIcon name="edit_note" className="text-[16px]" size={16} /> Edit
                     </button>
                     <button
                       onClick={() => setCartQty(tableId, item.productId, 0)}
@@ -368,21 +369,21 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                       title="Remove"
                       type="button"
                     >
-                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                      <AppIcon name="delete" className="text-[18px]" size={18} />
                     </button>
                     <div className="flex items-center bg-card rounded-lg border border-border h-8 overflow-hidden">
                       <button
                         onClick={() => setCartQty(tableId, item.productId, Math.max(0, item.qty - 1))}
                         className="w-8 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                       >
-                        <span className="material-symbols-outlined text-[18px]">remove</span>
+                        <AppIcon name="remove" className="text-[18px]" size={18} />
                       </button>
                       <span className="w-7 text-center font-bold text-[13px] text-foreground bg-secondary h-full flex items-center justify-center border-x border-border">{item.qty}</span>
                       <button
                         onClick={() => setCartQty(tableId, item.productId, item.qty + 1)}
                         className="w-8 h-full flex items-center justify-center text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
                       >
-                        <span className="material-symbols-outlined text-[18px]">add</span>
+                        <AppIcon name="add" className="text-[18px]" size={18} />
                       </button>
                     </div>
                   </div>
@@ -416,10 +417,10 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex flex-col items-center justify-center py-4 rounded-xl border border-border bg-card text-foreground hover:border-primary hover:text-primary transition-all font-bold shadow-sm">
-                <span className="material-symbols-outlined mb-1">arrow_back</span> Back
+                <AppIcon name="arrow_back" className="mb-1" /> Back
               </button>
               <button onClick={handleSendOrder} disabled={cartItems.length === 0} className="flex flex-col items-center justify-center py-4 rounded-xl bg-primary text-primary-foreground hover:bg-primary/80 shadow-lg shadow-primary/20 transition-all font-bold transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-                <span className="material-symbols-outlined mb-1">room_service</span> Send Order
+                <AppIcon name="room_service" className="mb-1" /> Send Order
               </button>
             </div>
           </div>

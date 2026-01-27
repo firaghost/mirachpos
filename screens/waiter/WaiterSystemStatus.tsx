@@ -4,6 +4,7 @@ import { apiFetch } from '../../api';
 import { usePos } from '../../PosContext';
 import { formatDeviceDateTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 interface Props {
   onNavigate: (screen: Screen) => void;
 }
@@ -94,7 +95,7 @@ export const WaiterSystemStatus: React.FC<Props> = ({ onNavigate }) => {
       <header className="flex items-center justify-between border-b border-border px-6 py-4 bg-card z-20">
         <div className="flex items-center gap-4">
           <div className="flex items-center justify-center size-10 rounded-full bg-background border border-border text-primary">
-            <span className="material-symbols-outlined">wifi</span>
+            <AppIcon name="wifi" />
           </div>
           <div className="flex flex-col">
             <h2 className="text-foreground text-lg font-bold leading-tight">Connectivity & Sync</h2>
@@ -114,11 +115,11 @@ export const WaiterSystemStatus: React.FC<Props> = ({ onNavigate }) => {
             onClick={() => void refresh()}
             className="h-9 px-4 rounded-lg bg-background border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 flex items-center gap-2 text-sm font-semibold"
           >
-            <span className="material-symbols-outlined text-[18px]">sync</span>
+            <AppIcon name="sync" className="text-[18px]" size={18} />
             Refresh
           </button>
           <div className="size-9 rounded-full bg-background border border-border flex items-center justify-center text-muted-foreground">
-            <span className="material-symbols-outlined text-[18px]">person</span>
+            <AppIcon name="person" className="text-[18px]" size={18} />
           </div>
         </div>
       </header>
@@ -135,7 +136,7 @@ export const WaiterSystemStatus: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 rounded-xl border border-border bg-card p-6 relative overflow-hidden">
               <div className="flex items-start gap-4 z-10">
                 <div className={`p-3 rounded-full shrink-0 ${isOnline ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
-                  <span className="material-symbols-outlined text-3xl">{isOnline ? 'wifi' : 'wifi_off'}</span>
+                  <AppIcon name={isOnline ? 'wifi' : 'wifi_off'} className="text-3xl" size={30} />
                 </div>
                 <div className="flex flex-col gap-1">
                   <h3 className="text-foreground text-lg font-bold leading-tight flex items-center gap-2">
@@ -167,7 +168,7 @@ export const WaiterSystemStatus: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex flex-col gap-4 rounded-xl p-5 border border-border bg-card">
               <div className="flex justify-between items-start">
                 <p className="text-muted-foreground text-sm font-semibold">Pending Uploads</p>
-                <span className="material-symbols-outlined text-primary">cloud_upload</span>
+                <AppIcon name="cloud_upload" className="text-primary" />
               </div>
               <p className="text-foreground text-3xl font-bold tracking-tight">{pendingUploads} <span className="text-base font-normal text-muted-foreground">Items</span></p>
               <div className="h-1.5 w-full bg-background rounded-full overflow-hidden border border-border">
@@ -178,7 +179,7 @@ export const WaiterSystemStatus: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex flex-col gap-4 rounded-xl p-5 border border-border bg-card">
               <div className="flex justify-between items-start">
                 <p className="text-muted-foreground text-sm font-semibold">Synced Today</p>
-                <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+                <AppIcon name="check_circle" className="text-emerald-600" />
               </div>
               <p className="text-foreground text-3xl font-bold tracking-tight">{syncedToday} <span className="text-base font-normal text-muted-foreground">Orders</span></p>
               <div className="h-1.5 w-full bg-background rounded-full overflow-hidden border border-border">
@@ -189,7 +190,7 @@ export const WaiterSystemStatus: React.FC<Props> = ({ onNavigate }) => {
             <div className="flex flex-col gap-4 rounded-xl p-5 border border-orange-500/30 bg-card">
               <div className="flex justify-between items-start">
                 <p className="text-orange-200 text-sm font-semibold">Conflicts Detected</p>
-                <span className="material-symbols-outlined text-orange-500">warning</span>
+                <AppIcon name="warning" className="text-orange-500" />
               </div>
               <p className="text-foreground text-3xl font-bold tracking-tight">{conflicts} <span className="text-base font-normal text-muted-foreground">Alert</span></p>
               <div className="h-1.5 w-full bg-background rounded-full overflow-hidden border border-border">
@@ -216,7 +217,7 @@ export const WaiterSystemStatus: React.FC<Props> = ({ onNavigate }) => {
                 ) : (
                   queue.map((q) => (
                     <div key={q.id} className="flex items-center gap-4 p-4 border-b border-border hover:bg-muted/40 transition-colors">
-                      <div className="size-10 rounded-full bg-background border border-border flex items-center justify-center text-muted-foreground"><span className="material-symbols-outlined">restaurant</span></div>
+                      <div className="size-10 rounded-full bg-background border border-border flex items-center justify-center text-muted-foreground"><AppIcon name="restaurant" /></div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1"><h4 className="text-foreground font-semibold truncate">{q.title}</h4><span className="text-xs text-muted-foreground">{q.time}</span></div>
                         <p className="text-muted-foreground text-sm truncate">{q.summary}</p>
@@ -231,7 +232,7 @@ export const WaiterSystemStatus: React.FC<Props> = ({ onNavigate }) => {
               <div className="rounded-xl border border-orange-500/30 bg-card overflow-hidden">
                 <div className="p-5 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-orange-500">warning</span>
+                    <AppIcon name="warning" className="text-orange-500" />
                     <h3 className="text-foreground text-sm font-bold">System Alerts</h3>
                   </div>
                   <button
@@ -271,15 +272,15 @@ export const WaiterSystemStatus: React.FC<Props> = ({ onNavigate }) => {
                 <h3 className="text-foreground text-sm font-bold mb-4">Device Diagnostics</h3>
                 <div className="flex flex-col gap-4">
                   <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2"><span className="material-symbols-outlined text-muted-foreground text-lg">database</span><span className="text-muted-foreground text-sm">Local Storage</span></div>
+                    <div className="flex items-center gap-2"><AppIcon name="database" className="text-muted-foreground text-lg" size={18} /><span className="text-muted-foreground text-sm">Local Storage</span></div>
                     <span className="text-emerald-600 text-xs font-bold bg-emerald-500/10 px-2 py-0.5 rounded">Healthy</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2"><span className="material-symbols-outlined text-muted-foreground text-lg">print</span><span className="text-muted-foreground text-sm">Printer Link</span></div>
+                    <div className="flex items-center gap-2"><AppIcon name="print" className="text-muted-foreground text-lg" size={18} /><span className="text-muted-foreground text-sm">Printer Link</span></div>
                     <span className="text-emerald-600 text-xs font-bold bg-emerald-500/10 px-2 py-0.5 rounded">Connected</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2"><span className="material-symbols-outlined text-muted-foreground text-lg">router</span><span className="text-muted-foreground text-sm">Gateway</span></div>
+                    <div className="flex items-center gap-2"><AppIcon name="router" className="text-muted-foreground text-lg" size={18} /><span className="text-muted-foreground text-sm">Gateway</span></div>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded ${isOnline ? 'text-emerald-600 bg-emerald-500/10' : 'text-destructive bg-destructive/10'}`}>{isOnline ? 'Reachable' : 'Unreachable'}</span>
                   </div>
                 </div>

@@ -27,3 +27,4 @@ api/.env.*
 *.sln
 *.sw?
 api/.env
+.agent

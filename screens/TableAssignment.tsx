@@ -1,3 +1,4 @@
+import { AppIcon } from '@/components/ui/app-icon';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal } from '../components/Modal';
@@ -266,7 +267,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                         <p className={`font-bold text-sm ${isSelected ? 'text-primary-foreground' : 'text-foreground'}`}>{lab.name}</p>
                                         <p className={`text-xs ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{lab.role}</p>
                                     </div>
-                                    {isSelected && <span className="material-symbols-outlined ml-auto text-xl">check_circle</span>}
+                                    {isSelected && <AppIcon name="check_circle" className="ml-auto text-xl" size={20} />}
                                   </button>
                             );
                         })}
@@ -336,7 +337,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                 >
                                     {isSelected && (
                                         <div className="absolute top-2 right-2 bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center shadow-sm z-10">
-                                            <span className="material-symbols-outlined text-[16px] font-bold">check</span>
+                                            <AppIcon name="check" className="text-[16px] font-bold" size={16} />
                                         </div>
                                     )}
                                     
@@ -345,7 +346,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                         ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground group-hover:text-foreground'}
                                         ${!isSelected && (table.status === 'occupied') ? 'bg-muted text-foreground/70' : ''}
                                     `}>
-                                        <span className="material-symbols-outlined text-2xl">table_restaurant</span>
+                                        <AppIcon name="table_restaurant" className="text-2xl" size={24} />
                                     </div>
                                     
                                     <div className="text-center">
@@ -435,7 +436,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                             }}
                         >
                             <span>Confirm Assignment</span>
-                            <span className="material-symbols-outlined text-[20px]">check</span>
+                            <AppIcon name="check" className="text-[20px]" size={20} />
                         </button>
 
                         <button
@@ -447,7 +448,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                             }}
                         >
                             <span>Unassign</span>
-                            <span className="material-symbols-outlined text-[20px]">link_off</span>
+                            <AppIcon name="link_off" className="text-[20px]" size={20} />
                         </button>
                     </div>
                 </div>

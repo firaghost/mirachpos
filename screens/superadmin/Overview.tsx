@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/components/lib/utils';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type Range = '30d' | '7d' | '24h';
 
 type OverviewPayload = {
@@ -244,7 +245,7 @@ export const SA_Overview: React.FC = () => {
           </Button>
 
           <button className="flex items-center justify-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-bold transition-colors shadow-lg shadow-primary/10">
-            <span className="material-symbols-outlined text-[18px]">download</span>
+            <AppIcon name="download" className="text-[18px]" size={18} />
             <span>Export Report</span>
           </button>
         </div>
@@ -256,7 +257,7 @@ export const SA_Overview: React.FC = () => {
             <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive flex justify-between items-center">
               <p className="text-xs font-black uppercase tracking-widest leading-none">{error}</p>
               <button onClick={() => setError(null)} className="h-7 w-7 rounded-full grid place-items-center hover:bg-accent transition-colors">
-                <span className="material-symbols-outlined text-sm">close</span>
+                <AppIcon name="close" className="text-sm" size={14} />
               </button>
             </div>
           )}
@@ -297,7 +298,7 @@ export const SA_Overview: React.FC = () => {
             <Card className="bg-card border border-border shadow-lg relative overflow-hidden group">
               <CardContent className="p-5">
                 <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <span className="material-symbols-outlined text-foreground text-6xl">storefront</span>
+                  <AppIcon name="storefront" className="text-foreground text-6xl" size={60} />
                 </div>
                 <div className="flex justify-between items-start mb-3">
                   <p className="text-muted-foreground text-sm font-medium">Total Cafes</p>
@@ -311,7 +312,7 @@ export const SA_Overview: React.FC = () => {
                   <span className="text-destructive font-semibold">{fmtInt(suspendedTenants)} Suspended</span>
                 </div>
                 <div className="flex items-center gap-1 mt-3">
-                  <span className="material-symbols-outlined text-emerald-500 text-sm">trending_up</span>
+                  <AppIcon name="trending_up" className="text-emerald-500 text-sm" size={14} />
                   <p className="text-emerald-500 text-xs font-bold">
                     {pctLabel(Number(trends.tenantsPct || 0))}
                     <span className="text-muted-foreground font-normal ml-1">vs prev period</span>
@@ -323,7 +324,7 @@ export const SA_Overview: React.FC = () => {
             <Card className="bg-card border border-border shadow-lg relative overflow-hidden group">
               <CardContent className="p-5">
                 <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <span className="material-symbols-outlined text-foreground text-6xl">point_of_sale</span>
+                  <AppIcon name="point_of_sale" className="text-foreground text-6xl" size={60} />
                 </div>
                 <div className="flex justify-between items-start mb-3">
                   <p className="text-muted-foreground text-sm font-medium">Active Terminals</p>
@@ -331,7 +332,7 @@ export const SA_Overview: React.FC = () => {
                 <p className="text-foreground text-3xl font-bold tracking-tight">{fmtInt(totalBranches)}</p>
                 <p className="text-xs mt-1 text-muted-foreground">Syncing: {fmtInt(syncingBranches)} branches</p>
                 <div className="flex items-center gap-1 mt-3">
-                  <span className="material-symbols-outlined text-emerald-500 text-sm">trending_up</span>
+                  <AppIcon name="trending_up" className="text-emerald-500 text-sm" size={14} />
                   <p className="text-emerald-500 text-xs font-bold">+0% <span className="text-muted-foreground font-normal ml-1">growth</span></p>
                 </div>
               </CardContent>
@@ -340,7 +341,7 @@ export const SA_Overview: React.FC = () => {
             <Card className="bg-card border border-border shadow-lg relative overflow-hidden group">
               <CardContent className="p-5">
                 <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <span className="material-symbols-outlined text-foreground text-6xl">receipt_long</span>
+                  <AppIcon name="receipt_long" className="text-foreground text-6xl" size={60} />
                 </div>
                 <div className="flex justify-between items-start mb-3">
                   <p className="text-muted-foreground text-sm font-medium">Orders (Today / Month)</p>
@@ -350,7 +351,7 @@ export const SA_Overview: React.FC = () => {
                 </p>
                 <p className="text-xs mt-1 text-muted-foreground">Avg. ticket {fmtEtb(avgTicketEtb)}</p>
                 <div className="flex items-center gap-1 mt-3">
-                  <span className="material-symbols-outlined text-emerald-500 text-sm">trending_up</span>
+                  <AppIcon name="trending_up" className="text-emerald-500 text-sm" size={14} />
                   <p className="text-emerald-500 text-xs font-bold">
                     {pctLabel(Number(trends.ordersPct || 0))}
                     <span className="text-muted-foreground font-normal ml-1">volume</span>
@@ -362,7 +363,7 @@ export const SA_Overview: React.FC = () => {
             <Card className="bg-card border border-border shadow-lg relative overflow-hidden group">
               <CardContent className="p-5">
                 <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <span className="material-symbols-outlined text-foreground text-6xl">payments</span>
+                  <AppIcon name="payments" className="text-foreground text-6xl" size={60} />
                 </div>
                 <div className="flex justify-between items-start mb-3">
                   <p className="text-muted-foreground text-sm font-medium">Platform Revenue</p>
@@ -370,7 +371,7 @@ export const SA_Overview: React.FC = () => {
                 <p className="text-foreground text-3xl font-bold tracking-tight">{fmtEtb(mrrEtb)}</p>
                 <p className="text-xs mt-1 text-muted-foreground">MRR: {fmtEtb(mrrEtb)}</p>
                 <div className="flex items-center gap-1 mt-3">
-                  <span className="material-symbols-outlined text-emerald-500 text-sm">trending_up</span>
+                  <AppIcon name="trending_up" className="text-emerald-500 text-sm" size={14} />
                   <p className="text-emerald-500 text-xs font-bold">
                     {pctLabel(Number(trends.revenuePct || 0))}
                     <span className="text-muted-foreground font-normal ml-1">YTD</span>
@@ -525,7 +526,7 @@ export const SA_Overview: React.FC = () => {
                           <tr key={a.id} className="hover:bg-accent transition-colors">
                             <td className="px-4 py-3">
                               <span className={cn('inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded border', ui.cls)}>
-                                <span className="material-symbols-outlined text-[14px]">{ui.icon}</span>
+                                <AppIcon name={ui.icon} className="text-[14px]" size={14} />
                                 {ui.label}
                               </span>
                             </td>

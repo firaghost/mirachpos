@@ -7,6 +7,7 @@ import { readSession } from '../../session';
 import { formatDeviceTime } from '../../datetime';
 import { InitializePosModal } from '../../components/InitializePosModal';
 
+import { AppIcon } from '@/components/ui/app-icon';
 const readStaffNameCache = (): Record<string, string> => {
   try {
     const raw = localStorage.getItem('mirachpos.staffNameCache.v1');
@@ -210,12 +211,12 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
                   onClick={() => setInitOpen(true)}
                   className="h-11 px-5 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 flex items-center gap-2 text-sm"
                 >
-                  <span className="material-symbols-outlined text-[18px]">build</span>
+                  <AppIcon name="build" className="text-[18px]" size={18} />
                   Initialize POS
                 </button>
               ) : null}
               <button onClick={() => onNavigate(Screen.TABLE_ASSIGNMENT)} className="h-11 px-5 rounded-lg bg-background border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 flex items-center gap-2 text-sm font-semibold">
-                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                <AppIcon name="arrow_back" className="text-[18px]" size={18} />
                 Back to Assign
               </button>
             </div>
@@ -244,7 +245,7 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
                 <span className="text-[10px] opacity-60">{counts.occupied}</span>
               </button>
               <button onClick={() => setFilter('Action')} className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-4 transition-colors ${filter === 'Action' ? 'border border-primary/40 bg-primary/10 text-primary' : 'border border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
-                <span className="material-symbols-outlined text-sm animate-pulse">notifications_active</span>
+                <AppIcon name="notifications_active" className="text-sm animate-pulse" size={14} />
                 <span className="text-xs font-bold uppercase">Action</span>
                 <span className="text-[10px] font-bold">{counts.action}</span>
               </button>
@@ -295,7 +296,7 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t border-border">
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <span className="material-symbols-outlined text-sm">person</span>
+                        <AppIcon name="person" className="text-sm" size={14} />
                         {t.seats}
                       </span>
                       <span className="text-[10px] text-muted-foreground">{t.openOrderId ? order?.number : ''}</span>

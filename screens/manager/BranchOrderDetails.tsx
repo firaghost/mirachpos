@@ -6,6 +6,7 @@ import { apiFetch } from '../../api';
 import { readSession } from '../../session';
 import { formatDeviceDate, formatDeviceDateTime, formatDeviceTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type PosSettingsResponse = {
   taxes?: {
     vatEnabled?: boolean;
@@ -101,7 +102,7 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
             <p className="text-muted-foreground text-sm mt-1">No order selected.</p>
           </div>
           <button onClick={() => onNavigate(Screen.MANAGER_ORDERS)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary border border-border text-foreground text-sm font-semibold transition-all">
-              <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+              <AppIcon name="arrow_back" className="text-[18px]" size={18} />
               <span>Back</span>
           </button>
         </header>
@@ -207,7 +208,7 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
           ) : null}
 
           <button onClick={() => onNavigate(Screen.MANAGER_ORDERS)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary border border-border text-foreground text-sm font-semibold transition-all">
-            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+            <AppIcon name="arrow_back" className="text-[20px]" size={20} />
             <span>Back</span>
           </button>
         </div>
@@ -225,7 +226,7 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
 
               <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-secondary/30">
                 <h3 className="text-foreground font-semibold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[20px]">list_alt</span> Order Items
+                  <AppIcon name="list_alt" className="text-primary text-[20px]" size={20} /> Order Items
                 </h3>
                 <div className="text-xs text-muted-foreground">{order.items.length} lines</div>
               </div>
@@ -260,7 +261,7 @@ export const BranchOrderDetails: React.FC<Props> = ({ onNavigate }) => {
               {isVoided && order.voidReason ? (
                 <div className="px-6 py-4 border-t border-border bg-red-900/10">
                   <div className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-red-400 text-[20px]">block</span>
+                    <AppIcon name="block" className="text-red-400 text-[20px]" size={20} />
                     <div className="flex flex-col">
                       <div className="text-sm font-bold text-red-300">Void Reason</div>
                       <div className="text-sm text-muted-foreground">{order.voidReason}</div>

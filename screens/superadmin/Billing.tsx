@@ -3,6 +3,7 @@ import { apiFetch } from '../../api';
 import { PortalMenu } from '../../components/PortalMenu';
 import { formatDeviceDate, formatDeviceDateTime } from '../../datetime';
 
+import { AppIcon } from '@/components/ui/app-icon';
 const apiBase = (): string => {
   try {
     const envBase = (import.meta as any)?.env?.VITE_API_BASE;
@@ -380,7 +381,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
       if (s === 'verification needed' || s === 'verification_needed') {
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-bold uppercase tracking-wide">
-            <span className="material-symbols-outlined text-[14px]">pending</span>
+            <AppIcon name="pending" className="text-[14px]" size={14} />
             Pending
           </span>
         );
@@ -388,7 +389,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
       if (s === 'past due' || s === 'past_due') {
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-warning/30 bg-warning/10 text-warning text-xs font-bold uppercase tracking-wide">
-            <span className="material-symbols-outlined text-[14px]">warning</span>
+            <AppIcon name="warning" className="text-[14px]" size={14} />
             Grace Period
           </span>
         );
@@ -396,7 +397,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
       if (s === 'suspended') {
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-red-500/30 bg-red-500/10 text-red-400 text-xs font-bold uppercase tracking-wide">
-            <span className="material-symbols-outlined text-[14px]">lock</span>
+            <AppIcon name="lock" className="text-[14px]" size={14} />
             Suspended
           </span>
         );
@@ -441,14 +442,14 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
             <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-2 relative overflow-hidden group hover:border-accent transition-colors">
                 <div className="flex justify-between items-start z-10">
                     <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Monthly Revenue (MRR)</span>
-                    <span className="material-symbols-outlined text-primary/80">payments</span>
+                    <AppIcon name="payments" className="text-primary/80" />
                 </div>
                 <div className="flex items-baseline gap-1 z-10">
                     <span className="text-muted-foreground text-sm font-medium">ETB</span>
                     <span className="text-2xl font-bold text-foreground">{fmtEtb(overview.monthlyRevenueEtb || 0)}</span>
                 </div>
                 <div className="flex items-center gap-1 text-xs text-green-400 z-10">
-                    <span className="material-symbols-outlined text-[14px]">trending_up</span>
+                    <AppIcon name="trending_up" className="text-[14px]" size={14} />
                     <span>+0.0% vs last month</span>
                 </div>
                 <div className="absolute -right-6 -top-6 w-20 h-20 bg-primary/5 rounded-full group-hover:bg-primary/10 transition-colors"></div>
@@ -457,7 +458,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
             <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-2 relative overflow-hidden hover:border-accent transition-colors">
                 <div className="flex justify-between items-start z-10">
                     <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Pending Validations</span>
-                    <span className="material-symbols-outlined text-warning">pending</span>
+                    <AppIcon name="pending" className="text-warning" />
                 </div>
                 <div className="flex items-center gap-2 z-10">
                     <span className="text-2xl font-bold text-foreground">{overview.pendingVerify || 0}</span>
@@ -469,7 +470,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
             <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-2 relative overflow-hidden hover:border-accent transition-colors">
                 <div className="flex justify-between items-start z-10">
                     <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">At Risk (Grace Period)</span>
-                    <span className="material-symbols-outlined text-red-400">warning</span>
+                    <AppIcon name="warning" className="text-red-400" />
                 </div>
                 <div className="flex items-center gap-2 z-10">
                     <span className="text-2xl font-bold text-foreground">{overview.atRisk || 0}</span>
@@ -484,7 +485,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
             <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-2 relative overflow-hidden hover:border-accent transition-colors">
                 <div className="flex justify-between items-start z-10">
                     <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Active Subscriptions</span>
-                    <span className="material-symbols-outlined text-muted-foreground">groups</span>
+                    <AppIcon name="groups" className="text-muted-foreground" />
                 </div>
                 <span className="text-2xl font-bold text-foreground z-10">{overview.totalActive || 0}</span>
                 <div className="w-full bg-black/30 h-1.5 rounded-full mt-auto z-10">
@@ -497,7 +498,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
         {atRiskRows.length > 0 ? (
           <div className="flex items-center gap-4 p-4 rounded bg-red-900/10 border border-red-900/50 backdrop-blur-sm">
               <div className="p-2 bg-red-500/10 rounded-lg shrink-0">
-                  <span className="material-symbols-outlined text-red-500">report</span>
+                  <AppIcon name="report" className="text-red-500" />
               </div>
               <div className="flex flex-col md:flex-row md:items-center justify-between w-full gap-4">
                   <div>
@@ -573,7 +574,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                                     target="_blank"
                                     rel="noreferrer"
                                   >
-                                    <span className="material-symbols-outlined text-[16px]">attachment</span>
+                                    <AppIcon name="attachment" className="text-[16px]" size={16} />
                                     {proofName || 'Attachment'}
                                   </a>
                                 ) : (
@@ -589,7 +590,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                                     onClick={() => rejectPendingPayment(r)}
                                     disabled={saving === r.paymentId}
                                   >
-                                    <span className="material-symbols-outlined text-[20px]">close</span>
+                                    <AppIcon name="close" className="text-[20px]" size={20} />
                                   </button>
                                   <button
                                     className="px-3 py-1.5 rounded bg-primary/10 border border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground font-bold text-xs transition-colors uppercase tracking-wide disabled:opacity-60"
@@ -612,7 +613,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                       type="button"
                     >
                       View all pending ({pendingQueue.length})
-                      <span className="material-symbols-outlined text-[14px]">expand_more</span>
+                      <AppIcon name="expand_more" className="text-[14px]" size={14} />
                     </button>
                 </div>
             </div>
@@ -626,7 +627,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                 </div>
                 <div className="flex flex-wrap gap-2 w-full lg:w-auto">
                     <div className="relative group grow lg:grow-0">
-                        <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground">search</span>
+                        <AppIcon name="search" className="absolute left-3 top-2.5 text-muted-foreground" />
                         <input
                           value={q}
                           onChange={(e) => setQ(e.target.value)}
@@ -712,7 +713,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                                         </td>
                                         <td className="p-5 text-muted-foreground text-xs">
                                             <div className="flex items-center gap-2">
-                                                <span className="material-symbols-outlined text-[18px]">payments</span>
+                                                <AppIcon name="payments" className="text-[18px]" size={18} />
                                                 {r.method || 'Manual'}
                                             </div>
                                         </td>
@@ -741,7 +742,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                                                 type="button"
                                                 onClick={(ev) => toggleActions(r.tenantId, ev)}
                                               >
-                                                <span className="material-symbols-outlined">more_horiz</span>
+                                                <AppIcon name="more_horiz" />
                                               </button>
                                             )}
                                         </td>
@@ -798,7 +799,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                             className="text-muted-foreground hover:text-foreground"
                             type="button"
                         >
-                            <span className="material-symbols-outlined">close</span>
+                            <AppIcon name="close" />
                         </button>
                     </div>
                     <div className="p-5 space-y-4">
@@ -809,7 +810,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                                 onChange={(e) => setInvoiceTenantId(e.target.value)}
                                 className="w-full bg-card border border-border rounded-lg py-2 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                             >
-                                <option value="">Select tenant ¦</option>
+                                <option value="">Select tenant </option>
                                 {rows.map((r) => (
                                     <option key={r.tenantId} value={r.tenantId}>{r.tenantName} ({r.tenantId})</option>
                                 ))}
@@ -867,7 +868,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                                 type="button"
                                 disabled={saving === 'manual'}
                             >
-                                {saving === 'manual' ? 'Creating ¦' : 'Create Invoice'}
+                                {saving === 'manual' ? 'Creating ' : 'Create Invoice'}
                             </button>
                         </div>
                     </div>
@@ -885,7 +886,7 @@ const SubscriptionsView: React.FC<{ manualInvoiceTick: number }> = ({ manualInvo
                             className="text-muted-foreground hover:text-foreground"
                             type="button"
                         >
-                            <span className="material-symbols-outlined">close</span>
+                            <AppIcon name="close" />
                         </button>
                     </div>
                     <div className="p-5 space-y-4">
@@ -1286,7 +1287,7 @@ const PlansMatrixView = () => {
         if (icon && v === 'Unlimited') {
             return (
                 <span className="text-foreground font-bold text-lg flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-[20px]">{icon}</span> {v}
+                    <AppIcon name={icon} className="text-primary text-[20px]" size={20} /> {v}
                 </span>
             );
         }
@@ -1383,7 +1384,7 @@ const PlansMatrixView = () => {
                             disabled={editSaving}
                             className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-50"
                         >
-                            {editSaving ? 'Saving ¦' : 'Save'}
+                            {editSaving ? 'Saving ' : 'Save'}
                         </button>
                     </div>
                 </div>
@@ -1392,7 +1393,7 @@ const PlansMatrixView = () => {
 
         <div className="flex items-center justify-between mb-4">
             <div className="text-xs text-muted-foreground">
-                {plansLoading ? 'Loading plans ¦' : planRow ? `Plan source: MySQL (${String(planRow.tier)})` : 'Plan source: MySQL'}
+                {plansLoading ? 'Loading plans ' : planRow ? `Plan source: MySQL (${String(planRow.tier)})` : 'Plan source: MySQL'}
             </div>
             <button
                 onClick={openEdit}
@@ -1429,7 +1430,7 @@ const PlansMatrixView = () => {
             </div>
             <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="material-symbols-outlined text-[18px] text-primary">storefront</span>
+                    <AppIcon name="storefront" className="text-[18px] text-primary" size={18} />
                     <span className="uppercase tracking-wider font-bold">Cafe</span>
                 </div>
                 <select
@@ -1438,7 +1439,7 @@ const PlansMatrixView = () => {
                     className="bg-card rounded-lg p-2 border border-border text-sm text-foreground min-w-[280px]"
                     disabled={loading}
                 >
-                    <option value="">Select cafe ¦</option>
+                    <option value="">Select cafe </option>
                     {tenants.map((t) => (
                         <option key={t.tenantId} value={t.tenantId}>
                             {t.tenantName}  ” {t.plan} ({t.cycle})
@@ -1493,7 +1494,7 @@ const PlansMatrixView = () => {
                                 <tr className="bg-muted/40">
                                     <td className="px-6 py-3 border-b border-border sticky left-0 z-10 bg-muted/40" colSpan={2}>
                                         <div className="flex items-center gap-2">
-                                            <span className="material-symbols-outlined text-primary text-[18px]">{s.icon}</span>
+                                            <AppIcon name={s.icon} className="text-primary text-[18px]" size={18} />
                                             <span className="text-foreground font-bold text-sm uppercase tracking-wide">{s.title}</span>
                                         </div>
                                     </td>
@@ -1576,7 +1577,7 @@ export const SA_Billing: React.FC = () => {
                   className="flex items-center gap-2 px-4 py-2 rounded border border-border bg-transparent text-muted-foreground text-sm font-medium hover:text-foreground hover:bg-accent transition-colors"
                   type="button"
                 >
-                  <span className="material-symbols-outlined text-[18px]">download</span>
+                  <AppIcon name="download" className="text-[18px]" size={18} />
                   Export Ledger
                 </button>
                 <button
@@ -1584,7 +1585,7 @@ export const SA_Billing: React.FC = () => {
                   className="flex items-center gap-2 px-4 py-2 rounded bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors shadow-[0_0_20px_rgba(238,173,43,0.2)]"
                   type="button"
                 >
-                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  <AppIcon name="add" className="text-[18px]" size={18} />
                   New Invoice
                 </button>
               </div>

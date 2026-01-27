@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
 import { PortalMenu } from '../../components/PortalMenu';
 
+import { AppIcon } from '@/components/ui/app-icon';
 type FeatureFlag = {
   id: string;
   name: string;
@@ -235,11 +236,11 @@ export const SA_FeatureFlags: React.FC = () => {
             </div>
             <div className="flex items-center gap-3">
               <button className="px-4 py-2.5 rounded-lg border border-border bg-card text-foreground hover:bg-accent text-sm font-semibold transition-colors flex items-center gap-2">
-                <span className="material-symbols-outlined" style={{fontSize: '18px'}}>history</span>
+                <AppIcon name="history" />
                 View Audit Log
               </button>
               <button onClick={openCreate} className="px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold shadow-lg shadow-primary/10 transition-colors flex items-center gap-2">
-                <span className="material-symbols-outlined" style={{fontSize: '18px'}}>add</span>
+                <AppIcon name="add" />
                 Create Flag
               </button>
             </div>
@@ -252,28 +253,28 @@ export const SA_FeatureFlags: React.FC = () => {
             <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-1">
               <div className="flex justify-between items-start">
                 <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Total Flags</span>
-                <span className="material-symbols-outlined text-muted-foreground" style={{fontSize: '20px'}}>flag</span>
+                <AppIcon name="flag" className="text-muted-foreground" />
               </div>
               <span className="text-2xl font-bold text-foreground font-mono">{loading ? ' ”' : String(stats.totalFlags)}</span>
             </div>
             <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-1">
               <div className="flex justify-between items-start">
                 <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Active Globally</span>
-                <span className="material-symbols-outlined text-primary" style={{fontSize: '20px'}}>public</span>
+                <AppIcon name="public" className="text-primary" />
               </div>
               <span className="text-2xl font-bold text-foreground font-mono">{loading ? ' ”' : String(stats.activeGlobally)}</span>
             </div>
             <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-1">
               <div className="flex justify-between items-start">
                 <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">High Risk</span>
-                <span className="material-symbols-outlined text-primary" style={{fontSize: '20px'}}>warning</span>
+                <AppIcon name="warning" className="text-primary" />
               </div>
               <span className="text-2xl font-bold text-foreground font-mono">{loading ? ' ”' : String(stats.highRisk)}</span>
             </div>
             <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-1">
               <div className="flex justify-between items-start">
                 <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Beta Features</span>
-                <span className="material-symbols-outlined text-muted-foreground" style={{fontSize: '20px'}}>science</span>
+                <AppIcon name="science" className="text-muted-foreground" />
               </div>
               <span className="text-2xl font-bold text-foreground font-mono">{loading ? ' ”' : String(stats.betaFeatures)}</span>
             </div>
@@ -282,7 +283,7 @@ export const SA_FeatureFlags: React.FC = () => {
           {/* Filters Toolbar */}
           <div className="bg-card border border-border rounded-xl p-3 flex flex-wrap gap-3 items-center">
             <div className="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-lg w-full max-w-sm">
-              <span className="material-symbols-outlined text-muted-foreground" style={{fontSize: '18px'}}>filter_list</span>
+              <AppIcon name="filter_list" className="text-muted-foreground" />
               <input value={q} onChange={(e) => setQ(e.target.value)} className="bg-transparent border-none p-0 text-sm text-foreground placeholder:text-muted-foreground focus:ring-0 w-full focus:outline-none" placeholder="Filter by name or ID..." type="text"/>
             </div>
             <div className="h-6 w-[1px] bg-border mx-1"></div>
@@ -293,7 +294,7 @@ export const SA_FeatureFlags: React.FC = () => {
                 <option>Pro</option>
                 <option>Enterprise</option>
               </select>
-              <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" style={{fontSize: '18px'}}>expand_more</span>
+              <AppIcon name="expand_more" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             </div>
             <div className="relative">
               <select value={risk} onChange={(e) => setRisk(e.target.value)} className="appearance-none bg-background border border-border text-foreground text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:border-primary cursor-pointer">
@@ -303,15 +304,15 @@ export const SA_FeatureFlags: React.FC = () => {
                 <option>Risk: High</option>
                 <option>Risk: Critical</option>
               </select>
-              <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" style={{fontSize: '18px'}}>expand_more</span>
+              <AppIcon name="expand_more" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             </div>
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs text-muted-foreground font-medium mr-2">Showing {(page - 1) * pageSize + 1}-{(page - 1) * pageSize + flags.length} of {Number(data?.total || 0)}</span>
               <button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground disabled:opacity-50">
-                <span className="material-symbols-outlined" style={{fontSize: '18px'}}>chevron_left</span>
+                <AppIcon name="chevron_left" />
               </button>
               <button disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="p-1.5 rounded-md hover:bg-accent text-foreground disabled:opacity-50">
-                <span className="material-symbols-outlined" style={{fontSize: '18px'}}>chevron_right</span>
+                <AppIcon name="chevron_right" />
               </button>
             </div>
           </div>
@@ -332,7 +333,7 @@ export const SA_FeatureFlags: React.FC = () => {
               <tbody className="divide-y divide-border">
                 {loading ? (
                   <tr>
-                    <td className="p-4 text-sm text-muted-foreground" colSpan={6}>Loading ¦</td>
+                    <td className="p-4 text-sm text-muted-foreground" colSpan={6}>Loading </td>
                   </tr>
                 ) : null}
 
@@ -368,7 +369,7 @@ export const SA_FeatureFlags: React.FC = () => {
                           </td>
                           <td className="p-4">
                             <div className={"flex items-center gap-2 " + rc.text}>
-                              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{rc.icon}</span>
+                              <AppIcon name={rc.icon} />
                               <span className="text-xs font-bold uppercase">{f.risk}</span>
                             </div>
                           </td>
@@ -400,7 +401,7 @@ export const SA_FeatureFlags: React.FC = () => {
                               onClick={(ev) => toggleActions(f.id, ev)}
                               className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-accent"
                             >
-                              <span className="material-symbols-outlined" style={{fontSize: '20px'}}>more_vert</span>
+                              <AppIcon name="more_vert" />
                             </button>
                           </td>
                         </tr>
@@ -451,7 +452,7 @@ export const SA_FeatureFlags: React.FC = () => {
                     <div className="text-muted-foreground text-xs">Changes apply immediately.</div>
                   </div>
                   <button onClick={() => setModalOpen(false)} className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-accent">
-                    <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+                    <AppIcon name="close" />
                   </button>
                 </div>
 
@@ -496,7 +497,7 @@ export const SA_FeatureFlags: React.FC = () => {
                         <option>Enterprise</option>
                         <option>Beta</option>
                       </select>
-                      <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" style={{ fontSize: '18px' }}>expand_more</span>
+                      <AppIcon name="expand_more" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     </div>
                   </div>
 
@@ -514,7 +515,7 @@ export const SA_FeatureFlags: React.FC = () => {
                         <option>High</option>
                         <option>Critical</option>
                       </select>
-                      <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" style={{ fontSize: '18px' }}>expand_more</span>
+                      <AppIcon name="expand_more" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     </div>
                   </div>
 
@@ -550,7 +551,7 @@ export const SA_FeatureFlags: React.FC = () => {
                     disabled={modalSaving}
                     className="px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold shadow-lg shadow-primary/10 transition-colors disabled:opacity-60"
                   >
-                    {modalSaving ? 'Saving ¦' : 'Save'}
+                    {modalSaving ? 'Saving ' : 'Save'}
                   </button>
                 </div>
               </div>
