@@ -85,7 +85,8 @@ const loginWithEmailPassword = async ({ tenantId, email, password, jwtSecret }) 
   const staff = await db()
     .select(['id', 'tenant_id', 'branch_id', 'role_name', 'name', 'email', 'password_hash'])
     .from('staff')
-    .where({ tenant_id: tenantId, email: em })
+    .where({ tenant_id: tenantId })
+    .andWhereRaw('LOWER(email) = ?', [em])
     .first();
 
   if (!staff) return { ok: false, error: 'invalid_credentials' };

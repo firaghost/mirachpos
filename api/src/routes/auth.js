@@ -162,7 +162,12 @@ const makeAuthRouter = () => {
       const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
       if (!email) return res.status(400).json({ error: 'email_required' });
 
-      const staff = await db().select(['id']).from('staff').where({ tenant_id: req.tenant.id, email }).first();
+      const staff = await db()
+        .select(['id'])
+        .from('staff')
+        .where({ tenant_id: req.tenant.id })
+        .andWhereRaw('LOWER(email) = ?', [email])
+        .first();
 
       const otp = randomOtp();
       const otpHash = await bcrypt.hash(otp, 10);
@@ -348,6 +353,9 @@ const makeAuthRouter = () => {
       const password = typeof req.body?.password === 'string' ? req.body.password : '';
       const passwordConfirm = typeof req.body?.passwordConfirm === 'string' ? req.body.passwordConfirm : '';
 
+      const provision = String(req.header('X-Provision-Key') || '').trim();
+      const canDebug = Boolean(config.provisionKey) && provision && provision === String(config.provisionKey);
+
       if (!email) return res.status(400).json({ error: 'email_required' });
       if (!otp) return res.status(400).json({ error: 'otp_required' });
       if (!password || password.length < 6) return res.status(400).json({ error: 'password_too_short' });
@@ -357,7 +365,8 @@ const makeAuthRouter = () => {
       const row = await db()
         .select(['id', 'otp_hash', 'attempts', 'expires_at', 'used_at'])
         .from('password_reset_otps')
-        .where({ tenant_id: req.tenant.id, email })
+        .where({ tenant_id: req.tenant.id })
+        .andWhereRaw('LOWER(email) = ?', [email])
         .orderBy('created_at', 'desc')
         .first();
 
@@ -377,14 +386,35 @@ const makeAuthRouter = () => {
         return res.status(400).json({ error: 'invalid_otp' });
       }
 
-      const staffRow = await db().select(['id']).from('staff').where({ tenant_id: req.tenant.id, email }).first();
+      const staffRow = await db()
+        .select(['id'])
+        .from('staff')
+        .where({ tenant_id: req.tenant.id })
+        .andWhereRaw('LOWER(email) = ?', [email])
+        .first();
       if (!staffRow) return res.status(400).json({ error: 'invalid_otp' });
 
       const hash = await bcrypt.hash(password, 10);
-      await db().from('staff').where({ tenant_id: req.tenant.id, id: String(staffRow.id) }).update({ password_hash: hash, updated_at: nowIso });
-      await db().from('password_reset_otps').where({ id: String(row.id) }).update({ used_at: nowIso });
+      const staffUpdated = await db()
+        .from('staff')
+        .where({ tenant_id: req.tenant.id, id: String(staffRow.id) })
+        .update({ password_hash: hash, updated_at: nowIso });
+      const otpUpdated = await db().from('password_reset_otps').where({ id: String(row.id) }).update({ used_at: nowIso });
 
-      return res.json({ ok: true });
+      return res.json(
+        canDebug
+          ? {
+              ok: true,
+              debug: {
+                tenantId: String(req.tenant.id),
+                email,
+                staffId: String(staffRow.id),
+                staffUpdated: Number(staffUpdated || 0),
+                otpUpdated: Number(otpUpdated || 0),
+              },
+            }
+          : { ok: true },
+      );
     } catch (e) {
       return next(e);
     }

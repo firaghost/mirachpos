@@ -254,7 +254,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const res = await apiFetch(mode === 'pin' ? '/api/auth/login-pin' : '/api/auth/login', {
         auth: false,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Tenant': ws },
         body: JSON.stringify(mode === 'pin' ? { code: cd, pin: pn } : { email: em, password: pw }),
       });
 
