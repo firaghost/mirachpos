@@ -18,7 +18,7 @@ exports.up = async (knex) => {
     t.datetime('updated_at').notNullable();
   });
 
-  const nowIso = new Date().toISOString();
+  const nowIso = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
   // These rows live in the database (not hardcoded in API responses). You can edit them later.
   await knex('plans').insert([
