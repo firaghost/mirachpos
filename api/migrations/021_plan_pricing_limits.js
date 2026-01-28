@@ -8,7 +8,7 @@ exports.up = async (knex) => {
     });
   }
 
-  const nowIso = new Date().toISOString();
+  const nowIso = new Date().toISOString().slice(0, 19).replace('T', ' ');
   const setIfExists = async (tier, patch) => {
     const row = await knex('plans').where({ tier }).first();
     if (!row) return;

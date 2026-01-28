@@ -14,7 +14,7 @@ exports.up = async (knex) => {
     });
   }
 
-  const nowIso = new Date().toISOString();
+  const nowIso = new Date().toISOString().slice(0, 19).replace('T', ' ');
   const existing = await knex('superadmin_dunning_steps').count({ c: '*' }).first().catch(() => null);
   const total = Number(existing?.c || 0);
   if (total === 0) {

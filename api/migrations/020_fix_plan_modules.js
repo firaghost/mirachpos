@@ -1,5 +1,5 @@
 exports.up = async (knex) => {
-  const nowIso = new Date().toISOString();
+  const nowIso = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
   const upsert = async (tier, modules) => {
     const exists = await knex('plans').where({ tier }).first();

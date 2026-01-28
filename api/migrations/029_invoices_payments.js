@@ -24,7 +24,7 @@ exports.up = async (knex) => {
   });
 
   // Insert default config
-  const nowIso = new Date().toISOString();
+  const nowIso = new Date().toISOString().slice(0, 19).replace('T', ' ');
   await knex('platform_payment_config').insert({
     id: 1,
     bank_details_json: JSON.stringify({

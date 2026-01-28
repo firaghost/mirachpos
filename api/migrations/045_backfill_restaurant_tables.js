@@ -16,7 +16,7 @@ exports.up = async (knex) => {
   const rows = await knex('pos_state').select(['tenant_id', 'branch_id', 'state_json']);
   if (!rows || rows.length === 0) return;
 
-  const nowIso = new Date().toISOString();
+  const nowIso = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
   for (const r of rows) {
     const state = safeJsonParse(r.state_json, null);
