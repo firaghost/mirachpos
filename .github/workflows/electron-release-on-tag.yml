@@ -30,21 +30,44 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install VS Build Tools (C++)
-        run: choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --includeOptional --passive --norestart"
-
       - name: Initialize MSVC dev environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
       - name: Verify Visual Studio installation
+        id: vs_check
+        continue-on-error: true
         run: |
           $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           if (-not (Test-Path $vsWhere)) {
             Write-Error "vswhere not found at: $vsWhere"
           }
-          & $vsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+
+          $vsPath = & $vsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsPath) {
+            Write-Error "Visual Studio with VC Tools not found"
+          }
+          Write-Output "VS_INSTALL_PATH=$vsPath"
+          "GYP_MSVS_OVERRIDE_PATH=$vsPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          where cl.exe
+          cl.exe 2>$null | Out-Null
+
+      - name: Install VS Build Tools (C++) if missing
+        if: steps.vs_check.outcome != 'success'
+        run: choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --includeOptional --passive --norestart"
+
+      - name: Re-verify Visual Studio installation
+        if: steps.vs_check.outcome != 'success'
+        run: |
+          $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vsWhere)) { Write-Error "vswhere not found at: $vsWhere" }
+          $vsPath = & $vsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsPath) { Write-Error "Visual Studio with VC Tools not found" }
+          Write-Output "VS_INSTALL_PATH=$vsPath"
+          "GYP_MSVS_OVERRIDE_PATH=$vsPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          where cl.exe
 
       - run: npm ci
       - run: npm run build:desktop
