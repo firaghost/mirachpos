@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   release-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     permissions:
       contents: write
     env:
@@ -33,9 +33,17 @@ jobs:
       - name: Install VS Build Tools (C++)
         run: choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --includeOptional --passive --norestart"
 
+      - name: Initialize MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Verify Visual Studio installation
         run: |
           $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vsWhere)) {
+            Write-Error "vswhere not found at: $vsWhere"
+          }
           & $vsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
 
       - run: npm ci
