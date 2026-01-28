@@ -13,6 +13,8 @@ describe('Metrics Endpoint', () => {
     beforeAll(async () => {
         app = createApp();
 
+        const nowIso = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
         // Create temp superadmin
         await db().from('superadmins').insert({
             id: tempAdminId,
@@ -20,8 +22,8 @@ describe('Metrics Endpoint', () => {
             password_hash: 'ignore',
             name: 'Test Admin',
             status: 'Active',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            created_at: nowIso,
+            updated_at: nowIso,
         });
 
         // Generate token
