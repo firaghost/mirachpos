@@ -17,6 +17,7 @@ jobs:
       contents: write
     env:
       NPM_CONFIG_MSVS_VERSION: 2022
+      GYP_MSVS_VERSION: 2022
 
     steps:
       - uses: actions/checkout@v4
