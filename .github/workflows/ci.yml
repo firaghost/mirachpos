@@ -8,6 +8,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: mirachpos_test
+          MYSQL_USER: mirachpos
+          MYSQL_PASSWORD: mirachpos
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root --password=root"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - uses: actions/checkout@v4
@@ -21,4 +36,18 @@ jobs:
       - run: npm run build
 
       - run: npm --prefix api ci
+      - run: npm --prefix api run migrate
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: mirachpos
+          DB_PASSWORD: mirachpos
+          DB_NAME: mirachpos_test
       - run: npm --prefix api test
+        env:
+          JWT_SECRET: test-secret
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: mirachpos
+          DB_PASSWORD: mirachpos
+          DB_NAME: mirachpos_test

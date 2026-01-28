@@ -15,6 +15,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      NPM_CONFIG_MSVS_VERSION: 2022
 
     steps:
       - uses: actions/checkout@v4
@@ -29,9 +31,6 @@ jobs:
 
       - name: Install VS Build Tools (C++)
         run: choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive --norestart"
-
-      - name: Configure node-gyp MSVS
-        run: npm config set msvs_version 2022
 
       - run: npm ci
       - run: npm run build:desktop
