@@ -102,9 +102,6 @@ const requirePermission = (permission) => async (req, res, next) => {
 
     if (config && config.devBypassAuth) return next();
 
-    const tier = String(req.entitlements?.subscription?.tier || '').trim();
-    if (tier === 'Enterprise') return next();
-
     const perm = String(permission || '').trim();
     if (!perm) return next();
 

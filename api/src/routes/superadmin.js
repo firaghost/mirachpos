@@ -110,9 +110,9 @@ const getTenantTier = async (tenantId) => {
 const defaultModulesForTier = (tier) => {
   const t = String(tier || '').trim();
   if (t === 'Trial') return ['settings'];
-  if (t === 'Basic') return ['pos', 'orders', 'tables', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'settings'];
+  if (t === 'Starter') return ['pos', 'orders', 'tables', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'settings'];
+  if (t === 'Growth') return ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'];
   if (t === 'Pro') return ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'];
-  if (t === 'Enterprise') return ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'];
   return ['settings'];
 };
 
@@ -126,9 +126,9 @@ const getPlanModules = async (tier) => {
 const normalizeTier = (tier) => {
   const t = String(tier || '').trim().toLowerCase();
   if (t === 'trial') return 'Trial';
-  if (t === 'basic') return 'Basic';
-  if (t === 'pro') return 'Pro';
-  if (t === 'enterprise') return 'Enterprise';
+  if (t === 'starter' || t === 'basic') return 'Starter';
+  if (t === 'growth') return 'Growth';
+  if (t === 'pro' || t === 'enterprise') return 'Pro';
   return String(tier || '').trim();
 };
 

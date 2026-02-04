@@ -9,6 +9,12 @@ if (process.env.NODE_ENV !== 'production') {
 }
 dotenv.config();
 
+const requiredEnv = ['DB_HOST', 'DB_USER', 'DB_NAME'];
+const missingEnv = requiredEnv.filter((k) => !process.env[k] || !String(process.env[k]).trim());
+if (missingEnv.length) {
+  throw new Error(`[knexfile] Missing required env vars: ${missingEnv.join(', ')}`);
+}
+
 const cfg = {
   client: 'mysql2',
   connection: {

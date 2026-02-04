@@ -99,12 +99,21 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
       setEditPhone(String(t?.profile?.contactPhone || ''));
       setEditCity(String(t?.profile?.city || ''));
       setEditCountry(String(t?.profile?.country || ''));
-      const plan = String(t?.plan || 'Enterprise');
+      const planRaw = String(t?.plan || 'Pro');
+      const plan = (() => {
+        const p = planRaw.trim().toLowerCase();
+        if (p === 'trial') return 'Trial';
+        if (p === 'starter' || p === 'basic') return 'Starter';
+        if (p === 'growth') return 'Growth';
+        if (p === 'pro' || p === 'enterprise') return 'Pro';
+        return planRaw;
+      })();
+
       const base = plan === 'Trial'
         ? ['pos', 'orders', 'tables', 'staff']
-        : plan === 'Basic'
+        : plan === 'Starter'
           ? ['pos', 'orders', 'tables', 'staff', 'reports']
-          : plan === 'Pro'
+          : plan === 'Growth'
             ? ['pos', 'orders', 'tables', 'reports', 'inventory', 'menu', 'staff', 'finance']
             : ['pos', 'orders', 'tables', 'reports', 'inventory', 'menu', 'staff', 'finance', 'settings', 'owner_dashboard', 'branches', 'guests'];
       const initial = Array.isArray(t?.enabledModules) ? t.enabledModules : base;

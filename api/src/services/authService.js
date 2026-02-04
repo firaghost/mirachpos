@@ -75,7 +75,7 @@ const loginWithEmailPassword = async ({ tenantId, email, password, jwtSecret }) 
   await maybeDowngradeDueSubscription(String(tenant.id));
 
   const staff = await db()
-    .select(['id', 'tenant_id', 'branch_id', 'role_name', 'name', 'email', 'password_hash'])
+    .select(['id', 'tenant_id', 'branch_id', 'role_name', 'name', 'email', 'password_hash', 'code', 'pin_hash'])
     .from('staff')
     .where({ tenant_id: tenantId })
     .andWhereRaw('LOWER(email) = ?', [em])
@@ -110,10 +110,15 @@ const loginWithEmailPassword = async ({ tenantId, email, password, jwtSecret }) 
 
   const permissions = await readRolePermissions({ tenantId: tenant.id, roleName: staff.role_name });
 
+  const staffCode = typeof staff.code === 'string' ? staff.code.trim() : '';
+  const hasPin = Boolean(String(staff.pin_hash || '').trim());
+
   return {
     ok: true,
     token,
     role: staff.role_name,
+    staffCode,
+    hasPin,
     permissions,
     branchId,
     tenantId: String(staff.tenant_id),

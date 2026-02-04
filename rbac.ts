@@ -13,11 +13,9 @@ export const normalizePermissions = (raw: unknown): PermissionList => {
 export const hasPermission = (permissions: unknown, required: string): boolean => {
   const perm = String(required || '').trim();
   if (!perm) return true;
-  // If permissions were not provided by the backend (or are temporarily empty),
-  // do not hide UI routes. Backend endpoints remain the source of truth.
-  if (!Array.isArray(permissions)) return true;
+  if (!Array.isArray(permissions)) return false;
   const list = normalizePermissions(permissions);
-  if (list.length === 0) return true;
+  if (list.length === 0) return false;
   return list.includes('*') || list.includes(perm);
 };
 

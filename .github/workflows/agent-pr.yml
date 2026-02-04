@@ -1,0 +1,19 @@
+name: Agent PR
+on:
+  workflow_dispatch:
+    inputs:
+      branch: { required: true }
+      title: { required: true }
+      body: { default: 'Update from agent' }
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.AGENT_PAT }}
+          branch: ${{ github.event.inputs.branch }}
+          title: ${{ github.event.inputs.title }}
+          body: ${{ github.event.inputs.body }}

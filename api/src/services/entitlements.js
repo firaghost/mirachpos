@@ -14,9 +14,9 @@ const normalizeTier = (tier) => {
   const t = String(tier || '').trim().toLowerCase();
   if (!t) return 'Trial';
   if (t === 'trial') return 'Trial';
-  if (t === 'basic') return 'Basic';
-  if (t === 'pro') return 'Pro';
-  if (t === 'enterprise') return 'Enterprise';
+  if (t === 'starter' || t === 'basic') return 'Starter';
+  if (t === 'growth') return 'Growth';
+  if (t === 'pro' || t === 'enterprise') return 'Pro';
   return String(tier || '').trim();
 };
 
@@ -56,21 +56,21 @@ const defaultEntitlementsForTier = (tier) => {
     };
   }
 
-  if (t === 'Basic') {
+  if (t === 'Starter') {
     return {
       modules: ['pos', 'orders', 'tables', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'settings'],
       limits: { branchLimit: 1, staffLimit: 25 },
     };
   }
 
-  if (t === 'Pro') {
+  if (t === 'Growth') {
     return {
       modules: ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'],
       limits: { branchLimit: 3, staffLimit: 100 },
     };
   }
 
-  // Enterprise
+  // Pro
   return {
     modules: ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'],
     limits: { branchLimit: 999, staffLimit: 9999 },
@@ -103,10 +103,69 @@ const getOrCreateTenantSubscription = async (tenant) => {
     .from('tenant_subscription')
     .where({ tenant_id: tenantId })
     .first();
-  if (row) return row;
+  if (row) {
+    // Auto-correct bad historical inference:
+    // previously, some tenants had subscriptions created as Basic during an active trial.
+    const nowMs = Date.now();
+    const trialEndsIso = (() => {
+      try {
+        return tenant?.trial_ends_at ? new Date(tenant.trial_ends_at).toISOString() : '';
+      } catch {
+        return '';
+      }
+    })();
+    const trialEndsMs = trialEndsIso ? new Date(trialEndsIso).getTime() : NaN;
+    const isTrialActive = Number.isFinite(trialEndsMs) && nowMs < trialEndsMs;
+
+    const curTier = normalizeTier(row?.tier || 'Trial');
+    const amountEtb = Number(row?.amount_etb || 0) || 0;
+    const looksLikeFreeAutoCreated = amountEtb <= 0.0001 && String(row?.method || 'manual') === 'manual';
+
+    if (isTrialActive && curTier !== 'Trial' && looksLikeFreeAutoCreated) {
+      const nowIso = new Date().toISOString();
+      const plan = await getPlanDefaults('Trial');
+      await db().from('tenant_subscription').where({ tenant_id: tenantId }).update({
+        tier: plan.tier,
+        modules_json: JSON.stringify(plan.modules),
+        cycle: 'Monthly',
+        status: 'active',
+        method: String(row?.method || 'manual'),
+        next_bill_at: trialEndsIso || nowIso,
+        amount_etb: 0,
+        grace_ends_at: trialEndsIso || nowIso,
+        updated_at: nowIso,
+      });
+
+      return db()
+        .select(['tenant_id', 'tier', 'modules_json', 'cycle', 'status', 'method', 'next_bill_at', 'amount_etb', 'grace_ends_at', 'updated_at'])
+        .from('tenant_subscription')
+        .where({ tenant_id: tenantId })
+        .first();
+    }
+
+    return row;
+  }
 
   const nowIso = new Date().toISOString();
-  const inferredTier = String(tenant?.status || '') === 'active' ? 'Basic' : 'Trial';
+  const inferredTier = (() => {
+    const trialEndsAt = (() => {
+      try {
+        return tenant?.trial_ends_at ? new Date(tenant.trial_ends_at).toISOString() : '';
+      } catch {
+        return '';
+      }
+    })();
+    const trialEndsMs = trialEndsAt ? new Date(trialEndsAt).getTime() : NaN;
+    const isTrialActive = Number.isFinite(trialEndsMs) && Date.now() < trialEndsMs;
+    if (isTrialActive) return 'Trial';
+
+    // If tenant has a plan set, prefer it.
+    const planRaw = typeof tenant?.plan === 'string' ? tenant.plan.trim() : '';
+    const normalized = normalizeTier(planRaw);
+    if (normalized && normalized !== 'Trial') return normalized;
+
+    return 'Starter';
+  })();
   const plan = await getPlanDefaults(inferredTier);
 
   const trialEndsAt = tenant?.trial_ends_at ? new Date(tenant.trial_ends_at).toISOString() : '';

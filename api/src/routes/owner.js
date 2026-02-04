@@ -110,9 +110,9 @@ const yyyyMmDd = (iso) => {
 const defaultModulesForTier = (tier) => {
   const t = String(tier || '').trim();
   if (t === 'Trial') return ['settings'];
-  if (t === 'Basic') return ['pos', 'orders', 'tables', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'settings'];
+  if (t === 'Starter') return ['pos', 'orders', 'tables', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'settings'];
+  if (t === 'Growth') return ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'];
   if (t === 'Pro') return ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'];
-  if (t === 'Enterprise') return ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'];
   return ['settings'];
 };
 

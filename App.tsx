@@ -378,6 +378,13 @@ const AppContent: React.FC = () => {
   const [updaterDismissed, setUpdaterDismissed] = useState(false);
   const [installingUpdate, setInstallingUpdate] = useState(false);
 
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallLoading, setPaywallLoading] = useState(false);
+  const [paywallPlans, setPaywallPlans] = useState<
+    Array<{ tier: string; modules: string[]; limits: any; pricing: { monthlyEtb: number; yearlyEtb: number } }>
+  >([]);
+  const [paywallPlansError, setPaywallPlansError] = useState<string | null>(null);
+
   const upgradeModalKey = (() => {
     if (userRole !== UserRole.CAFE_OWNER) return '';
     if (currentScreen === Screen.LOGIN) return '';
@@ -527,6 +534,82 @@ const AppContent: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const onModuleBlocked = (ev: any) => {
+      const d = ev?.detail;
+      const error = String(d?.error || '').trim();
+      const moduleKey = String(d?.module || '').trim();
+      const path = String(d?.path || '').trim();
+      if (!error) return;
+      setModuleBlocked({ error, module: moduleKey, path });
+
+      if (userRole !== UserRole.CAFE_OWNER) return;
+
+      const tenantId = (() => {
+        try {
+          const parsed = readSession<any>();
+          return String(parsed?.tenantId || '');
+        } catch {
+          return '';
+        }
+      })();
+      const k = `mirachpos.paywallDismissed.v1:${tenantId}:${error}:${moduleKey || 'any'}`;
+      try {
+        if (localStorage.getItem(k) === '1') return;
+      } catch {
+      }
+      setPaywallOpen(true);
+    };
+
+    const onAccessDenied = (ev: any) => {
+      const d = ev?.detail;
+      const error = String(d?.error || '').trim();
+      const path = String(d?.path || '').trim();
+      if (!error) return;
+      try {
+        const next = homeForRoleWithSubscription(userRole as any, subscription);
+        if (next && next !== currentScreen) navigate(next);
+      } catch {
+      }
+      setAccessDenied(null);
+    };
+
+    window.addEventListener('mirachpos-module-blocked', onModuleBlocked as any);
+    window.addEventListener('mirachpos-access-denied', onAccessDenied as any);
+    return () => {
+      window.removeEventListener('mirachpos-module-blocked', onModuleBlocked as any);
+      window.removeEventListener('mirachpos-access-denied', onAccessDenied as any);
+    };
+  }, [currentScreen, navigate, subscription, userRole]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!paywallOpen) return;
+      if (userRole !== UserRole.CAFE_OWNER) return;
+      setPaywallLoading(true);
+      setPaywallPlansError(null);
+      try {
+        const res = await apiFetch('/api/owner/plans');
+        const json = (await res.json().catch(() => null)) as any;
+        if (!res.ok) throw new Error(json?.error || json?.message || `HTTP ${res.status}`);
+        const plans = Array.isArray(json?.plans) ? json.plans : [];
+        if (!cancelled) setPaywallPlans(plans);
+      } catch (e) {
+        if (!cancelled) {
+          setPaywallPlans([]);
+          setPaywallPlansError(e instanceof Error ? e.message : 'Failed to load plans');
+        }
+      } finally {
+        if (!cancelled) setPaywallLoading(false);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [paywallOpen, userRole]);
+
+  useEffect(() => {
     let cancelled = false;
     const run = async () => {
       if (!userRole) return;
@@ -644,79 +727,178 @@ const AppContent: React.FC = () => {
         {null}
         {updaterBadge}
 
-        {moduleBlocked ? (
-          <div className="absolute top-0 left-0 right-0 z-[110] p-3">
-            <div className="mx-auto max-w-5xl rounded-xl border border-border bg-card text-muted-foreground px-4 py-3 flex items-start justify-between gap-4 shadow-xl">
-              <div className="flex flex-col">
-                <div className="text-foreground font-extrabold text-sm">
-                  {moduleBlocked.error === 'module_not_enabled'
-                    ? `Module disabled${moduleBlocked.module ? `: ${moduleBlocked.module}` : ''}`
-                    : moduleBlocked.error === 'subscription_pending_verify'
-                      ? 'Subscription pending verification'
-                      : moduleBlocked.error === 'subscription_inactive'
-                        ? 'Subscription inactive'
-                        : 'Access blocked'}
+        {paywallOpen && userRole === UserRole.CAFE_OWNER ? (
+          <div className="fixed top-0 bottom-0 right-0 left-64 z-[120] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/60"
+              onClick={() => {
+                const tenantId = (() => {
+                  try {
+                    const parsed = readSession<any>();
+                    return String(parsed?.tenantId || '');
+                  } catch {
+                    return '';
+                  }
+                })();
+                const error = String(moduleBlocked?.error || '').trim();
+                const moduleKey = String(moduleBlocked?.module || '').trim();
+                const k = `mirachpos.paywallDismissed.v1:${tenantId}:${error}:${moduleKey || 'any'}`;
+                try {
+                  localStorage.setItem(k, '1');
+                } catch {
+                }
+                setPaywallOpen(false);
+              }}
+            />
+            <div className="relative w-full max-w-4xl rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-4">
+                <div className="flex flex-col">
+                  <div className="text-foreground font-black text-lg">Upgrade to unlock this feature</div>
+                  <div className="text-muted-foreground text-xs mt-1">
+                    {moduleBlocked?.module ? `Requested module: ${moduleBlocked.module}` : 'Premium feature'}
+                  </div>
                 </div>
-                <div className="text-xs mt-1">
-                  {moduleBlocked.error === 'module_not_enabled'
-                    ? 'This feature is not enabled for your tenant. Update modules or upgrade your plan.'
-                    : moduleBlocked.error === 'subscription_pending_verify'
-                      ? 'Your upgrade request is awaiting verification. Premium modules are temporarily locked.'
-                      : moduleBlocked.error === 'subscription_inactive'
-                        ? 'Your subscription is due or canceled. Renew to restore access.'
-                        : 'This action is blocked by your subscription/entitlements.'}
-                </div>
-                {moduleBlocked.path ? <div className="text-[10px] mt-1 opacity-75 font-mono">{moduleBlocked.path}</div> : null}
-              </div>
-
-              <div className="flex items-center gap-2">
-                {userRole === UserRole.CAFE_OWNER ? (
-                  <button
-                    type="button"
-                    className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-black hover:bg-primary/90"
-                    onClick={() => {
-                      if (moduleBlocked.error === 'module_not_enabled') navigate(Screen.OWNER_SETTINGS);
-                      else navigate(Screen.OWNER_BILLING);
-                      setModuleBlocked(null);
-                    }}
-                  >
-                    {moduleBlocked.error === 'module_not_enabled' ? 'Open Modules' : 'Upgrade / Renew'}
-                  </button>
-                ) : null}
-
                 <button
                   type="button"
-                  className="h-9 px-3 rounded-lg border border-border bg-secondary text-muted-foreground text-xs font-bold hover:text-foreground hover:bg-secondary/80"
-                  onClick={() => setModuleBlocked(null)}
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    const tenantId = (() => {
+                      try {
+                        const parsed = readSession<any>();
+                        return String(parsed?.tenantId || '');
+                      } catch {
+                        return '';
+                      }
+                    })();
+                    const error = String(moduleBlocked?.error || '').trim();
+                    const moduleKey = String(moduleBlocked?.module || '').trim();
+                    const k = `mirachpos.paywallDismissed.v1:${tenantId}:${error}:${moduleKey || 'any'}`;
+                    try {
+                      localStorage.setItem(k, '1');
+                    } catch {
+                    }
+                    setPaywallOpen(false);
+                  }}
                 >
-                  Dismiss
+                  <AppIcon name="close" />
                 </button>
+              </div>
+
+              <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1">
+                  <div className="text-foreground font-extrabold text-sm">What you get with Premium</div>
+                  <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-start gap-2">
+                      <AppIcon name="check" className="text-primary text-[18px] mt-0.5" size={18} />
+                      <span>Unlock premium modules and advanced reporting.</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <AppIcon name="check" className="text-primary text-[18px] mt-0.5" size={18} />
+                      <span>Faster operations with multi-branch and staff tools.</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <AppIcon name="check" className="text-primary text-[18px] mt-0.5" size={18} />
+                      <span>Priority support for billing and setup issues.</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 rounded-xl border border-border bg-muted/30 p-4">
+                    <div className="text-foreground font-bold text-xs uppercase tracking-wider">Billing options</div>
+                    <div className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                      Pay online when available (Chapa / Telebirr) or submit bank transfer proof. Both are supported in Billing.
+                    </div>
+                  </div>
+
+                  {moduleBlocked?.path ? <div className="mt-4 text-[10px] opacity-75 font-mono text-muted-foreground">{moduleBlocked.path}</div> : null}
+                </div>
+
+                <div className="lg:col-span-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-foreground font-extrabold text-sm">Choose a plan</div>
+                    {paywallPlansError ? <div className="text-xs text-destructive">{paywallPlansError}</div> : null}
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {paywallLoading ? (
+                      <div className="md:col-span-3 p-6 rounded-xl border border-border bg-muted/30 text-muted-foreground text-sm flex items-center gap-2">
+                        <AppIcon name="sync" className="text-[18px] animate-spin" size={18} />
+                        Loading plans…
+                      </div>
+                    ) : paywallPlans.length === 0 ? (
+                      <div className="md:col-span-3 p-6 rounded-xl border border-border bg-muted/30 text-muted-foreground text-sm">
+                        Plans are not available right now. Open Billing to continue.
+                      </div>
+                    ) : (
+                      paywallPlans.map((p) => (
+                        <div key={p.tier} className="rounded-xl border border-border bg-background p-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="text-foreground font-black text-sm uppercase tracking-wide">{p.tier}</div>
+                            <div className="text-xs text-muted-foreground">ETB</div>
+                          </div>
+                          <div className="mt-3">
+                            <div className="text-foreground font-extrabold text-xl leading-none">
+                              {Number(p?.pricing?.monthlyEtb || 0).toLocaleString()}
+                              <span className="text-xs text-muted-foreground font-bold ml-1">/mo</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {Number(p?.pricing?.yearlyEtb || 0).toLocaleString()} / year
+                            </div>
+                          </div>
+                          <div className="mt-4 text-xs text-muted-foreground">
+                            {Array.isArray(p.modules) && p.modules.length > 0 ? `${p.modules.length} modules included` : 'Modules included'}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="mt-6 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      className="h-11 px-4 rounded-lg border border-border bg-secondary text-muted-foreground text-sm font-bold hover:text-foreground hover:bg-secondary/80"
+                      onClick={() => {
+                        const tenantId = (() => {
+                          try {
+                            const parsed = readSession<any>();
+                            return String(parsed?.tenantId || '');
+                          } catch {
+                            return '';
+                          }
+                        })();
+                        const error = String(moduleBlocked?.error || '').trim();
+                        const moduleKey = String(moduleBlocked?.module || '').trim();
+                        const k = `mirachpos.paywallDismissed.v1:${tenantId}:${error}:${moduleKey || 'any'}`;
+                        try {
+                          localStorage.setItem(k, '1');
+                        } catch {
+                        }
+                        setPaywallOpen(false);
+                      }}
+                    >
+                      Not now
+                    </button>
+                    <button
+                      type="button"
+                      className="h-11 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-black hover:bg-primary/90"
+                      onClick={() => {
+                        try {
+                          localStorage.setItem('mirachpos.settings.initialTab.v1', 'subscription');
+                        } catch {
+                        }
+                        navigate(Screen.OWNER_BILLING);
+                        setPaywallOpen(false);
+                      }}
+                    >
+                      Go to Billing
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         ) : null}
 
-        {accessDenied ? (
-          <div className="absolute top-0 left-0 right-0 z-[109] p-3">
-            <div className="mx-auto max-w-5xl rounded-xl border border-destructive/30 bg-destructive/10 text-destructive px-4 py-3 flex items-start justify-between gap-4 shadow-xl">
-              <div className="flex flex-col">
-                <div className="text-foreground font-extrabold text-sm">Access denied</div>
-                <div className="text-xs mt-1">You do not have permission to perform this action.</div>
-                {accessDenied.path ? <div className="text-[10px] mt-1 opacity-75 font-mono">{accessDenied.path}</div> : null}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="h-9 px-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs font-bold hover:bg-destructive/20"
-                  onClick={() => setAccessDenied(null)}
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
+        {null}
 
         {shouldShowUpgradeModal ? (
           <div className="fixed top-0 bottom-0 right-0 left-64 z-[120] flex items-center justify-center p-4">

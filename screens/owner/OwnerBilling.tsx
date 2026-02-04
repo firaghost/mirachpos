@@ -276,7 +276,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
     const isActive = billingStatus === 'active';
     const nextBillDate = subscription?.billing?.nextBillAt || '';
     const amountDue = subscription?.billing?.amountEtb || 0;
-    const planTier = subscription?.subscription?.tier || 'Basic';
+    const planTier = subscription?.subscription?.tier || 'Starter';
     const billingCycle = subscription?.billing?.cycle || 'Monthly';
     const daysRemaining = getDaysRemaining(nextBillDate);
 

@@ -171,18 +171,18 @@ export const PlansMatrixView = () => {
 
     const planKey = (p: string) => {
         const v = String(p || '').toLowerCase();
-        if (v === 'basic') return 'basic';
-        if (v === 'pro') return 'pro';
-        if (v === 'enterprise') return 'ent';
+        if (v === 'starter' || v === 'basic') return 'starter';
+        if (v === 'growth') return 'growth';
+        if (v === 'pro' || v === 'enterprise') return 'pro';
         return 'trial';
     };
 
     const selectedKey = planKey(selectedPlan);
 
     const selectedHeader = useMemo(() => {
-        const title = selectedKey === 'basic' ? 'Basic' : selectedKey === 'pro' ? 'Pro' : selectedKey === 'ent' ? 'Enterprise' : 'Free / Trial';
-        const accent = selectedKey === 'basic';
-        const hasCustom = selectedKey === 'ent' && selectedPrice === 0;
+        const title = selectedKey === 'starter' ? 'Starter' : selectedKey === 'growth' ? 'Growth' : selectedKey === 'pro' ? 'Pro' : 'Trial';
+        const accent = selectedKey === 'growth';
+        const hasCustom = selectedKey === 'pro' && selectedPrice === 0;
         return { title, price: hasCustom ? (null as number | null) : selectedPrice, accent };
     }, [selectedKey, selectedPrice]);
 
@@ -473,9 +473,9 @@ export const PlansMatrixView = () => {
                                             <td className={"p-6 align-top bg-card/40"}>
                                                 {selectedKey === 'trial'
                                                     ? renderCell(r.trial, false, r.trial === 'Included' ? 'check_circle' : r.trial === 'Limited' ? 'error' : undefined)
-                                                    : selectedKey === 'basic'
+                                                    : selectedKey === 'starter'
                                                         ? renderCell(r.basic, false, r.basic === 'Included' ? 'check_circle' : r.basic === 'Limited' ? 'error' : undefined)
-                                                        : selectedKey === 'pro'
+                                                        : selectedKey === 'growth'
                                                             ? renderCell(r.pro, false, r.pro === 'Included' ? 'check_circle' : r.pro === 'Limited' ? 'error' : undefined)
                                                             : renderCell(r.ent, false, r.entIcon)
                                                 }
