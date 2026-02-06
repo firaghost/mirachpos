@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { uid } = require('../utils/ids');
 const { requireRole } = require('../middleware/permissions');
+const { validateSupportTicketCreate, validateSupportTicketUpdate, validateIdParam } = require('../middleware/validators');
 
 const makeSupportRouter = () => {
   const r = express.Router();
@@ -34,13 +35,17 @@ const makeSupportRouter = () => {
     }
   });
 
-  r.post('/support/tickets', tenantMiddleware, requireAuth, requireRole('Cafe Owner', 'Branch Manager', 'Waiter'), async (req, res, next) => {
+  r.post(
+    '/support/tickets',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    validateSupportTicketCreate,
+    async (req, res, next) => {
     try {
       if (!req.auth?.staffId) return res.status(401).json({ error: 'unauthorized' });
 
-      const severity = typeof req.body?.severity === 'string' ? req.body.severity.trim() : '';
-      const subject = typeof req.body?.subject === 'string' ? req.body.subject.trim() : '';
-      const description = typeof req.body?.description === 'string' ? req.body.description.trim() : '';
+      const { severity, subject, description } = req.validatedBody || req.body;
       if (!subject) return res.status(400).json({ error: 'subject_required' });
 
       const id = uid('tkt');
@@ -64,14 +69,21 @@ const makeSupportRouter = () => {
     }
   });
 
-  r.put('/support/tickets/:id', tenantMiddleware, requireAuth, requireRole('Cafe Owner', 'Branch Manager', 'Waiter'), async (req, res, next) => {
+  r.put(
+    '/support/tickets/:id',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter'),
+    validateIdParam,
+    validateSupportTicketUpdate,
+    async (req, res, next) => {
     try {
       if (!req.auth?.staffId) return res.status(401).json({ error: 'unauthorized' });
 
-      const id = typeof req.params?.id === 'string' ? req.params.id.trim() : '';
+      const { id } = req.validatedParams || req.params;
       if (!id) return res.status(400).json({ error: 'invalid_ticket_id' });
 
-      const statusRaw = typeof req.body?.status === 'string' ? req.body.status.trim() : '';
+      const { status: statusRaw } = req.validatedBody || req.body;
       const status = statusRaw === 'Closed' ? 'Closed' : statusRaw === 'Open' ? 'Open' : '';
       if (!status) return res.status(400).json({ error: 'invalid_status' });
 

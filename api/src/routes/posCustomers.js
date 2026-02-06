@@ -4,6 +4,7 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { uid } = require('../utils/ids');
+const { sanitizeLikeInput } = require('../utils/sanitize');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 const { requireRole, requirePermission } = require('../middleware/permissions');
 
@@ -60,7 +61,7 @@ const makePosCustomersRouter = () => {
       if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
       const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 50) || 50));
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
+      const q = sanitizeLikeInput(req.query?.q, { lower: true, maxLen: 80 });
 
       let query = db().from('customers').where({ tenant_id: req.tenant.id, branch_id: branchId, status: 'Active' });
       if (q) {

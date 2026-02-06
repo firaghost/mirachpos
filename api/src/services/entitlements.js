@@ -1,4 +1,6 @@
 const { db } = require('../db');
+const { config } = require('../config');
+const { withCache } = require('../utils/cache');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -43,6 +45,32 @@ const normalizeModules = (list) => {
     out.push(k);
   }
   return out;
+};
+
+const normalizeFeatureKey = (f) => {
+  const raw = String(f || '').trim();
+  if (!raw) return '';
+  return raw.toLowerCase().replace(/\s+/g, '_');
+};
+
+const normalizeFeatures = (list) => {
+  const out = [];
+  const seen = new Set();
+  for (const x of Array.isArray(list) ? list : []) {
+    const k = normalizeFeatureKey(x);
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(k);
+  }
+  return out;
+};
+
+const readGlobalFeatureFlags = async () => {
+  const ttl = config?.cacheDefaultTtlSeconds || 60;
+  return withCache('feature_flags:enabled:v1', ttl, async () => {
+    const rows = await db().from('feature_flags').select(['id']).where({ enabled: 1 });
+    return rows.map((r) => String(r.id || '')).filter(Boolean);
+  });
 };
 
 const defaultEntitlementsForTier = (tier) => {
@@ -236,6 +264,10 @@ const computeTenantEntitlements = async ({ tenant, subscriptionRow = null }) => 
   const status = String(sub?.status || 'active');
   const graceEndsAt = sub?.grace_ends_at ? new Date(sub.grace_ends_at).toISOString() : '';
 
+  const globalFeatures = normalizeFeatures(await readGlobalFeatureFlags());
+  const tenantFeatures = normalizeFeatures(safeJsonParse(tenant?.features_json, []));
+  const effectiveFeatures = Array.from(new Set([...globalFeatures, ...tenantFeatures]));
+
   const computedAt = new Date().toISOString();
 
   return {
@@ -256,6 +288,7 @@ const computeTenantEntitlements = async ({ tenant, subscriptionRow = null }) => 
       graceEndsAt,
     },
     limits: { ...(plan.limits || {}), ...(addonEnt?.limits || {}) },
+    features: effectiveFeatures,
     pricing: plan.pricing,
     computedAt,
   };
@@ -292,6 +325,8 @@ const upsertTenantEntitlementsSnapshot = async ({ tenantId, entitlements }) => {
 module.exports = {
   normalizeTier,
   normalizeModules,
+  normalizeFeatures,
+  readGlobalFeatureFlags,
   getOrCreateTenantSubscription,
   computeTenantEntitlements,
   upsertTenantEntitlementsSnapshot,

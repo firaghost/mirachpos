@@ -6,6 +6,8 @@ const crypto = require('crypto');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
+const { safeJsonStringify } = require('../utils/errors');
+const { sanitizeLikeInput, sanitizeText } = require('../utils/sanitize');
 const { uid } = require('../utils/ids');
 const { makeInitialPosState } = require('./posInitPreset');
 const paymentGatewayService = require('../services/paymentGatewayService');
@@ -22,6 +24,163 @@ const safeJsonParse = (raw, fallback) => {
   } catch {
     return fallback;
   }
+};
+
+const normalizeLoyaltySettings = (raw) => {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const loyalty = src?.loyalty && typeof src.loyalty === 'object' ? src.loyalty : {};
+  const earnRate = Number(loyalty?.earnRate ?? 0) || 0;
+  const expiryDaysRaw = Number(loyalty?.expiryDays);
+  const expiryDays = Number.isFinite(expiryDaysRaw) && expiryDaysRaw > 0 ? Math.trunc(expiryDaysRaw) : null;
+  return { earnRate, expiryDays };
+};
+
+const computeLoyaltyExpiry = (nowIso, expiryDays) => {
+  if (!expiryDays || expiryDays <= 0) return null;
+  const now = new Date(nowIso);
+  if (Number.isNaN(now.getTime())) return null;
+  const next = new Date(now.getTime() + expiryDays * 24 * 60 * 60 * 1000);
+  return next.toISOString();
+};
+
+const computeLoyaltyRedeemBase = (computed) => {
+  const subtotal = Number(computed?.subtotal ?? 0) || 0;
+  const discount = Number(computed?.discount ?? 0) || 0;
+  return Math.max(0, subtotal - discount);
+};
+
+const computeLoyaltyRedeemAmount = ({ payload, paymentMethod, computed }) => {
+  const base = computeLoyaltyRedeemBase(computed);
+  if (base <= 0) return 0;
+
+  const p = payload && typeof payload === 'object' ? payload : {};
+  const splits = Array.isArray(p?.splits) ? p.splits : [];
+  let sum = 0;
+
+  for (const s of splits) {
+    const method = String(s?.paymentMethod || '').trim().toLowerCase();
+    if (method !== 'loyalty') continue;
+
+    const status = String(s?.status || '').trim().toLowerCase();
+    if (status && status !== 'paid') continue;
+
+    const amt = s?.paidAmount != null ? num(s.paidAmount, 0) : s?.amount != null ? num(s.amount, 0) : num(s?.total, 0);
+    if (amt > 0) sum += amt;
+  }
+
+  if (sum > 0) return Math.min(base, sum);
+
+  const method = String(paymentMethod || '').trim().toLowerCase();
+  if (method === 'loyalty') return base;
+
+  return 0;
+};
+
+const applyLoyaltyForPaidOrder = async ({ trx, tenantId, branchId, orderId, total, paymentMethod, customer, loyaltySettings, nowIso, redeemAmount }) => {
+  const customerId = String(customer?.id || '').trim();
+  if (!customerId) return { ok: false, skipped: 'no_customer' };
+
+  const totalAmt = Number(total || 0) || 0;
+  const redeemAmt = Math.max(0, Number(redeemAmount || 0) || 0);
+  const isLoyaltyPayment = redeemAmt > 0;
+
+  const earnRate = Number(loyaltySettings?.earnRate ?? 0) || 0;
+  const expiryDays = Number(loyaltySettings?.expiryDays ?? 0) || 0;
+
+  if (!isLoyaltyPayment && earnRate <= 0) return { ok: false, skipped: 'disabled' };
+
+  if (isLoyaltyPayment && redeemAmt <= 0) return { ok: false, skipped: 'no_redeem' };
+  if (!isLoyaltyPayment && totalAmt <= 0) return { ok: false, skipped: 'no_total' };
+
+  const txType = isLoyaltyPayment ? 'redeem' : 'earn';
+  const existing = await trx
+    .from('loyalty_transactions')
+    .where({ tenant_id: tenantId, branch_id: branchId, order_id: orderId, customer_id: customerId, type: txType })
+    .first();
+  if (existing) return { ok: true, skipped: 'already_applied' };
+
+  const customerRow = await trx
+    .from('customers')
+    .where({ tenant_id: tenantId, branch_id: branchId, id: customerId })
+    .select(['id', 'loyalty_points', 'loyalty_balance', 'loyalty_points_expires_at'])
+    .first();
+  if (!customerRow) return { ok: false, skipped: 'customer_missing' };
+
+  const now = nowIso || new Date().toISOString();
+  const pointsExpiry = customerRow.loyalty_points_expires_at ? new Date(customerRow.loyalty_points_expires_at).getTime() : 0;
+  const expired = pointsExpiry && Number.isFinite(pointsExpiry) && pointsExpiry < Date.now();
+
+  let points = Number(customerRow.loyalty_points ?? 0) || 0;
+  let balance = Number(customerRow.loyalty_balance ?? 0) || 0;
+
+  if (expired) {
+    points = 0;
+  }
+
+  if (isLoyaltyPayment) {
+    if (balance + 1e-9 < redeemAmt) {
+      const err = new Error('insufficient_loyalty_balance');
+      err.code = 'insufficient_loyalty_balance';
+      throw err;
+    }
+    const nextBalance = Math.max(0, balance - redeemAmt);
+    await trx
+      .from('customers')
+      .where({ tenant_id: tenantId, branch_id: branchId, id: customerId })
+      .update({ loyalty_balance: nextBalance, updated_at: now, loyalty_points_updated_at: now });
+
+    await trx.from('loyalty_transactions').insert({
+      id: uid('lty'),
+      tenant_id: tenantId,
+      branch_id: branchId,
+      customer_id: customerId,
+      order_id: orderId,
+      type: 'redeem',
+      points_delta: 0,
+      balance_delta: -Math.abs(redeemAmt),
+      earn_rate: earnRate || null,
+      expiry_days: expiryDays || null,
+      expires_at: null,
+      meta_json: JSON.stringify({ paymentMethod: String(paymentMethod || '').trim(), redeemedAmount: redeemAmt, redeemBase: redeemAmt }),
+      created_at: now,
+    });
+
+    return { ok: true };
+  }
+
+  const pointsEarned = Math.max(0, Math.floor(totalAmt * Math.max(0, earnRate)));
+  if (pointsEarned <= 0) return { ok: true, skipped: 'no_points' };
+
+  const nextPoints = points + pointsEarned;
+  const expiresAt = computeLoyaltyExpiry(now, expiryDays);
+
+  await trx
+    .from('customers')
+    .where({ tenant_id: tenantId, branch_id: branchId, id: customerId })
+    .update({
+      loyalty_points: nextPoints,
+      loyalty_points_expires_at: expiresAt,
+      loyalty_points_updated_at: now,
+      updated_at: now,
+    });
+
+  await trx.from('loyalty_transactions').insert({
+    id: uid('lty'),
+    tenant_id: tenantId,
+    branch_id: branchId,
+    customer_id: customerId,
+    order_id: orderId,
+    type: 'earn',
+    points_delta: pointsEarned,
+    balance_delta: 0,
+    earn_rate: earnRate,
+    expiry_days: expiryDays || null,
+    expires_at: expiresAt,
+    meta_json: JSON.stringify({ paymentMethod: String(paymentMethod || '').trim() }),
+    created_at: now,
+  });
+
+  return { ok: true };
 };
 
 const normalizePublicBaseUrl = (raw) => {
@@ -1028,6 +1187,7 @@ const normalizeSettingsForPos = (raw) => {
   const payments = s.payments && typeof s.payments === 'object' ? s.payments : {};
   const policies = s.policies && typeof s.policies === 'object' ? s.policies : {};
   const security = s.security && typeof s.security === 'object' ? s.security : {};
+  const loyalty = normalizeLoyaltySettings(s);
   return {
     general: {
       currency: typeof general.currency === 'string' && general.currency.trim() ? general.currency.trim().toUpperCase() : 'ETB',
@@ -1052,6 +1212,7 @@ const normalizeSettingsForPos = (raw) => {
       requirePinForDiscounts: typeof security.requirePinForDiscounts === 'boolean' ? security.requirePinForDiscounts : false,
       sessionTimeoutMins: Number.isFinite(Number(security.sessionTimeoutMins)) ? Math.trunc(Number(security.sessionTimeoutMins)) : 30,
     },
+    loyalty,
   };
 };
 
@@ -1068,6 +1229,7 @@ const resolveEffectivePosSettings = async ({ tenantId, branchId }) => {
     payments: owner.payments,
     policies: owner.policies,
     security: owner.security,
+    loyalty: { ...owner.loyalty, ...branch.loyalty },
     branchPayments: {
       qrCodes: (() => {
         const p = branchRaw?.payments && typeof branchRaw.payments === 'object' ? branchRaw.payments : {};
@@ -1117,6 +1279,14 @@ const resolveEffectivePosSettings = async ({ tenantId, branchId }) => {
       })(),
       defaultReceiptPrinterId: (() => {
         const v = branchRaw?.defaultReceiptPrinterId;
+        return v == null ? null : String(v || '').trim() || null;
+      })(),
+      defaultKitchenPrinterId: (() => {
+        const v = branchRaw?.defaultKitchenPrinterId;
+        return v == null ? null : String(v || '').trim() || null;
+      })(),
+      fallbackKitchenPrinterId: (() => {
+        const v = branchRaw?.fallbackKitchenPrinterId;
         return v == null ? null : String(v || '').trim() || null;
       })(),
     },
@@ -1340,9 +1510,9 @@ const makePosRouter = () => {
         const branchId = await resolveBranchId(req);
         if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
-        const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
-        const category = typeof req.query?.category === 'string' ? req.query.category.trim() : '';
-        const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
+        const q = sanitizeLikeInput(req.query?.q, { lower: true, maxLen: 80 });
+        const category = sanitizeText(req.query?.category, { maxLen: 60 });
+        const status = sanitizeText(req.query?.status, { maxLen: 40 });
         const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 500) || 500));
 
         let base = db().from('menu_products').where({ tenant_id: req.tenant.id });
@@ -1390,6 +1560,251 @@ const makePosRouter = () => {
       }
     });
 
+  r.post(
+    '/pos/print/queue/retry',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('settings'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
+      try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+        const queueId = String(req.body?.queueId || '').trim();
+        if (!queueId) return res.status(400).json({ error: 'queue_id_required' });
+
+        const branchRaw = await loadBranchSettings({ tenantId: req.tenant.id, branchId });
+        const devices = Array.isArray(branchRaw?.devices) ? branchRaw.devices : [];
+
+        const row = await db()
+          .from('print_queue')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, id: queueId })
+          .select(['id', 'order_id', 'device_id', 'fallback_device_id', 'status', 'payload_json', 'attempts'])
+          .first();
+        if (!row) return res.status(404).json({ error: 'queue_item_not_found' });
+
+        const status = String(row.status || '').trim().toLowerCase();
+        if (status === 'printed') return res.json({ ok: true, status: 'printed' });
+
+        const attempts = Number(row.attempts || 0) || 0;
+        if (attempts >= 3) return res.status(409).json({ error: 'retry_limit_reached' });
+
+        const currentFallbackId = String(branchRaw?.fallbackKitchenPrinterId || '').trim();
+        const storedFallbackId = String(row.fallback_device_id || '').trim();
+        if (storedFallbackId && currentFallbackId && storedFallbackId !== currentFallbackId) {
+          return res.status(409).json({ error: 'fallback_printer_changed' });
+        }
+
+        const deviceId = String(row.device_id || '').trim();
+        const device = devices.find((d) => String(d?.id || '') === deviceId);
+        if (!device) return res.status(404).json({ error: 'device_not_found' });
+        if (String(device?.connection || '') !== 'LAN') return res.status(400).json({ error: 'lan_only' });
+
+        const host = String(device?.ip || '').trim();
+        const port = String(device?.port || '9100').trim();
+
+        const orderId = String(row.order_id || '').trim();
+        if (!orderId) return res.status(400).json({ error: 'order_required' });
+
+        const orderRow = await db()
+          .from('orders')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, id: orderId })
+          .select([
+            'id',
+            'status',
+            'total',
+            'tax',
+            'tip',
+            'discount',
+            'paid_at',
+            'created_at',
+            'payload',
+            'display_number',
+            'table_id',
+            'table_name',
+            'created_by_staff_id',
+            'created_by_name',
+            'paid_by_staff_id',
+            'paid_by_name',
+            'payment_method',
+            'payment_reference',
+            'tendered_amount',
+            'notes',
+          ])
+          .first();
+        if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+
+        const itemRows = await db().from('order_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+        const splitRows = await db().from('order_splits').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+        const splitItemRows = await db().from('order_split_items').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+        const paymentRows = await db().from('order_payments').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId });
+
+        const basePayload = hydratePayloadFromNormalized({ orderRow, payloadFallback: safeJsonParse(orderRow?.payload, {}), itemRows, splitRows, splitItemRows, paymentRows });
+        const patchedOrderRow = { ...orderRow, payload: JSON.stringify(basePayload) };
+
+        const meta = safeJsonParse(row?.payload_json, {});
+        const lines = Array.isArray(meta?.lines) ? meta.lines : null;
+        const beep = meta?.beep === true;
+        const payload = makeKitchenTicketPayload({ title: 'Kitchen Ticket', orderRow: patchedOrderRow, lines, beep });
+
+        const nowIso = new Date().toISOString();
+        try {
+          await sendTcp({ host, port, data: payload, timeoutMs: 8000 });
+          await db().from('print_queue').where({ id: row.id }).update({ status: 'printed', last_error: null, last_attempt_at: nowIso, updated_at: nowIso });
+          return res.json({ ok: true, status: 'printed' });
+        } catch (e) {
+          const mapped = mapPrintError(e);
+          const nextAttempts = attempts + 1;
+          const nextAt = new Date(Date.now() + 10000).toISOString();
+          const nextStatus = nextAttempts >= 3 ? 'failed' : 'pending';
+          await db().from('print_queue').where({ id: row.id }).update({
+            status: nextStatus,
+            error: mapped.error,
+            last_error: mapped.error,
+            attempts: nextAttempts,
+            last_attempt_at: nowIso,
+            next_attempt_at: nextAt,
+            updated_at: nowIso,
+          });
+          return res.status(502).json({ ok: false, error: mapped.error, attempts: nextAttempts, nextAttemptAt: nextAt, status: nextStatus });
+        }
+      } catch (e) {
+        return next(e);
+      }
+    },
+  );
+
+  r.get(
+    '/pos/customer-display/settings',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
+      try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+        const row = await db()
+          .select(['settings_json'])
+          .from('manager_settings')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId })
+          .first();
+
+        const settings = safeJsonParse(row?.settings_json, {});
+        const modeRaw = String(settings?.customerDisplay?.mode || '').trim().toLowerCase();
+        const mode = ['auto', 'menu', 'payment', 'receipt'].includes(modeRaw) ? modeRaw : 'auto';
+
+        return res.json({ ok: true, branchId, mode });
+      } catch (e) {
+        return next(e);
+      }
+    },
+  );
+
+  r.put(
+    '/pos/customer-display/settings',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
+      try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+        const modeRaw = String(req.body?.mode || '').trim().toLowerCase();
+        if (!['auto', 'menu', 'payment', 'receipt'].includes(modeRaw)) {
+          return res.status(400).json({ error: 'invalid_mode' });
+        }
+
+        const row = await db()
+          .select(['settings_json'])
+          .from('manager_settings')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId })
+          .first();
+
+        const prev = safeJsonParse(row?.settings_json, {});
+        const nextSettings = {
+          ...(prev && typeof prev === 'object' ? prev : {}),
+          customerDisplay: {
+            ...(prev?.customerDisplay && typeof prev.customerDisplay === 'object' ? prev.customerDisplay : {}),
+            mode: modeRaw,
+          },
+        };
+
+        const nowIso = new Date().toISOString();
+        await db()
+          .from('manager_settings')
+          .insert({ tenant_id: req.tenant.id, branch_id: branchId, settings_json: JSON.stringify(nextSettings), updated_at: nowIso })
+          .onConflict(['tenant_id', 'branch_id'])
+          .merge({ settings_json: JSON.stringify(nextSettings), updated_at: nowIso });
+
+        return res.json({ ok: true, branchId, mode: modeRaw });
+      } catch (e) {
+        return next(e);
+      }
+    },
+  );
+
+  r.post(
+    '/pos/orders/:id/display-mode',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
+      try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: 'id_required' });
+
+        const modeRaw = String(req.body?.mode || '').trim().toLowerCase();
+        if (!['menu', 'payment', 'receipt'].includes(modeRaw)) return res.status(400).json({ error: 'invalid_mode' });
+
+        const paymentMethodRaw = String(req.body?.paymentMethod || '').trim();
+        const paymentUrlRaw = String(req.body?.paymentUrl || '').trim();
+
+        const linkRow = await db()
+          .from('pos_public_order_links')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id, purpose: 'display' })
+          .orderBy('created_at', 'desc')
+          .select(['id', 'meta_json'])
+          .first();
+        if (!linkRow) return res.status(404).json({ error: 'display_link_not_found' });
+
+        const meta = safeJsonParse(linkRow.meta_json, {});
+        const nextMeta = {
+          ...(meta && typeof meta === 'object' ? meta : {}),
+          mode: modeRaw,
+          ...(paymentMethodRaw ? { paymentMethod: paymentMethodRaw } : {}),
+          ...(paymentUrlRaw ? { paymentUrl: paymentUrlRaw } : {}),
+        };
+        const nowIso = new Date().toISOString();
+
+        await db().from('pos_public_order_links').where({ id: linkRow.id }).update({
+          meta_json: JSON.stringify(nextMeta),
+          updated_at: nowIso,
+        });
+
+        return res.json({ ok: true, mode: modeRaw });
+      } catch (e) {
+        return next(e);
+      }
+    },
+  );
+
   r.get(
     '/pos/settings',
     tenantMiddleware,
@@ -1413,6 +1828,7 @@ const makePosRouter = () => {
           payments: eff.payments,
           branchPayments: eff.branchPayments,
           printers: eff.printers,
+          loyalty: eff.loyalty,
           receipt: eff.receipt,
           business: eff.business,
         });
@@ -1795,8 +2211,59 @@ const makePosRouter = () => {
         try {
           await sendTcp({ host, port, data: payload, timeoutMs: 8000 });
         } catch (e) {
+          const fallbackId = String(branchRaw?.fallbackKitchenPrinterId || '').trim();
+          const fallback = fallbackId ? devices.find((d) => String(d?.id || '') === fallbackId) : null;
+          if (fallback && String(fallback?.connection || '') === 'LAN') {
+            const fbHost = String(fallback?.ip || '').trim();
+            const fbPort = String(fallback?.port || '9100').trim();
+            try {
+              await sendTcp({ host: fbHost, port: fbPort, data: payload, timeoutMs: 8000 });
+              return res.json({ ok: true, fallbackUsed: true });
+            } catch (fallbackErr) {
+              const mapped = mapPrintError(fallbackErr);
+              const nowIso = new Date().toISOString();
+              await db().from('print_queue').insert({
+                id: uid('prq'),
+                tenant_id: req.tenant.id,
+                branch_id: branchId,
+                order_id: orderId,
+                profile: 'Kitchen',
+                device_id: deviceId,
+                fallback_device_id: fallbackId || null,
+                status: 'pending',
+                error: mapped.error,
+                last_error: mapped.error,
+                attempts: 0,
+                last_attempt_at: null,
+                next_attempt_at: new Date(Date.now() + 10000).toISOString(),
+                payload_json: JSON.stringify({ lines, beep }),
+                created_at: nowIso,
+                updated_at: nowIso,
+              });
+              return res.status(202).json({ ok: false, queued: true, error: mapped.error });
+            }
+          }
           const mapped = mapPrintError(e);
-          return res.status(mapped.status).json({ error: mapped.error });
+          const nowIso = new Date().toISOString();
+          await db().from('print_queue').insert({
+            id: uid('prq'),
+            tenant_id: req.tenant.id,
+            branch_id: branchId,
+            order_id: orderId,
+            profile: 'Kitchen',
+            device_id: deviceId,
+            fallback_device_id: fallbackId || null,
+            status: 'pending',
+            error: mapped.error,
+            last_error: mapped.error,
+            attempts: 0,
+            last_attempt_at: null,
+            next_attempt_at: new Date(Date.now() + 10000).toISOString(),
+            payload_json: JSON.stringify({ lines, beep }),
+            created_at: nowIso,
+            updated_at: nowIso,
+          });
+          return res.status(202).json({ ok: false, queued: true, error: mapped.error });
         }
 
         return res.json({ ok: true });
@@ -2425,6 +2892,73 @@ const makePosRouter = () => {
   );
 
   r.get(
+    '/pos/orders/:id/display-link',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
+      try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: 'id_required' });
+
+        const orderRow = await db().from('orders').where({ tenant_id: req.tenant.id, branch_id: branchId, id }).select(['id']).first();
+        if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+
+        const nowIso = new Date().toISOString();
+        const existing = await db()
+          .from('pos_public_order_links')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, purpose: 'display' })
+          .andWhere((b) => b.whereNull('expires_at').orWhere('expires_at', '>', nowIso))
+          .orderBy('created_at', 'desc')
+          .select(['id', 'token', 'order_id', 'meta_json'])
+          .first();
+
+        const baseUrl = publicBaseUrlFromReq(req);
+        if (existing?.token) {
+          const existingOrderId = String(existing.order_id || '').trim();
+          if (existingOrderId !== id) {
+            const meta = safeJsonParse(existing.meta_json, {});
+            const nextMeta = { ...(meta && typeof meta === 'object' ? meta : {}), mode: 'payment' };
+            await db().from('pos_public_order_links').where({ id: existing.id }).update({
+              order_id: id,
+              meta_json: JSON.stringify(nextMeta),
+              updated_at: nowIso,
+            });
+          }
+          return res.json({ ok: true, displayUrl: `${baseUrl}/d/${encodeURIComponent(String(existing.token))}` });
+        }
+
+        const role = String(req.auth?.role || '').trim();
+        const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
+        const displayToken = shortToken();
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        await db().from('pos_public_order_links').insert({
+          id: uid('pol'),
+          tenant_id: req.tenant.id,
+          branch_id: branchId,
+          order_id: id,
+          token: displayToken,
+          purpose: 'display',
+          expires_at: expiresAt,
+          meta_json: JSON.stringify({ createdByRole: role, createdByStaffId: staffId || null, mode: 'payment' }),
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
+
+        return res.json({ ok: true, displayUrl: `${baseUrl}/d/${encodeURIComponent(displayToken)}` });
+      } catch (e) {
+        return next(e);
+      }
+    },
+  );
+
+  r.get(
     '/pos/notifications',
     tenantMiddleware,
     requireAuth,
@@ -2711,6 +3245,22 @@ const makePosRouter = () => {
         const splitItemRows = normalizeSplitItemsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, splitRows, orderItemRows, payload: nextPayload, nowIso });
         const paymentRows = normalizePaymentsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, status, payload: nextPayload, nowIso });
 
+        const redeemAmount = status === 'Paid'
+          ? computeLoyaltyRedeemAmount({ payload: nextPayload, paymentMethod: nextPayload?.paymentMethod, computed })
+          : 0;
+        if (status === 'Paid' && redeemAmount > 0) {
+          const customerId = String(nextPayload?.customer?.id || '').trim();
+          if (!customerId) return res.status(400).json({ error: 'customer_required' });
+          const row = await db()
+            .from('customers')
+            .where({ tenant_id: req.tenant.id, branch_id: branchId, id: customerId })
+            .select(['loyalty_balance'])
+            .first();
+          if (!row) return res.status(404).json({ error: 'customer_not_found' });
+          const balance = Number(row?.loyalty_balance ?? 0) || 0;
+          if (balance + 1e-9 < redeemAmount) return res.status(402).json({ error: 'insufficient_loyalty_balance' });
+        }
+
         const tableId = tableIdFromPayload;
         const tableNameForEnsure = (() => {
           if (resolvedTableRow?.name) return String(resolvedTableRow.name);
@@ -2768,6 +3318,21 @@ const makePosRouter = () => {
               updated_at: nowIso,
               payload: JSON.stringify(nextPayload),
             });
+
+          if (status === 'Paid') {
+            await applyLoyaltyForPaidOrder({
+              trx,
+              tenantId: req.tenant.id,
+              branchId,
+              orderId: id,
+              total: computed.total,
+              paymentMethod: nextPayload?.paymentMethod,
+              customer: nextPayload?.customer,
+              loyaltySettings: settings?.loyalty,
+              nowIso,
+              redeemAmount,
+            });
+          }
 
           // Dual-write: normalized tables (best-effort; do not fail order creation if missing tables during rollout)
           try {
@@ -2928,7 +3493,7 @@ const makePosRouter = () => {
             return res.status(402).json({ error: 'split_payments_disabled' });
           }
 
-          const computed = computeOrderTotalsFromPayload({ payload: incomingPayload, tip, discount, discountPct, settings, allowOverMax: requireApprovalPin });
+          computed = computeOrderTotalsFromPayload({ payload: incomingPayload, tip, discount, discountPct, settings, allowOverMax: requireApprovalPin });
           patch.total = computed.total;
           patch.tax = computed.tax;
           patch.tip = computed.tip;
@@ -2945,6 +3510,21 @@ const makePosRouter = () => {
           };
 
           const nextStatus = typeof patch.status === 'string' ? patch.status : '';
+          const redeemAmount = nextStatus === 'Paid'
+            ? computeLoyaltyRedeemAmount({ payload: payloadWithTotals, paymentMethod: payloadWithTotals?.paymentMethod, computed })
+            : 0;
+          if (nextStatus === 'Paid' && redeemAmount > 0) {
+            const customerId = String(payloadWithTotals?.customer?.id || '').trim();
+            if (!customerId) return res.status(400).json({ error: 'customer_required' });
+            const row = await db()
+              .from('customers')
+              .where({ tenant_id: req.tenant.id, branch_id: branchId, id: customerId })
+              .select(['loyalty_balance'])
+              .first();
+            if (!row) return res.status(404).json({ error: 'customer_not_found' });
+            const balance = Number(row?.loyalty_balance ?? 0) || 0;
+            if (balance + 1e-9 < redeemAmount) return res.status(402).json({ error: 'insufficient_loyalty_balance' });
+          }
           if (nextStatus === 'Paid') {
             const pm = methodToSettingId(incomingPayload?.paymentMethod);
             if (pm) {
@@ -3037,6 +3617,44 @@ const makePosRouter = () => {
         const tableId = typeof afterPayload?.tableId === 'string' ? afterPayload.tableId.trim() : '';
         if (tableId && afterStatus !== beforeStatus) {
           await syncRestaurantTableForOrder({ tenantId: req.tenant.id, branchId, tableId, orderId: id, nextStatus: afterStatus, nowIso: new Date().toISOString() });
+        }
+
+        if (afterStatus === 'Paid') {
+          const loyaltyTotal = Number(patch.total ?? computed?.total ?? afterPayload?.total ?? 0) || 0;
+          const loyaltyCustomer = incomingPayload?.customer ?? afterPayload?.customer;
+          const loyaltyMethod = incomingPayload?.paymentMethod ?? afterPayload?.paymentMethod;
+          const loyaltyComputed = computed || (() => {
+            try {
+              return computeOrderTotalsFromPayload({
+                payload: afterPayload,
+                tip: Number(afterPayload?.tip ?? 0) || 0,
+                discount: Number(afterPayload?.discount ?? 0) || 0,
+                discountPct: afterPayload?.discountPct,
+                settings,
+              });
+            } catch {
+              return null;
+            }
+          })();
+          const redeemAmount = computeLoyaltyRedeemAmount({ payload: afterPayload, paymentMethod: loyaltyMethod, computed: loyaltyComputed });
+          try {
+            await applyLoyaltyForPaidOrder({
+              trx: db(),
+              tenantId: req.tenant.id,
+              branchId,
+              orderId: id,
+              total: loyaltyTotal,
+              paymentMethod: loyaltyMethod,
+              customer: loyaltyCustomer,
+              loyaltySettings: settings?.loyalty,
+              nowIso: new Date().toISOString(),
+              redeemAmount,
+            });
+          } catch (e) {
+            if (String(e?.code || '') === 'insufficient_loyalty_balance' || String(e?.message || '') === 'insufficient_loyalty_balance') {
+              return res.status(402).json({ error: 'insufficient_loyalty_balance' });
+            }
+          }
         }
 
         try {

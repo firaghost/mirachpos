@@ -22,7 +22,8 @@ const originHost = (value) => {
 };
 
 const isAllowedOrigin = (origin, allowlist) => {
-  if (!origin) return true;
+  const isProd = String(process.env.NODE_ENV || '') === 'production';
+  if (!origin) return !isProd;
 
   const o = normalizeOrigin(origin);
   const host = originHost(origin) || o.replace(/^https?:\/\//, '').replace(/:\d+$/, '');
@@ -30,7 +31,6 @@ const isAllowedOrigin = (origin, allowlist) => {
   if (host === 'apps.mirachpos.com' || host === 'mirachpos.com' || host === 'www.mirachpos.com') return true;
   if (host.endsWith('.mirachpos.com') || host.endsWith('.mirach.com')) return true;
 
-  const isProd = String(process.env.NODE_ENV || '') === 'production';
   if (!Array.isArray(allowlist) || allowlist.length === 0) return !isProd;
 
   return allowlist.some((x) => {

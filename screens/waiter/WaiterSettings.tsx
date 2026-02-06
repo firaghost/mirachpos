@@ -61,7 +61,6 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
     if (!/^\d+$/.test(newPin.trim())) return 'PIN must be numeric.';
     if (confirmPin.trim().length === 0) return 'Confirm your new PIN.';
     if (newPin !== confirmPin) return 'New PIN and confirmation do not match.';
-    if (!currentPin.trim()) return 'Enter your current PIN to change it.';
     return '';
   })();
 
@@ -101,7 +100,14 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
         body: JSON.stringify(body),
       });
       const json = (await res.json().catch(() => null)) as any;
-      if (!res.ok) throw new Error(json?.error || String(res.status));
+      if (!res.ok) {
+        const code = typeof json?.error === 'string' ? json.error : '';
+        if (code === 'invalid_credentials') throw new Error('Current password/PIN is incorrect.');
+        if (code === 'password_too_short') throw new Error('New password must be at least 4 characters.');
+        if (code === 'pin_too_short') throw new Error('New PIN must be at least 3 digits.');
+        if (code === 'no_changes') throw new Error('Enter a new password and/or a new PIN.');
+        throw new Error(code || String(res.status));
+      }
 
       setCurrentPassword('');
       setNewPassword('');
@@ -129,17 +135,31 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
 
   const SecretInput: React.FC<{ value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void; placeholder?: string }> = ({ value, onChange, show, onToggle, placeholder }) => {
     return (
-      <div className="flex items-center gap-2">
+      <div
+        className="flex items-center gap-2"
+        onPointerDownCapture={(e) => e.stopPropagation()}
+        onMouseDownCapture={(e) => e.stopPropagation()}
+        onClickCapture={(e) => e.stopPropagation()}
+      >
         <input
           type={show ? 'text' : 'password'}
           value={value}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onFocus={(e) => e.stopPropagation()}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 h-11 bg-background border border-border rounded-lg px-4 text-foreground"
+          className="flex-1 h-11 bg-background border border-border rounded-lg px-4 text-foreground pointer-events-auto select-text"
         />
         <button
           type="button"
-          onClick={onToggle}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
           className="h-11 px-3 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground"
           title={show ? 'Hide' : 'Show'}
         >

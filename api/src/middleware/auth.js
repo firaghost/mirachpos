@@ -11,9 +11,7 @@ const requireAuth = (req, res, next) => {
     (typeof req.query?.access_token === 'string' ? String(req.query.access_token).trim() : '');
   if (!token) return res.status(401).json({ error: 'unauthorized' });
 
-  const strict = String(process.env.STRICT_JWT_SECRET || '') === '1' || String(process.env.NODE_ENV || '') === 'production';
-  const hasConfiguredSecret = Boolean(config && typeof config.jwtSecret === 'string' && config.jwtSecret.trim());
-  const secret = hasConfiguredSecret ? config.jwtSecret : strict ? '' : 'dev-secret';
+  const secret = config.jwtSecret;
   if (!secret) {
     try {
       if (req.log?.error) req.log.error({ type: 'security_event', event: 'jwt_secret_missing' }, 'JWT_SECRET is required');

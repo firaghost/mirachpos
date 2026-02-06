@@ -7,6 +7,7 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { sanitizeLikeInput, sanitizeText } = require('../utils/sanitize');
 const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const safeJsonParse = (raw, fallback) => {
@@ -86,8 +87,8 @@ const makeSubscriptionRouter = () => {
 
   r.get('/owner/addons', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
-      const category = typeof req.query?.category === 'string' ? req.query.category.trim() : '';
+      const q = sanitizeLikeInput(req.query?.q, { lower: true, maxLen: 80 });
+      const category = sanitizeText(req.query?.category, { maxLen: 60 });
 
       const base = db().from('addon_packages').where({ is_available: 1 });
       if (category) base.andWhere({ category });
@@ -166,7 +167,7 @@ const makeSubscriptionRouter = () => {
 
   r.post('/owner/addons/:id/subscribe', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
-      const addonId = String(req.params?.id || '').trim();
+      const addonId = sanitizeText(req.params?.id, { maxLen: 64 });
       if (!addonId) return res.status(400).json({ error: 'id_required' });
 
       const billingFrequencyRaw = typeof req.body?.billingFrequency === 'string' ? req.body.billingFrequency.trim().toLowerCase() : 'monthly';

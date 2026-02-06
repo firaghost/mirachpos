@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 const { db } = require('../db');
+const { config } = require('../config');
+const { withCircuitBreaker } = require('../utils/circuitBreaker');
 const { makeId } = require('../utils/ids');
 const { logger } = require('../utils/logger');
 const telebirrTools = require('../utils/telebirr/tools');
@@ -61,15 +63,28 @@ const getTelebirrStandingOrderConfig = async () => {
   };
 };
 
-const applyFabricToken = async (config) => {
-  const response = await fetch(`${config.baseUrl}/payment/v1/token`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-APP-Key': config.fabricAppId,
-    },
-    body: JSON.stringify({ appSecret: config.appSecret }),
-  });
+const fetchWithTimeout = async (url, options = {}) => {
+  const controller = new AbortController();
+  const timeoutMs = Number(config.gatewayRequestTimeoutMs || 0) || 0;
+  const timeout = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+};
+
+const applyFabricToken = async (cfg) => {
+  const response = await withCircuitBreaker('telebirr', async () =>
+    fetchWithTimeout(`${cfg.baseUrl}/payment/v1/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-APP-Key': cfg.fabricAppId,
+      },
+      body: JSON.stringify({ appSecret: cfg.appSecret }),
+    })
+  );
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.msg || `Telebirr token HTTP ${response.status}`);
@@ -77,7 +92,7 @@ const applyFabricToken = async (config) => {
   return data.token;
 };
 
-const createMandatePreorder = async ({ config, fabricToken, title, amountEtb, outSubscriptionNo, notifyUrl, executeDateIso }) => {
+const createMandatePreorder = async ({ config: cfg, fabricToken, title, amountEtb, outSubscriptionNo, notifyUrl, executeDateIso }) => {
   const reqObject = {
     timestamp: telebirrTools.createTimeStamp(),
     nonce_str: telebirrTools.createNonceStr(),
@@ -107,15 +122,17 @@ const createMandatePreorder = async ({ config, fabricToken, title, amountEtb, ou
   reqObject.sign = telebirrTools.signRequestObject(reqObject, config.privateKey);
   reqObject.sign_type = 'SHA256WithRSA';
 
-  const response = await fetch(`${config.baseUrl}/payment/v1/merchant/preOrder`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-APP-Key': config.fabricAppId,
-      'Authorization': fabricToken,
-    },
-    body: JSON.stringify(reqObject),
-  });
+  const response = await withCircuitBreaker('telebirr', async () =>
+    fetchWithTimeout(`${cfg.baseUrl}/payment/v1/merchant/preOrder`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-APP-Key': cfg.fabricAppId,
+        'Authorization': fabricToken,
+      },
+      body: JSON.stringify(reqObject),
+    })
+  );
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.msg || `Telebirr preOrder HTTP ${response.status}`);

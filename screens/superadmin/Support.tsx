@@ -252,12 +252,15 @@ export const SA_Support: React.FC = () => {
             </div>
           </div>
           {/* Table Header */}
-          <div className="flex bg-muted/40 border-b border-border px-6 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider shrink-0 select-none">
-            <div className="w-20">ID</div>
-            <div className="w-24">Severity</div>
-            <div className="flex-1">Subject</div>
-            <div className="w-32 text-right">SLA Timer</div>
-            <div className="w-32 text-right pl-4">Status</div>
+          <div
+            className="grid bg-muted/40 border-b border-border px-6 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider shrink-0 select-none"
+            style={{ gridTemplateColumns: 'minmax(180px, 240px) 110px minmax(180px, 1fr) 120px 140px' }}
+          >
+            <div className="min-w-0">ID</div>
+            <div className="min-w-0">Severity</div>
+            <div className="min-w-0">Subject</div>
+            <div className="min-w-0 text-right">SLA Timer</div>
+            <div className="min-w-0 text-right">Status</div>
           </div>
           {/* Table Body */}
           <div className="overflow-y-auto flex-1 bg-card">
@@ -278,21 +281,22 @@ export const SA_Support: React.FC = () => {
                 <div
                   key={t.id}
                   onClick={() => setSelectedId(String(t.id))}
-                  className={`group flex items-center px-6 py-3 border-b border-border ${isActive ? 'bg-muted/40 border-l-4 border-l-primary hover:bg-accent' : 'hover:bg-accent border-l-4 border-l-transparent'} cursor-pointer transition-colors`}
+                  className={`group grid items-center px-6 py-3 border-b border-border min-w-0 ${isActive ? 'bg-muted/40 border-l-4 border-l-primary hover:bg-accent' : 'hover:bg-accent border-l-4 border-l-transparent'} cursor-pointer transition-colors`}
+                  style={{ gridTemplateColumns: 'minmax(180px, 240px) 110px minmax(180px, 1fr) 120px 140px' }}
                 >
-                  <div className={`w-20 font-mono text-sm ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>#{t.id}</div>
-                  <div className="w-24">
+                  <div className={`min-w-0 font-mono text-sm truncate ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>#{t.id}</div>
+                  <div className="min-w-0">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wide ${severityBadge(sev)}`}>{sev}</span>
                   </div>
-                  <div className="flex-1 pr-4">
+                  <div className="min-w-0 pr-4">
                     <p className="text-foreground text-sm font-medium truncate">{t.subject}</p>
                     <p className="text-muted-foreground text-xs truncate lg:hidden">{t.clientName}</p>
                   </div>
-                  <div className="w-32 text-right">
+                  <div className="min-w-0 text-right">
                     <span className={sla.className}>{sla.text}</span>
                   </div>
-                  <div className="w-32 text-right pl-4">
-                    <span className={`${isActive ? 'text-foreground text-xs bg-muted px-2 py-1 rounded' : 'text-muted-foreground text-xs border border-border px-2 py-1 rounded'}`}>{t.status}</span>
+                  <div className="min-w-0 text-right">
+                    <span className={`inline-flex max-w-full truncate ${isActive ? 'text-foreground text-xs bg-muted px-2 py-1 rounded' : 'text-muted-foreground text-xs border border-border px-2 py-1 rounded'}`}>{t.status}</span>
                   </div>
                 </div>
               );
@@ -302,16 +306,17 @@ export const SA_Support: React.FC = () => {
 
         {/* Right Side: Details Panel */}
         <div className="w-[480px] shrink-0 bg-card border-l border-border flex flex-col h-full shadow-xl z-10 hidden md:flex">
-          <div className="h-14 px-6 border-b border-border flex items-center justify-between shrink-0 bg-muted/40">
-            <div className="flex items-center gap-3">
-              <span className="text-muted-foreground font-mono text-sm">#{selected?.id || selectedId || ' ”'}</span>
-              <span className="w-px h-4 bg-border"></span>
-              <div className="flex items-center gap-2">
-                <div className={`size-2 rounded-full ${severityDot(selected?.severity || '')}`}></div>
-                <span className="text-foreground text-sm font-semibold">{selected?.severity || ' ”'}</span>
+          <div className="h-14 px-6 border-b border-border flex items-center gap-3 shrink-0 bg-muted/40">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <span className="text-muted-foreground font-mono text-sm truncate">#{selected?.id || selectedId || ' ”'}</span>
+              <span className="w-px h-4 bg-border shrink-0"></span>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className={`size-2 rounded-full shrink-0 ${severityDot(selected?.severity || '')}`}></div>
+                <span className="text-foreground text-sm font-semibold truncate">{selected?.severity || ' ”'}</span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+
+            <div className="flex items-center gap-2 shrink-0 overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <button
                 disabled={saving || !selectedId || String(selected?.status || '') === 'open'}
                 onClick={() => setTicketStatus('open')}

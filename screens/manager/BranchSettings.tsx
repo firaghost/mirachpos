@@ -62,6 +62,7 @@ type BranchSettingsState = {
 
   defaultReceiptPrinterId: string | null;
   defaultKitchenPrinterId: string | null;
+  fallbackKitchenPrinterId: string | null;
   defaultBarPrinterId: string | null;
 
   printerPrefs: {
@@ -82,6 +83,11 @@ type BranchSettingsState = {
     language: string;
     enableSounds: boolean;
     enableOfflineMode: boolean;
+  };
+
+  loyalty: {
+    earnRate: number;
+    expiryDays: number | null;
   };
 
   branchInfo: {
@@ -459,6 +465,7 @@ export const BranchSettings: React.FC = () => {
 
       defaultReceiptPrinterId: null,
       defaultKitchenPrinterId: null,
+      fallbackKitchenPrinterId: null,
       defaultBarPrinterId: null,
       printerPrefs: {
         autoPrintReceipts: false,
@@ -476,6 +483,10 @@ export const BranchSettings: React.FC = () => {
         language: 'en',
         enableSounds: true,
         enableOfflineMode: false,
+      },
+      loyalty: {
+        earnRate: 0,
+        expiryDays: null,
       },
       branchInfo: {
         businessName: '',
@@ -695,6 +706,18 @@ export const BranchSettings: React.FC = () => {
       }
     }
 
+    const earnRate = Number(nextSettings.loyalty?.earnRate ?? 0);
+    if (!Number.isFinite(earnRate) || earnRate < 0) {
+      throw new Error('Loyalty earn rate must be a positive number.');
+    }
+    const expiryDaysRaw = nextSettings.loyalty?.expiryDays;
+    if (expiryDaysRaw != null) {
+      const expiryDays = Number(expiryDaysRaw);
+      if (!Number.isFinite(expiryDays) || expiryDays < 0) {
+        throw new Error('Loyalty expiry days must be a positive number.');
+      }
+    }
+
     const svcRate = toPct(nextSettings.taxes.serviceChargeRate);
     if (nextSettings.taxes.serviceChargeEnabled) {
       if (!Number.isFinite(svcRate)) {
@@ -717,6 +740,8 @@ export const BranchSettings: React.FC = () => {
         nextSettings.defaultReceiptPrinterId && !deviceIds.has(String(nextSettings.defaultReceiptPrinterId)) ? null : nextSettings.defaultReceiptPrinterId,
       defaultKitchenPrinterId:
         nextSettings.defaultKitchenPrinterId && !deviceIds.has(String(nextSettings.defaultKitchenPrinterId)) ? null : nextSettings.defaultKitchenPrinterId,
+      fallbackKitchenPrinterId:
+        nextSettings.fallbackKitchenPrinterId && !deviceIds.has(String(nextSettings.fallbackKitchenPrinterId)) ? null : nextSettings.fallbackKitchenPrinterId,
       defaultBarPrinterId:
         nextSettings.defaultBarPrinterId && !deviceIds.has(String(nextSettings.defaultBarPrinterId)) ? null : nextSettings.defaultBarPrinterId,
     };
@@ -775,6 +800,7 @@ export const BranchSettings: React.FC = () => {
       printerPrefs: { ...base.printerPrefs, ...(next.printerPrefs ?? {}) },
       receipt: { ...base.receipt, ...(next.receipt ?? {}) },
       general: { ...base.general, ...(next.general ?? {}) },
+      loyalty: { ...base.loyalty, ...(next.loyalty ?? {}) },
       branchInfo: { ...base.branchInfo, ...(next.branchInfo ?? {}) },
       operatingHours: { ...base.operatingHours, ...(next.operatingHours ?? {}) },
       taxes: { ...base.taxes, ...(next.taxes ?? {}) },
@@ -1304,6 +1330,25 @@ export const BranchSettings: React.FC = () => {
                         ))}
                     </Select>
                     <p className="text-muted-foreground text-xs mt-2">For kitchen order tickets.</p>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-bold text-muted-foreground">Kitchen Fallback Printer</label>
+                    <Select
+                      value={draft.fallbackKitchenPrinterId ?? ''}
+                      onChange={(e) => setDraft((p) => ({ ...p, fallbackKitchenPrinterId: e.target.value || null }))}
+                      className="mt-2"
+                    >
+                      <option value="">None</option>
+                      {draft.devices
+                        .filter((d) => d.kind === 'Printer')
+                        .map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name} ({d.connection})
+                          </option>
+                        ))}
+                    </Select>
+                    <p className="text-muted-foreground text-xs mt-2">Used when the primary kitchen printer fails.</p>
                   </div>
 
                   <div>
@@ -2025,6 +2070,43 @@ export const BranchSettings: React.FC = () => {
                     </div>
                     <Toggle checked={draft.general.enableOfflineMode} onChange={(next) => setDraft((p) => ({ ...p, general: { ...p.general, enableOfflineMode: next } }))} label="Offline Mode" />
                   </div>
+
+                  <div className="p-4 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-foreground font-bold text-sm">Loyalty Rewards</p>
+                      <p className="text-muted-foreground text-xs mt-1">Configure points earning and expiration for this branch.</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-bold text-muted-foreground">Earn Rate (points per ETB)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={draft.loyalty.earnRate}
+                        onChange={(e) => setDraft((p) => ({ ...p, loyalty: { ...p.loyalty, earnRate: Number(e.target.value) } }))}
+                        className="mt-2"
+                        placeholder="e.g. 1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-bold text-muted-foreground">Expiry Days (optional)</label>
+                      <Input
+                        type="number"
+                        value={draft.loyalty.expiryDays ?? ''}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          setDraft((p) => ({
+                            ...p,
+                            loyalty: { ...p.loyalty, expiryDays: raw === '' ? null : Number(raw) },
+                          }));
+                        }}
+                        className="mt-2"
+                        placeholder="Leave empty for no expiry"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>
@@ -2235,6 +2317,7 @@ export const BranchSettings: React.FC = () => {
                       devices: draft.devices.filter((d) => d.id !== id),
                       defaultReceiptPrinterId: draft.defaultReceiptPrinterId === id ? null : draft.defaultReceiptPrinterId,
                       defaultKitchenPrinterId: draft.defaultKitchenPrinterId === id ? null : draft.defaultKitchenPrinterId,
+                      fallbackKitchenPrinterId: draft.fallbackKitchenPrinterId === id ? null : draft.fallbackKitchenPrinterId,
                       defaultBarPrinterId: draft.defaultBarPrinterId === id ? null : draft.defaultBarPrinterId,
                     };
                     try {

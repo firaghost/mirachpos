@@ -1915,6 +1915,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           paymentReference: (order as any).paymentReference ?? null,
           splits: (order as any).splits ?? null,
           notes: (order as any).notes ?? null,
+          customer: (order as any).customer ?? null,
         },
       };
 

@@ -27,20 +27,159 @@ const normalizePaymentKey = (method) => {
     return paymentMethod.toLowerCase().replace(/\s+/g, '_') || 'other';
 };
 
+const addDaysUtc = (dateStr, days) => {
+    const d = new Date(`${dateStr}T00:00:00.000Z`);
+    if (Number.isNaN(d.getTime())) return '';
+    d.setUTCDate(d.getUTCDate() + Number(days || 0));
+    return d.toISOString().slice(0, 10);
+};
+
+const isIsoDateOnly = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || '').trim());
+
+const getDayBounds = (dateStr) => {
+    const d = String(dateStr || '').trim();
+    if (!d) return null;
+    return {
+        mysqlStart: `${d} 00:00:00`,
+        mysqlEnd: `${d} 23:59:59`,
+        isoStart: `${d}T00:00:00.000Z`,
+        isoEnd: `${d}T23:59:59.999Z`,
+    };
+};
+
+const listTenantBranchesWithOrdersOnDate = async ({ tenantId, date }) => {
+    const dateStr = toDateString(date);
+    const b = getDayBounds(dateStr);
+    if (!b) return [];
+    const rows = await db()
+        .select(['branch_id'])
+        .from('orders')
+        .where({ tenant_id: tenantId, status: 'Paid' })
+        .andWhere((qb) => {
+            qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
+        })
+        .groupBy(['branch_id']);
+    return rows.map((r) => String(r.branch_id || '').trim()).filter(Boolean);
+};
+
+const ensureAggregatedForRange = async ({ tenantId, branchId, fromDate, toDate }) => {
+    const from = isIsoDateOnly(fromDate) ? String(fromDate) : toDateString(fromDate);
+    const to = isIsoDateOnly(toDate) ? String(toDate) : toDateString(toDate);
+    if (!from || !to) return { ok: false, error: 'invalid_range' };
+
+    const startMs = new Date(`${from}T00:00:00.000Z`).getTime();
+    const endMs = new Date(`${to}T00:00:00.000Z`).getTime();
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) {
+        return { ok: false, error: 'invalid_range' };
+    }
+
+    const days = Math.min(120, Math.floor((endMs - startMs) / (24 * 60 * 60 * 1000)) + 1);
+    let processed = 0;
+    let errors = 0;
+
+    let day = from;
+    for (let i = 0; i < days; i++) {
+        const dateObj = new Date(`${day}T00:00:00.000Z`);
+        if (Number.isNaN(dateObj.getTime())) break;
+
+        const branches = branchId
+            ? [String(branchId).trim()].filter(Boolean)
+            : await listTenantBranchesWithOrdersOnDate({ tenantId, date: dateObj });
+
+        for (const bid of branches) {
+            let okAny = false;
+
+            try {
+                await aggregateDailySales({ tenantId, branchId: bid, date: dateObj });
+                okAny = true;
+            } catch (e) {
+                console.error('[ReportAggregation] aggregateDailySales failed', {
+                    tenantId,
+                    branchId: bid,
+                    day,
+                    error: e?.message || String(e),
+                });
+                errors += 1;
+            }
+
+            try {
+                await aggregateHourlySales({ tenantId, branchId: bid, date: dateObj });
+                okAny = true;
+            } catch (e) {
+                console.error('[ReportAggregation] aggregateHourlySales failed', {
+                    tenantId,
+                    branchId: bid,
+                    day,
+                    error: e?.message || String(e),
+                });
+                errors += 1;
+            }
+
+            try {
+                await aggregateProductSales({ tenantId, branchId: bid, date: dateObj });
+                okAny = true;
+            } catch (e) {
+                console.error('[ReportAggregation] aggregateProductSales failed', {
+                    tenantId,
+                    branchId: bid,
+                    day,
+                    error: e?.message || String(e),
+                });
+                errors += 1;
+            }
+
+            try {
+                await aggregateCategorySales({ tenantId, branchId: bid, date: dateObj });
+                okAny = true;
+            } catch (e) {
+                console.error('[ReportAggregation] aggregateCategorySales failed', {
+                    tenantId,
+                    branchId: bid,
+                    day,
+                    error: e?.message || String(e),
+                });
+                errors += 1;
+            }
+
+            try {
+                await aggregateStaffSales({ tenantId, branchId: bid, date: dateObj });
+                okAny = true;
+            } catch (e) {
+                console.error('[ReportAggregation] aggregateStaffSales failed', {
+                    tenantId,
+                    branchId: bid,
+                    day,
+                    error: e?.message || String(e),
+                });
+                errors += 1;
+            }
+
+            if (okAny) processed += 1;
+        }
+
+        const next = addDaysUtc(day, 1);
+        if (!next) break;
+        day = next;
+    }
+
+    return { ok: true, from, to, processed, errors };
+};
+
 // Aggregate daily sales for a specific tenant and branch
 const aggregateDailySales = async ({ tenantId, branchId, date }) => {
     const dateStr = toDateString(date);
-    const startOfDay = `${dateStr}T00:00:00.000Z`;
-    const endOfDay = `${dateStr}T23:59:59.999Z`;
+    const b = getDayBounds(dateStr);
+    if (!b) return { orderCount: 0 };
     const nowIso = new Date().toISOString();
 
     // Get orders for the day
     const orders = await db()
         .select(['id', 'total', 'tax', 'tip', 'discount', 'paid_at', 'payload'])
         .from('orders')
-        .where({ tenant_id: tenantId, branch_id: branchId })
-        .andWhere('paid_at', '>=', startOfDay)
-        .andWhere('paid_at', '<=', endOfDay);
+        .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
+        .andWhere((qb) => {
+            qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
+        });
 
     if (orders.length === 0) {
         // No orders, ensure empty record exists
@@ -102,10 +241,15 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
         const orderTip = Number(order.tip || 0) || 0;
         const orderDiscount = Number(order.discount || 0) || 0;
 
-        grossSales += total + orderDiscount;
+        // order.total includes tax + tip (and service charge). To avoid double-counting:
+        const net = Math.max(0, total - orderTax - orderTip);
+        const gross = net + Math.max(0, orderDiscount);
+
+        grossSales += gross;
         discounts += orderDiscount;
         tax += orderTax;
         tips += orderTip;
+        totalCollected += total;
 
         // Track first/last order
         const paidAt = order.paid_at;
@@ -127,14 +271,13 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
             }
         }
 
-        // Payment method breakdown
+        // Payment method breakdown (use collected total)
         const paymentMethod = String(payload.paymentMethod || payload.method || payload.tender || 'Other').trim();
         const pmKey = paymentMethod.toLowerCase().replace(/\s+/g, '_') || 'other';
         paymentBreakdown[pmKey] = (paymentBreakdown[pmKey] || 0) + total;
     }
 
-    const netSales = grossSales - discounts;
-    const totalCollected = netSales + tax + tips;
+    const netSales = Math.max(0, grossSales - discounts);
     const avgTicket = orderCount > 0 ? netSales / orderCount : 0;
 
     // Upsert the summary
@@ -192,16 +335,17 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
 // Aggregate staff sales (daily)
 const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
     const dateStr = toDateString(date);
-    const startOfDay = `${dateStr}T00:00:00.000Z`;
-    const endOfDay = `${dateStr}T23:59:59.999Z`;
+    const b = getDayBounds(dateStr);
+    if (!b) return { staffCount: 0, orderCount: 0 };
     const nowIso = new Date().toISOString();
 
     const orders = await db()
         .select(['id', 'total', 'tax', 'tip', 'discount', 'paid_at', 'payload'])
         .from('orders')
         .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
-        .andWhere('paid_at', '>=', startOfDay)
-        .andWhere('paid_at', '<=', endOfDay);
+        .andWhere((qb) => {
+            qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
+        });
 
     const byStaff = new Map();
 
@@ -222,6 +366,9 @@ const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
         const orderTip = orderTipDb > 0 ? orderTipDb : tipFromPayload;
         const orderTax = orderTaxDb > 0 ? orderTaxDb : taxFromPayload;
 
+        const net = Math.max(0, total - orderTax - orderTip);
+        const gross = net + Math.max(0, orderDiscount);
+
         const pmKey = normalizePaymentKey(payload?.paymentMethod || payload?.method || payload?.tender);
 
         const cur = byStaff.get(staffId) || {
@@ -240,12 +387,12 @@ const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
         };
 
         cur.orderCount += 1;
-        cur.grossSales += total + orderDiscount;
+        cur.grossSales += gross;
         cur.discounts += orderDiscount;
-        cur.netSales += total;
+        cur.netSales += net;
         cur.tax += orderTax;
         cur.tips += orderTip;
-        cur.totalCollected += total + orderTax + orderTip;
+        cur.totalCollected += total;
         cur.paymentBreakdown[pmKey] = (cur.paymentBreakdown[pmKey] || 0) + total;
 
         if (!cur.firstOrderAt || (paidAt && paidAt < cur.firstOrderAt)) cur.firstOrderAt = paidAt;
@@ -307,6 +454,8 @@ const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
 // Aggregate hourly sales
 const aggregateHourlySales = async ({ tenantId, branchId, date }) => {
     const dateStr = toDateString(date);
+    const b = getDayBounds(dateStr);
+    if (!b) return { hoursProcessed: 0 };
     const nowIso = new Date().toISOString();
 
     // Get orders grouped by hour
@@ -314,12 +463,14 @@ const aggregateHourlySales = async ({ tenantId, branchId, date }) => {
         .select([
             db().raw('EXTRACT(HOUR FROM paid_at) as hour'),
             db().raw('COUNT(*) as order_count'),
-            db().raw('COALESCE(SUM(total), 0) as net_sales'),
-            db().raw('COALESCE(SUM(total + COALESCE(tax, 0) + COALESCE(tip, 0)), 0) as total_collected'),
+            db().raw('COALESCE(SUM(GREATEST(0, COALESCE(total, 0) - COALESCE(tax, 0) - COALESCE(tip, 0))), 0) as net_sales'),
+            db().raw('COALESCE(SUM(COALESCE(total, 0)), 0) as total_collected'),
         ])
         .from('orders')
-        .where({ tenant_id: tenantId, branch_id: branchId })
-        .andWhereRaw('DATE(paid_at) = ?', [dateStr])
+        .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
+        .andWhere((qb) => {
+            qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
+        })
         .groupByRaw('EXTRACT(HOUR FROM paid_at)');
 
     for (const row of hourlyData) {
@@ -354,56 +505,171 @@ const aggregateHourlySales = async ({ tenantId, branchId, date }) => {
 // Aggregate product sales
 const aggregateProductSales = async ({ tenantId, branchId, date }) => {
     const dateStr = toDateString(date);
-    const startOfDay = `${dateStr}T00:00:00.000Z`;
-    const endOfDay = `${dateStr}T23:59:59.999Z`;
+    const b = getDayBounds(dateStr);
+    if (!b) return { productsProcessed: 0 };
     const nowIso = new Date().toISOString();
-
-    // Get orders for the day
-    const orders = await db()
-        .select(['payload'])
-        .from('orders')
-        .where({ tenant_id: tenantId, branch_id: branchId })
-        .andWhere('paid_at', '>=', startOfDay)
-        .andWhere('paid_at', '<=', endOfDay);
 
     const productMap = new Map();
 
-    for (const order of orders) {
-        const payload = safeJsonParse(order.payload, {});
-        const items = Array.isArray(payload.items) ? payload.items : [];
+    // Aggregate from normalized order_items instead of JSON payload.
+    // Some deployments might not have order_items dual-write populated, so we fall back to payload on error/empty.
+    let itemRows = [];
+    try {
+        itemRows = await db()
+            .from({ oi: 'order_items' })
+            .innerJoin({ o: 'orders' }, function () {
+                this.on('o.id', '=', 'oi.order_id')
+                    .andOn('o.tenant_id', '=', 'oi.tenant_id')
+                    .andOn('o.branch_id', '=', 'oi.branch_id');
+            })
+            .leftJoin({ p: 'menu_products' }, function () {
+                this.on('p.id', '=', 'oi.product_id')
+                    .andOn('p.tenant_id', '=', 'oi.tenant_id')
+                    .andOn('p.branch_id', '=', 'oi.branch_id');
+            })
+            .where({ 'oi.tenant_id': tenantId, 'oi.branch_id': branchId, 'o.status': 'Paid' })
+            .andWhere((qb) => {
+                qb.whereBetween('o.paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('o.paid_at', [b.isoStart, b.isoEnd]);
+            })
+            .select([
+                db().raw("COALESCE(NULLIF(TRIM(oi.product_id), ''), NULLIF(TRIM(oi.product_code), ''), TRIM(oi.name)) as product_key"),
+                db().raw("COALESCE(NULLIF(TRIM(p.name), ''), TRIM(oi.name)) as product_name"),
+                db().raw("COALESCE(NULLIF(TRIM(p.category), ''), '') as category"),
+                db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0))) as qty_sold'),
+                db().raw('SUM(GREATEST(0, COALESCE(oi.voided_qty, 0))) as void_qty'),
+                db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) * COALESCE(oi.unit_price, 0)) as revenue_etb'),
+            ])
+            .groupBy(['product_key', 'product_name', 'category']);
+    } catch {
+        itemRows = [];
+    }
 
-        for (const item of items) {
-            const productId = String(item.productId || item.id || '').trim();
+    if (!Array.isArray(itemRows) || itemRows.length === 0) {
+        try {
+            itemRows = await db()
+                .from({ oi: 'order_items' })
+                .innerJoin({ o: 'orders' }, function () {
+                    this.on('o.id', '=', 'oi.order_id')
+                        .andOn('o.tenant_id', '=', 'oi.tenant_id')
+                        .andOn('o.branch_id', '=', 'oi.branch_id');
+                })
+                .where({ 'oi.tenant_id': tenantId, 'oi.branch_id': branchId, 'o.status': 'Paid' })
+                .andWhere((qb) => {
+                    qb.whereBetween('o.paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('o.paid_at', [b.isoStart, b.isoEnd]);
+                })
+                .select([
+                    db().raw("COALESCE(NULLIF(TRIM(oi.product_id), ''), NULLIF(TRIM(oi.product_code), ''), TRIM(oi.name)) as product_key"),
+                    db().raw("COALESCE(NULLIF(TRIM(oi.name), ''), NULLIF(TRIM(oi.product_code), ''), NULLIF(TRIM(oi.product_id), ''), 'Unknown') as product_name"),
+                    db().raw("'' as category"),
+                    db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0))) as qty_sold'),
+                    db().raw('SUM(GREATEST(0, COALESCE(oi.voided_qty, 0))) as void_qty'),
+                    db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) * COALESCE(oi.unit_price, 0)) as revenue_etb'),
+                ])
+                .groupBy(['product_key', 'product_name', 'category']);
+        } catch {
+            itemRows = [];
+        }
+    }
+
+    if (Array.isArray(itemRows) && itemRows.length > 0) {
+        for (const r of itemRows) {
+            const productId = String(r.product_key || '').trim();
             if (!productId) continue;
-
-            const qty = Number(item.qty || 0) || 0;
-            const voidedQty = Number(item.voidedQty || 0) || 0;
-            const soldQty = Math.max(0, qty - voidedQty);
-            const unitPrice = Number(item.unitPrice || item.price || 0) || 0;
-            const revenue = soldQty * unitPrice;
+            const name = String(r.product_name || productId);
+            const category = String(r.category || '');
+            const qtySold = Number(r.qty_sold || 0) || 0;
+            const revenue = Number(r.revenue_etb || 0) || 0;
+            const voidQty = Number(r.void_qty || 0) || 0;
 
             const existing = productMap.get(productId) || {
                 productId,
-                name: item.name || '',
-                category: item.category || '',
+                name,
+                category,
                 qtySold: 0,
                 revenue: 0,
                 voidQty: 0,
             };
 
-            existing.name = existing.name || item.name || '';
-            existing.category = existing.category || item.category || '';
-            existing.qtySold += soldQty;
+            existing.name = existing.name || name;
+            existing.category = existing.category || category;
+            existing.qtySold += qtySold;
             existing.revenue += revenue;
-            existing.voidQty += voidedQty;
+            existing.voidQty += voidQty;
 
             productMap.set(productId, existing);
         }
+    } else {
+        const orders = await db()
+            .select(['payload'])
+            .from('orders')
+            .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
+            .andWhere((qb) => {
+                qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
+            });
+
+        for (const order of orders) {
+            const payload = safeJsonParse(order.payload, {});
+            const items = Array.isArray(payload.items) ? payload.items : [];
+
+            for (const item of items) {
+                const productId = String(item.productId || item.product_id || item.code || item.productCode || item.id || item.name || '').trim();
+                if (!productId) continue;
+
+                const qty = Number(item.qty || 0) || 0;
+                const voidedQty = Number(item.voidedQty || 0) || 0;
+                const soldQty = Math.max(0, qty - voidedQty);
+                const unitPrice = Number(item.unitPrice || item.price || 0) || 0;
+                const revenue = soldQty * unitPrice;
+
+                const existing = productMap.get(productId) || {
+                    productId,
+                    name: item.name || productId,
+                    category: item.category || '',
+                    qtySold: 0,
+                    revenue: 0,
+                    voidQty: 0,
+                };
+
+                existing.name = existing.name || item.name || productId;
+                existing.category = existing.category || item.category || '';
+                existing.qtySold += soldQty;
+                existing.revenue += revenue;
+                existing.voidQty += voidedQty;
+
+                productMap.set(productId, existing);
+            }
+        }
+    }
+
+    const unitCostByProductId = new Map();
+    try {
+        const ids = Array.from(productMap.keys());
+        if (ids.length) {
+            const recipeRows = await db()
+                .from('menu_recipes')
+                .where({ tenant_id: tenantId, branch_id: branchId })
+                .whereIn('product_id', ids)
+                .select(['product_id', 'recipe_json']);
+
+            for (const r of recipeRows) {
+                const pid = String(r.product_id || '').trim();
+                if (!pid) continue;
+                const recipe = safeJsonParse(r.recipe_json, {});
+                const unitCost = Number(recipe?.totalCost ?? 0) || 0;
+                if (unitCost > 0) unitCostByProductId.set(pid, unitCost);
+            }
+        }
+    } catch {
+        unitCostByProductId.clear();
     }
 
     // Upsert product summaries
     for (const [productId, data] of productMap) {
         const summaryId = `pss_${tenantId}_${branchId}_${productId}_${dateStr}`;
+
+        const unitCost = Number(unitCostByProductId.get(productId) || 0) || 0;
+        const cost = Math.max(0, data.qtySold) * unitCost;
+        const profit = data.revenue - cost;
 
         await db()
             .from('product_sales_summary')
@@ -417,8 +683,8 @@ const aggregateProductSales = async ({ tenantId, branchId, date }) => {
                 report_date: dateStr,
                 qty_sold: data.qtySold,
                 revenue_etb: data.revenue,
-                cost_etb: 0, // Would need cost data from inventory
-                profit_etb: data.revenue, // Simplified - revenue only
+                cost_etb: cost,
+                profit_etb: profit,
                 void_qty: data.voidQty,
                 computed_at: nowIso,
             })
@@ -428,6 +694,8 @@ const aggregateProductSales = async ({ tenantId, branchId, date }) => {
                 category: data.category,
                 qty_sold: data.qtySold,
                 revenue_etb: data.revenue,
+                cost_etb: cost,
+                profit_etb: profit,
                 void_qty: data.voidQty,
                 computed_at: nowIso,
             });
@@ -441,45 +709,47 @@ const aggregateCategorySales = async ({ tenantId, branchId, date }) => {
     const dateStr = toDateString(date);
     const nowIso = new Date().toISOString();
 
-    // Get from product summaries
-    const productSummaries = await db()
+    const rows = await db()
+        .from('product_sales_summary')
+        .where({ tenant_id: tenantId, branch_id: branchId })
+        .andWhere('report_date', '=', dateStr)
         .select([
-            'category',
+            db().raw('COALESCE(NULLIF(TRIM(category), \'\'), \'Uncategorized\') as category'),
             db().raw('SUM(qty_sold) as qty_sold'),
-            db().raw('SUM(revenue_etb) as revenue'),
+            db().raw('SUM(revenue_etb) as revenue_etb'),
             db().raw('COUNT(DISTINCT product_id) as product_count'),
         ])
-        .from('product_sales_summary')
-        .where({ tenant_id: tenantId, branch_id: branchId, report_date: dateStr })
-        .groupBy('category');
+        .groupBy(['category']);
 
-    for (const row of productSummaries) {
-        const category = String(row.category || 'Uncategorized');
-        const summaryId = `css_${tenantId}_${branchId}_${category.replace(/\s+/g, '_')}_${dateStr}`;
+    for (const r of rows) {
+        const category = String(r.category || 'Uncategorized');
+        const qtySold = Number(r.qty_sold || 0) || 0;
+        const revenue = Number(r.revenue_etb || 0) || 0;
+        const productCount = Number(r.product_count || 0) || 0;
 
         await db()
             .from('category_sales_summary')
             .insert({
-                id: summaryId,
+                id: makeId('css'),
                 tenant_id: tenantId,
                 branch_id: branchId,
                 category,
                 report_date: dateStr,
-                qty_sold: Number(row.qty_sold || 0),
-                revenue_etb: Number(row.revenue || 0),
-                order_count: Number(row.product_count || 0),
+                qty_sold: qtySold,
+                revenue_etb: revenue,
+                order_count: productCount,
                 computed_at: nowIso,
             })
             .onConflict(['tenant_id', 'branch_id', 'category', 'report_date'])
             .merge({
-                qty_sold: Number(row.qty_sold || 0),
-                revenue_etb: Number(row.revenue || 0),
-                order_count: Number(row.product_count || 0),
+                qty_sold: qtySold,
+                revenue_etb: revenue,
+                order_count: productCount,
                 computed_at: nowIso,
             });
     }
 
-    return { categoriesProcessed: productSummaries.length };
+    return { categoriesProcessed: rows.length };
 };
 
 // Build shift report
@@ -571,13 +841,19 @@ const runDailyAggregation = async (date = null) => {
     const targetDate = date || new Date(Date.now() - 24 * 60 * 60 * 1000); // Yesterday
     const dateStr = toDateString(targetDate);
 
+    const b = getDayBounds(dateStr);
+    if (!b) return { date: dateStr, processed: 0, errors: 0 };
+
     console.log(`[ReportAggregation] Starting daily aggregation for ${dateStr}`);
 
     // Get all tenant-branch combinations with orders on that date
     const tenantBranches = await db()
         .select(['tenant_id', 'branch_id'])
         .from('orders')
-        .whereRaw('DATE(paid_at) = ?', [dateStr])
+        .where({ status: 'Paid' })
+        .andWhere((qb) => {
+            qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
+        })
         .groupBy(['tenant_id', 'branch_id']);
 
     let processed = 0;
@@ -603,46 +879,124 @@ const runDailyAggregation = async (date = null) => {
 };
 
 const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate }) => {
-    const q = db()
-        .from('daily_sales_summary')
-        .where({ tenant_id: tenantId })
-        .andWhere('report_date', '>=', fromDate)
-        .andWhere('report_date', '<=', toDate)
-        .orderBy('report_date', 'asc')
+    const fromDt = `${fromDate} 00:00:00`;
+    const toDt = `${toDate} 23:59:59`;
+    const fromIso = `${fromDate}T00:00:00.000Z`;
+    const toIso = `${toDate}T23:59:59.999Z`;
+
+    let ordersQ = db()
+        .from({ o: 'orders' })
+        .where({ 'o.tenant_id': tenantId, 'o.status': 'Paid' })
+        .andWhere((qb) => {
+            qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+        });
+
+    if (branchId) ordersQ = ordersQ.andWhere({ 'o.branch_id': branchId });
+
+    const orderAgg = await ordersQ
         .select([
-            'report_date',
-            'branch_id',
-            'order_count',
-            'item_count',
-            'gross_sales_etb',
-            'discounts_etb',
-            'net_sales_etb',
-            'tax_etb',
-            'tips_etb',
-            'total_collected_etb',
-            'payment_breakdown_json',
-            'avg_ticket_etb',
-            'computed_at',
+            db().raw('DATE(o.paid_at) as report_date'),
+            'o.branch_id',
+            db().raw('COUNT(*) as order_count'),
+            db().raw('COALESCE(SUM(COALESCE(o.discount, 0)), 0) as discounts_etb'),
+            db().raw('COALESCE(SUM(COALESCE(o.tax, 0)), 0) as tax_etb'),
+            db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as tips_etb'),
+            db().raw('COALESCE(SUM(COALESCE(o.total, 0)), 0) as total_collected_etb'),
+            db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as net_sales_etb'),
+        ])
+        .groupBy(['report_date', 'o.branch_id'])
+        .orderBy([{ column: db().raw('report_date'), order: 'asc' }, { column: 'o.branch_id', order: 'asc' }]);
+
+    let itemsQ = db()
+        .from({ oi: 'order_items' })
+        .innerJoin({ o: 'orders' }, function () {
+            this.on('o.id', '=', 'oi.order_id')
+                .andOn('o.tenant_id', '=', 'oi.tenant_id')
+                .andOn('o.branch_id', '=', 'oi.branch_id');
+        })
+        .where({ 'o.tenant_id': tenantId, 'o.status': 'Paid' })
+        .andWhere((qb) => {
+            qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+        });
+
+    if (branchId) itemsQ = itemsQ.andWhere({ 'o.branch_id': branchId });
+
+    const itemAgg = await itemsQ
+        .select([
+            db().raw('DATE(o.paid_at) as report_date'),
+            'o.branch_id',
+            db().raw('COALESCE(SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0))), 0) as item_count'),
+        ])
+        .groupBy(['report_date', 'o.branch_id']);
+
+    const itemCountByKey = new Map();
+    for (const r of itemAgg) {
+        const d = r.report_date ? String(r.report_date).slice(0, 10) : '';
+        const b = String(r.branch_id || '');
+        const key = `${d}|${b}`;
+        itemCountByKey.set(key, Number(r.item_count || 0) || 0);
+    }
+
+    let paymentQ = db()
+        .from({ o: 'orders' })
+        .where({ 'o.tenant_id': tenantId, 'o.status': 'Paid' })
+        .andWhere((qb) => {
+            qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+        })
+        .select([
+            db().raw('DATE(o.paid_at) as report_date'),
+            'o.branch_id',
+            'o.total',
+            'o.payload',
         ]);
+    if (branchId) paymentQ = paymentQ.andWhere({ 'o.branch_id': branchId });
 
-    if (branchId) q.andWhere({ branch_id: branchId });
+    const paymentRows = await paymentQ;
+    const paymentByKey = new Map();
+    for (const r of paymentRows) {
+        const d = r.report_date ? String(r.report_date).slice(0, 10) : '';
+        const b = String(r.branch_id || '');
+        const key = `${d}|${b}`;
+        const total = Number(r.total || 0) || 0;
+        const payload = safeJsonParse(r.payload, {});
+        const pmKey = normalizePaymentKey(payload?.paymentMethod || payload?.method || payload?.tender);
 
-    const rows = await q;
-    return rows.map((r) => ({
-        date: r.report_date ? String(r.report_date).slice(0, 10) : '',
-        branchId: String(r.branch_id || ''),
-        orderCount: Number(r.order_count || 0) || 0,
-        itemCount: Number(r.item_count || 0) || 0,
-        grossSales: Number(r.gross_sales_etb || 0) || 0,
-        discounts: Number(r.discounts_etb || 0) || 0,
-        netSales: Number(r.net_sales_etb || 0) || 0,
-        tax: Number(r.tax_etb || 0) || 0,
-        tips: Number(r.tips_etb || 0) || 0,
-        totalCollected: Number(r.total_collected_etb || 0) || 0,
-        paymentBreakdown: safeJsonParse(r.payment_breakdown_json, {}),
-        avgTicket: Number(r.avg_ticket_etb || 0) || 0,
-        computedAt: r.computed_at ? new Date(r.computed_at).toISOString() : null,
-    }));
+        const cur = paymentByKey.get(key) || {};
+        cur[pmKey] = (cur[pmKey] || 0) + total;
+        paymentByKey.set(key, cur);
+    }
+
+    return orderAgg.map((r) => {
+        const date = r.report_date ? String(r.report_date).slice(0, 10) : '';
+        const bid = String(r.branch_id || '');
+        const key = `${date}|${bid}`;
+
+        const orderCount = Number(r.order_count || 0) || 0;
+        const discounts = Number(r.discounts_etb || 0) || 0;
+        const netSales = Number(r.net_sales_etb || 0) || 0;
+        const tax = Number(r.tax_etb || 0) || 0;
+        const tips = Number(r.tips_etb || 0) || 0;
+        const totalCollected = Number(r.total_collected_etb || 0) || 0;
+
+        const grossSales = netSales + discounts;
+        const avgTicket = orderCount > 0 ? netSales / orderCount : 0;
+
+        return {
+            date,
+            branchId: bid,
+            orderCount,
+            itemCount: itemCountByKey.get(key) || 0,
+            grossSales,
+            discounts,
+            netSales,
+            tax,
+            tips,
+            totalCollected,
+            paymentBreakdown: paymentByKey.get(key) || {},
+            avgTicket: Math.round(avgTicket * 100) / 100,
+            computedAt: null,
+        };
+    });
 };
 
 const getHourlySalesHeatmap = async ({ tenantId, branchId, fromDate, toDate }) => {
@@ -678,37 +1032,82 @@ const getHourlySalesHeatmap = async ({ tenantId, branchId, fromDate, toDate }) =
 };
 
 const getProductPerformance = async ({ tenantId, branchId, fromDate, toDate, limit }) => {
-    let query = db()
-        .select([
-            'product_id',
-            'product_name',
-            'category',
-            db().raw('SUM(qty_sold) as total_qty'),
-            db().raw('SUM(revenue_etb) as total_revenue'),
-            db().raw('SUM(void_qty) as total_voids'),
-        ])
-        .from('product_sales_summary')
-        .where({ tenant_id: tenantId })
-        .andWhere('report_date', '>=', fromDate)
-        .andWhere('report_date', '<=', toDate);
+    const fromDt = `${fromDate} 00:00:00`;
+    const toDt = `${toDate} 23:59:59`;
+    const fromIso = `${fromDate}T00:00:00.000Z`;
+    const toIso = `${toDate}T23:59:59.999Z`;
 
-    if (branchId) {
-        query = query.andWhere({ branch_id: branchId });
+    let q = db()
+        .from({ oi: 'order_items' })
+        .innerJoin({ o: 'orders' }, function () {
+            this.on('o.id', '=', 'oi.order_id')
+                .andOn('o.tenant_id', '=', 'oi.tenant_id')
+                .andOn('o.branch_id', '=', 'oi.branch_id');
+        })
+        .leftJoin({ p: 'menu_products' }, function () {
+            this.on('p.id', '=', 'oi.product_id')
+                .andOn('p.tenant_id', '=', 'oi.tenant_id')
+                .andOn('p.branch_id', '=', 'oi.branch_id');
+        })
+        .where({ 'o.tenant_id': tenantId, 'o.status': 'Paid' })
+        .andWhere((qb) => {
+            qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+        });
+
+    if (branchId) q = q.andWhere({ 'o.branch_id': branchId });
+
+    const baseRows = await q
+        .select([
+            db().raw("COALESCE(NULLIF(TRIM(oi.product_id), ''), NULLIF(TRIM(oi.product_code), ''), TRIM(oi.name)) as product_id"),
+            db().raw("COALESCE(NULLIF(TRIM(p.name), ''), TRIM(oi.name)) as product_name"),
+            db().raw("COALESCE(NULLIF(TRIM(p.category), ''), NULLIF(TRIM(oi.product_code), ''), '') as category"),
+            db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0))) as qty_sold'),
+            db().raw('SUM(GREATEST(0, COALESCE(oi.voided_qty, 0))) as void_qty'),
+            db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) * COALESCE(oi.unit_price, 0)) as revenue_etb'),
+        ])
+        .groupBy(['product_id', 'product_name', 'category'])
+        .orderBy(db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) * COALESCE(oi.unit_price, 0))'), 'desc')
+        .limit(Math.max(1, Math.min(5000, Number(limit || 100) || 100)));
+
+    const rows = baseRows.map((r) => ({
+        productId: String(r.product_id || '').trim(),
+        name: String(r.product_name || r.product_id || '').trim(),
+        category: String(r.category || 'Uncategorized').trim() || 'Uncategorized',
+        qtySold: Number(r.qty_sold || 0) || 0,
+        revenue: Number(r.revenue_etb || 0) || 0,
+        cost: 0,
+        profit: 0,
+        voidQty: Number(r.void_qty || 0) || 0,
+    }));
+
+    const recipeIds = rows.map((r) => r.productId).filter(Boolean);
+    if (recipeIds.length) {
+        try {
+            let recipeQuery = db().from('menu_recipes').where({ tenant_id: tenantId });
+            if (branchId) recipeQuery = recipeQuery.andWhere({ branch_id: branchId });
+            const recipeRows = await recipeQuery.whereIn('product_id', recipeIds).select(['product_id', 'recipe_json']);
+
+            const unitCostByProductId = new Map();
+            for (const rr of recipeRows) {
+                const pid = String(rr.product_id || '').trim();
+                if (!pid) continue;
+                const recipe = safeJsonParse(rr.recipe_json, {});
+                const unitCost = Number(recipe?.totalCost ?? 0) || 0;
+                if (unitCost > 0) unitCostByProductId.set(pid, unitCost);
+            }
+
+            for (const r of rows) {
+                const unitCost = Number(unitCostByProductId.get(r.productId) || 0) || 0;
+                if (unitCost <= 0) continue;
+                r.cost = Math.max(0, r.qtySold) * unitCost;
+                r.profit = r.revenue - r.cost;
+            }
+        } catch {
+            // ignore
+        }
     }
 
-    const rows = await query
-        .groupBy(['product_id', 'product_name', 'category'])
-        .orderBy(db().raw('SUM(revenue_etb)'), 'desc')
-        .limit(limit);
-
-    return rows.map((r) => ({
-        productId: String(r.product_id || ''),
-        name: String(r.product_name || r.product_id || ''),
-        category: String(r.category || 'Uncategorized'),
-        qtySold: Number(r.total_qty || 0) || 0,
-        revenue: Number(r.total_revenue || 0) || 0,
-        voidQty: Number(r.total_voids || 0) || 0,
-    }));
+    return rows;
 };
 
 const getStaffSalesSummary = async ({ tenantId, branchId, fromDate, toDate, limit }) => {
@@ -734,7 +1133,7 @@ const getStaffSalesSummary = async ({ tenantId, branchId, fromDate, toDate, limi
     const rows = await query
         .groupBy(['staff_id', 'staff_name'])
         .orderBy(db().raw('SUM(net_sales_etb)'), 'desc')
-        .limit(Math.max(1, Math.min(500, Number(limit || 100) || 100)));
+        .limit(Math.max(1, Math.min(5000, Number(limit || 100) || 100)));
 
     return rows.map((r) => ({
         staffId: String(r.staff_id || ''),
@@ -793,6 +1192,7 @@ module.exports = {
     aggregateStaffSales,
     buildShiftReport,
     runDailyAggregation,
+    ensureAggregatedForRange,
     getDailySalesSummary,
     getHourlySalesHeatmap,
     getProductPerformance,

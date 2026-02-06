@@ -8,6 +8,7 @@ const { makeId } = require('../utils/ids');
 
 const { loadEntitlements, requireModule, enforceStaffLimit } = require('../middleware/entitlements');
 const { requireRole, requirePermission } = require('../middleware/permissions');
+const { sanitizeLikeInput, sanitizeText } = require('../utils/sanitize');
 
 const roleKindFromName = (name) => {
   const n = String(name || '').toLowerCase();
@@ -525,10 +526,10 @@ const makeOwnerStaffRouter = () => {
         // ignore
       }
 
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
-      const roleId = typeof req.query?.roleId === 'string' ? req.query.roleId.trim() : '';
-      const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
-      const branchId = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
+      const q = sanitizeLikeInput(req.query?.q, { lower: true, maxLen: 80 });
+      const roleId = sanitizeText(req.query?.roleId, { maxLen: 64 });
+      const status = sanitizeText(req.query?.status, { maxLen: 40 });
+      const branchId = sanitizeText(req.query?.branchId, { maxLen: 64 });
 
       const page = Math.max(1, Number(req.query?.page || 1) || 1);
       const pageSize = Math.max(1, Math.min(50, Number(req.query?.pageSize || 20) || 20));

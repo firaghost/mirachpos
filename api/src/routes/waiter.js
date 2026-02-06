@@ -1,14 +1,97 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const ExcelJS = require('exceljs');
 
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 const { requireRole, requirePermission } = require('../middleware/permissions');
+const { validateWaiterAccount, validateWaiterHistoryQuery } = require('../middleware/validators');
+const { sanitizeLikeInput, sanitizeText } = require('../utils/sanitize');
 
 const makeWaiterRouter = () => {
   const r = express.Router();
+
+  const getTenantBusinessName = async (tenantId) => {
+    try {
+      const row = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: tenantId }).first();
+      const raw = row?.settings_json ? String(row.settings_json) : '';
+      const parsed = raw ? JSON.parse(raw) : {};
+      const business = parsed?.business && typeof parsed.business === 'object' ? parsed.business : {};
+      const name = String(business.businessName || business.legalName || '').trim();
+      return name || 'MirachPOS';
+    } catch {
+      return 'MirachPOS';
+    }
+  };
+
+  const parseIsoDateOnly = (s) => {
+    const v = String(s || '').trim();
+    if (!v) return '';
+    const m = /^\d{4}-\d{2}-\d{2}$/.exec(v);
+    if (!m) return '';
+    const d = new Date(`${v}T00:00:00.000Z`);
+    if (!Number.isFinite(d.getTime())) return '';
+    return v;
+  };
+
+  const buildWaiterDailyByProduct = async ({ tenantId, branchId, fromDateOnly, toDateOnly }) => {
+    const from = parseIsoDateOnly(fromDateOnly);
+    const to = parseIsoDateOnly(toDateOnly);
+    if (!from || !to) return { ok: false, error: 'invalid_range' };
+
+    const fromIso = `${from} 00:00:00`;
+    const toIso = `${to} 23:59:59`;
+
+    const rows = await db()
+      .select(['id', 'total', 'paid_at', 'payload'])
+      .from('orders')
+      .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
+      .andWhere('paid_at', '>=', fromIso)
+      .andWhere('paid_at', '<=', toIso);
+
+    const byKey = new Map();
+    let ordersPaid = 0;
+    let totalCollected = 0;
+
+    for (const o of rows) {
+      ordersPaid += 1;
+      totalCollected += Number(o.total || 0) || 0;
+
+      let payload = {};
+      try {
+        payload = o?.payload ? JSON.parse(String(o.payload)) : {};
+      } catch {
+        payload = {};
+      }
+
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      for (const it of items) {
+        if (!it || typeof it !== 'object') continue;
+        const productId = String(it.productId || it.product_id || it.id || '').trim();
+        const name = String(it.name || it.productName || '').trim();
+        const qty = Number(it.qty ?? 0) || 0;
+        const unitPrice = Number(it.unitPrice ?? it.unit_price ?? it.price ?? 0) || 0;
+        if (!productId && !name) continue;
+        if (qty <= 0) continue;
+
+        const key = productId || name.toLowerCase();
+        const prev = byKey.get(key) || { productId, productName: name, qty: 0, total: 0 };
+        prev.productId = prev.productId || productId;
+        prev.productName = prev.productName || name;
+        prev.qty += qty;
+        prev.total += qty * unitPrice;
+        byKey.set(key, prev);
+      }
+    }
+
+    const products = Array.from(byKey.values())
+      .filter((p) => (p.productId || p.productName) && p.qty > 0)
+      .sort((a, b) => b.total - a.total);
+
+    return { ok: true, from, to, ordersPaid, totalCollected, products };
+  };
 
   const resolveBranchId = (req) => {
     const role = String(req.auth?.role || '').trim();
@@ -42,6 +125,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     requireRole('Waiter', 'Waiter Manager'),
+    validateWaiterAccount,
     async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
@@ -51,11 +135,7 @@ const makeWaiterRouter = () => {
       const branchId = resolveBranchId(req);
       if (!staffId) return res.status(401).json({ error: 'unauthorized' });
 
-      const body = req.body && typeof req.body === 'object' ? req.body : null;
-      const currentPassword = typeof body?.currentPassword === 'string' ? body.currentPassword : '';
-      const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
-      const currentPin = typeof body?.currentPin === 'string' ? body.currentPin : '';
-      const newPin = typeof body?.newPin === 'string' ? body.newPin : '';
+      const { currentPassword, newPassword, currentPin, newPin } = req.validatedBody || req.body;
 
       if (!newPassword && !newPin) return res.status(400).json({ error: 'no_changes' });
       if (newPassword && newPassword.length < 4) return res.status(400).json({ error: 'password_too_short' });
@@ -100,6 +180,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     requireRole('Waiter', 'Waiter Manager'),
+    validateWaiterHistoryQuery,
     async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
@@ -109,12 +190,11 @@ const makeWaiterRouter = () => {
       const staffId = String(req.auth?.staffId || '');
       if (!staffId) return res.status(401).json({ error: 'unauthorized' });
 
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
-      const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
-      const fromRaw = typeof req.query?.from === 'string' ? req.query.from.trim() : '';
-      const toRaw = typeof req.query?.to === 'string' ? req.query.to.trim() : '';
-      const page = Math.max(1, Number(req.query?.page || 1) || 1);
-      const pageSize = Math.min(50, Math.max(1, Number(req.query?.pageSize || 25) || 25));
+      const { q: qRaw, status: statusRaw, from: fromRaw, to: toRaw, page: pageRaw, pageSize: pageSizeRaw } = req.validatedQuery || req.query;
+      const q = sanitizeLikeInput(qRaw, { lower: true, maxLen: 80 });
+      const status = sanitizeText(statusRaw, { maxLen: 40 });
+      const page = Math.max(1, Number(pageRaw || 1) || 1);
+      const pageSize = Math.min(50, Math.max(1, Number(pageSizeRaw || 25) || 25));
 
       const parseIsoDateTime = (s) => {
         const v = String(s || '').trim();
@@ -220,6 +300,114 @@ const makeWaiterRouter = () => {
       });
 
       return res.json({ ok: true, orders: items, page, pageSize, total, branchId });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.get(
+    '/waiter/history/export/xlsx',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Waiter Manager'),
+    async (req, res, next) => {
+    try {
+      if (!requireWaiter(req, res)) return;
+
+      const branchId = resolveBranchId(req);
+      const today = new Date().toISOString().slice(0, 10);
+      const from = typeof req.query?.from === 'string' ? req.query.from.trim() : today;
+      const to = typeof req.query?.to === 'string' ? req.query.to.trim() : today;
+
+      const agg = await buildWaiterDailyByProduct({ tenantId: req.tenant.id, branchId, fromDateOnly: from, toDateOnly: to });
+      if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
+
+      const businessName = await getTenantBusinessName(req.tenant.id);
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'MirachPOS';
+      wb.created = new Date();
+
+      const summary = wb.addWorksheet('Summary');
+      summary.addRow([businessName]);
+      summary.getRow(summary.rowCount).font = { bold: true, size: 14 };
+      summary.addRow(['Waiter Daily Sales']);
+      summary.getRow(summary.rowCount).font = { bold: true, size: 12 };
+      summary.addRow([`${agg.from} → ${agg.to}`]);
+      summary.addRow([]);
+      summary.addRow(['Orders Paid', agg.ordersPaid]);
+      summary.addRow(['Total Collected (ETB)', Number(agg.totalCollected || 0).toFixed(2)]);
+      summary.getColumn(1).width = 26;
+      summary.getColumn(2).width = 18;
+
+      const products = wb.addWorksheet('Products');
+      products.addRow(['Product ID', 'Product Name', 'Qty', 'Total (ETB)']);
+      products.getRow(1).font = { bold: true };
+      products.columns = [
+        { key: 'productId', width: 18 },
+        { key: 'productName', width: 34 },
+        { key: 'qty', width: 10 },
+        { key: 'total', width: 16, style: { numFmt: '#,##0.00' } },
+      ];
+
+      for (const p of agg.products) {
+        products.addRow([String(p.productId || ''), String(p.productName || ''), Number(p.qty || 0), Number(p.total || 0)]);
+      }
+
+      const buf = await wb.xlsx.writeBuffer();
+      const filename = `waiter_daily_sales_${branchId}_${agg.from}_to_${agg.to}.xlsx`;
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(Buffer.from(buf));
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.get(
+    '/waiter/history/export/pdf',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Waiter Manager'),
+    async (req, res, next) => {
+    try {
+      if (!requireWaiter(req, res)) return;
+
+      const branchId = resolveBranchId(req);
+      const today = new Date().toISOString().slice(0, 10);
+      const from = typeof req.query?.from === 'string' ? req.query.from.trim() : today;
+      const to = typeof req.query?.to === 'string' ? req.query.to.trim() : today;
+
+      const agg = await buildWaiterDailyByProduct({ tenantId: req.tenant.id, branchId, fromDateOnly: from, toDateOnly: to });
+      if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
+
+      const businessName = await getTenantBusinessName(req.tenant.id);
+      const { generateReportPDF } = require('../services/pdfService');
+
+      const totals = [
+        { label: 'Orders Paid', value: String(agg.ordersPaid || 0) },
+        { label: 'Total Collected', value: `ETB ${(Number(agg.totalCollected || 0) || 0).toFixed(2)}` },
+      ];
+
+      const columns = [
+        { header: 'Product ID', key: 'productId', width: 120 },
+        { header: 'Product', key: 'productName', width: 200 },
+        { header: 'Qty', key: 'qty', width: 60, align: 'right' },
+        { header: 'Total (ETB)', key: 'total', width: 90, align: 'right', format: (n) => Number(n).toFixed(2) },
+      ];
+
+      const rows = agg.products.map((p) => ({
+        productId: String(p.productId || ''),
+        productName: String(p.productName || ''),
+        qty: Number(p.qty || 0),
+        total: Number(p.total || 0),
+      }));
+
+      const pdf = await generateReportPDF('Waiter Daily Sales', { from: agg.from, to: agg.to }, columns, rows, { businessName, totals });
+      const filename = `waiter_daily_sales_${branchId}_${agg.from}_to_${agg.to}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(pdf);
     } catch (e) {
       return next(e);
     }

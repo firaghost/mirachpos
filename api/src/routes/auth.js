@@ -1,7 +1,12 @@
 const express = require('express');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
-const { validateLogin } = require('../middleware/validators');
+const {
+  validateLogin,
+  validateLoginPin,
+  validateForgotPasswordRequest,
+  validateForgotPasswordConfirm,
+} = require('../middleware/validators');
 const { config } = require('../config');
 const { db } = require('../db');
 const { loginWithEmailPassword, loginWithCodePin } = require('../services/authService');
@@ -92,10 +97,11 @@ const makeAuthRouter = () => {
     try {
       // Use validated data from Zod middleware
       const { email, password } = req.validatedBody || req.body;
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
       const out = await loginWithEmailPassword({
         tenantId: req.tenant.id,
-        email,
+        email: normalizedEmail,
         password,
         jwtSecret: config.jwtSecret,
       });
@@ -132,10 +138,9 @@ const makeAuthRouter = () => {
   // Backward-compatible: existing frontend calls /api/auth/login
   r.post('/auth/login', tenantMiddleware, validateLogin, handler);
 
-  r.post('/login-pin', tenantMiddleware, async (req, res, next) => {
+  r.post('/login-pin', tenantMiddleware, validateLoginPin, async (req, res, next) => {
     try {
-      const code = typeof req.body?.code === 'string' ? req.body.code : '';
-      const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
+      const { code, pin } = req.validatedBody || req.body;
       const out = await loginWithCodePin({ tenantId: req.tenant.id, code, pin, jwtSecret: config.jwtSecret });
       if (!out.ok) {
         try {
@@ -163,10 +168,9 @@ const makeAuthRouter = () => {
     }
   });
 
-  r.post('/auth/login-pin', tenantMiddleware, async (req, res, next) => {
+  r.post('/auth/login-pin', tenantMiddleware, validateLoginPin, async (req, res, next) => {
     try {
-      const code = typeof req.body?.code === 'string' ? req.body.code : '';
-      const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
+      const { code, pin } = req.validatedBody || req.body;
       const out = await loginWithCodePin({ tenantId: req.tenant.id, code, pin, jwtSecret: config.jwtSecret });
       if (!out.ok) {
         try {
@@ -194,16 +198,17 @@ const makeAuthRouter = () => {
     }
   });
 
-  r.post('/auth/forgot-password/request', tenantMiddleware, async (req, res, next) => {
+  r.post('/auth/forgot-password/request', tenantMiddleware, validateForgotPasswordRequest, async (req, res, next) => {
     try {
-      const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-      if (!email) return res.status(400).json({ error: 'email_required' });
+      const { email } = req.validatedBody || req.body;
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+      if (!normalizedEmail) return res.status(400).json({ error: 'email_required' });
 
       const staff = await db()
         .select(['id'])
         .from('staff')
         .where({ tenant_id: req.tenant.id })
-        .andWhereRaw('LOWER(email) = ?', [email])
+        .andWhereRaw('LOWER(email) = ?', [normalizedEmail])
         .first();
 
       const otp = randomOtp();
@@ -319,7 +324,7 @@ const makeAuthRouter = () => {
 
             await transporter.sendMail({
               from: `"${appName}" <${fromEmail}>`,
-              to: email,
+              to: normalizedEmail,
               subject,
               text,
               html,
@@ -336,7 +341,7 @@ const makeAuthRouter = () => {
                 if (transporter465) {
                   await transporter465.sendMail({
                     from: `"${appName}" <${fromEmail}>`,
-                    to: email,
+                    to: normalizedEmail,
                     subject,
                     text,
                     html,
@@ -361,7 +366,7 @@ const makeAuthRouter = () => {
             if (debug) debug.mail.error = e instanceof Error ? e.message : String(e);
             try {
               if (req.log?.error)
-                req.log.error({ err: e, to: email, host: String(config.mail?.host || ''), port: Number(config.mail?.port || 0) }, 'forgot-password email send failed');
+                req.log.error({ err: e, to: normalizedEmail, host: String(config.mail?.host || ''), port: Number(config.mail?.port || 0) }, 'forgot-password email send failed');
               // eslint-disable-next-line no-console
               else console.error('forgot-password email send failed', e);
             } catch {
@@ -383,17 +388,15 @@ const makeAuthRouter = () => {
     }
   });
 
-  r.post('/auth/forgot-password/confirm', tenantMiddleware, async (req, res, next) => {
+  r.post('/auth/forgot-password/confirm', tenantMiddleware, validateForgotPasswordConfirm, async (req, res, next) => {
     try {
-      const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-      const otp = typeof req.body?.otp === 'string' ? req.body.otp.trim() : '';
-      const password = typeof req.body?.password === 'string' ? req.body.password : '';
-      const passwordConfirm = typeof req.body?.passwordConfirm === 'string' ? req.body.passwordConfirm : '';
+      const { email, otp, password, passwordConfirm } = req.validatedBody || req.body;
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
       const provision = String(req.header('X-Provision-Key') || '').trim();
       const canDebug = Boolean(config.provisionKey) && provision && provision === String(config.provisionKey);
 
-      if (!email) return res.status(400).json({ error: 'email_required' });
+      if (!normalizedEmail) return res.status(400).json({ error: 'email_required' });
       if (!otp) return res.status(400).json({ error: 'otp_required' });
       if (!password || password.length < 6) return res.status(400).json({ error: 'password_too_short' });
       if (password !== passwordConfirm) return res.status(400).json({ error: 'password_mismatch' });
@@ -403,7 +406,7 @@ const makeAuthRouter = () => {
         .select(['id', 'otp_hash', 'attempts', 'expires_at', 'used_at'])
         .from('password_reset_otps')
         .where({ tenant_id: req.tenant.id })
-        .andWhereRaw('LOWER(email) = ?', [email])
+        .andWhereRaw('LOWER(email) = ?', [normalizedEmail])
         .orderBy('created_at', 'desc')
         .first();
 
@@ -427,7 +430,7 @@ const makeAuthRouter = () => {
         .select(['id'])
         .from('staff')
         .where({ tenant_id: req.tenant.id })
-        .andWhereRaw('LOWER(email) = ?', [email])
+        .andWhereRaw('LOWER(email) = ?', [normalizedEmail])
         .first();
       if (!staffRow) return res.status(400).json({ error: 'invalid_otp' });
 
@@ -444,7 +447,7 @@ const makeAuthRouter = () => {
               ok: true,
               debug: {
                 tenantId: String(req.tenant.id),
-                email,
+                email: normalizedEmail,
                 staffId: String(staffRow.id),
                 staffUpdated: Number(staffUpdated || 0),
                 otpUpdated: Number(otpUpdated || 0),
@@ -462,7 +465,7 @@ const makeAuthRouter = () => {
       if (!req.auth?.tenantId) return res.status(401).json({ error: 'unauthorized' });
 
       const tenant = await db()
-        .select(['id', 'slug', 'name', 'status', 'trial_ends_at', 'plan', 'created_at'])
+        .select(['id', 'slug', 'name', 'status', 'trial_ends_at', 'plan', 'created_at', 'features_json'])
         .from('tenants')
         .where({ id: String(req.auth.tenantId) })
         .first();
@@ -508,6 +511,7 @@ const makeAuthRouter = () => {
         subscription: ent?.subscription || { tier: 'Trial', modules: [] },
         billing: ent?.billing || { cycle: 'Monthly', status: 'active', method: 'manual', nextBillAt: '', amountEtb: 0, graceEndsAt: '' },
         limits: ent?.limits || {},
+        features: ent?.features || [],
       });
     } catch (e) {
       return next(e);

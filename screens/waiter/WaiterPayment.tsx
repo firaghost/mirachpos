@@ -39,6 +39,10 @@ type PosSettingsResponse = {
 };
 
 const RECEIPT_SPLIT_KEY = 'mirachpos.receipt.splitId.v1';
+const DISPLAY_ENABLED_KEY = 'mirachpos.customerDisplay.enabled.v1';
+const DISPLAY_LAST_ORDER_KEY = 'mirachpos.customerDisplay.lastOrderId.v1';
+const DISPLAY_WINDOW_NAME = 'mirachpos_customer_display';
+const DISPLAY_HEARTBEAT_KEY = 'mirachpos.customerDisplay.heartbeat.v1';
 
 export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const { confirmPayment, refreshFromServer, products, orders, tables, selectOrder, selectTable, queueOfflineWrite } = usePos();
@@ -57,6 +61,13 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const [paymentReference, setPaymentReference] = useState<string>('');
   const [actionErr, setActionErr] = useState<string>('');
   const [posSettings, setPosSettings] = useState<PosSettingsResponse | null>(null);
+  const [displayEnabled, setDisplayEnabled] = useState(() => {
+    try {
+      return sessionStorage.getItem(DISPLAY_ENABLED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
 
   const [billCollapsed, setBillCollapsed] = usePersistedState<boolean>('mirachpos.waiter.payment.billSummaryCollapsed.v1', false, {
     validate: (v): v is boolean => typeof v === 'boolean',
@@ -84,6 +95,8 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const chapaInitAttemptRef = React.useRef<string>('');
 
   const paymentCompleteRef = React.useRef<string>('');
+  const displayOpenRef = React.useRef<string>('');
+  const displayWindowRef = React.useRef<Window | null>(null);
 
   const serverRefreshRef = React.useRef<any>(null);
 
@@ -128,11 +141,146 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
     void run();
     return () => {
       mounted = false;
-      if (pollRef.current) clearInterval(pollRef.current);
-      if (chapaPollRef.current) clearInterval(chapaPollRef.current);
-      if (serverRefreshRef.current) clearInterval(serverRefreshRef.current);
     };
   }, []);
+
+  const updateDisplayMode = useCallback(async (mode: 'menu' | 'payment' | 'receipt', opts?: { paymentUrl?: string }) => {
+    if (!order?.id) return;
+    try {
+      await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(String(order.id))}/display-mode`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, paymentMethod: method, paymentUrl: opts?.paymentUrl || '' }),
+      });
+    } catch {
+      // ignore
+    }
+  }, [order?.id, method]);
+
+  useEffect(() => {
+    if (!displayEnabled) return;
+    if (!order?.id) return;
+    const paymentUrl = method === 'Mobile Pay' ? String(chapaCheckoutUrl || '').trim() : '';
+    void updateDisplayMode('payment', { paymentUrl });
+  }, [displayEnabled, order?.id, method, chapaCheckoutUrl, updateDisplayMode]);
+
+  const isDisplayHeartbeatActive = useCallback(() => {
+    try {
+      const ts = Number(localStorage.getItem(DISPLAY_HEARTBEAT_KEY) || 0);
+      if (!Number.isFinite(ts) || ts <= 0) return false;
+      return Date.now() - ts < 8000;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const tryGetExistingDisplayWindow = useCallback((): Window | null => {
+    try {
+      const named = window.open('', DISPLAY_WINDOW_NAME);
+      if (!named || named.closed) return null;
+      let looksBlank = false;
+      try {
+        looksBlank = String(named.location?.href || '') === 'about:blank';
+      } catch {
+        looksBlank = false;
+      }
+      if (looksBlank) {
+        try {
+          named.close();
+        } catch {
+          // ignore
+        }
+        return null;
+      }
+      return named;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const openCustomerDisplay = useCallback(async (mode: 'menu' | 'payment' | 'receipt', opts?: { enable?: boolean; silent?: boolean; refresh?: boolean }) => {
+    if (!order?.id) return;
+    if (!opts?.silent) setActionErr('');
+    try {
+      const res = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(String(order.id))}/display-link`));
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(String(json?.error || json?.message || 'Failed to open customer display'));
+      const url = String(json?.displayUrl || '').trim();
+      if (!url) throw new Error('Missing display link');
+      await updateDisplayMode(mode);
+      if (opts?.enable || opts?.refresh) {
+        const globalWindow = window as Window & { __mirachposDisplayWindow?: Window | null };
+        let existing = displayWindowRef.current || globalWindow.__mirachposDisplayWindow || null;
+        if (!existing || existing.closed) {
+          if (opts?.refresh) {
+            const named = tryGetExistingDisplayWindow();
+            if (named) {
+              existing = named;
+              displayWindowRef.current = named;
+              globalWindow.__mirachposDisplayWindow = named;
+            }
+          }
+
+          if (!existing || existing.closed) {
+            const heartbeatActive = isDisplayHeartbeatActive();
+            if (!opts?.enable) return;
+            if (heartbeatActive) return;
+            const win = window.open(url, DISPLAY_WINDOW_NAME);
+            if (win) {
+              displayWindowRef.current = win;
+              globalWindow.__mirachposDisplayWindow = win;
+              win.focus();
+            }
+            return;
+          }
+        }
+
+        if (existing && !existing.closed) {
+          existing.location.href = url;
+          existing.focus();
+        }
+      }
+      if (opts?.enable) {
+        try {
+          sessionStorage.setItem(DISPLAY_ENABLED_KEY, '1');
+          sessionStorage.setItem(DISPLAY_LAST_ORDER_KEY, String(order.id));
+        } catch {
+          // ignore
+        }
+        setDisplayEnabled(true);
+      }
+    } catch (e: any) {
+      if (!opts?.silent) setActionErr(e?.message || 'Failed to open customer display');
+    }
+  }, [order?.id, updateDisplayMode]);
+
+  useEffect(() => {
+    if (!order?.id || !displayEnabled) return;
+    const key = String(order.id);
+    const globalWindow = window as Window & { __mirachposDisplayWindow?: Window | null };
+    const reacquired = tryGetExistingDisplayWindow();
+    const existing = reacquired || displayWindowRef.current || globalWindow.__mirachposDisplayWindow || null;
+    if (reacquired) {
+      displayWindowRef.current = reacquired;
+      globalWindow.__mirachposDisplayWindow = reacquired;
+    }
+    const heartbeatActive = isDisplayHeartbeatActive();
+    const closed = !existing || existing.closed ? !heartbeatActive : false;
+    if (closed) {
+      try {
+        sessionStorage.removeItem(DISPLAY_ENABLED_KEY);
+        sessionStorage.removeItem(DISPLAY_LAST_ORDER_KEY);
+      } catch {
+        // ignore
+      }
+      setDisplayEnabled(false);
+      displayOpenRef.current = '';
+      return;
+    }
+    if (!closed && displayOpenRef.current === key) return;
+    displayOpenRef.current = key;
+    void openCustomerDisplay('payment', { silent: true, refresh: true });
+  }, [displayEnabled, order?.id, openCustomerDisplay, isDisplayHeartbeatActive, tryGetExistingDisplayWindow]);
 
   useEffect(() => {
     try {
@@ -163,7 +311,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
           const oid = String(o?.tableId || '').trim();
           const onm = String(o?.tableName || '').trim();
           if (tableId && oid === tableId) return true;
-          if (tableName && onm && onm === tableName) return true;
+          if (tableName && onm === tableName) return true;
           return false;
         })
         .filter((o: any) => {
@@ -190,7 +338,9 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
     } catch {
       // ignore
     }
-  }, [order?.id, (order as any)?.status, (order as any)?.tableId, orders, tables, refreshFromServer, selectOrder, selectTable]);
+
+    void updateDisplayMode('receipt');
+  }, [order?.id, (order as any)?.status, (order as any)?.tableId, orders, tables, refreshFromServer, selectOrder, selectTable, updateDisplayMode]);
 
   useEffect(() => {
     // Stop polling if we switch away from Telebirr or close online mode
@@ -408,6 +558,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
       setChapaCheckoutUrl(payerUrl);
       setChapaOnlineActive(true);
+      void updateDisplayMode('payment', { paymentUrl: payerUrl });
 
       // Start polling
       if (chapaPollRef.current) clearInterval(chapaPollRef.current);
@@ -745,12 +896,15 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
           // ignore
         }
 
+        void updateDisplayMode('receipt');
         onNavigate(Screen.WAITER_RECEIPT);
       } catch {
         // actionErr already set
       }
     })();
   };
+
+  if (!order) return null;
 
   const split = selectedSplitId ? (order.splits || []).find((s) => s.id === selectedSplitId) ?? null : null;
   const totalDue = split ? split.total : order.total;
@@ -822,7 +976,13 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
             <span className="text-xs text-muted-foreground leading-none mt-1">{order.number}</span>
           </div>
         </div>
-        <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-card transition-colors text-muted-foreground text-sm font-medium">
+        <button
+          onClick={() => {
+            void updateDisplayMode('menu');
+            onNavigate(Screen.WAITER_DASHBOARD);
+          }}
+          className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-card transition-colors text-muted-foreground text-sm font-medium"
+        >
           <AppIcon name="arrow_back" className="text-lg mr-2" size={18} /> Back
         </button>
       </header>
@@ -945,8 +1105,19 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 <p className="text-muted-foreground uppercase tracking-widest text-[11px] font-semibold">Total Amount Due</p>
                 <div className="text-3xl md:text-4xl font-black text-foreground tracking-tight">{settingsUi.currency} {totalDue.toFixed(2)}</div>
               </div>
-              <div className="text-xs text-muted-foreground">
-                {split ? 'Paying: selected split' : Array.isArray(order.splits) && order.splits.length > 0 ? 'Paying: full bill' : ''}
+              <div className="flex items-center gap-3">
+                <div className="text-xs text-muted-foreground">
+                  {split ? 'Paying: selected split' : Array.isArray(order.splits) && order.splits.length > 0 ? 'Paying: full bill' : ''}
+                </div>
+                {!displayEnabled ? (
+                  <button
+                    onClick={() => void openCustomerDisplay('payment', { enable: true })}
+                    className="h-9 px-3 rounded-lg bg-primary/10 border border-primary/40 text-primary text-xs font-bold uppercase tracking-widest hover:bg-primary/20"
+                    type="button"
+                  >
+                    Customer Display
+                  </button>
+                ) : null}
               </div>
             </div>
             {split ? (
@@ -1244,7 +1415,15 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
           <div className="shrink-0 border-t border-border bg-card px-4 md:px-6 py-4">
             <div className="flex flex-col sm:flex-row gap-3">
-              <button onClick={() => onNavigate(Screen.WAITER_DASHBOARD)} className="w-full sm:w-1/3 h-12 rounded-xl border border-border bg-transparent hover:bg-card text-foreground font-bold transition-colors flex items-center justify-center gap-2">Cancel</button>
+              <button
+                onClick={() => {
+                  void updateDisplayMode('menu');
+                  onNavigate(Screen.WAITER_DASHBOARD);
+                }}
+                className="w-full sm:w-1/3 h-12 rounded-xl border border-border bg-transparent hover:bg-card text-foreground font-bold transition-colors flex items-center justify-center gap-2"
+              >
+                Cancel
+              </button>
               {method === 'Mobile Pay' ? (
                 <button
                   disabled={chapaOnlineLoading || chapaOnlineActive}

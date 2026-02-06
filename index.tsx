@@ -2,6 +2,36 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import { initializeFaro, getWebInstrumentations } from '@grafana/faro-web-sdk';
+import { TracingInstrumentation } from '@grafana/faro-web-tracing';
+
+const getFaroConfig = () => {
+  const env = (import.meta as any)?.env || {};
+  const url = typeof env.VITE_FARO_COLLECTOR_URL === 'string' ? env.VITE_FARO_COLLECTOR_URL.trim() : '';
+  if (!url) return null;
+  const version = typeof env.VITE_APP_VERSION === 'string' ? env.VITE_APP_VERSION.trim() : '1.0.0';
+  const environment = typeof env.VITE_FARO_ENV === 'string'
+    ? env.VITE_FARO_ENV.trim()
+    : (env.PROD ? 'production' : 'development');
+
+  return { url, version, environment };
+};
+
+const faroConfig = getFaroConfig();
+if (faroConfig) {
+  initializeFaro({
+    url: faroConfig.url,
+    app: {
+      name: 'MirachPos',
+      version: faroConfig.version,
+      environment: faroConfig.environment,
+    },
+    instrumentations: [
+      ...getWebInstrumentations(),
+      new TracingInstrumentation(),
+    ],
+  });
+}
 
 const onError = (ev: any) => {
   try {

@@ -7,6 +7,14 @@ const { uid } = require('../utils/ids');
 const { requirePermission } = require('../middleware/permissions');
 const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const {
+  validateIdParam,
+  validateManagerFinanceExpenseCreate,
+  validateManagerFinanceExpenseUpdate,
+  validateManagerFinanceCashSessionCreate,
+  validateManagerFinanceCashSessionUpdate,
+  validateManagerFinanceQuery,
+} = require('../middleware/validators');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -126,15 +134,17 @@ const makeManagerFinanceRouter = () => {
     requireModule('finance'),
     requirePermission('finance.read'),
     requireBranchId(),
+    validateManagerFinanceQuery,
     async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const branchId = req.branchId || resolveBranchId(req);
 
-      const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 200) || 200));
-      const fromIso = normalizeIso(req.query?.from);
-      const toIso = normalizeIso(req.query?.to);
+      const queryParams = req.validatedQuery || req.query;
+      const limit = Math.max(1, Math.min(500, Number(queryParams?.limit || 200) || 200));
+      const fromIso = normalizeIso(queryParams?.from);
+      const toIso = normalizeIso(queryParams?.to);
 
       let q = db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, type: 'expense' });
       if (fromIso) q = q.andWhere('at', '>=', fromIso);
@@ -155,22 +165,24 @@ const makeManagerFinanceRouter = () => {
     requireModule('finance'),
     requirePermission('finance.write'),
     requireBranchId(),
+    validateManagerFinanceExpenseCreate,
     async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const branchId = req.branchId || resolveBranchId(req);
 
-      const title = String(req.body?.title || '').trim();
-      const vendor = String(req.body?.vendor || '').trim();
-      const amount = Number(req.body?.amount);
+      const body = req.validatedBody || req.body;
+      const title = String(body?.title || '').trim();
+      const vendor = String(body?.vendor || '').trim();
+      const amount = Number(body?.amount);
       if (!title) return res.status(400).json({ error: 'title_required' });
       if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'invalid_amount' });
 
-      const categoryRaw = String(req.body?.category || '').trim();
+      const categoryRaw = String(body?.category || '').trim();
       const category = categoryRaw || 'Expense';
 
-      const at = normalizeIso(req.body?.createdAt || req.body?.at) || new Date().toISOString();
+      const at = normalizeIso(body?.createdAt || body?.at) || new Date().toISOString();
 
       const id = uid('fin');
       const nowIso = new Date().toISOString();
@@ -184,7 +196,7 @@ const makeManagerFinanceRouter = () => {
         amount,
         currency: 'ETB',
         memo: vendor || title,
-        payload_json: JSON.stringify({ scope: 'daily', title, vendor, icon: req.body?.icon || 'receipt_long' }),
+        payload_json: JSON.stringify({ scope: 'daily', title, vendor, icon: body?.icon || 'receipt_long' }),
         at,
         created_at: nowIso,
         updated_at: nowIso,
@@ -204,16 +216,19 @@ const makeManagerFinanceRouter = () => {
     requireModule('finance'),
     requirePermission('finance.write'),
     requireBranchId(),
+    validateIdParam,
+    validateManagerFinanceExpenseUpdate,
     async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const branchId = req.branchId || resolveBranchId(req);
 
-      const id = String(req.params?.id || '').trim();
-      if (!id) return res.status(400).json({ error: 'id_required' });
+      const { id } = req.validatedParams || req.params;
+      const expenseId = String(id || '').trim();
+      if (!expenseId) return res.status(400).json({ error: 'id_required' });
 
-      const existing = await db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, id, type: 'expense' }).select(['id', 'payload_json']).first();
+      const existing = await db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, id: expenseId, type: 'expense' }).select(['id', 'payload_json']).first();
       if (!existing) return res.status(404).json({ error: 'not_found' });
 
       const prevPayload = safeJsonParse(existing.payload_json, {});
@@ -224,24 +239,25 @@ const makeManagerFinanceRouter = () => {
       if (!nextPayload.staffName && actor?.name) nextPayload.staffName = actor.name;
       if (!nextPayload.staffRole && actor?.role) nextPayload.staffRole = actor.role;
 
-      if (typeof req.body?.title === 'string') nextPayload.title = req.body.title.trim();
-      if (typeof req.body?.vendor === 'string') nextPayload.vendor = req.body.vendor.trim();
-      if (typeof req.body?.icon === 'string') nextPayload.icon = req.body.icon.trim();
+      const body = req.validatedBody || req.body;
+      if (typeof body?.title === 'string') nextPayload.title = body.title.trim();
+      if (typeof body?.vendor === 'string') nextPayload.vendor = body.vendor.trim();
+      if (typeof body?.icon === 'string') nextPayload.icon = body.icon.trim();
 
       const patch = { updated_at: new Date().toISOString() };
 
-      if (typeof req.body?.category === 'string') {
-        const c = req.body.category.trim();
+      if (typeof body?.category === 'string') {
+        const c = body.category.trim();
         patch.category = c || 'Expense';
       }
 
-      if (req.body?.amount != null) {
-        const amount = Number(req.body.amount);
+      if (body?.amount != null) {
+        const amount = Number(body.amount);
         if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'invalid_amount' });
         patch.amount = amount;
       }
 
-      const atIso = normalizeIso(req.body?.createdAt || req.body?.at);
+      const atIso = normalizeIso(body?.createdAt || body?.at);
       if (atIso) patch.at = atIso;
 
       patch.payload_json = JSON.stringify(nextPayload);
@@ -250,7 +266,7 @@ const makeManagerFinanceRouter = () => {
         if (memo) patch.memo = memo;
       }
 
-      const updated = await db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, id, type: 'expense' }).update(patch);
+      const updated = await db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, id: expenseId, type: 'expense' }).update(patch);
       if (!updated) return res.status(404).json({ error: 'not_found' });
 
       return res.json({ ok: true });
@@ -267,16 +283,18 @@ const makeManagerFinanceRouter = () => {
     requireModule('finance'),
     requirePermission('finance.write'),
     requireBranchId(),
+    validateIdParam,
     async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const branchId = req.branchId || resolveBranchId(req);
 
-      const id = String(req.params?.id || '').trim();
-      if (!id) return res.status(400).json({ error: 'id_required' });
+      const { id } = req.validatedParams || req.params;
+      const expenseId = String(id || '').trim();
+      if (!expenseId) return res.status(400).json({ error: 'id_required' });
 
-      const deleted = await db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, id, type: 'expense' }).del();
+      const deleted = await db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, id: expenseId, type: 'expense' }).del();
       if (!deleted) return res.status(404).json({ error: 'not_found' });
 
       return res.json({ ok: true });
@@ -294,15 +312,17 @@ const makeManagerFinanceRouter = () => {
     requireModule('finance'),
     requirePermission('finance.read'),
     requireBranchId(),
+    validateManagerFinanceQuery,
     async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const branchId = req.branchId || resolveBranchId(req);
 
-      const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 200) || 200));
-      const fromIso = normalizeIso(req.query?.from);
-      const toIso = normalizeIso(req.query?.to);
+      const queryParams = req.validatedQuery || req.query;
+      const limit = Math.max(1, Math.min(500, Number(queryParams?.limit || 200) || 200));
+      const fromIso = normalizeIso(queryParams?.from);
+      const toIso = normalizeIso(queryParams?.to);
 
       let q = db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, type: 'cash_session' });
       if (fromIso) q = q.andWhere('at', '>=', fromIso);
@@ -339,18 +359,20 @@ const makeManagerFinanceRouter = () => {
     loadEntitlements,
     requireModule('finance'),
     requireBranchId(),
+    validateManagerFinanceCashSessionCreate,
     async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const branchId = req.branchId || resolveBranchId(req);
 
-      const register = String(req.body?.register || '').trim() || 'POS';
-      const openingCash = Number(req.body?.openingCash ?? 0);
+      const body = req.validatedBody || req.body;
+      const register = String(body?.register || '').trim() || 'POS';
+      const openingCash = Number(body?.openingCash ?? 0);
       const status = 'Active';
       if (![openingCash].every((n) => Number.isFinite(n) && n >= 0)) return res.status(400).json({ error: 'invalid_numbers' });
 
-      const openedAt = normalizeIso(req.body?.openedAt) || new Date().toISOString();
+      const openedAt = normalizeIso(body?.openedAt) || new Date().toISOString();
       const actor = await resolveActorStaff(req);
       const payload = {
         register,
@@ -394,27 +416,31 @@ const makeManagerFinanceRouter = () => {
     loadEntitlements,
     requireModule('finance'),
     requireBranchId(),
+    validateIdParam,
+    validateManagerFinanceCashSessionUpdate,
     async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const branchId = req.branchId || resolveBranchId(req);
 
-      const id = String(req.params?.id || '').trim();
-      if (!id) return res.status(400).json({ error: 'id_required' });
+      const { id } = req.validatedParams || req.params;
+      const sessionId = String(id || '').trim();
+      if (!sessionId) return res.status(400).json({ error: 'id_required' });
 
-      const existing = await db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, id, type: 'cash_session' }).select(['id', 'payload_json']).first();
+      const existing = await db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, id: sessionId, type: 'cash_session' }).select(['id', 'payload_json']).first();
       if (!existing) return res.status(404).json({ error: 'not_found' });
 
       const prevPayload = safeJsonParse(existing.payload_json, {});
       const nextPayload = { ...prevPayload };
 
+      const body = req.validatedBody || req.body;
       for (const k of ['register', 'staffName', 'staffRole', 'status', 'openedAt', 'closedAt']) {
-        if (typeof req.body?.[k] === 'string') nextPayload[k] = String(req.body[k]).trim();
+        if (typeof body?.[k] === 'string') nextPayload[k] = String(body[k]).trim();
       }
       for (const k of ['openingCash', 'expectedCash', 'actualCash']) {
-        if (req.body?.[k] != null) {
-          const v = Number(req.body[k]);
+        if (body?.[k] != null) {
+          const v = Number(body[k]);
           if (!Number.isFinite(v) || v < 0) return res.status(400).json({ error: 'invalid_numbers' });
           nextPayload[k] = v;
         }
@@ -435,7 +461,7 @@ const makeManagerFinanceRouter = () => {
         updated_at: new Date().toISOString(),
       };
 
-      const updated = await db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, id, type: 'cash_session' }).update(patch);
+      const updated = await db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, id: sessionId, type: 'cash_session' }).update(patch);
       if (!updated) return res.status(404).json({ error: 'not_found' });
 
       return res.json({ ok: true });
@@ -451,16 +477,18 @@ const makeManagerFinanceRouter = () => {
     loadEntitlements,
     requireModule('finance'),
     requireBranchId(),
+    validateIdParam,
     async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const branchId = req.branchId || resolveBranchId(req);
 
-      const id = String(req.params?.id || '').trim();
-      if (!id) return res.status(400).json({ error: 'id_required' });
+      const { id } = req.validatedParams || req.params;
+      const sessionId = String(id || '').trim();
+      if (!sessionId) return res.status(400).json({ error: 'id_required' });
 
-      const deleted = await db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, id, type: 'cash_session' }).del();
+      const deleted = await db().from('finance_ledger').where({ tenant_id: req.tenant.id, branch_id: branchId, id: sessionId, type: 'cash_session' }).del();
       if (!deleted) return res.status(404).json({ error: 'not_found' });
 
       return res.json({ ok: true });

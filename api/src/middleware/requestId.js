@@ -25,8 +25,27 @@ const addRequestIdToResponse = (req, res, next) => {
     next();
 };
 
+const addRequestIdToJsonBody = (req, res, next) => {
+    const original = res.json.bind(res);
+    res.json = (body) => {
+        try {
+            const id = typeof req.requestId === 'string' ? req.requestId : '';
+            if (!id) return original(body);
+            if (body && typeof body === 'object' && !Array.isArray(body)) {
+                if (typeof body.requestId === 'string' && body.requestId.trim()) return original(body);
+                return original({ ...body, requestId: id });
+            }
+            return original(body);
+        } catch {
+            return original(body);
+        }
+    };
+    next();
+};
+
 module.exports = {
     requestIdMiddleware,
     addRequestIdToResponse,
+    addRequestIdToJsonBody,
     generateRequestId,
 };

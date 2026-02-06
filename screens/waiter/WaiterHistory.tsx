@@ -6,6 +6,7 @@ import { usePos } from '../../PosContext';
 import { apiFetch } from '../../api';
 import { readSession } from '../../session';
 import { formatDeviceDate, formatDeviceDateTime } from '../../datetime';
+import { openPrintWindow } from '../../printUtils';
 
 interface Props {
   onNavigate: (screen: Screen) => void;
@@ -18,6 +19,16 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
       const s = readSession<any>();
       const role = typeof s?.role === 'string' ? s.role : '';
       return role === 'Branch Manager' || role === 'Cafe Owner';
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const isWaiterManager = useMemo(() => {
+    try {
+      const s = readSession<any>();
+      const role = typeof s?.role === 'string' ? s.role : '';
+      return role === 'Waiter Manager';
     } catch {
       return false;
     }
@@ -149,6 +160,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
           time,
           by: createdByName || createdByStaffId,
           itemsSummary: items.map((i: any) => `${String(i?.name || '')} (x${Number(i?.qty) || 0})`).join(', '),
+          items,
           total: totalAmount,
           status,
         };
@@ -156,6 +168,117 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
       .filter((r) => r.id);
     return base;
   }, [rowsRaw, statusParam]);
+
+  const dailyPaidRows = useMemo(() => {
+    if (!isWaiterManager) return [];
+    if (dateFilter !== 'Today') return [];
+    return rows.filter((r) => String(r.status || '').trim() === 'Paid');
+  }, [dateFilter, isWaiterManager, rows]);
+
+  const dailyPaidByProduct = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        productId: string;
+        productName: string;
+        qty: number;
+        total: number;
+      }
+    >();
+
+    for (const r of dailyPaidRows) {
+      const items = Array.isArray((r as any)?.items) ? ((r as any).items as any[]) : [];
+      for (const it of items) {
+        if (!it || typeof it !== 'object') continue;
+        const productId = String((it as any)?.productId || (it as any)?.product_id || '').trim();
+        const productName = String((it as any)?.name || (it as any)?.productName || '').trim();
+        const qty = Number((it as any)?.qty ?? 0) || 0;
+        const unitPrice = Number((it as any)?.unitPrice ?? (it as any)?.unit_price ?? (it as any)?.price ?? 0) || 0;
+        if (!productName && !productId) continue;
+        if (qty <= 0) continue;
+
+        const key = productId || productName.toLowerCase();
+        const prev = map.get(key);
+        const nextQty = (prev?.qty || 0) + qty;
+        const nextTotal = (prev?.total || 0) + qty * unitPrice;
+
+        map.set(key, {
+          productId: productId || prev?.productId || '',
+          productName: productName || prev?.productName || '',
+          qty: nextQty,
+          total: nextTotal,
+        });
+      }
+    }
+
+    return Array.from(map.values())
+      .filter((x) => (x.productId || x.productName) && x.qty > 0)
+      .sort((a, b) => b.total - a.total);
+  }, [dailyPaidRows]);
+
+  const dailyPaidTotal = useMemo(() => dailyPaidRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0), [dailyPaidRows]);
+
+  const downloadDailySalesXlsx = async () => {
+    if (!isWaiterManager || dateFilter !== 'Today') return;
+
+    const d = new Date();
+    const yyyy = String(d.getFullYear());
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const isoDay = `${yyyy}-${mm}-${dd}`;
+
+    const qs = new URLSearchParams();
+    qs.set('from', isoDay);
+    qs.set('to', isoDay);
+
+    const res = await apiFetch(`/api/waiter/history/export/xlsx?${qs.toString()}`);
+    if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
+
+    const blob = await res.blob();
+    const cd = res.headers.get('content-disposition') || '';
+    const m = /filename="?([^";]+)"?/i.exec(cd);
+    const filename = m?.[1] ? String(m[1]) : `daily_sales_${isoDay}.xlsx`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadDailySalesPdf = async () => {
+    if (!isWaiterManager || dateFilter !== 'Today') return;
+
+    const d = new Date();
+    const yyyy = String(d.getFullYear());
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const isoDay = `${yyyy}-${mm}-${dd}`;
+
+    const qs = new URLSearchParams();
+    qs.set('from', isoDay);
+    qs.set('to', isoDay);
+
+    const res = await apiFetch(`/api/waiter/history/export/pdf?${qs.toString()}`);
+    if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
+
+    const blob = await res.blob();
+    const cd = res.headers.get('content-disposition') || '';
+    const m = /filename="?([^";]+)"?/i.exec(cd);
+    const filename = m?.[1] ? String(m[1]) : `daily_sales_${isoDay}.pdf`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const pageCount = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [pageSize, total]);
 
@@ -168,6 +291,24 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
             <p className="text-muted-foreground">View and manage past transactions</p>
           </div>
           <div className="flex items-center gap-2">
+            {isWaiterManager && dateFilter === 'Today' ? (
+              <div className="hidden lg:flex items-center gap-2 mr-2">
+                <button
+                  onClick={() => void downloadDailySalesXlsx()}
+                  className="h-10 px-3 rounded-lg border text-sm font-bold transition-colors bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                  type="button"
+                >
+                  Export Excel
+                </button>
+                <button
+                  onClick={() => void downloadDailySalesPdf()}
+                  className="h-10 px-3 rounded-lg border text-sm font-bold transition-colors bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                  type="button"
+                >
+                  Export PDF
+                </button>
+              </div>
+            ) : null}
             <button
               onClick={() => setDateFilter('Today')}
               className={`h-10 px-3 rounded-lg border text-sm font-bold transition-colors ${
@@ -270,8 +411,26 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
                           openOrder(r.id);
                         }}
                         className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/40 transition-colors"
+                        type="button"
                       >
                         <AppIcon name="visibility" className="text-[20px]" size={20} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          try {
+                            sessionStorage.setItem(`mirachpos.manualPrintReceiptOnce.${r.id}`, '1');
+                          } catch {
+                            // ignore
+                          }
+                          selectOrder(r.id);
+                          onNavigate(Screen.WAITER_RECEIPT);
+                        }}
+                        className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/40 transition-colors ml-1"
+                        type="button"
+                        title="Print ticket"
+                      >
+                        <AppIcon name="print" className="text-[20px]" size={20} />
                       </button>
                     </td>
                   </tr>

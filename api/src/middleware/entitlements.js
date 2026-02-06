@@ -1,5 +1,10 @@
 const { db } = require('../db');
-const { computeTenantEntitlements, upsertTenantEntitlementsSnapshot } = require('../services/entitlements');
+const {
+  computeTenantEntitlements,
+  upsertTenantEntitlementsSnapshot,
+  normalizeFeatures,
+  readGlobalFeatureFlags,
+} = require('../services/entitlements');
 const { config } = require('../config');
 
 const safeJsonParse = (raw, fallback) => {
@@ -10,6 +15,18 @@ const safeJsonParse = (raw, fallback) => {
   } catch {
     return fallback;
   }
+};
+
+const hasFeature = (req, featureId) => {
+  const id = String(featureId || '').trim().toLowerCase();
+  if (!id) return false;
+  const features = Array.isArray(req?.entitlements?.features) ? req.entitlements.features : [];
+  return features.map((x) => String(x || '').trim().toLowerCase()).includes(id);
+};
+
+const requireFeature = (featureId) => (req, res, next) => {
+  if (!hasFeature(req, featureId)) return res.status(403).json({ error: 'feature_disabled' });
+  return next();
 };
 
 const isPendingVerifyBlocked = (ent) => {
@@ -86,6 +103,7 @@ const loadEntitlements = async (req, res, next) => {
         subscription: { tier: 'Dev', modules: ['pos', 'orders', 'tables', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'] },
         billing: { status: 'active', graceEndsAt: '' },
         limits: {},
+        features: [],
         computedAt: new Date().toISOString(),
       };
       return next();
@@ -110,6 +128,10 @@ const loadEntitlements = async (req, res, next) => {
       .first();
 
     if (snap) {
+      const globalFeatures = normalizeFeatures(await readGlobalFeatureFlags());
+      const tenantFeatures = normalizeFeatures(safeJsonParse(req.tenant?.features_json, []));
+      const effectiveFeatures = Array.from(new Set([...globalFeatures, ...tenantFeatures]));
+
       req.entitlements = {
         ok: true,
         tenantId,
@@ -119,6 +141,7 @@ const loadEntitlements = async (req, res, next) => {
           graceEndsAt: snap.grace_ends_at ? new Date(snap.grace_ends_at).toISOString() : '',
         },
         limits: safeJsonParse(snap.limits_json, {}),
+        features: effectiveFeatures,
         computedAt: snap.computed_at ? new Date(snap.computed_at).toISOString() : '',
       };
       return next();
@@ -208,6 +231,8 @@ const enforceStaffLimit = async (req, res, next) => {
 
 module.exports = {
   loadEntitlements,
+  hasFeature,
+  requireFeature,
   requireModule,
   enforceBranchLimit,
   enforceStaffLimit,

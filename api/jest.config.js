@@ -3,6 +3,7 @@ module.exports = {
     testEnvironment: 'node',
     verbose: true,
     testMatch: ['**/__tests__/**/*.js', '**/?(*.)+(spec|test).js'],
+    testPathIgnorePatterns: ['/node_modules/', '/dist/', '/build/'],
     setupFilesAfterEnv: ['./tests/setup.js'],
     coverageDirectory: './coverage',
     collectCoverageFrom: [

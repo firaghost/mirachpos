@@ -1,0 +1,19 @@
+
+> mirachpos-api@0.1.0 migrate
+> knex migrate:latest
+
+Using environment: [35mdevelopment[39m
+[33mmigration file "050_subscription_enforcement.js" failed[39m
+[33mmigration failed with error: create table `device_sessions` (`id` int unsigned not null auto_increment primary key, `tenant_id` varchar(64) not null collate 'utf8mb4_general_ci', `branch_id` varchar(64) null collate 'utf8mb4_general_ci', `staff_id` varchar(64) null collate 'utf8mb4_general_ci', `device_id` varchar(255) not null, `device_name` varchar(255) null, `device_type` varchar(50) null, `ip_address` varchar(45) null, `user_agent` varchar(500) null, `last_seen` timestamp default CURRENT_TIMESTAMP, `created_at` timestamp default CURRENT_TIMESTAMP) default character set utf8mb4 - Table 'device_sessions' already exists[39m
+create table `device_sessions` (`id` int unsigned not null auto_increment primary key, `tenant_id` varchar(64) not null collate 'utf8mb4_general_ci', `branch_id` varchar(64) null collate 'utf8mb4_general_ci', `staff_id` varchar(64) null collate 'utf8mb4_general_ci', `device_id` varchar(255) not null, `device_name` varchar(255) null, `device_type` varchar(50) null, `ip_address` varchar(45) null, `user_agent` varchar(500) null, `last_seen` timestamp default CURRENT_TIMESTAMP, `created_at` timestamp default CURRENT_TIMESTAMP) default character set utf8mb4 - Table 'device_sessions' already exists
+Error: create table `device_sessions` (`id` int unsigned not null auto_increment primary key, `tenant_id` varchar(64) not null collate 'utf8mb4_general_ci', `branch_id` varchar(64) null collate 'utf8mb4_general_ci', `staff_id` varchar(64) null collate 'utf8mb4_general_ci', `device_id` varchar(255) not null, `device_name` varchar(255) null, `device_type` varchar(50) null, `ip_address` varchar(45) null, `user_agent` varchar(500) null, `last_seen` timestamp default CURRENT_TIMESTAMP, `created_at` timestamp default CURRENT_TIMESTAMP) default character set utf8mb4 - Table 'device_sessions' already exists
+    at Packet.asError (D:\Projects\mirachpos\api\node_modules\mysql2\lib\packets\packet.js:740:17)
+    at Query.execute (D:\Projects\mirachpos\api\node_modules\mysql2\lib\commands\command.js:29:26)
+    at Connection.handlePacket (D:\Projects\mirachpos\api\node_modules\mysql2\lib\base\connection.js:508:34)
+    at PacketParser.onPacket (D:\Projects\mirachpos\api\node_modules\mysql2\lib\base\connection.js:93:12)
+    at PacketParser.executeStart (D:\Projects\mirachpos\api\node_modules\mysql2\lib\packet_parser.js:75:16)
+    at Socket.<anonymous> (D:\Projects\mirachpos\api\node_modules\mysql2\lib\base\connection.js:100:25)
+    at Socket.emit (node:events:519:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)

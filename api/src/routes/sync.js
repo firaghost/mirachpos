@@ -6,6 +6,7 @@ const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 const { requireRole, requirePermission } = require('../middleware/permissions');
+const { validateSyncPush, validateSyncPullQuery, validateSyncDraftsQuery } = require('../middleware/validators');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -28,18 +29,19 @@ const makeSyncRouter = () => {
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.update'),
+    validateSyncPush,
     async (req, res, next) => {
     try {
-      const body = req.body && typeof req.body === 'object' ? req.body : null;
-      const events = Array.isArray(body?.events) ? body.events : [];
-      if (events.length === 0) return res.json({ ok: true, acked_event_ids: [], rejected: [], new_cursor: null });
+      const { events } = req.validatedBody || req.body;
+      const safeEvents = Array.isArray(events) ? events : [];
+      if (safeEvents.length === 0) return res.json({ ok: true, acked_event_ids: [], rejected: [], new_cursor: null });
 
       const acked = [];
       const rejected = [];
       let lastCursor = null;
 
       // NOTE: event_id is the primary id; cursor is auto-increment (016_sync_cursor.js)
-      for (const raw of events) {
+      for (const raw of safeEvents) {
         const e = raw && typeof raw === 'object' ? raw : null;
         const eventId = typeof e?.event_id === 'string' ? e.event_id.trim() : '';
         const tenantId = typeof e?.tenant_id === 'string' ? e.tenant_id.trim() : '';
@@ -166,11 +168,13 @@ const makeSyncRouter = () => {
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.read'),
+    validateSyncPullQuery,
     async (req, res, next) => {
     try {
-      const cursor = Number(req.query?.cursor || 0);
-      const limitRaw = Number(req.query?.limit || 200);
-      const limit = Math.min(500, Math.max(10, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 200));
+      const { cursor: cursorRaw, limit: limitRaw } = req.validatedQuery || req.query;
+      const cursor = Number(cursorRaw || 0);
+      const limitParsed = Number(limitRaw || 200);
+      const limit = Math.min(500, Math.max(10, Number.isFinite(limitParsed) ? Math.trunc(limitParsed) : 200));
 
       const rows = await db()
         .select(['cursor', 'id', 'tenant_id', 'branch_id', 'device_id', 'type', 'payload_json', 'created_at'])
@@ -206,10 +210,12 @@ const makeSyncRouter = () => {
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.read'),
+    validateSyncDraftsQuery,
     async (req, res, next) => {
     try {
-      const branchId = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
-      const status = typeof req.query?.status === 'string' ? req.query.status.trim() : 'SUBMITTED';
+      const { branchId: branchIdRaw, status: statusRaw } = req.validatedQuery || req.query;
+      const branchId = typeof branchIdRaw === 'string' ? branchIdRaw.trim() : '';
+      const status = typeof statusRaw === 'string' ? statusRaw.trim() : 'SUBMITTED';
 
       const q = db().select(['id', 'tenant_id', 'branch_id', 'status', 'draft_json', 'updated_at']).from('sync_drafts').where({ tenant_id: req.tenant.id });
       if (branchId) q.andWhere({ branch_id: branchId });

@@ -4,12 +4,14 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { db } = require('../db');
+const { sanitizeLikeInput, sanitizeText } = require('../utils/sanitize');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { safeJsonParse, safeJsonStringify } = require('../utils/errors');
 const { logAudit } = require('../utils/logger');
 const { decryptConfigFields } = require('../utils/secretEncryption');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { resolveCdnUrl } = require('../utils/cdn');
 const { requireRole, requirePermission } = require('../middleware/permissions');
 const { computeTenantEntitlements, normalizeModules, upsertTenantEntitlementsSnapshot } = require('../services/entitlements');
 const { publish } = require('../services/realtimeHub');
@@ -301,8 +303,8 @@ const makeOwnerRouter = () => {
     requirePermission('settings.manage'),
     async (req, res, next) => {
     try {
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
-      const category = typeof req.query?.category === 'string' ? req.query.category.trim() : '';
+      const q = sanitizeLikeInput(req.query?.q, { lower: true, maxLen: 80 });
+      const category = sanitizeText(req.query?.category, { maxLen: 60 });
 
       const base = db().from('integrations_catalog').where({ is_available: 1 });
       if (category) base.andWhere({ category });
@@ -430,6 +432,7 @@ const makeOwnerRouter = () => {
         type: 'owner.integrations.install',
         summary: 'Installed integration',
         payload: { integrationId },
+        requestId: req.requestId,
       });
 
       return res.status(201).json({ ok: true, id });
@@ -480,6 +483,7 @@ const makeOwnerRouter = () => {
         type: 'owner.integrations.update',
         summary: 'Updated integration config',
         payload: { integrationId, keys: Object.keys(patch).filter((k) => k !== 'updated_at') },
+        requestId: req.requestId,
       });
 
       return res.json({ ok: true });
@@ -613,6 +617,7 @@ const makeOwnerRouter = () => {
         type: 'owner.pos_payment_gateways.update',
         summary: `Updated POS payment gateway: ${gateway}`,
         payload: { gateway, enabled },
+        requestId: req.requestId,
       });
 
       return res.json({ ok: true });
@@ -647,6 +652,7 @@ const makeOwnerRouter = () => {
         type: 'owner.integrations.uninstall',
         summary: 'Uninstalled integration',
         payload: { integrationId },
+        requestId: req.requestId,
       });
 
       return res.json({ ok: true });
@@ -1076,6 +1082,7 @@ const makeOwnerRouter = () => {
         type: 'owner.settings.updated',
         summary: 'Updated owner settings',
         payload: null,
+        requestId: req.requestId,
       });
 
       return res.json({ ok: true, settings: nextSettings });
@@ -1120,6 +1127,7 @@ const makeOwnerRouter = () => {
         type: 'owner.modules.updated',
         summary: 'Updated enabled modules',
         payload: { modules: normalized },
+        requestId: req.requestId,
       });
 
       return res.json({ ok: true, modules: normalized, entitlements: ent });
@@ -1675,9 +1683,9 @@ const makeOwnerRouter = () => {
         return [s];
       };
 
-      const branchId = typeof req.query?.branchId === 'string' ? normalizeBranchId(req.query.branchId) : '';
-      const category = typeof req.query?.category === 'string' ? req.query.category.trim() : '';
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
+      const branchId = sanitizeText(req.query?.branchId, { maxLen: 64 }) ? normalizeBranchId(req.query.branchId) : '';
+      const category = sanitizeText(req.query?.category, { maxLen: 60 });
+      const q = sanitizeLikeInput(req.query?.q, { lower: true, maxLen: 80 });
 
       const branches = await db().select(['id', 'name', 'status']).from('branches').where({ tenant_id: req.tenant.id }).orderBy('name', 'asc');
 
@@ -1775,8 +1783,8 @@ const makeOwnerRouter = () => {
       const pageSize = clampInt(req.query?.pageSize, 1, 50, 5);
       const offset = (page - 1) * pageSize;
 
-      const category = typeof req.query?.category === 'string' ? req.query.category.trim() : '';
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
+      const category = sanitizeText(req.query?.category, { maxLen: 60 });
+      const q = sanitizeLikeInput(req.query?.q, { lower: true, maxLen: 80 });
       const sort = req.query?.sort === 'oldest' ? 'oldest' : req.query?.sort === 'amount_desc' ? 'amount_desc' : 'newest';
 
       const now = new Date();
@@ -2209,7 +2217,8 @@ const makeOwnerRouter = () => {
         }
       }
 
-      return res.status(201).json({ ok: true, url: `/api/uploads/${safeTenant}/${outName}` });
+      const url = resolveCdnUrl(`/api/uploads/${safeTenant}/${outName}`);
+      return res.status(201).json({ ok: true, url });
     } catch (e) {
       return next(e);
     }
@@ -2349,9 +2358,9 @@ const makeOwnerRouter = () => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
-      const category = typeof req.query?.category === 'string' ? req.query.category.trim() : '';
-      const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
+      const q = sanitizeLikeInput(req.query?.q, { lower: true, maxLen: 80 });
+      const category = sanitizeText(req.query?.category, { maxLen: 60 });
+      const status = sanitizeText(req.query?.status, { maxLen: 40 });
       const page = clampInt(req.query?.page, 1, 100000, 1);
       const pageSize = clampInt(req.query?.pageSize, 1, 50, 10);
       const offset = (page - 1) * pageSize;
@@ -2455,9 +2464,9 @@ const makeOwnerRouter = () => {
     try {
       if (!requireOwnerAuth(req, res)) return;
 
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
-      const category = typeof req.query?.category === 'string' ? req.query.category.trim() : '';
-      const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
+      const q = sanitizeLikeInput(req.query?.q, { lower: true, maxLen: 80 });
+      const category = sanitizeText(req.query?.category, { maxLen: 60 });
+      const status = sanitizeText(req.query?.status, { maxLen: 40 });
 
       let base = db().from('menu_products').where({ tenant_id: req.tenant.id });
       if (q) base = base.andWhere((b) => b.where('name', 'like', `%${q}%`).orWhere('id', 'like', `%${q}%`));

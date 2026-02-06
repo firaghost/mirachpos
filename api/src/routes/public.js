@@ -10,6 +10,14 @@ const { fetch } = require('undici');
 
 const { safeJsonParse } = require('../utils/json');
 const { createMailTransporter } = require('../utils/mail');
+const {
+  validatePublicSignup,
+  validateTokenParam,
+  validateChapaInitiate,
+  validateDemoRequest,
+  validateAcceptInvite,
+  validateContactAdmin,
+} = require('../middleware/validators');
 
 const makePublicRouter = () => {
   const r = express.Router();
@@ -420,28 +428,23 @@ const makePublicRouter = () => {
     return (s || 'cafe').slice(0, 28);
   };
 
-  r.post('/public/signup', async (req, res, next) => {
+  r.post('/public/signup', validatePublicSignup, async (req, res, next) => {
     try {
-      const body = req.body && typeof req.body === 'object' ? req.body : null;
-      const restaurantName = typeof body?.restaurantName === 'string' ? body.restaurantName.trim() : '';
-      const ownerName = typeof body?.ownerName === 'string' ? body.ownerName.trim() : '';
-      const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
-      const password = typeof body?.password === 'string' ? body.password : '';
-      const turnstileToken = typeof body?.turnstileToken === 'string' ? body.turnstileToken.trim() : '';
-      const meta = body?.meta && typeof body.meta === 'object' ? body.meta : null;
+      const { restaurantName, ownerName, email, password, turnstileToken, meta } = req.validatedBody || req.body;
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
       const phone = typeof meta?.phone === 'string' ? meta.phone.trim() : '';
       const city = typeof meta?.cityRegion === 'string' ? meta.cityRegion.trim() : '';
       const address1 = typeof meta?.addressLine === 'string' ? meta.addressLine.trim() : '';
 
       if (!restaurantName) return res.status(400).json({ ok: false, error: 'restaurant_name_required' });
       if (!ownerName) return res.status(400).json({ ok: false, error: 'owner_name_required' });
-      if (!email) return res.status(400).json({ ok: false, error: 'email_required' });
+      if (!normalizedEmail) return res.status(400).json({ ok: false, error: 'email_required' });
       if (!password || password.length < 6) return res.status(400).json({ ok: false, error: 'password_too_short' });
 
       const turnstile = await verifyTurnstile({ token: turnstileToken, ip: req.ip });
       if (!turnstile.ok) return res.status(400).json({ ok: false, error: turnstile.error, details: turnstile.details });
 
-      const existingStaff = await db().select(['id']).from('staff').whereRaw('LOWER(email) = ?', [email.toLowerCase()]).first();
+      const existingStaff = await db().select(['id']).from('staff').whereRaw('LOWER(email) = ?', [normalizedEmail]).first();
       if (existingStaff) return res.status(409).json({ ok: false, error: 'email_in_use' });
 
       const baseSlug = slugifyWorkspace(restaurantName);
@@ -455,7 +458,7 @@ const makePublicRouter = () => {
           name: restaurantName,
           trialDays: 14,
           ownerName,
-          ownerEmail: email,
+          ownerEmail: normalizedEmail,
           ownerPassword: password,
           branchName: 'Main Branch',
           ownerPhone: phone,
@@ -479,13 +482,13 @@ const makePublicRouter = () => {
       }
 
       const tenantId = String(provisionOut.tenant?.id || '');
-      const out = await loginWithEmailPassword({ tenantId, email, password, jwtSecret: config.jwtSecret });
+      const out = await loginWithEmailPassword({ tenantId, email: normalizedEmail, password, jwtSecret: config.jwtSecret });
       if (!out.ok) return res.status(401).json({ ok: false, error: out.error });
 
       try {
         const trialEndsAt = safeIso(provisionOut.tenant?.trialEndsAt || provisionOut.tenant?.trial_ends_at || '');
         await sendWelcomeEmail({
-          toEmail: email,
+          toEmail: normalizedEmail,
           toName: ownerName,
           tenantSlug: String(provisionOut.tenant?.slug || ''),
           tenantName: restaurantName,
@@ -626,9 +629,9 @@ const makePublicRouter = () => {
     }
   });
 
-  r.get('/public/pos-links/:token', async (req, res, next) => {
+  r.get('/public/pos-links/:token', validateTokenParam, async (req, res, next) => {
     try {
-      const token = String(req.params.token || '').trim();
+      const { token } = req.validatedParams || req.params;
       if (!token) return res.status(400).json({ error: 'token_required' });
 
       const link = await loadLink({ token, purpose: 'payer' });
@@ -644,15 +647,39 @@ const makePublicRouter = () => {
 
       const payload = safeJsonParse(orderRow.payload, {});
       const items = Array.isArray(payload?.items) ? payload.items : [];
+      const productIds = Array.from(
+        new Set(
+          items
+            .map((it) => String(it?.productId || it?.product_id || '').trim())
+            .filter(Boolean),
+        ),
+      );
+      const imageByProductId = new Map();
+      if (productIds.length) {
+        const productRows = await db()
+          .from('menu_products')
+          .where({ tenant_id: link.tenantId })
+          .andWhere((b) => b.whereNull('branch_id').orWhere('branch_id', link.branchId))
+          .whereIn('id', productIds)
+          .select(['id', 'product_json']);
+        for (const row of productRows) {
+          const pj = safeJsonParse(row.product_json, {});
+          const img = String(pj?.image || '').trim();
+          if (img) imageByProductId.set(String(row.id), img);
+        }
+      }
+      const itemsWithImages = items.map((it) => {
+        const pid = String(it?.productId || it?.product_id || '').trim();
+        return { ...it, image: imageByProductId.get(pid) || '' };
+      });
       const orderNumber = typeof payload?.number === 'string' && payload.number.trim() ? String(payload.number).trim() : '';
       const tableName = typeof payload?.tableName === 'string' ? String(payload.tableName) : '';
 
       const settingsRow = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: link.tenantId }).first();
       const settings = safeJsonParse(settingsRow?.settings_json, {});
       const bizName = typeof settings?.business?.businessName === 'string' ? String(settings.business.businessName).trim() : '';
+
       const tin = typeof settings?.business?.tin === 'string' ? String(settings.business.tin).trim() : '';
-      const phone = typeof settings?.business?.phone === 'string' ? String(settings.business.phone).trim() : '';
-      const address = typeof settings?.business?.address === 'string' ? String(settings.business.address).trim() : '';
 
       const total = Number(orderRow.total ?? payload?.totalWithTip ?? payload?.paidTotal ?? payload?.total ?? 0) || 0;
       const rowTip = Number(orderRow.tip ?? 0) || 0;
@@ -688,7 +715,7 @@ const makePublicRouter = () => {
         orderId: String(orderRow.id || link.orderId),
         orderNumber: orderNumber || String(orderRow.id || link.orderId),
         tableName,
-        items,
+        items: itemsWithImages,
         subtotal,
         tax,
         serviceCharge,
@@ -703,9 +730,9 @@ const makePublicRouter = () => {
     }
   });
 
-  r.post('/public/pos-links/:token/initiate-chapa', async (req, res, next) => {
+  r.post('/public/pos-links/:token/initiate-chapa', validateTokenParam, validateChapaInitiate, async (req, res, next) => {
     try {
-      const token = String(req.params.token || '').trim();
+      const { token } = req.validatedParams || req.params;
       if (!token) return res.status(400).json({ error: 'token_required' });
 
       const link = await loadLink({ token, purpose: 'payer' });
@@ -720,17 +747,17 @@ const makePublicRouter = () => {
       if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
       if (String(orderRow.status || '') === 'Paid' || orderRow.paid_at) return res.status(409).json({ error: 'order_already_paid' });
 
-      const body = req.body && typeof req.body === 'object' ? req.body : {};
-      const tipAmount = clampMoney(body.tipAmount);
-      const tipPct = (() => {
-        const n = Number(body.tipPct);
+      const { tipAmount, tipPct: tipPctInput } = req.validatedBody || req.body;
+      const tipAmountSafe = clampMoney(tipAmount);
+      const tipPctValue = (() => {
+        const n = Number(tipPctInput);
         if (!Number.isFinite(n)) return 0;
         return Math.max(0, Math.min(100, n));
       })();
 
       const baseAmount = clampMoney(orderRow.total);
-      const pctAmount = clampMoney((baseAmount * tipPct) / 100);
-      const tipTotal = clampMoney(tipAmount + pctAmount);
+      const pctAmount = clampMoney((baseAmount * tipPctValue) / 100);
+      const tipTotal = clampMoney(tipAmountSafe + pctAmount);
       const total = clampMoney(baseAmount + tipTotal);
 
       const payload = safeJsonParse(orderRow.payload, {});
@@ -770,8 +797,8 @@ const makePublicRouter = () => {
       const nowIso = new Date().toISOString();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-      payload.tipAmount = tipAmount;
-      payload.tipPct = tipPct;
+      payload.tipAmount = tipAmountSafe;
+      payload.tipPct = tipPctValue;
       payload.tipPctAmount = pctAmount;
       payload.totalWithTip = total;
       payload.tip = tipTotal;
@@ -811,7 +838,7 @@ const makePublicRouter = () => {
         await trx
           .from('pos_public_order_links')
           .where({ token, purpose: 'payer' })
-          .update({ meta_json: JSON.stringify({ ...(link.meta || {}), tipAmount, tipPct, tipPctAmount: pctAmount, totalWithTip: total }), updated_at: nowIso });
+          .update({ meta_json: JSON.stringify({ ...(link.meta || {}), tipAmount: tipAmountSafe, tipPct: tipPctValue, tipPctAmount: pctAmount, totalWithTip: total }), updated_at: nowIso });
       });
 
       return res.json({ ok: true, checkoutUrl: init.checkoutUrl });
@@ -833,9 +860,9 @@ const makePublicRouter = () => {
     }
   });
 
-  r.post('/public/pos-links/:token/verify-chapa', async (req, res, next) => {
+  r.post('/public/pos-links/:token/verify-chapa', validateTokenParam, async (req, res, next) => {
     try {
-      const token = String(req.params.token || '').trim();
+      const { token } = req.validatedParams || req.params;
       if (!token) return res.status(400).json({ ok: false, error: 'token_required' });
 
       const link = await loadLink({ token, purpose: 'payer' });
@@ -904,9 +931,9 @@ const makePublicRouter = () => {
     }
   });
 
-  r.get('/public/pos-receipt/:token', async (req, res, next) => {
+  r.get('/public/pos-receipt/:token', validateTokenParam, async (req, res, next) => {
     try {
-      const token = String(req.params.token || '').trim();
+      const { token } = req.validatedParams || req.params;
       if (!token) return res.status(400).json({ error: 'token_required' });
 
       const link = await loadLink({ token, purpose: 'receipt' });
@@ -922,6 +949,31 @@ const makePublicRouter = () => {
 
       const payload = safeJsonParse(orderRow.payload, {});
       const items = Array.isArray(payload?.items) ? payload.items : [];
+      const productIds = Array.from(
+        new Set(
+          items
+            .map((it) => String(it?.productId || it?.product_id || '').trim())
+            .filter(Boolean),
+        ),
+      );
+      const imageByProductId = new Map();
+      if (productIds.length) {
+        const productRows = await db()
+          .from('menu_products')
+          .where({ tenant_id: link.tenantId })
+          .andWhere((b) => b.whereNull('branch_id').orWhere('branch_id', link.branchId))
+          .whereIn('id', productIds)
+          .select(['id', 'product_json']);
+        for (const row of productRows) {
+          const pj = safeJsonParse(row.product_json, {});
+          const img = String(pj?.image || '').trim();
+          if (img) imageByProductId.set(String(row.id), img);
+        }
+      }
+      const itemsWithImages = items.map((it) => {
+        const pid = String(it?.productId || it?.product_id || '').trim();
+        return { ...it, image: imageByProductId.get(pid) || '' };
+      });
 
       const tableName = typeof payload?.tableName === 'string' ? String(payload.tableName).trim() : '';
       const waiterName = typeof payload?.createdByName === 'string' ? String(payload.createdByName).trim() : '';
@@ -970,7 +1022,7 @@ const makePublicRouter = () => {
         status: String(orderRow.status || ''),
         paidAt: payload?.paidAt || orderRow.paid_at || null,
         currency: 'ETB',
-        items,
+        items: itemsWithImages,
         subtotal,
         tax,
         serviceCharge,
@@ -984,19 +1036,206 @@ const makePublicRouter = () => {
     }
   });
 
-  r.post('/public/demo-requests', async (req, res, next) => {
+  r.get('/public/pos-display/:token', validateTokenParam, async (req, res, next) => {
     try {
-      const body = req.body && typeof req.body === 'object' ? req.body : null;
-      const name = typeof body?.name === 'string' ? body.name.trim() : '';
-      const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
-      const phone = typeof body?.phone === 'string' ? body.phone.trim() : '';
-      const company = typeof body?.company === 'string' ? body.company.trim() : '';
-      const country = typeof body?.country === 'string' ? body.country.trim() : '';
-      const source = typeof body?.source === 'string' ? body.source.trim() : '';
-      const message = typeof body?.message === 'string' ? body.message.trim() : '';
+      const { token } = req.validatedParams || req.params;
+      if (!token) return res.status(400).json({ error: 'token_required' });
+
+      const link = await loadLink({ token, purpose: 'display' });
+      if (!link) return res.status(404).json({ error: 'link_not_found' });
+      if (link.expired) return res.status(410).json({ error: 'link_expired' });
+
+      const includeMenuRaw = String(req.query?.includeMenu || '').trim().toLowerCase();
+      const includeMenu = includeMenuRaw === '1' || includeMenuRaw === 'true';
+
+      const displayModeRaw = typeof link?.meta?.mode === 'string' ? link.meta.mode : 'payment';
+      const displayMode = ['menu', 'payment', 'receipt'].includes(displayModeRaw) ? displayModeRaw : 'payment';
+
+      const settingsRow = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: link.tenantId }).first();
+      const settings = safeJsonParse(settingsRow?.settings_json, {});
+      const bizName = typeof settings?.business?.businessName === 'string' ? String(settings.business.businessName).trim() : '';
+
+      const managerRow = await db()
+        .select(['settings_json'])
+        .from('manager_settings')
+        .where({ tenant_id: link.tenantId, branch_id: link.branchId })
+        .first();
+      const managerSettings = safeJsonParse(managerRow?.settings_json, {});
+      const overrideRaw = String(managerSettings?.customerDisplay?.mode || '').trim().toLowerCase();
+      const overrideMode = ['menu', 'payment', 'receipt'].includes(overrideRaw) ? overrideRaw : 'auto';
+      const effectiveMode = overrideMode !== 'auto' ? overrideMode : displayMode;
+      const baseUrl = publicBaseUrlFromReq(req);
+
+      const paymentDetails = (() => {
+        const payments = managerSettings?.payments && typeof managerSettings.payments === 'object' ? managerSettings.payments : {};
+        const qrCodes = payments?.qrCodes && typeof payments.qrCodes === 'object' ? payments.qrCodes : {};
+        const qrDetails = payments?.qrDetails && typeof payments.qrDetails === 'object' ? payments.qrDetails : {};
+        const normalize = (v) => (typeof v === 'string' ? String(v).trim() : '');
+        const normalizeUrl = (v) => {
+          const raw = normalize(v);
+          if (!raw) return '';
+          if (/^https?:\/\//i.test(raw)) return raw;
+          if (raw.startsWith('/')) return baseUrl + raw;
+          return raw;
+        };
+        const normalizeObj = (rawObj, legacyImage) => {
+          const o = rawObj && typeof rawObj === 'object' ? rawObj : {};
+          return {
+            image: normalizeUrl(o.image) || normalizeUrl(legacyImage),
+            accountName: normalize(o.accountName),
+            phone: normalize(o.phone),
+            merchantId: normalize(o.merchantId),
+            accountNumber: normalize(o.accountNumber),
+            bankName: normalize(o.bankName),
+            note: normalize(o.note),
+          };
+        };
+
+        return {
+          telebirr: normalizeObj(qrDetails.telebirr, qrCodes.telebirr),
+          bankTransfer: normalizeObj(qrDetails.bank_transfer, qrCodes.bank_transfer),
+          card: normalizeObj(qrDetails.card, qrCodes.card),
+        };
+      })();
+
+      const loadMenuData = async () => {
+        let base = db().from('menu_products').where({ tenant_id: link.tenantId });
+        base = base.andWhere((b) => b.whereNull('branch_id').orWhere('branch_id', link.branchId));
+        const rows = await base.select(['id', 'name', 'category', 'status', 'price', 'product_json', 'updated_at']);
+
+        const products = rows.map((row) => {
+          const pj = safeJsonParse(row.product_json, {});
+          return {
+            id: String(row.id),
+            name: String(row.name || ''),
+            price: Number(row.price || 0) || 0,
+            category: String(row.category || 'Uncategorized'),
+            image: String(pj?.image || ''),
+            description: String(pj?.description || ''),
+            status: String(row.status || 'Active'),
+          };
+        });
+
+        const categoriesRows = await db()
+          .from('menu_products')
+          .where({ tenant_id: link.tenantId })
+          .andWhere((b) => b.whereNull('branch_id').orWhere('branch_id', link.branchId))
+          .distinct('category as c');
+
+        const categories = Array.from(new Set(categoriesRows.map((x) => String(x.c || 'Uncategorized'))))
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b));
+
+        return { categories, products };
+      };
+
+      if (effectiveMode === 'menu') {
+        const menu = await loadMenuData();
+        return res.json({
+          ok: true,
+          mode: 'menu',
+          modeOverride: overrideMode !== 'auto' ? overrideMode : null,
+          cafeName: bizName || 'MirachPOS',
+          currency: 'ETB',
+          menu,
+        });
+      }
+
+      const orderRow = await db()
+        .from('orders')
+        .where({ tenant_id: link.tenantId, branch_id: link.branchId, id: link.orderId })
+        .select(['id', 'status', 'total', 'tip', 'payload', 'paid_at', 'payment_method', 'payment_reference'])
+        .first();
+      if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+
+      const payload = safeJsonParse(orderRow.payload, {});
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      const productIds = Array.from(
+        new Set(
+          items
+            .map((it) => String(it?.productId || it?.product_id || '').trim())
+            .filter(Boolean),
+        ),
+      );
+      const imageByProductId = new Map();
+      if (productIds.length) {
+        const productRows = await db()
+          .from('menu_products')
+          .where({ tenant_id: link.tenantId })
+          .andWhere((b) => b.whereNull('branch_id').orWhere('branch_id', link.branchId))
+          .whereIn('id', productIds)
+          .select(['id', 'product_json']);
+        for (const row of productRows) {
+          const pj = safeJsonParse(row.product_json, {});
+          const img = String(pj?.image || '').trim();
+          if (img) imageByProductId.set(String(row.id), img);
+        }
+      }
+      const itemsWithImages = items.map((it) => {
+        const pid = String(it?.productId || it?.product_id || '').trim();
+        return { ...it, image: imageByProductId.get(pid) || '' };
+      });
+
+      const tableName = typeof payload?.tableName === 'string' ? String(payload.tableName).trim() : '';
+
+      const total = Number(orderRow.total ?? payload?.totalWithTip ?? payload?.paidTotal ?? payload?.total ?? 0) || 0;
+      const rowTip = Number(orderRow.tip ?? 0) || 0;
+      const payloadTipAmount = Number(payload?.tipAmount ?? 0) || 0;
+      const payloadTipPctAmount = Number(payload?.tipPctAmount ?? 0) || 0;
+      const payloadHasTipBreakdown = payloadTipAmount > 0 || payloadTipPctAmount > 0;
+      const tip = payloadHasTipBreakdown ? payloadTipAmount + payloadTipPctAmount : rowTip;
+
+      const payloadSubtotal = Number(payload?.subtotal ?? 0) || 0;
+      const payloadTax = Number(payload?.tax ?? 0) || 0;
+      const payloadService = Number(payload?.serviceCharge ?? 0) || 0;
+      const payloadHasBreakdown = payloadSubtotal > 0 || payloadTax > 0 || payloadService > 0;
+
+      const baseBeforeTip = Math.max(0, total - tip);
+      const subtotal = payloadHasBreakdown ? payloadSubtotal : baseBeforeTip;
+      const tax = payloadHasBreakdown ? payloadTax : 0;
+      const serviceCharge = payloadHasBreakdown ? payloadService : 0;
+      const linkPaymentMethod = typeof link?.meta?.paymentMethod === 'string' ? link.meta.paymentMethod : '';
+      const linkPaymentUrl = typeof link?.meta?.paymentUrl === 'string' ? link.meta.paymentUrl : '';
+      const paymentMethod = String(payload?.paymentMethod || orderRow?.payment_method || linkPaymentMethod || '').trim();
+      const paymentReference = String(payload?.paymentReference || orderRow?.payment_reference || '').trim();
+
+      const menu = includeMenu ? await loadMenuData() : null;
+
+      return res.json({
+        ok: true,
+        mode: effectiveMode,
+        modeOverride: overrideMode !== 'auto' ? overrideMode : null,
+        cafeName: bizName || 'MirachPOS',
+        orderId: String(orderRow.id),
+        orderNumber: typeof payload?.number === 'string' && payload.number.trim() ? String(payload.number).trim() : String(orderRow.id),
+        tableName,
+        status: String(orderRow.status || ''),
+        paidAt: payload?.paidAt || orderRow.paid_at || null,
+        paymentMethod,
+        paymentReference,
+        paymentUrl: linkPaymentUrl,
+        paymentDetails,
+        currency: 'ETB',
+        items: itemsWithImages,
+        subtotal,
+        tax,
+        serviceCharge,
+        tipAmount: payloadHasTipBreakdown ? payloadTipAmount : tip,
+        total,
+        ...(menu ? { menu } : {}),
+      });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.post('/public/demo-requests', validateDemoRequest, async (req, res, next) => {
+    try {
+      const { name, email, phone, company, country, source, message } = req.validatedBody || req.body;
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
       if (!name) return res.status(400).json({ error: 'name_required' });
-      if (!email) return res.status(400).json({ error: 'email_required' });
+      if (!normalizedEmail) return res.status(400).json({ error: 'email_required' });
 
       const id = makeId('demo');
       const nowIso = new Date().toISOString();
@@ -1011,7 +1250,7 @@ const makePublicRouter = () => {
         id,
         status: 'New',
         name,
-        email,
+        email: normalizedEmail,
         phone: phone || null,
         company: company || null,
         country: country || null,
@@ -1030,17 +1269,14 @@ const makePublicRouter = () => {
     }
   });
 
-  r.post('/public/accept-invite', async (req, res, next) => {
+  r.post('/public/accept-invite', validateAcceptInvite, async (req, res, next) => {
     try {
-      const body = req.body && typeof req.body === 'object' ? req.body : null;
-      const code = typeof body?.code === 'string' ? body.code.trim() : '';
-      const name = typeof body?.name === 'string' ? body.name.trim() : '';
-      const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
-      const password = typeof body?.password === 'string' ? body.password : '';
+      const { code, name, email, password } = req.validatedBody || req.body;
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
       if (!code) return res.status(400).json({ error: 'invite_code_required' });
       if (!name) return res.status(400).json({ error: 'name_required' });
-      if (!email) return res.status(400).json({ error: 'email_required' });
+      if (!normalizedEmail) return res.status(400).json({ error: 'email_required' });
       if (!password || password.length < 6) return res.status(400).json({ error: 'password_too_short' });
 
       const inv = await db()
@@ -1064,7 +1300,7 @@ const makePublicRouter = () => {
       const tenant = await db().select(['id', 'slug', 'name']).from('tenants').where({ id: tenantId }).first();
       if (!tenant) return res.status(404).json({ error: 'tenant_not_found' });
 
-      const existing = await db().select(['id']).from('staff').where({ tenant_id: tenantId, email }).first();
+      const existing = await db().select(['id']).from('staff').where({ tenant_id: tenantId, email: normalizedEmail }).first();
       if (existing) return res.status(409).json({ error: 'email_in_use' });
 
       const branchId = inv.branch_id ? String(inv.branch_id) : '';
@@ -1083,7 +1319,7 @@ const makePublicRouter = () => {
           role_id: null,
           role_name: roleName,
           name,
-          email,
+          email: normalizedEmail,
           phone: null,
           code: null,
           password_hash: passwordHash,
@@ -1100,7 +1336,7 @@ const makePublicRouter = () => {
           .update({ used_at: nowIso, used_by_staff_id: staffId });
       });
 
-      const out = await loginWithEmailPassword({ tenantId, email, password, jwtSecret: config.jwtSecret });
+      const out = await loginWithEmailPassword({ tenantId, email: normalizedEmail, password, jwtSecret: config.jwtSecret });
       if (!out.ok) return res.status(401).json({ error: out.error });
       return res.status(201).json(out);
     } catch (e) {
@@ -1108,16 +1344,13 @@ const makePublicRouter = () => {
     }
   });
 
-  r.post('/contact-admin', async (req, res, next) => {
+  r.post('/contact-admin', validateContactAdmin, async (req, res, next) => {
     try {
-      const body = req.body && typeof req.body === 'object' ? req.body : null;
-      const name = typeof body?.name === 'string' ? body.name.trim() : '';
-      const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
-      const phone = typeof body?.phone === 'string' ? body.phone.trim() : '';
-      const message = typeof body?.message === 'string' ? body.message.trim() : '';
+      const { name, email, phone, message } = req.validatedBody || req.body;
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
       if (!name) return res.status(400).json({ error: 'name_required' });
-      if (!email) return res.status(400).json({ error: 'email_required' });
+      if (!normalizedEmail) return res.status(400).json({ error: 'email_required' });
       if (!message) return res.status(400).json({ error: 'message_required' });
 
       const id = makeId('demo');

@@ -16,14 +16,18 @@ const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { config } = require('../config');
+const { withCache } = require('../utils/cache');
 
 const {
     getDailySalesSummary,
     getHourlySalesHeatmap,
     getProductPerformance,
+    getStaffSalesSummary,
     aggregateDailySales,
     aggregateHourlySales,
     aggregateProductSales,
+    ensureAggregatedForRange,
 } = require('../services/reportAggregationService');
 
 const safeJsonParse = (raw, fallback) => {
@@ -48,6 +52,36 @@ const toDateString = (d) => {
     return x.toISOString().split('T')[0];
 };
 
+const getOwnerBusinessName = async (tenantId) => {
+    try {
+        const row = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: tenantId }).first();
+        const raw = row?.settings_json ? String(row.settings_json) : '';
+        const parsed = safeJsonParse(raw, {});
+        const business = parsed?.business && typeof parsed.business === 'object' ? parsed.business : {};
+        const name = String(business.businessName || business.legalName || '').trim();
+        return name || 'MirachPOS';
+    } catch {
+        return 'MirachPOS';
+    }
+};
+
+const sumPaymentBreakdown = (dailyRows) => {
+    const totals = new Map();
+    const rows = Array.isArray(dailyRows) ? dailyRows : [];
+    for (const r of rows) {
+        const pb = r?.paymentBreakdown && typeof r.paymentBreakdown === 'object' ? r.paymentBreakdown : {};
+        for (const [k, v] of Object.entries(pb)) {
+            const key = String(k || '').trim();
+            if (!key) continue;
+            const amt = Number(v || 0) || 0;
+            totals.set(key, (totals.get(key) || 0) + amt);
+        }
+    }
+    return Array.from(totals.entries())
+        .map(([method, amount]) => ({ method, amount }))
+        .sort((a, b) => b.amount - a.amount);
+};
+
 const makeEnhancedReportsRouter = () => {
     const r = express.Router();
 
@@ -68,12 +102,17 @@ const makeEnhancedReportsRouter = () => {
                 ? toDateString(toIso)
                 : toDateString(now);
 
-            const heatmap = await getHourlySalesHeatmap({
-                tenantId: req.tenant.id,
-                branchId,
-                fromDate: from,
-                toDate: to,
-            });
+            if (new Date(to).getTime() < new Date(from).getTime()) {
+                return res.status(400).json({ error: 'invalid_range' });
+            }
+
+            const agg = await ensureAggregatedForRange({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+            if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
+
+            const cacheKey = `reports:owner:hourly:${req.tenant.id}:${branchId || 'all'}:${from}:${to}`;
+            const heatmap = await withCache(cacheKey, config.cacheReportTtlSeconds, () =>
+                getHourlySalesHeatmap({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to })
+            );
 
             // Find peak hours
             const sortedByOrders = [...heatmap].sort((a, b) => b.orderCount - a.orderCount);
@@ -106,7 +145,7 @@ const makeEnhancedReportsRouter = () => {
             const branchId = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : null;
             const fromIso = typeof req.query?.from === 'string' ? req.query.from.trim() : '';
             const toIso = typeof req.query?.to === 'string' ? req.query.to.trim() : '';
-            const limit = Math.min(100, Math.max(1, parseInt(req.query?.limit, 10) || 20));
+            const limit = Math.min(5000, Math.max(1, parseInt(req.query?.limit, 10) || 20));
 
             const now = new Date();
             const from = fromIso && !Number.isNaN(new Date(fromIso).getTime())
@@ -116,13 +155,14 @@ const makeEnhancedReportsRouter = () => {
                 ? toDateString(toIso)
                 : toDateString(now);
 
-            const products = await getProductPerformance({
-                tenantId: req.tenant.id,
-                branchId,
-                fromDate: from,
-                toDate: to,
-                limit,
-            });
+            if (new Date(to).getTime() < new Date(from).getTime()) {
+                return res.status(400).json({ error: 'invalid_range' });
+            }
+
+            const agg = await ensureAggregatedForRange({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+            if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
+
+            const products = await getProductPerformance({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit });
 
             // Group by category
             const byCategory = {};
@@ -196,13 +236,22 @@ const makeEnhancedReportsRouter = () => {
                 query = query.andWhere('s.branch_id', branchId);
             }
 
-            const totalRow = await query.clone().count({ c: 's.id' }).first();
-            const total = Number(totalRow?.c || 0);
+            if (new Date(to).getTime() < new Date(from).getTime()) {
+                return res.status(400).json({ error: 'invalid_range' });
+            }
 
-            const shifts = await query
-                .orderBy('s.opened_at', 'desc')
-                .limit(limit)
-                .offset(offset);
+            const cacheKey = `reports:owner:shifts:${req.tenant.id}:${branchId || 'all'}:${from}:${to}:${limit}:${offset}`;
+            const { shifts, total } = await withCache(cacheKey, config.cacheReportTtlSeconds, async () => {
+                const totalRow = await query.clone().count({ c: 's.id' }).first();
+                const total = Number(totalRow?.c || 0);
+
+                const shifts = await query
+                    .orderBy('s.opened_at', 'desc')
+                    .limit(limit)
+                    .offset(offset);
+
+                return { shifts, total };
+            });
 
             return res.json({
                 ok: true,
@@ -239,29 +288,37 @@ const makeEnhancedReportsRouter = () => {
             const shiftId = String(req.params?.id || '').trim();
             if (!shiftId) return res.status(400).json({ error: 'shift_id_required' });
 
-            const shift = await db()
-                .select(['*'])
-                .from('shift_reports')
-                .where({ id: shiftId, tenant_id: req.tenant.id })
-                .first();
+            const cacheKey = `reports:owner:shift:${req.tenant.id}:${shiftId}`;
+            const payload = await withCache(cacheKey, config.cacheReportTtlSeconds, async () => {
+                const shift = await db()
+                    .select(['*'])
+                    .from('shift_reports')
+                    .where({ id: shiftId, tenant_id: req.tenant.id })
+                    .first();
 
-            if (!shift) {
+                if (!shift) return null;
+
+                const branch = await db()
+                    .select(['name'])
+                    .from('branches')
+                    .where({ id: shift.branch_id, tenant_id: req.tenant.id })
+                    .first();
+
+                return { shift, branchName: branch?.name || '' };
+            });
+
+            if (!payload) {
                 return res.status(404).json({ error: 'not_found' });
             }
 
-            // Get branch name
-            const branch = await db()
-                .select(['name'])
-                .from('branches')
-                .where({ id: shift.branch_id, tenant_id: req.tenant.id })
-                .first();
+            const shift = payload.shift;
 
             return res.json({
                 ok: true,
                 shift: {
                     id: shift.id,
                     branchId: shift.branch_id,
-                    branchName: branch?.name || '',
+                    branchName: payload.branchName,
                     staffId: shift.staff_id,
                     staffName: shift.staff_name || '',
                     status: shift.status,
@@ -326,7 +383,14 @@ const makeEnhancedReportsRouter = () => {
                 query = query.andWhere('v.branch_id', branchId);
             }
 
-            const logs = await query.orderBy('v.occurred_at', 'desc').limit(200);
+            if (new Date(to).getTime() < new Date(from).getTime()) {
+                return res.status(400).json({ error: 'invalid_range' });
+            }
+
+            const cacheKey = `reports:owner:voids:${req.tenant.id}:${branchId || 'all'}:${from}:${to}`;
+            const logs = await withCache(cacheKey, config.cacheReportTtlSeconds, () =>
+                query.orderBy('v.occurred_at', 'desc').limit(200)
+            );
 
             // Aggregate by type
             const voidTotal = logs.filter(l => l.type === 'void').reduce((sum, l) => sum + Number(l.amount_etb || 0), 0);
@@ -435,7 +499,6 @@ const makeEnhancedReportsRouter = () => {
     r.get('/owner/reports/export/csv', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
         try {
             if (!requireOwnerAuth(req, res)) return;
-
             const reportType = typeof req.query?.type === 'string' ? req.query.type.trim() : 'daily';
             const branchId = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : null;
             const fromIso = typeof req.query?.from === 'string' ? req.query.from.trim() : '';
@@ -448,17 +511,18 @@ const makeEnhancedReportsRouter = () => {
             const to = toIso && !Number.isNaN(new Date(toIso).getTime())
                 ? toDateString(toIso)
                 : toDateString(now);
+            if (new Date(to).getTime() < new Date(from).getTime()) {
+                return res.status(400).json({ error: 'invalid_range' });
+            }
+
+            const agg = await ensureAggregatedForRange({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+            if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
 
             let csvContent = '';
             let filename = 'report.csv';
 
             if (reportType === 'daily') {
-                const data = await getDailySalesSummary({
-                    tenantId: req.tenant.id,
-                    branchId,
-                    fromDate: from,
-                    toDate: to,
-                });
+                const data = await getDailySalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
 
                 csvContent = 'Date,Branch ID,Orders,Items,Gross Sales,Discounts,Net Sales,Tax,Tips,Total Collected,Avg Ticket\n';
                 for (const row of data) {
@@ -466,26 +530,15 @@ const makeEnhancedReportsRouter = () => {
                 }
                 filename = `daily_sales_${from}_to_${to}.csv`;
             } else if (reportType === 'products') {
-                const data = await getProductPerformance({
-                    tenantId: req.tenant.id,
-                    branchId,
-                    fromDate: from,
-                    toDate: to,
-                    limit: 500,
-                });
+                const data = await getProductPerformance({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 5000 });
 
-                csvContent = 'Product ID,Name,Category,Qty Sold,Revenue,Void Qty\n';
+                csvContent = 'Product ID,Name,Category,Qty Sold,Revenue,Cost,Profit,Void Qty\n';
                 for (const row of data) {
-                    csvContent += `${row.productId},"${row.name.replace(/"/g, '""')}","${row.category.replace(/"/g, '""')}",${row.qtySold},${row.revenue},${row.voidQty}\n`;
+                    csvContent += `${row.productId},"${row.name.replace(/"/g, '""')}","${row.category.replace(/"/g, '""')}",${row.qtySold},${row.revenue},${row.cost},${row.profit},${row.voidQty}\n`;
                 }
                 filename = `product_performance_${from}_to_${to}.csv`;
             } else if (reportType === 'hourly') {
-                const data = await getHourlySalesHeatmap({
-                    tenantId: req.tenant.id,
-                    branchId,
-                    fromDate: from,
-                    toDate: to,
-                });
+                const data = await getHourlySalesHeatmap({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
 
                 csvContent = 'Hour,Label,Order Count,Sales,Avg Sales\n';
                 for (const row of data) {
@@ -519,20 +572,38 @@ const makeEnhancedReportsRouter = () => {
             const to = toIso && !Number.isNaN(new Date(toIso).getTime())
                 ? toDateString(toIso)
                 : toDateString(now);
+            if (new Date(to).getTime() < new Date(from).getTime()) {
+                return res.status(400).json({ error: 'invalid_range' });
+            }
+
+            const agg = await ensureAggregatedForRange({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+            if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
 
             // Dynamically require to ensure service is available
             const { generateReportPDF } = require('../services/pdfService');
+
+            const businessName = await getOwnerBusinessName(req.tenant.id);
 
             let pdfBuffer = null;
             let filename = 'report.pdf';
 
             if (reportType === 'daily') {
-                const data = await getDailySalesSummary({
-                    tenantId: req.tenant.id,
-                    branchId,
-                    fromDate: from,
-                    toDate: to,
-                });
+                const data = await getDailySalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+
+                const totals = (() => {
+                    const orders = data.reduce((s, r) => s + (Number(r.orderCount || 0) || 0), 0);
+                    const netSales = data.reduce((s, r) => s + (Number(r.netSales || 0) || 0), 0);
+                    const tax = data.reduce((s, r) => s + (Number(r.tax || 0) || 0), 0);
+                    const tips = data.reduce((s, r) => s + (Number(r.tips || 0) || 0), 0);
+                    const collected = data.reduce((s, r) => s + (Number(r.totalCollected || 0) || 0), 0);
+                    return [
+                        { label: 'Orders', value: String(orders) },
+                        { label: 'Net Sales', value: `ETB ${netSales.toFixed(2)}` },
+                        { label: 'Tax', value: `ETB ${tax.toFixed(2)}` },
+                        { label: 'Tips', value: `ETB ${tips.toFixed(2)}` },
+                        { label: 'Total Collected', value: `ETB ${collected.toFixed(2)}` },
+                    ];
+                })();
 
                 const columns = [
                     { header: 'Date', key: 'date', width: 70 },
@@ -541,35 +612,49 @@ const makeEnhancedReportsRouter = () => {
                     { header: 'Net', key: 'netSales', width: 80, align: 'right', format: n => Number(n).toFixed(2) },
                 ];
 
-                pdfBuffer = await generateReportPDF('Daily Sales Summary', { from, to }, columns, data);
+                pdfBuffer = await generateReportPDF('Daily Sales Summary', { from, to }, columns, data, { businessName, totals });
                 filename = `daily_sales_${from}_to_${to}.pdf`;
 
             } else if (reportType === 'products') {
-                const data = await getProductPerformance({
-                    tenantId: req.tenant.id,
-                    branchId,
-                    fromDate: from,
-                    toDate: to,
-                    limit: 100,
-                });
+                const data = await getProductPerformance({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 5000 });
+
+                const totals = (() => {
+                    const qty = data.reduce((s, r) => s + (Number(r.qtySold || 0) || 0), 0);
+                    const revenue = data.reduce((s, r) => s + (Number(r.revenue || 0) || 0), 0);
+                    const cost = data.reduce((s, r) => s + (Number(r.cost || 0) || 0), 0);
+                    const profit = data.reduce((s, r) => s + (Number(r.profit || 0) || 0), 0);
+                    return [
+                        { label: 'Units Sold', value: String(qty) },
+                        { label: 'Revenue', value: `ETB ${revenue.toFixed(2)}` },
+                        { label: 'Cost', value: `ETB ${cost.toFixed(2)}` },
+                        { label: 'Profit', value: `ETB ${profit.toFixed(2)}` },
+                    ];
+                })();
 
                 const columns = [
                     { header: 'Product', key: 'name', width: 150 },
                     { header: 'Category', key: 'category', width: 100 },
-                    { header: 'Qty', key: 'qtySold', width: 60, align: 'center' },
+                    { header: 'Qty', key: 'qtySold', width: 60, align: 'right' },
                     { header: 'Revenue', key: 'revenue', width: 80, align: 'right', format: n => Number(n).toFixed(2) },
+                    { header: 'Cost', key: 'cost', width: 80, align: 'right', format: n => Number(n).toFixed(2) },
+                    { header: 'Profit', key: 'profit', width: 80, align: 'right', format: n => Number(n).toFixed(2) },
+                    { header: 'Void Qty', key: 'voidQty', width: 70, align: 'right' },
                 ];
 
-                pdfBuffer = await generateReportPDF('Product Performance', { from, to }, columns, data);
+                pdfBuffer = await generateReportPDF('Product Performance', { from, to }, columns, data, { businessName, totals });
                 filename = `product_performance_${from}_to_${to}.pdf`;
 
             } else if (reportType === 'hourly') {
-                const data = await getHourlySalesHeatmap({
-                    tenantId: req.tenant.id,
-                    branchId,
-                    fromDate: from,
-                    toDate: to,
-                });
+                const data = await getHourlySalesHeatmap({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+
+                const totals = (() => {
+                    const orders = data.reduce((s, r) => s + (Number(r.orderCount || 0) || 0), 0);
+                    const sales = data.reduce((s, r) => s + (Number(r.sales || 0) || 0), 0);
+                    return [
+                        { label: 'Orders', value: String(orders) },
+                        { label: 'Sales', value: `ETB ${sales.toFixed(2)}` },
+                    ];
+                })();
 
                 const columns = [
                     { header: 'Time', key: 'label', width: 80 },
@@ -578,7 +663,7 @@ const makeEnhancedReportsRouter = () => {
                     { header: 'Avg Tkt', key: 'avgSales', width: 100, align: 'right', format: n => Number(n).toFixed(2) },
                 ];
 
-                pdfBuffer = await generateReportPDF('Hourly Sales Analysis', { from, to }, columns, data);
+                pdfBuffer = await generateReportPDF('Hourly Sales Analysis', { from, to }, columns, data, { businessName, totals });
                 filename = `hourly_sales_${from}_to_${to}.pdf`;
             }
 
@@ -587,6 +672,103 @@ const makeEnhancedReportsRouter = () => {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
             return res.send(pdfBuffer);
+        } catch (e) {
+            return next(e);
+        }
+    });
+
+    // Export report data as XLSX (multi-sheet)
+    r.get('/owner/reports/export/xlsx', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
+        try {
+            if (!requireOwnerAuth(req, res)) return;
+
+            const branchId = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : null;
+            const fromIso = typeof req.query?.from === 'string' ? req.query.from.trim() : '';
+            const toIso = typeof req.query?.to === 'string' ? req.query.to.trim() : '';
+
+            const now = new Date();
+            const from = fromIso && !Number.isNaN(new Date(fromIso).getTime())
+                ? toDateString(fromIso)
+                : toDateString(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+            const to = toIso && !Number.isNaN(new Date(toIso).getTime())
+                ? toDateString(toIso)
+                : toDateString(now);
+
+            if (new Date(to).getTime() < new Date(from).getTime()) {
+                return res.status(400).json({ error: 'invalid_range' });
+            }
+
+            const agg = await ensureAggregatedForRange({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+            if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
+
+            const businessName = await getOwnerBusinessName(req.tenant.id);
+
+            const [daily, products, staff] = await Promise.all([
+                getDailySalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to }),
+                getProductPerformance({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 5000 }),
+                getStaffSalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 5000 }),
+            ]);
+
+            const payments = sumPaymentBreakdown(daily);
+
+            const voidsRes = await (async () => {
+                const fromDt = `${from} 00:00:00`;
+                const toDt = `${to} 23:59:59`;
+                const fromIso = `${from}T00:00:00.000Z`;
+                const toIso = `${to}T23:59:59.999Z`;
+
+                let query = db()
+                    .select([
+                        'v.*',
+                        'b.name as branch_name',
+                        's.name as authorized_by_name',
+                    ])
+                    .from({ v: 'void_refund_log' })
+                    .leftJoin({ b: 'branches' }, function () {
+                        this.on('b.id', '=', 'v.branch_id').andOn('b.tenant_id', '=', 'v.tenant_id');
+                    })
+                    .leftJoin({ s: 'staff' }, 's.id', 'v.authorized_by')
+                    .where({ 'v.tenant_id': req.tenant.id })
+                    .andWhere((qb) => {
+                        qb.whereBetween('v.occurred_at', [fromDt, toDt]).orWhereBetween('v.occurred_at', [fromIso, toIso]);
+                    });
+
+                if (branchId) {
+                    query = query.andWhere('v.branch_id', branchId);
+                }
+
+                const rows = await query.orderBy('v.occurred_at', 'desc').limit(2000);
+                return rows.map((l) => ({
+                    id: l.id,
+                    type: l.type,
+                    orderId: l.order_id,
+                    productId: l.product_id,
+                    productName: l.product_name || '',
+                    qty: Number(l.qty || 0),
+                    amount: Number(l.amount_etb || 0),
+                    reason: l.reason || '',
+                    authorizedBy: l.authorized_by_name || '',
+                    occurredAt: l.occurred_at,
+                }));
+            })();
+
+            const { buildOwnerReportWorkbook } = require('../services/reportXlsxExportService');
+
+            const buf = await buildOwnerReportWorkbook({
+                businessName,
+                fromDate: from,
+                toDate: to,
+                daily,
+                products,
+                staff,
+                payments,
+                voids: voidsRes,
+            });
+
+            const filename = `mirachpos_reports_${from}_to_${to}.xlsx`;
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            return res.send(buf);
         } catch (e) {
             return next(e);
         }

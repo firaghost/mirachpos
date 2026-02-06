@@ -8,6 +8,9 @@
  */
 
 const { db } = require('../db');
+const { config } = require('../config');
+const { withCache } = require('../utils/cache');
+const { withCircuitBreaker } = require('../utils/circuitBreaker');
 const telebirrTools = require('../utils/telebirr/tools');
 const jwt = require('jsonwebtoken');
 const { decryptConfigFields } = require('../utils/secretEncryption');
@@ -85,19 +88,32 @@ const normalizeTelebirrTradeType = (v) => {
     return s;
 };
 
+const fetchWithTimeout = async (url, options = {}) => {
+    const controller = new AbortController();
+    const timeoutMs = Number(config.gatewayRequestTimeoutMs || 0) || 0;
+    const timeout = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+        return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+        if (timeout) clearTimeout(timeout);
+    }
+};
+
 const telebirrFetch = async (url, options) => {
     try {
-        return await fetch(url, options);
+        return await withCircuitBreaker('telebirr', async () => fetchWithTimeout(url, options));
     } catch (e) {
         const msg = String(e?.message || e || '');
         // Some Node fetch implementations don't support undici `dispatcher` option.
         if (msg.toLowerCase().includes('not supported argument') && options && Object.prototype.hasOwnProperty.call(options, 'dispatcher')) {
             const { dispatcher, ...rest } = options;
-            return await fetch(url, rest);
+            return await withCircuitBreaker('telebirr', async () => fetchWithTimeout(url, rest));
         }
         throw e;
     }
 };
+
+const chapaFetch = async (url, options) => withCircuitBreaker('chapa', async () => fetchWithTimeout(url, options));
 
 const safeJsonParse = (raw, fallback) => {
     try {
@@ -352,11 +368,15 @@ const santimpayVerifyPlatform = async ({ id }) => {
 
 // Get gateway configuration
 const getGatewayConfig = async (gateway) => {
-    const row = await db()
-        .select(['chapa_config_json', 'telebirr_config_json', 'cbe_birr_config_json'])
-        .from('platform_payment_config')
-        .where({ id: 1 })
-        .first();
+    const row = await withCache(
+        'platform_gateway_config_v1',
+        config.cacheDefaultTtlSeconds,
+        async () => db()
+            .select(['chapa_config_json', 'telebirr_config_json', 'cbe_birr_config_json'])
+            .from('platform_payment_config')
+            .where({ id: 1 })
+            .first(),
+    );
 
     // Default empty objects if DB row missing
     const dbConfigs = {
@@ -438,7 +458,7 @@ const chapaInitialize = async ({
     };
 
     try {
-        const response = await fetch(`${CHAPA_API_URL}/transaction/initialize`, {
+        const response = await chapaFetch(`${CHAPA_API_URL}/transaction/initialize`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${config.secretKey}`,
@@ -504,7 +524,7 @@ const chapaInitializeForTenantPos = async ({
         },
     };
 
-    const response = await fetch(`${CHAPA_API_URL}/transaction/initialize`, {
+    const response = await chapaFetch(`${CHAPA_API_URL}/transaction/initialize`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${secretKey}`,
@@ -535,7 +555,7 @@ const chapaVerifyForTenantPos = async ({ tenantId, txRef }) => {
         throw new Error('tenant_chapa_not_configured');
     }
 
-    const response = await fetch(`${CHAPA_API_URL}/transaction/verify/${encodeURIComponent(String(txRef || '').trim())}`, {
+    const response = await chapaFetch(`${CHAPA_API_URL}/transaction/verify/${encodeURIComponent(String(txRef || '').trim())}`, {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${secretKey}`,
@@ -568,7 +588,7 @@ const chapaVerify = async (txRef) => {
     }
 
     try {
-        const response = await fetch(`${CHAPA_API_URL}/transaction/verify/${txRef}`, {
+        const response = await chapaFetch(`${CHAPA_API_URL}/transaction/verify/${txRef}`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${config.secretKey}`,

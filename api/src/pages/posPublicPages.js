@@ -445,7 +445,16 @@ const handleReceiptPage = (req, res) => {
       const TOKEN = ${JSON.stringify(safeToken)};
       const API = ${JSON.stringify(apiBase)};
       const money = (n) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
-      const showErr = (t) => { const e=document.getElementById('err'); e.style.display='block'; e.textContent=t; };
+      const HEARTBEAT_KEY = 'mirachpos.customerDisplay.heartbeat.v1';
+      const beat = () => {
+        try { localStorage.setItem(HEARTBEAT_KEY, String(Date.now())); } catch { }
+      };
+      beat();
+      setInterval(beat, 3000);
+      window.addEventListener('beforeunload', () => {
+        try { localStorage.removeItem(HEARTBEAT_KEY); } catch { }
+      });
+      const showErr = (t) => { const e=document.getElementById('err'); if (!e) return; e.classList.remove('hidden'); e.textContent=t; };
       const downloadBlob = (blob, filename) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -628,4 +637,454 @@ const handleReceiptPage = (req, res) => {
 </html>`);
 };
 
-module.exports = { handleCheckoutPage, handleReceiptPage };
+const handleDisplayPage = (req, res) => {
+  const token = String(req.params.token || '').trim();
+  const xfProto = String(req.header('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
+  const proto = xfProto || req.protocol;
+  const host = proto + '://' + req.get('host');
+  const apiBase = `${host}/api`;
+  const safeToken = token.replace(/</g, '').replace(/>/g, '');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.status(200).send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MirachPOS Customer Display</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: '#b86614',
+              'primary-dark': '#96520f',
+              'background-light': '#fcfaf8',
+              'background-dark': '#211911',
+              'surface-light': '#ffffff',
+              'surface-dark': '#2d241b',
+              'text-main-light': '#1b140e',
+              'text-main-dark': '#f0e6dd',
+              'text-sub-light': '#97734e',
+              'text-sub-dark': '#bca388',
+              'border-light': '#e7dbd0',
+              'border-dark': '#4a3b2f',
+            },
+            fontFamily: {
+              display: ['Work Sans', 'sans-serif'],
+            },
+            borderRadius: {
+              DEFAULT: '0.25rem',
+              lg: '0.5rem',
+              xl: '0.75rem',
+              full: '9999px',
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="bg-background-light text-text-main-light dark:bg-background-dark dark:text-text-main-dark font-display min-h-screen flex flex-col items-center">
+    <div class="w-full max-w-[640px] bg-background-light dark:bg-background-dark min-h-screen shadow-2xl flex flex-col">
+      <div class="hidden rounded-lg border border-red-500/30 bg-red-500/10 text-red-100 px-4 py-3 text-sm" id="err"></div>
+
+      <div class="flex flex-col" id="paymentView">
+        <header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-border-light dark:border-border-dark px-4 py-3 bg-surface-light dark:bg-surface-dark">
+          <div class="flex items-center gap-3 text-text-main-light dark:text-text-main-dark">
+            <div class="size-6 text-primary">
+              <span class="material-symbols-outlined text-2xl">point_of_sale</span>
+            </div>
+            <h2 class="text-lg font-bold leading-tight tracking-[-0.015em]" id="cafe">MirachPos</h2>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="rounded-lg border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-text-sub-light dark:text-text-sub-dark" id="status">Pending</div>
+          </div>
+        </header>
+
+        <main class="flex-1 flex flex-col p-4 gap-4">
+          <div>
+            <h1 class="text-text-main-light dark:text-text-main-dark text-2xl font-bold leading-tight">Checkout &amp; Payment</h1>
+            <p class="text-text-sub-light dark:text-text-sub-dark text-xs mt-1" id="meta">Loading…</p>
+            <p class="text-text-sub-light dark:text-text-sub-dark text-[10px] mt-1" id="updated"></p>
+          </div>
+
+          <section class="flex flex-col gap-4">
+            <h3 class="text-text-main-light dark:text-text-main-dark text-base font-bold leading-tight">Order Summary</h3>
+            <div class="overflow-hidden rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark shadow-sm">
+              <div class="grid grid-cols-12 gap-2 bg-background-light dark:bg-[#2a2219] px-4 py-3 text-sm font-medium text-text-sub-light dark:text-text-sub-dark border-b border-border-light dark:border-border-dark">
+                <div class="col-span-7">Product</div>
+                <div class="col-span-2 text-center">Qty</div>
+                <div class="col-span-3 text-right">Price</div>
+              </div>
+              <div class="px-4" id="items"></div>
+            </div>
+          </section>
+
+          <div class="flex flex-col gap-2 py-2 border-t border-border-light dark:border-border-dark mt-2">
+            <div class="flex justify-between items-center py-1">
+              <p class="text-text-sub-light dark:text-text-sub-dark text-sm">Subtotal</p>
+              <p class="text-text-main-light dark:text-text-main-dark text-sm font-medium" id="subtotal">ETB 0.00</p>
+            </div>
+            <div class="flex justify-between items-center py-1">
+              <p class="text-text-sub-light dark:text-text-sub-dark text-sm">Tax</p>
+              <p class="text-text-main-light dark:text-text-main-dark text-sm font-medium" id="tax">ETB 0.00</p>
+            </div>
+            <div class="flex justify-between items-center py-1">
+              <p class="text-text-sub-light dark:text-text-sub-dark text-sm">Service</p>
+              <p class="text-text-main-light dark:text-text-main-dark text-sm font-medium" id="service">ETB 0.00</p>
+            </div>
+          </div>
+        </main>
+
+        <footer class="w-full bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark p-4 pb-5">
+          <div class="flex flex-col items-center gap-6">
+            <div class="flex flex-col items-center gap-1">
+              <span class="text-text-sub-light dark:text-text-sub-dark text-sm uppercase tracking-wider font-semibold">Total Amount</span>
+              <span class="text-3xl font-bold text-[#4a3b2f] dark:text-[#dcc9b6]" id="total">ETB 0.00</span>
+            </div>
+            <div class="w-full bg-background-light dark:bg-background-dark rounded-xl p-4 border border-border-light dark:border-border-dark flex flex-col items-center gap-3 relative overflow-hidden group" id="paymentDetails">
+              <div class="absolute top-4 left-4 w-4 h-4 border-l-2 border-t-2 border-primary"></div>
+              <div class="absolute top-4 right-4 w-4 h-4 border-r-2 border-t-2 border-primary"></div>
+              <div class="absolute bottom-4 left-4 w-4 h-4 border-l-2 border-b-2 border-primary"></div>
+              <div class="absolute bottom-4 right-4 w-4 h-4 border-r-2 border-b-2 border-primary"></div>
+              <div class="bg-white p-2 rounded-lg shadow-sm">
+                <div class="w-32 h-32 bg-white flex items-center justify-center relative overflow-hidden rounded">
+                  <img id="paymentDetailsQr" alt="Payment QR" class="hidden w-32 h-32 object-cover" />
+                  <div class="absolute inset-0 flex items-center justify-center" id="paymentDetailsIcon">
+                    <div class="bg-white p-1 rounded-full shadow-sm">
+                      <span class="material-symbols-outlined text-primary text-2xl">payments</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 text-primary font-medium text-sm" id="paymentDetailsTitle">
+                <span class="material-symbols-outlined text-lg">qr_code_scanner</span>
+                <span>Scan to Pay</span>
+              </div>
+              <div class="w-full space-y-2 text-xs text-text-sub-light dark:text-text-sub-dark" id="paymentDetailsList"></div>
+            </div>
+          </div>
+        </footer>
+      </div>
+
+      <div class="rounded-2xl border border-border-light bg-surface-light shadow-xl shadow-black/10 hidden dark:border-border-dark dark:bg-surface-dark dark:shadow-black/40" id="receiptView">
+        <div class="px-6 py-6 space-y-4">
+          <div class="text-xl font-extrabold text-slate-900 dark:text-white" id="receiptCafe">MirachPOS</div>
+          <div class="text-xs uppercase tracking-[0.3em] text-slate-500 dark:text-text-secondary" id="receiptMeta">Receipt</div>
+          <div class="space-y-2" id="receiptItems"></div>
+          <div class="border-t border-dashed border-slate-200 pt-3 text-lg font-extrabold dark:border-surface-highlight" id="receiptTotal">ETB 0.00</div>
+          <div class="text-xs text-slate-500 dark:text-text-secondary" id="receiptPay"></div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-border-light bg-surface-light shadow-xl shadow-black/10 hidden dark:border-border-dark dark:bg-surface-dark dark:shadow-black/40" id="menuView">
+        <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-surface-highlight">
+          <div>
+            <div class="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white" id="menuCafe">MirachPOS</div>
+            <div class="text-sm text-slate-500 dark:text-text-secondary" id="menuMeta">Menu</div>
+          </div>
+        </div>
+        <div class="px-6 py-6">
+          <div class="space-y-6" id="menuGrid"></div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const TOKEN = ${JSON.stringify(safeToken)};
+      const API = ${JSON.stringify(apiBase)};
+      const money = (n) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
+      const showErr = (t) => { const e=document.getElementById('err'); if (!e) return; e.classList.remove('hidden'); e.textContent=t; };
+      const setText = (id, val) => { const el=document.getElementById(id); if (el) el.textContent = val; };
+      const renderItems = (items, currency) => {
+        const wrap = document.getElementById('items');
+        if (!wrap) return;
+        if (!items || !items.length) {
+          wrap.innerHTML = '<div class="py-6 text-center text-slate-500 dark:text-text-secondary">No items</div>';
+          return;
+        }
+        wrap.innerHTML = items.map((it) => {
+          const name = String(it.name || '-');
+          const qty = Number(it.qty || 0) || 0;
+          const unit = Number(it.unitPrice || 0) || 0;
+          const amount = qty * unit;
+          return '<div class="grid grid-cols-12 gap-2 py-4 border-b border-border-light dark:border-border-dark items-center">' +
+            '<div class="col-span-7 text-text-main-light dark:text-text-main-dark text-sm font-medium">' + name + '</div>' +
+            '<div class="col-span-2 text-center text-text-sub-light dark:text-text-sub-dark text-sm">' + qty + '</div>' +
+            '<div class="col-span-3 text-right text-text-main-light dark:text-text-main-dark text-sm font-medium">' + currency + ' ' + money(amount) + '</div>' +
+            '</div>';
+        }).join('');
+      };
+      const renderReceiptItems = (items, currency) => {
+        const wrap = document.getElementById('receiptItems');
+        if (!wrap) return;
+        if (!items || !items.length) {
+          wrap.innerHTML = '<div class="py-6 text-center text-slate-500 dark:text-text-secondary">No items</div>';
+          return;
+        }
+        wrap.innerHTML = items.map((it) => {
+          const name = String(it.name || '-');
+          const qty = Number(it.qty || 0) || 0;
+          const unit = Number(it.unitPrice || 0) || 0;
+          const amount = qty * unit;
+          const img = String(it.image || '').trim();
+          const thumb = img ? '<img src="' + img + '" alt="' + name + '" class="h-10 w-10 rounded-md object-cover border border-slate-200 dark:border-surface-highlight" />' : '<div class="h-10 w-10 rounded-md bg-slate-100 border border-slate-200 dark:bg-surface-highlight/40 dark:border-surface-highlight"></div>';
+          return '<div class="flex items-center justify-between gap-3 py-2 border-b border-dashed border-slate-200 last:border-0 dark:border-surface-highlight"><div class="flex items-center gap-3">' + thumb + '<div><div class="text-sm font-semibold text-slate-900 dark:text-white">' + name + '</div><div class="text-xs text-slate-500 dark:text-text-secondary">x' + qty + '</div></div></div><div class="text-sm font-bold text-slate-900 dark:text-white">' + currency + ' ' + money(amount) + '</div></div>';
+        }).join('');
+      };
+      const renderMenu = (menu, currency) => {
+        const wrap = document.getElementById('menuGrid');
+        if (!wrap) return;
+        const products = Array.isArray(menu?.products) ? menu.products : [];
+        const categories = Array.isArray(menu?.categories) ? menu.categories : [];
+        if (!products.length) {
+          wrap.innerHTML = '<div class="py-6 text-center text-slate-500 dark:text-text-secondary">Menu is empty</div>';
+          return;
+        }
+        const byCategory = new Map();
+        for (const p of products) {
+          const cat = String(p.category || 'Uncategorized');
+          if (!byCategory.has(cat)) byCategory.set(cat, []);
+          byCategory.get(cat).push(p);
+        }
+        const orderedCategories = categories.length
+          ? categories
+          : Array.from(byCategory.keys()).sort((a, b) => a.localeCompare(b));
+
+        const cardHtml = (p) => {
+          const name = String(p.name || '-');
+          const price = Number(p.price || 0) || 0;
+          const desc = String(p.description || '').trim();
+          const img = String(p.image || '').trim();
+          const status = String(p.status || 'Active');
+          const isSoldOut = status.toLowerCase() !== 'active';
+          const badgeClass = isSoldOut ? 'bg-red-500/20 text-red-300 border-red-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+          const badgeLabel = isSoldOut ? 'Sold Out' : 'Available';
+          const imgTag = img ? '<img class="h-32 w-full object-cover" src="' + img + '" alt="' + name + '" />' : '<div class="h-32 w-full bg-slate-100 dark:bg-surface-highlight/40"></div>';
+          return '<div class="group bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col relative dark:bg-surface-dark dark:border-surface-highlight">' +
+            '<div class="absolute top-2 right-2 z-10"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ' + badgeClass + '">' + badgeLabel + '</span></div>' +
+            '<div class="bg-slate-100 dark:bg-surface-highlight/30">' + imgTag + '</div>' +
+            '<div class="p-3 flex flex-col gap-1">' +
+            '<div class="text-base font-bold text-slate-900 dark:text-white">' + name + '</div>' +
+            (desc ? '<div class="text-xs text-slate-500 dark:text-text-secondary">' + desc + '</div>' : '<div class="text-xs text-slate-500 dark:text-text-secondary">&nbsp;</div>') +
+            '<div class="mt-2 flex items-center justify-between">' +
+            '<span class="text-lg font-bold text-accent-gold">' + currency + ' ' + money(price) + '</span>' +
+            '<div class="size-8 rounded-lg flex items-center justify-center shadow-lg ' + (isSoldOut ? 'bg-slate-100 text-slate-500 dark:bg-surface-highlight/40 dark:text-text-secondary' : 'bg-primary text-black shadow-primary/20') + '">+</div>' +
+            '</div></div></div>';
+        };
+
+        wrap.innerHTML = orderedCategories.map((cat) => {
+          const items = byCategory.get(cat) || [];
+          if (!items.length) return '';
+          return '<section class="space-y-3">' +
+            '<div class="flex items-center gap-3">' +
+            '<div class="h-px flex-1 bg-slate-200 dark:bg-surface-highlight"></div>' +
+            '<div class="text-xs uppercase tracking-[0.3em] text-slate-500 dark:text-text-secondary">' + cat + '</div>' +
+            '<div class="h-px flex-1 bg-slate-200 dark:bg-surface-highlight"></div>' +
+            '</div>' +
+            '<div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">' +
+            items.map(cardHtml).join('') +
+            '</div>' +
+            '</section>';
+        }).join('');
+      };
+      let menuTimer = null;
+      let cachedMenu = null;
+      let autoMenuKey = '';
+      let autoMenuActive = false;
+      let currentMode = 'payment';
+      const clearMenuTimer = () => {
+        if (!menuTimer) return;
+        clearTimeout(menuTimer);
+        menuTimer = null;
+      };
+      const fetchMenu = async () => {
+        try {
+          const r = await fetch(API + '/public/pos-display/' + encodeURIComponent(TOKEN) + '?includeMenu=1');
+          const j = await r.json().catch(() => null);
+          if (!r.ok || !j || !j.ok || !j.menu) return null;
+          cachedMenu = j.menu;
+          return j.menu;
+        } catch {
+          return null;
+        }
+      };
+      const scheduleMenu = (currency) => {
+        clearMenuTimer();
+        menuTimer = setTimeout(() => {
+          autoMenuActive = true;
+          showView('menu');
+          renderMenu(cachedMenu || {}, currency);
+        }, 3000);
+      };
+      const normalizeMode = (raw) => {
+        const v = String(raw || '').trim().toLowerCase();
+        if (v === 'menu' || v === 'payment' || v === 'receipt') return v;
+        return 'payment';
+      };
+      const showView = (mode) => {
+        const paymentView = document.getElementById('paymentView');
+        const receiptView = document.getElementById('receiptView');
+        const menuView = document.getElementById('menuView');
+        if (paymentView) paymentView.classList.toggle('hidden', mode !== 'payment');
+        if (receiptView) receiptView.classList.toggle('hidden', mode !== 'receipt');
+        if (menuView) menuView.classList.toggle('hidden', mode !== 'menu');
+      };
+      const renderPaymentDetails = (data) => {
+        const wrap = document.getElementById('paymentDetails');
+        const title = document.getElementById('paymentDetailsTitle');
+        const list = document.getElementById('paymentDetailsList');
+        const img = document.getElementById('paymentDetailsQr');
+        const icon = document.getElementById('paymentDetailsIcon');
+        if (!wrap || !list || !title || !img || !icon) return;
+
+        const methodRaw = String(data?.paymentMethod || '').trim().toLowerCase();
+        const details = data?.paymentDetails || {};
+        const isCash = !methodRaw || methodRaw === 'cash' || methodRaw === 'loyalty';
+        if (isCash) {
+          wrap.classList.add('hidden');
+          list.innerHTML = '';
+          img.classList.add('hidden');
+          img.removeAttribute('src');
+          icon.classList.remove('hidden');
+          return;
+        }
+
+        let titleText = 'Payment';
+        let imgSrc = '';
+        let items = [];
+
+        if (methodRaw === 'telebirr') {
+          titleText = 'Telebirr';
+          const tele = details?.telebirr || {};
+          imgSrc = String(tele.image || '').trim();
+          if (tele.accountName) items.push(['Account', tele.accountName]);
+          if (tele.phone) items.push(['Phone', tele.phone]);
+          if (tele.merchantId) items.push(['Merchant ID', tele.merchantId]);
+          if (tele.note) items.push(['Note', tele.note]);
+        } else if (methodRaw === 'mobile pay' || methodRaw === 'mobile_pay' || methodRaw === 'mobilepay' || methodRaw === 'chapa') {
+          titleText = 'Mobile Pay (Chapa)';
+          const payUrl = String(data?.paymentUrl || '').trim();
+          if (payUrl) {
+            imgSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=' + encodeURIComponent(payUrl);
+          }
+        } else if (methodRaw === 'bank transfer' || methodRaw === 'bank_transfer' || methodRaw === 'bank') {
+          titleText = 'Bank Transfer';
+          const bank = details?.bankTransfer || {};
+          imgSrc = String(bank.image || '').trim();
+          if (bank.bankName) items.push(['Bank', bank.bankName]);
+          if (bank.accountName) items.push(['Account', bank.accountName]);
+          if (bank.accountNumber) items.push(['Account No.', bank.accountNumber]);
+          if (bank.phone) items.push(['Phone', bank.phone]);
+          if (bank.note) items.push(['Note', bank.note]);
+        }
+
+        if (!imgSrc && !items.length) {
+          wrap.classList.add('hidden');
+          list.innerHTML = '';
+          img.classList.add('hidden');
+          img.removeAttribute('src');
+          icon.classList.remove('hidden');
+          return;
+        }
+
+        title.textContent = titleText;
+        if (imgSrc) {
+          img.src = imgSrc;
+          img.classList.remove('hidden');
+          icon.classList.add('hidden');
+        } else {
+          img.classList.add('hidden');
+          img.removeAttribute('src');
+          icon.classList.remove('hidden');
+        }
+        list.innerHTML = items.map(([label, value]) => {
+          return '<div class="flex items-start justify-between gap-3"><span class="uppercase tracking-[0.2em] text-[10px]">' + label + '</span><span class="text-right text-text-main-light dark:text-text-main-dark font-semibold">' + value + '</span></div>';
+        }).join('');
+        wrap.classList.remove('hidden');
+      };
+      const load = async () => {
+        const url = API + '/public/pos-display/' + encodeURIComponent(TOKEN) + '?ts=' + Date.now();
+        const r = await fetch(url, { cache: 'no-store' });
+        const j = await r.json().catch(() => null);
+        if (!r.ok || !j || !j.ok) throw new Error((j && (j.message || j.error)) || 'Failed to load display');
+        const currency = String(j.currency || 'ETB').toUpperCase();
+        const serverMode = normalizeMode(j.mode);
+        const overrideRaw = String(j.modeOverride || '').trim();
+        const hasOverride = overrideRaw.length > 0;
+        const overrideMode = hasOverride ? normalizeMode(overrideRaw) : 'payment';
+        const receiptKey = String(j.orderId || '') + '|' + String(j.paidAt || '');
+        let mode = serverMode;
+        currentMode = mode;
+        if (j.menu) cachedMenu = j.menu;
+        if (hasOverride) {
+          autoMenuActive = false;
+          autoMenuKey = '';
+          clearMenuTimer();
+          mode = overrideMode;
+        } else if (serverMode === 'receipt') {
+          if (autoMenuActive && autoMenuKey && autoMenuKey === receiptKey) {
+            mode = 'menu';
+          } else {
+            autoMenuActive = true;
+            autoMenuKey = receiptKey;
+          }
+        } else {
+          autoMenuActive = false;
+          autoMenuKey = '';
+          clearMenuTimer();
+        }
+
+        showView(mode);
+
+        if (mode === 'menu') {
+          renderPaymentDetails(null);
+          setText('menuCafe', String(j.cafeName || 'MirachPOS'));
+          if (!cachedMenu) {
+            void fetchMenu();
+          }
+          renderMenu(j.menu || cachedMenu || {}, currency);
+          return;
+        }
+
+        setText('cafe', String(j.cafeName || 'MirachPOS'));
+        setText('meta', 'Order ' + (j.orderNumber || j.orderId || '') + ' • ' + (j.tableName || 'Walk-in'));
+        setText('updated', 'Updated ' + new Date().toLocaleTimeString());
+        setText('status', String(j.status || 'Pending'));
+        renderItems(j.items || [], currency);
+        setText('subtotal', currency + ' ' + money(j.subtotal));
+        setText('tax', currency + ' ' + money(j.tax));
+        setText('service', currency + ' ' + money(j.serviceCharge));
+        setText('total', currency + ' ' + money(j.total));
+        if (mode === 'payment') {
+          renderPaymentDetails(j || {});
+        } else {
+          renderPaymentDetails(null);
+        }
+
+        if (serverMode === 'receipt' && !hasOverride) {
+          setText('receiptCafe', String(j.cafeName || 'MirachPOS'));
+          setText('receiptMeta', 'Receipt • ' + (j.orderNumber || j.orderId || ''));
+          renderReceiptItems(j.items || [], currency);
+          setText('receiptTotal', currency + ' ' + money(j.total));
+          const payLine = (j.paymentMethod ? String(j.paymentMethod) : 'Payment') + (j.paymentReference ? ' • ' + String(j.paymentReference) : '');
+          setText('receiptPay', payLine);
+          if (!cachedMenu) {
+            void fetchMenu();
+          }
+          scheduleMenu(currency);
+        }
+      };
+      const poll = () => load().catch((e) => showErr(String(e && e.message ? e.message : e)));
+      poll();
+      setInterval(poll, 3000);
+    </script>
+  </body>
+</html>`);
+};
+
+module.exports = { handleCheckoutPage, handleReceiptPage, handleDisplayPage };

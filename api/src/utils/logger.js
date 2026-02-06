@@ -10,7 +10,6 @@
 
 const pino = require('pino');
 const { config } = require('../config');
-const { db } = require('../db');
 const { makeId } = require('./ids');
 
 const isDevelopment = config.env !== 'production';
@@ -84,6 +83,14 @@ const requestLogger = (req, res, next) => {
             duration,
         };
 
+        const slowRequestMs = Number(process.env.SLOW_REQUEST_MS || 0) || 0;
+        if (slowRequestMs > 0 && duration >= slowRequestMs) {
+            reqLogger.warn(
+                { type: 'slow_request', statusCode: res.statusCode, duration, slowRequestMs },
+                `${req.method} ${req.path} slow_request ${duration}ms`,
+            );
+        }
+
         if (res.statusCode >= 500) {
             reqLogger.error(logData, `${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
         } else if (res.statusCode >= 400) {
@@ -96,9 +103,29 @@ const requestLogger = (req, res, next) => {
     next();
 };
 
-const logAudit = async ({ tenantId, branchId, actorStaffId, actorRole, type, summary, payload }) => {
+let auditHasRequestIdColumnPromise = null;
+
+const auditHasRequestIdColumn = async () => {
     try {
-        await db().from('audit_log').insert({
+        if (!auditHasRequestIdColumnPromise) {
+            auditHasRequestIdColumnPromise = (async () => {
+                // eslint-disable-next-line global-require
+                const { db } = require('../db');
+                const has = await db().schema.hasColumn('audit_log', 'request_id');
+                return !!has;
+            })();
+        }
+        return await auditHasRequestIdColumnPromise;
+    } catch {
+        return false;
+    }
+};
+
+const logAudit = async ({ tenantId, branchId, actorStaffId, actorRole, type, summary, payload, requestId }) => {
+    try {
+        // eslint-disable-next-line global-require
+        const { db } = require('../db');
+        const row = {
             id: makeId('aud'),
             tenant_id: tenantId || null,
             branch_id: branchId || null,
@@ -108,7 +135,12 @@ const logAudit = async ({ tenantId, branchId, actorStaffId, actorRole, type, sum
             summary: summary || null,
             payload_json: payload != null ? JSON.stringify(payload) : null,
             created_at: new Date().toISOString(),
-        });
+        };
+
+        const rid = typeof requestId === 'string' ? requestId.trim() : '';
+        if (rid && (await auditHasRequestIdColumn())) row.request_id = rid;
+
+        await db().from('audit_log').insert(row);
     } catch {
         // ignore
     }

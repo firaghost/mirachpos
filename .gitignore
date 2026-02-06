@@ -27,4 +27,5 @@ api/.env.*
 *.sln
 *.sw?
 api/.env
+mobile
 .agent

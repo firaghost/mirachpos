@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const helmet = require('helmet');
 const path = require('path');
 
@@ -7,8 +8,10 @@ const { config } = require('./config');
 const { isAllowedOrigin } = require('./utils/cors');
 const { logger, requestLogger } = require('./utils/logger');
 const { errorHandler } = require('./utils/errors');
-const { requestIdMiddleware, addRequestIdToResponse } = require('./middleware/requestId');
+const { getGatewayConfig } = require('./services/paymentGatewayService');
+const { requestIdMiddleware, addRequestIdToResponse, addRequestIdToJsonBody } = require('./middleware/requestId');
 const { globalLimiter, authLimiter, strictLimiter, paymentLimiter, paymentVerifyLimiter } = require('./middleware/rateLimiter');
+const { metricsMiddleware, metricsHandler } = require('./metrics');
 
 // Route imports
 const { makeAdminRouter } = require('./routes/admin');
@@ -45,7 +48,33 @@ const { makeManagerPrintRouter } = require('./routes/managerPrint');
 const { makeTelebirrStandingOrderRouter } = require('./routes/telebirrStandingOrder');
 const { makeRealtimeRouter } = require('./routes/realtime');
 
-const { handleCheckoutPage, handleReceiptPage } = require('./pages/posPublicPages');
+const { handleCheckoutPage, handleReceiptPage, handleDisplayPage } = require('./pages/posPublicPages');
+
+const probeUrl = async (url, timeoutMs) => {
+  if (!url) return false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { method: 'HEAD', signal: controller.signal });
+    return Boolean(res);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const requestTimeout = (req, res, next) => {
+  const timeoutMs = Number(config.requestTimeoutMs || 0) || 0;
+  if (timeoutMs <= 0) return next();
+  req.setTimeout(timeoutMs);
+  res.setTimeout(timeoutMs, () => {
+    if (res.headersSent) return;
+    if (req.log?.warn) req.log.warn({ type: 'request_timeout', timeoutMs }, 'Request timeout');
+    res.status(503).json({ error: 'request_timeout', message: 'Request timed out', requestId: req.requestId });
+  });
+  return next();
+};
 
 
 const createApp = () => {
@@ -64,13 +93,17 @@ const createApp = () => {
   // Request ID generation (first, for tracing)
   app.use(requestIdMiddleware);
   app.use(addRequestIdToResponse);
+  app.use(addRequestIdToJsonBody);
 
   // Security headers with enhanced configuration
   app.use(
     helmet({
-      contentSecurityPolicy: false, // API server, not needed
+      contentSecurityPolicy: false, 
       crossOriginEmbedderPolicy: false,
       crossOriginResourcePolicy: { policy: 'cross-origin' },
+      frameguard: { action: 'deny' },
+      referrerPolicy: { policy: 'no-referrer' },
+      permittedCrossDomainPolicies: { permittedPolicies: 'none' },
       hsts: {
         maxAge: 31536000, // 1 year
         includeSubDomains: true,
@@ -78,6 +111,9 @@ const createApp = () => {
       },
     }),
   );
+
+  // Gzip compression
+  app.use(compression({ threshold: 1024 }));
 
   // Request body parsing with size limit
   app.use(express.json({
@@ -97,6 +133,12 @@ const createApp = () => {
 
   // Structured request logging
   app.use(requestLogger);
+
+  // Metrics (request count/latency/errors)
+  app.use(metricsMiddleware);
+
+  // Request timeout (global)
+  app.use(requestTimeout);
 
   // Global rate limiting (100 req/min)
   app.use('/api', globalLimiter);
@@ -129,6 +171,7 @@ const createApp = () => {
   app.get('/p/:token', handleCheckoutPage);
 
   app.get('/r/:token', handleReceiptPage);
+  app.get('/d/:token', handleDisplayPage);
 
   // ==========================================================================
   // HEALTH & STATIC ROUTES (No rate limiting)
@@ -141,7 +184,23 @@ const createApp = () => {
 
   app.get('/', (_req, res) => res.json({ ok: true, name: 'mirachpos-api' }));
 
-  app.get('/health', async (_req, res) => {
+  app.get('/metrics', (req, res, next) => {
+    try {
+      if (config.env !== 'production') return metricsHandler(req, res, next);
+
+      const key = String(config.metricsKey || '').trim();
+      if (!key) return res.status(404).json({ error: 'not_found' });
+
+      const provided = String(req.query?.key || req.headers['x-metrics-key'] || '').trim();
+      if (!provided || provided !== key) return res.status(403).json({ error: 'forbidden' });
+
+      return metricsHandler(req, res, next);
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  app.get('/health', async (req, res) => {
     let dbStatus = 'unknown';
     try {
       await require('./db').db().raw('SELECT 1');
@@ -150,11 +209,41 @@ const createApp = () => {
       dbStatus = 'down';
     }
 
+    const full = String(req.query?.full || '').trim() === '1';
+    const gateways = {};
+    if (full && config.healthExternalChecksEnabled) {
+      try {
+        const [chapaCfg, telebirrCfg] = await Promise.all([
+          getGatewayConfig('chapa'),
+          getGatewayConfig('telebirr'),
+        ]);
+
+        const chapaEnabled = Boolean(chapaCfg?.enabled);
+        const telebirrEnabled = Boolean(telebirrCfg?.enabled);
+        const chapaUrl = chapaEnabled ? 'https://api.chapa.co' : '';
+        const telebirrUrl = telebirrEnabled ? String(telebirrCfg?.baseUrl || 'https://api.ethiotelecom.et') : '';
+        const start = Date.now();
+        const [chapaOk, telebirrOk] = await Promise.all([
+          chapaEnabled ? probeUrl(chapaUrl, config.healthGatewayTimeoutMs) : false,
+          telebirrEnabled ? probeUrl(telebirrUrl, config.healthGatewayTimeoutMs) : false,
+        ]);
+        const elapsed = Date.now() - start;
+
+        gateways.chapa = { status: chapaEnabled ? (chapaOk ? 'up' : 'down') : 'disabled' };
+        gateways.telebirr = { status: telebirrEnabled ? (telebirrOk ? 'up' : 'down') : 'disabled' };
+        gateways.responseTimeMs = elapsed;
+      } catch {
+        gateways.chapa = { status: 'unknown' };
+        gateways.telebirr = { status: 'unknown' };
+      }
+    }
+
     res.json({
       ok: true,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       db: dbStatus,
+      gateways,
     });
   });
 
@@ -186,12 +275,17 @@ const createApp = () => {
   app.use('/api/public/pos-links/:token/initiate-chapa', paymentLimiter);
   app.use('/api/public/pos-links/:token/verify-chapa', paymentVerifyLimiter);
 
+  // Admin/superadmin endpoints: stricter limits
+  app.use('/admin', strictLimiter);
+  app.use('/api/admin', strictLimiter);
+  app.use('/api/superadmin', strictLimiter);
+
   // ==========================================================================
   // API ROUTES
   // ==========================================================================
 
-  app.use('/admin', makeAdminRouter({ provisionKey: config.provisionKey }));
-  app.use('/api/admin', makeAdminRouter({ provisionKey: config.provisionKey }));
+  app.use('/admin', makeAdminRouter({ provisionKey: config.provisionKey, provisionKeys: config.provisionKeys }));
+  app.use('/api/admin', makeAdminRouter({ provisionKey: config.provisionKey, provisionKeys: config.provisionKeys }));
   app.use('/api', makePublicRouter());
   app.use('/api', makeSuperadminAuthRouter());
   app.use('/api', makeSuperadminRouter());

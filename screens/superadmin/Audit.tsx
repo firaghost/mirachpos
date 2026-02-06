@@ -77,7 +77,7 @@ export const SA_Audit: React.FC = () => {
       if (branchId.trim()) params.set('branchId', branchId.trim());
       if (includeSystem) params.set('includeSystem', '1');
 
-      const res = await apiFetch(`/api/audit/list?${params.toString()}`);
+      const res = await apiFetch(`/api/superadmin/audit?${params.toString()}`);
       const json = (await res.json().catch(() => null)) as any;
       if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
       const list = Array.isArray(json?.audit) ? (json.audit as AuditRow[]) : [];

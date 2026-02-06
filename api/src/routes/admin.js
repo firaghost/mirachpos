@@ -4,8 +4,9 @@ const { runDailyCron } = require('../services/cronService');
 const bcrypt = require('bcryptjs');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { validateAdminProvision, validateAdminSuperadminSeed } = require('../middleware/validators');
 
-const makeAdminRouter = ({ provisionKey }) => {
+const makeAdminRouter = ({ provisionKey, provisionKeys } = {}) => {
   const r = express.Router();
 
   const requireProvisionKey = (req, res) => {
@@ -16,12 +17,13 @@ const makeAdminRouter = ({ provisionKey }) => {
     const bodyKey = typeof req.body?.provisionKey === 'string' ? String(req.body.provisionKey).trim() : '';
     const key = headerKey || bearerKey || queryKey || bodyKey;
 
-    if (!provisionKey || !key || key !== provisionKey) {
+    const allowed = Array.isArray(provisionKeys) && provisionKeys.length ? provisionKeys : provisionKey ? [provisionKey] : [];
+    if (allowed.length === 0 || !key || !allowed.includes(key)) {
       res.status(401).json({
         error: 'unauthorized',
         debug: {
-          hasExpected: Boolean(String(provisionKey || '').trim()),
-          expectedLen: String(provisionKey || '').trim().length,
+          hasExpected: allowed.length > 0,
+          expectedCount: allowed.length,
           providedLen: String(key || '').trim().length,
           sources: {
             header: Boolean(headerKey),
@@ -36,18 +38,19 @@ const makeAdminRouter = ({ provisionKey }) => {
     return true;
   };
 
-  r.post('/provision', async (req, res, next) => {
+  r.post('/provision', validateAdminProvision, async (req, res, next) => {
     try {
       if (!requireProvisionKey(req, res)) return;
 
+      const body = req.validatedBody || req.body;
       const out = await provisionTenant({
-        slug: req.body?.slug,
-        name: req.body?.name,
-        trialDays: req.body?.trialDays,
-        ownerName: req.body?.ownerName,
-        ownerEmail: req.body?.ownerEmail,
-        ownerPassword: req.body?.ownerPassword,
-        branchName: req.body?.branchName,
+        slug: body?.slug,
+        name: body?.name,
+        trialDays: body?.trialDays,
+        ownerName: body?.ownerName,
+        ownerEmail: body?.ownerEmail,
+        ownerPassword: body?.ownerPassword,
+        branchName: body?.branchName,
       });
 
       if (!out.ok) return res.status(out.error === 'slug_in_use' ? 409 : 400).json({ error: out.error });
@@ -67,13 +70,14 @@ const makeAdminRouter = ({ provisionKey }) => {
     }
   });
 
-  r.post('/superadmin/seed', async (req, res, next) => {
+  r.post('/superadmin/seed', validateAdminSuperadminSeed, async (req, res, next) => {
     try {
       if (!requireProvisionKey(req, res)) return;
 
-      const email = String(req.body?.email || '').trim().toLowerCase();
-      const password = String(req.body?.password || '');
-      const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+      const body = req.validatedBody || req.body;
+      const email = String(body?.email || '').trim().toLowerCase();
+      const password = String(body?.password || '');
+      const name = typeof body?.name === 'string' ? body.name.trim() : '';
       if (!email || !password) return res.status(400).json({ error: 'email_password_required' });
 
       const exists = await db().select(['id']).from('superadmins').where({ email }).first();

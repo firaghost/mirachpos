@@ -4,6 +4,7 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { sanitizeLikeInput } = require('../utils/sanitize');
 const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 
@@ -72,7 +73,7 @@ const makeManagerSuppliersRouter = () => {
       const branchId = req.branchId || resolveBranchId(req);
       const branchIds = branchIdAliases(branchId);
 
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
+      const q = sanitizeLikeInput(req.query?.q, { lower: true, maxLen: 80 });
       const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 200) || 200));
 
       let base = db().from('suppliers').where({ tenant_id: req.tenant.id }).whereIn('branch_id', branchIds);

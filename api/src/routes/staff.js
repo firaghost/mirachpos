@@ -8,6 +8,7 @@ const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 const { resolveBranchId, resolveBranchIdFromBody, requireBranchId, requireBranchIdFromBody } = require('../middleware/branchScope');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { sanitizeText } = require('../utils/sanitize');
 const { requireRole, requirePermission } = require('../middleware/permissions');
 
 const makeStaffRouter = () => {
@@ -76,7 +77,7 @@ const makeStaffRouter = () => {
     try {
       const branchId = req.branchId || resolveBranchId(req);
 
-      const status = typeof req.query?.status === 'string' ? req.query.status.trim().toLowerCase() : '';
+      const status = sanitizeText(req.query?.status, { maxLen: 20 }).toLowerCase();
       const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 50) || 50));
 
       let q = db()

@@ -436,6 +436,14 @@ rm -rf /tmp/mirachpos-*
 curl -s https://api.mirachpos.com/health | jq .
 ```
 
+### Monitoring (UptimeRobot)
+- API: `https://apa.mirachpos.com/health`
+- Frontend: `https://mirachpos.com/`
+
+### Log Aggregation (Better Stack / Logtail)
+- Verify logs arriving in Better Stack dashboard
+- Check for error spikes after deployments
+
 ### Database Health
 ```bash
 # Connection test

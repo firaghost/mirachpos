@@ -92,6 +92,8 @@ const safeJsonStringify = (v) => {
     }
 };
 
+const { sendCriticalAlert } = require('./alerting');
+
 // Error handler middleware
 const errorHandler = (err, req, res, _next) => {
     // Get logger from request or create one
@@ -115,6 +117,17 @@ const errorHandler = (err, req, res, _next) => {
             stack: err.stack,
             requestId: req.requestId,
         }, 'Unexpected server error');
+
+        void sendCriticalAlert({
+            key: 'unexpected_error',
+            subject: 'MirachPOS API: Unexpected Error',
+            message: err.message,
+            meta: {
+                requestId: req.requestId,
+                path: req.path,
+                method: req.method,
+            },
+        });
     }
 
     // Determine response status and body

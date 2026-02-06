@@ -6,6 +6,7 @@ const { db } = require('../db');
 const { loadEntitlements, requireModule, enforceBranchLimit } = require('../middleware/entitlements');
 const { makeId } = require('../utils/ids');
 const { requireRole, requirePermission } = require('../middleware/permissions');
+const { validateBranchCreate, validateBranchUpdate, validateBranchEvent, validateIdParam } = require('../middleware/validators');
 
 const makeBranchesRouter = () => {
   const r = express.Router();
@@ -94,9 +95,10 @@ const makeBranchesRouter = () => {
     requireRole('Cafe Owner'),
     requirePermission('branches.create'),
     enforceBranchLimit,
+    validateBranchCreate,
     async (req, res, next) => {
     try {
-      const body = req.body && typeof req.body === 'object' ? req.body : null;
+      const body = req.validatedBody || req.body;
       const name = typeof body?.name === 'string' ? body.name.trim() : '';
       if (!name) return res.status(400).json({ error: 'name_required' });
 
@@ -147,15 +149,18 @@ const makeBranchesRouter = () => {
     requireModule('branches'),
     requireRole('Cafe Owner'),
     requirePermission('branches.update'),
+    validateIdParam,
+    validateBranchUpdate,
     async (req, res, next) => {
     try {
-      const id = String(req.params?.id || '').trim();
-      if (!id) return res.status(400).json({ error: 'invalid_id' });
+      const { id } = req.validatedParams || req.params;
+      const branchId = String(id || '').trim();
+      if (!branchId) return res.status(400).json({ error: 'invalid_id' });
 
-      const existing = await db().select(['id', 'name']).from('branches').where({ tenant_id: req.tenant.id, id }).first();
+      const existing = await db().select(['id', 'name']).from('branches').where({ tenant_id: req.tenant.id, id: branchId }).first();
       if (!existing) return res.status(404).json({ error: 'not_found' });
 
-      const body = req.body && typeof req.body === 'object' ? req.body : null;
+      const body = req.validatedBody || req.body;
       const patch = {};
 
       if (typeof body?.name === 'string') patch.name = body.name.trim();
@@ -172,16 +177,16 @@ const makeBranchesRouter = () => {
       }
       patch.updated_at = new Date().toISOString();
 
-      await db().from('branches').where({ tenant_id: req.tenant.id, id }).update(patch);
+      await db().from('branches').where({ tenant_id: req.tenant.id, id: branchId }).update(patch);
 
       await logAudit({
         tenantId: req.tenant.id,
-        branchId: id,
+        branchId,
         actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
         actorRole: req.auth?.role ? String(req.auth.role) : null,
         type: 'owner.branch.updated',
-        summary: `Updated branch ${String(existing?.name || id)}`,
-        payload: { id, patch },
+        summary: `Updated branch ${String(existing?.name || branchId)}`,
+        payload: { id: branchId, patch },
       });
 
       return res.json({ ok: true });
@@ -199,25 +204,27 @@ const makeBranchesRouter = () => {
     requireModule('branches'),
     requireRole('Cafe Owner'),
     requirePermission('branches.delete'),
+    validateIdParam,
     async (req, res, next) => {
     try {
-      const id = String(req.params?.id || '').trim();
-      if (!id) return res.status(400).json({ error: 'invalid_id' });
+      const { id } = req.validatedParams || req.params;
+      const branchId = String(id || '').trim();
+      if (!branchId) return res.status(400).json({ error: 'invalid_id' });
 
-      const existing = await db().select(['id', 'name', 'status']).from('branches').where({ tenant_id: req.tenant.id, id }).first();
+      const existing = await db().select(['id', 'name', 'status']).from('branches').where({ tenant_id: req.tenant.id, id: branchId }).first();
       if (!existing) return res.status(404).json({ error: 'not_found' });
 
       // Soft delete: close branch (preserve historical integrity)
-      await db().from('branches').where({ tenant_id: req.tenant.id, id }).update({ status: 'Closed', updated_at: new Date().toISOString() });
+      await db().from('branches').where({ tenant_id: req.tenant.id, id: branchId }).update({ status: 'Closed', updated_at: new Date().toISOString() });
 
       await logAudit({
         tenantId: req.tenant.id,
-        branchId: id,
+        branchId,
         actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
         actorRole: req.auth?.role ? String(req.auth.role) : null,
         type: 'owner.branch.deleted',
-        summary: `Closed branch ${String(existing?.name || id)}`,
-        payload: { id, status: 'Closed', prevStatus: String(existing?.status || '') },
+        summary: `Closed branch ${String(existing?.name || branchId)}`,
+        payload: { id: branchId, status: 'Closed', prevStatus: String(existing?.status || '') },
       });
 
       return res.json({ ok: true });
@@ -235,18 +242,22 @@ const makeBranchesRouter = () => {
     loadEntitlements,
     requireModule('inventory'),
     requirePermission('inventory.update'),
+    validateIdParam,
+    validateBranchEvent,
     async (req, res, next) => {
     try {
       if (!req.auth?.staffId) return res.status(401).json({ error: 'unauthorized' });
 
-      const branchId = String(req.params?.id || '').trim();
+      const { id } = req.validatedParams || req.params;
+      const branchId = String(id || '').trim();
       if (!branchId) return res.status(400).json({ error: 'invalid_branch_id' });
 
       const branch = await db().select(['id']).from('branches').where({ tenant_id: req.tenant.id, id: branchId }).first();
       if (!branch) return res.status(404).json({ error: 'branch_not_found' });
 
-      const type = typeof req.body?.type === 'string' ? req.body.type.trim() : '';
-      const payload = req.body?.payload && typeof req.body.payload === 'object' ? req.body.payload : {};
+      const body = req.validatedBody || req.body;
+      const type = typeof body?.type === 'string' ? body.type.trim() : '';
+      const payload = body?.payload && typeof body.payload === 'object' ? body.payload : {};
       if (!type) return res.status(400).json({ error: 'type_required' });
 
       const actorStaffId = req.auth?.staffId ? String(req.auth.staffId) : null;

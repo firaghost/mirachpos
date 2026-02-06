@@ -6,6 +6,9 @@
  */
 
 const { db } = require('../db');
+const { config } = require('../config');
+const { withCache } = require('../utils/cache');
+const { resolveCdnUrl } = require('../utils/cdn');
 const { makeId } = require('../utils/ids');
 
 const safeJsonParse = (raw, fallback) => {
@@ -24,25 +27,29 @@ const normalizeBillingFrequency = (v) => {
 };
 
 // Get platform payment configuration
-const getPlatformPaymentConfig = async () => {
-    const row = await db()
-        .select(['*'])
-        .from('platform_payment_config')
-        .where({ id: 1 })
-        .first();
+const getPlatformPaymentConfig = async () => withCache(
+    'platform_payment_config_v1',
+    config.cacheDefaultTtlSeconds,
+    async () => {
+        const row = await db()
+            .select(['*'])
+            .from('platform_payment_config')
+            .where({ id: 1 })
+            .first();
 
-    if (!row) return null;
+        if (!row) return null;
 
-    return {
-        bankDetails: safeJsonParse(row.bank_details_json, {}),
-        chapa: safeJsonParse(row.chapa_config_json, { enabled: false }),
-        telebirr: safeJsonParse(row.telebirr_config_json, { enabled: false }),
-        cbeBirr: safeJsonParse(row.cbe_birr_config_json, { enabled: false }),
-        sms: safeJsonParse(row.sms_config_json, { enabled: false }),
-        defaultGraceDays: Number(row.default_grace_days || 3) || 3,
-        reportRetentionDays: Number(row.report_retention_days || 365) || 365,
-    };
-};
+        return {
+            bankDetails: safeJsonParse(row.bank_details_json, {}),
+            chapa: safeJsonParse(row.chapa_config_json, { enabled: false }),
+            telebirr: safeJsonParse(row.telebirr_config_json, { enabled: false }),
+            cbeBirr: safeJsonParse(row.cbe_birr_config_json, { enabled: false }),
+            sms: safeJsonParse(row.sms_config_json, { enabled: false }),
+            defaultGraceDays: Number(row.default_grace_days || 3) || 3,
+            reportRetentionDays: Number(row.report_retention_days || 365) || 365,
+        };
+    },
+);
 
 // Generate next invoice number (Tenant-scoped)
 const generateInvoiceNumber = async (tenantId) => {
@@ -641,7 +648,7 @@ const getInvoiceDetails = async (invoiceId) => {
             status: p.status,
             amountEtb: Number(p.amount_etb || 0),
             reference: p.reference,
-            proofUrl: p.proof_url,
+            proofUrl: resolveCdnUrl(p.proof_url),
             proofFilename: p.proof_filename,
             rejectionReason: p.rejection_reason,
             createdAt: p.created_at,

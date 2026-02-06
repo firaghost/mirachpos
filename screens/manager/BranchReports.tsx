@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { apiFetch } from '../../api';
 import { Screen } from '../../types';
 import { readSession, updateSession } from '../../session';
@@ -1311,333 +1309,52 @@ export const BranchReports: React.FC = () => {
     return hit?.name || '';
   }, [branches, remote?.branchId]);
 
-  const exportPdf = () => {
-    const generatedAt = new Date().toISOString();
-
-    const num = (v: unknown) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : 0;
-    };
-    const fmtN = (v: unknown) => {
-      const n = num(v);
-      return Number.isFinite(n) ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
-    };
-
-    const headerLogo = businessHeader?.receipt?.logoDataUrl ? String(businessHeader.receipt.logoDataUrl) : '';
-    const headerBizName = businessHeader?.businessName || 'Business';
-    const headerBranchName = branchName || '';
-    const headerTin = businessHeader?.tin || '';
-    const headerAddress = businessHeader?.address || '';
-    const headerPhone = businessHeader?.phone || '';
-    const headerEmail = businessHeader?.email || '';
-
-    let generatedBy = '';
-    try {
-      const s = readSession<any>();
-      generatedBy = String(s?.name || s?.username || s?.email || s?.role || '').trim();
-    } catch {
-      // ignore
-    }
-
-    const discountsTotal = payments.reduce((sum, p) => sum + (Number(p.discount ?? 0) || 0), 0);
-    const taxCollected = payments.reduce((sum, p) => sum + (Number(p.tax ?? 0) || 0), 0);
-    const tipsCollected = payments.reduce((sum, p) => sum + (Number(p.tip ?? 0) || 0), 0);
-    const netSales = payments.reduce((sum, p) => sum + (Number(p.total ?? 0) || 0), 0);
-    const grossSales = netSales + discountsTotal;
-
-    const voidTotal = voidAgg.filter((v) => v.type === 'void').reduce((sum, v) => sum + (Number(v.amount ?? 0) || 0), 0);
-    const refundTotal = voidAgg.filter((v) => v.type === 'refund').reduce((sum, v) => sum + (Number(v.amount ?? 0) || 0), 0);
-
-    const cashSales = (() => {
-      const row = paymentBreakdown.find(([k]) => String(k).toLowerCase().includes('cash'));
-      return row ? Number(row[1].sum ?? 0) || 0 : 0;
-    })();
-
-    const paidOuts = expensesInRange.reduce((sum, e) => sum + (Number(e.amount ?? 0) || 0), 0);
-
-    const staffRows = staffAgg.length
-      ? [...staffAgg]
-      : staffPerformance.allRows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, tips: (r as any).tips ?? 0 }));
-    const filteredStaff = selectedStaffId ? staffRows.filter((s) => s.staffId === selectedStaffId) : staffRows;
-
-    const notes: string[] = [];
-    if (Math.abs(cashSummary.discrepancy) >= 0.01) {
-      notes.push(`Cash over/short: ETB ${fmtN(cashSummary.discrepancy)} (Expected ETB ${fmtN(cashSummary.expected)} vs Actual ETB ${fmtN(cashSummary.actual)})`);
-    }
-    if (voidTotal > 0.01) notes.push(`Voids: ETB ${fmtN(voidTotal)}`);
-    if (refundTotal > 0.01) notes.push(`Refunds: ETB ${fmtN(refundTotal)}`);
-
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const pageW = doc.internal.pageSize.getWidth();
-    const margin = 40;
-
-    let cursorY = 44;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(15);
-    doc.text(`${headerBizName}${headerBranchName ? ` — ${headerBranchName}` : ''}`, margin, cursorY);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    cursorY += 16;
-    doc.text('Sales Report', margin, cursorY);
-
-    const rangeLabel = `${effectiveRange.start.toISOString().slice(0, 10)} to ${addDays(effectiveRange.end, -1).toISOString().slice(0, 10)}`;
-    const metaLines = [`Period: ${rangeLabel}`, `Generated: ${formatDeviceDateTime(generatedAt) || generatedAt}`, generatedBy ? `By: ${generatedBy}` : ''].filter(Boolean);
-    doc.text(metaLines, pageW - margin, 44, { align: 'right' });
-
-    const contact = [businessHeader?.receipt?.showTin && headerTin ? `TIN: ${headerTin}` : '', headerAddress ? headerAddress : '', [headerPhone, headerEmail].filter(Boolean).join(' • ')].filter(Boolean);
-    if (contact.length) {
-      doc.setTextColor(90);
-      doc.text(contact, margin, cursorY + 14);
-      doc.setTextColor(0);
-      cursorY += 18;
-    }
-
-    void headerLogo;
-
-    cursorY = Math.max(cursorY + 24, 120);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Sales Summary', margin, cursorY);
-    cursorY += 10;
-    autoTable(doc, {
-      startY: cursorY,
-      margin: { left: margin, right: margin },
-      theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 4 },
-      headStyles: { fillColor: [238, 173, 43] },
-      head: [['Metric', 'Amount (ETB)']],
-      body: [
-        ['Gross Sales', fmtN(grossSales)],
-        ['Discounts / Comps', `-${fmtN(discountsTotal)}`],
-        ['Voids', `-${fmtN(voidTotal)}`],
-        ['Refunds', `-${fmtN(refundTotal)}`],
-        ['Net Sales', fmtN(netSales)],
-        ['Tax Collected', fmtN(taxCollected)],
-        ['Tips Collected', fmtN(tipsCollected)],
-      ],
-      columnStyles: { 1: { halign: 'right' } },
-    });
-    cursorY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 16 : cursorY + 130;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Payments / Settlement', margin, cursorY);
-    cursorY += 10;
-    autoTable(doc, {
-      startY: cursorY,
-      margin: { left: margin, right: margin },
-      theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 4 },
-      headStyles: { fillColor: [34, 28, 16] },
-      head: [['Method', 'Orders', 'Amount (ETB)']],
-      body: paymentBreakdown.map(([m, v]) => [String(m), String(v.count ?? 0), fmtN(v.sum ?? 0)]),
-      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
-    });
-    cursorY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 16 : cursorY + 120;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Cash Control', margin, cursorY);
-    cursorY += 10;
-    autoTable(doc, {
-      startY: cursorY,
-      margin: { left: margin, right: margin },
-      theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 4 },
-      headStyles: { fillColor: [34, 28, 16] },
-      head: [['Item', 'Amount (ETB)']],
-      body: [
-        ['Opening Cash', fmtN(cashSummary.opening)],
-        ['Cash Sales', fmtN(cashSales)],
-        ['Paid-outs (Expenses)', `-${fmtN(paidOuts)}`],
-        ['Expected Cash', fmtN(cashSummary.expected)],
-        ['Actual Cash Count', fmtN(cashSummary.actual)],
-        ['Over / Short', fmtN(cashSummary.discrepancy)],
-      ],
-      columnStyles: { 1: { halign: 'right' } },
-    });
-    cursorY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 16 : cursorY + 120;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Staff Summary', margin, cursorY);
-    cursorY += 10;
-    autoTable(doc, {
-      startY: cursorY,
-      margin: { left: margin, right: margin },
-      theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 4 },
-      headStyles: { fillColor: [34, 28, 16] },
-      head: [['Staff', 'Orders', 'Net Sales', 'Tips', 'Hours']],
-      body: filteredStaff.slice(0, 18).map((r) => {
-        const hours = staffPerformance.rows.find((x) => x.id === r.staffId)?.hours ?? 0;
-        return [String(r.staffName || r.staffId), String(r.orderCount ?? 0), fmtN((r as any).netSales ?? 0), fmtN((r as any).tips ?? 0), Number(hours || 0).toFixed(1)];
-      }),
-      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
-    });
-    cursorY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 14 : cursorY + 140;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Notes / Exceptions', margin, cursorY);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    cursorY += 12;
-    doc.text(notes.length ? notes.map((x) => `- ${x}`) : ['- No exceptions.'], margin, cursorY);
-
-    const fileName = `sales_report_${selectedStaffId || 'all'}_${branchName || 'branch'}_${effectiveRange.start.toISOString().slice(0, 10)}_${addDays(effectiveRange.end, -1).toISOString().slice(0, 10)}.pdf`;
-    doc.save(fileName);
-  };
-
-  const exportExcel = async () => {
-    const ExcelJSImport = await import('exceljs');
-    const ExcelJS: any = (ExcelJSImport as any)?.default ?? ExcelJSImport;
-
+  const exportPdf = async () => {
     const dateFrom = effectiveRange.start.toISOString().slice(0, 10);
     const dateTo = addDays(effectiveRange.end, -1).toISOString().slice(0, 10);
 
-    const discountsTotal = payments.reduce((sum, p) => sum + (Number(p.discount ?? 0) || 0), 0);
-    const taxCollected = payments.reduce((sum, p) => sum + (Number(p.tax ?? 0) || 0), 0);
-    const tipsCollected = payments.reduce((sum, p) => sum + (Number(p.tip ?? 0) || 0), 0);
-    const netSales = payments.reduce((sum, p) => sum + (Number(p.total ?? 0) || 0), 0);
-    const grossSales = netSales + discountsTotal;
-    const voidTotal = voidAgg.filter((v) => v.type === 'void').reduce((sum, v) => sum + (Number(v.amount ?? 0) || 0), 0);
-    const refundTotal = voidAgg.filter((v) => v.type === 'refund').reduce((sum, v) => sum + (Number(v.amount ?? 0) || 0), 0);
-    const totalVoidsRefunds = voidAgg.reduce((sum, v) => sum + (Number(v.amount ?? 0) || 0), 0);
+    const qs = new URLSearchParams();
+    qs.set('type', 'daily');
+    qs.set('from', dateFrom);
+    qs.set('to', dateTo);
 
-    const cashSales = (() => {
-      const row = paymentBreakdown.find(([k]) => String(k).toLowerCase().includes('cash'));
-      return row ? Number(row[1].sum ?? 0) || 0 : 0;
-    })();
-    const paidOuts = expensesInRange.reduce((sum, e) => sum + (Number(e.amount ?? 0) || 0), 0);
+    const res = await apiFetch(`/api/manager/reports/export/pdf?${qs.toString()}`);
+    if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
 
-    const staffRows = staffAgg.length
-      ? [...staffAgg]
-      : staffPerformance.allRows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, tips: (r as any).tips ?? 0 }));
-    const filteredStaff = selectedStaffId ? staffRows.filter((s) => s.staffId === selectedStaffId) : staffRows;
+    const blob = await res.blob();
+    const cd = res.headers.get('content-disposition') || '';
+    const m = /filename="?([^";]+)"?/i.exec(cd);
+    const filename = m?.[1] ? String(m[1]) : `sales_report_${branchName || 'branch'}_${dateFrom}_${dateTo}.pdf`;
 
-    const wb = new ExcelJS.Workbook();
-
-    const addAoaSheet = (name: string, aoa: Array<Array<any>>) => {
-      const ws = wb.addWorksheet(name);
-      for (const row of aoa) ws.addRow(row);
-      try {
-        ws.getRow(1).font = { bold: true };
-        ws.views = [{ state: 'frozen', ySplit: 1 }];
-      } catch {
-        // ignore
-      }
-    };
-
-    addAoaSheet('Summary', [
-      ['Report', 'Cafe Sales Report'],
-      ['Branch', branchName || ''],
-      ['From', dateFrom],
-      ['To', dateTo],
-      selectedStaffId ? ['Staff', selectedStaffId] : ['Staff', 'All'],
-      [],
-      ['Sales Summary', 'Amount (ETB)'],
-      ['Gross Sales', grossSales],
-      ['Discounts / Comps', discountsTotal],
-      ['Voids', voidTotal],
-      ['Refunds', refundTotal],
-      ['Net Sales', netSales],
-      ['Tax Collected', taxCollected],
-      ['Tips Collected', tipsCollected],
-      ['Orders', ordersProcessed],
-      ['Avg Order Value', avgOrderValue],
-      [],
-      ['Cash Control', 'Amount (ETB)'],
-      ['Opening Cash', cashSummary.opening],
-      ['Cash Sales', cashSales],
-      ['Paid-outs (Expenses)', paidOuts],
-      ['Expected Cash', cashSummary.expected],
-      ['Actual Cash Count', cashSummary.actual],
-      ['Over / Short', cashSummary.discrepancy],
-      [],
-      ['Voids + Refunds Total', totalVoidsRefunds],
-    ]);
-
-    addAoaSheet('Payments', [
-      ['Method', 'Orders', 'Amount (ETB)'],
-      ...paymentBreakdown.map(([method, v]) => [String(method), Number(v.count ?? 0) || 0, Number(v.sum ?? 0) || 0]),
-    ]);
-
-    addAoaSheet('Staff', [
-      ['Staff', 'Orders', 'Net Sales (ETB)', 'Tips (ETB)', 'Hours'],
-      ...filteredStaff.map((r) => {
-        const hours = staffPerformance.rows.find((x) => x.id === r.staffId)?.hours ?? 0;
-        return [String(r.staffName || r.staffId), Number(r.orderCount ?? 0) || 0, Number((r as any).netSales ?? 0) || 0, Number((r as any).tips ?? 0) || 0, Number(hours || 0)];
-      }),
-    ]);
-
-    addAoaSheet('Transactions', [
-      ['Paid At', 'Order', 'Table', 'Staff', 'Method', 'Total (ETB)', 'Tax (ETB)', 'Tip (ETB)', 'Discount (ETB)', 'Reference'],
-      ...paymentsSorted.map((p) => [
-        p.paidAt || '',
-        p.number ? `#${p.number}` : `#${p.id}`,
-        p.tableName || '',
-        p.createdByName || '',
-        p.method || '',
-        Number(p.total ?? 0) || 0,
-        Number(p.tax ?? 0) || 0,
-        Number(p.tip ?? 0) || 0,
-        Number(p.discount ?? 0) || 0,
-        p.reference || '',
-      ]),
-    ]);
-
-    addAoaSheet('Voids_Refunds', [
-      ['Time', 'Type', 'Order', 'Item', 'Qty', 'Amount (ETB)', 'Reason', 'Performed By', 'Authorized By'],
-      ...voidAgg.map((v) => [
-        v.occurredAt || '',
-        v.type || '',
-        v.orderId || '',
-        v.productName || '',
-        Number(v.qty ?? 0) || 0,
-        Number(v.amount ?? 0) || 0,
-        v.reason || '',
-        v.performedBy || '',
-        v.authorizedBy || '',
-      ]),
-    ]);
-
-    addAoaSheet('Expenses', [
-      ['Time', 'Title', 'Vendor', 'Amount (ETB)'],
-      ...expensesInRange.map((e) => [e.createdAt || '', e.title || '', e.vendor || '', Number(e.amount ?? 0) || 0]),
-    ]);
-
-    addAoaSheet('Products', [
-      ['Product', 'Category', 'Qty', 'Revenue (ETB)', 'Profit (ETB)', 'Void Qty'],
-      ...productAgg.map((p) => [p.name || p.productId, p.category || '', Number(p.qtySold ?? 0) || 0, Number(p.revenue ?? 0) || 0, Number(p.profit ?? 0) || 0, Number(p.voidQty ?? 0) || 0]),
-    ]);
-
-    addAoaSheet('Categories', [
-      ['Category', 'Orders', 'Qty', 'Revenue (ETB)'],
-      ...categoryAgg.map((c) => [c.category || '', Number(c.orderCount ?? 0) || 0, Number(c.qtySold ?? 0) || 0, Number(c.revenue ?? 0) || 0]),
-    ]);
-
-    addAoaSheet('Cash_Sessions', [
-      ['Opened At', 'Closed At', 'Register', 'Staff', 'Status', 'Opening Cash', 'Expected Cash', 'Actual Cash'],
-      ...cashSummary.inRange.map((s) => [
-        s.openedAt || '',
-        s.closedAt || '',
-        s.register || '',
-        s.staffName || '',
-        s.status || '',
-        Number(s.openingCash ?? 0) || 0,
-        Number(s.expectedCash ?? 0) || 0,
-        typeof s.actualCash === 'number' ? s.actualCash : '',
-      ]),
-    ]);
-
-    const out = await wb.xlsx.writeBuffer();
-    const blob = new Blob([out as any], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `report_${selectedStaffId || 'all'}_${branchName || 'branch'}_${dateFrom}_${dateTo}.xlsx`;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportExcel = async () => {
+    const dateFrom = effectiveRange.start.toISOString().slice(0, 10);
+    const dateTo = addDays(effectiveRange.end, -1).toISOString().slice(0, 10);
+
+    const qs = new URLSearchParams();
+    qs.set('from', dateFrom);
+    qs.set('to', dateTo);
+    const res = await apiFetch(`/api/manager/reports/export/xlsx?${qs.toString()}`);
+    if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
+
+    const blob = await res.blob();
+    const cd = res.headers.get('content-disposition') || '';
+    const m = /filename="?([^";]+)"?/i.exec(cd);
+    const filename = m?.[1] ? String(m[1]) : `report_${branchName || 'branch'}_${dateFrom}_${dateTo}.xlsx`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1719,7 +1436,7 @@ export const BranchReports: React.FC = () => {
                           </div>
                         </button>
                         <button
-                          onClick={() => { exportPdf(); setExportMenuOpen(false); }}
+                          onClick={() => { void exportPdf(); setExportMenuOpen(false); }}
                           className="w-full px-4 py-3 text-left hover:bg-accent flex items-center gap-3 text-foreground"
                         >
                           <AppIcon name="picture_as_pdf" className="text-red-500" />

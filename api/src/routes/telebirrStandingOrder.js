@@ -10,18 +10,20 @@ const {
   getSubscriptionStatus,
   cancelSubscription,
 } = require('../services/telebirrStandingOrderService');
+const { validateTelebirrSubscribe, validateTelebirrCancelParam } = require('../middleware/validators');
 
 const makeTelebirrStandingOrderRouter = () => {
   const r = express.Router();
 
   // 3-click subscribe: Select plan -> Phone -> Confirm
-  r.post('/telebirr/subscribe', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
+  r.post('/telebirr/subscribe', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), validateTelebirrSubscribe, async (req, res, next) => {
     try {
-      const phone = String(req.body?.phone || '').trim();
-      const planAmount = Number(req.body?.plan_amount || req.body?.planAmount || 0);
-      const cycle = String(req.body?.cycle || 'MONTHLY').trim();
-      const executeDay = Number(req.body?.execute_day || req.body?.executeDay || 1);
-      const validityMonths = Number(req.body?.validity_months || req.body?.validityMonths || 12);
+      const body = req.validatedBody || req.body;
+      const phone = String(body?.phone || '').trim();
+      const planAmount = Number(body?.plan_amount || body?.planAmount || 0);
+      const cycle = String(body?.cycle || 'MONTHLY').trim();
+      const executeDay = Number(body?.execute_day || body?.executeDay || 1);
+      const validityMonths = Number(body?.validity_months || body?.validityMonths || 12);
 
       const baseUrl = req.protocol + '://' + req.get('host');
       const notifyUrl = `${baseUrl}/api/webhooks/telebirr/standing-order-notify`;
@@ -80,9 +82,9 @@ const makeTelebirrStandingOrderRouter = () => {
     }
   });
 
-  r.post('/telebirr/subscription/:id/cancel', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
+  r.post('/telebirr/subscription/:id/cancel', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), validateTelebirrCancelParam, async (req, res, next) => {
     try {
-      const id = String(req.params?.id || '').trim();
+      const { id } = req.validatedParams || req.params;
       if (!id) return res.status(400).json({ error: 'id_required' });
 
       return res.json(await cancelSubscription({ tenantId: req.tenant.id, subscriptionId: id }));

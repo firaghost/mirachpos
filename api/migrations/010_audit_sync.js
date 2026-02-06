@@ -1,6 +1,7 @@
 exports.up = async (knex) => {
   await knex.schema.createTable('audit_log', (t) => {
     t.string('id', 64).primary();
+    t.string('request_id', 96).nullable().index();
     t.string('tenant_id', 64).nullable().index();
     t.string('branch_id', 64).nullable().index();
     t.string('actor_staff_id', 64).nullable().index();

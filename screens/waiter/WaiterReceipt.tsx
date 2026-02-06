@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePos, useSelectedOrder } from '../../PosContext';
 import { Screen } from '../../types';
 import { apiFetch } from '../../api';
@@ -17,6 +17,7 @@ type PosSettingsResponse = {
 };
 
 const RECEIPT_SPLIT_KEY = 'mirachpos.receipt.splitId.v1';
+const DISPLAY_ENABLED_KEY = 'mirachpos.customerDisplay.enabled.v1';
 
 const withBranchQuery = (url: string) => {
   try {
@@ -460,6 +461,7 @@ interface Props {
 export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
   const { selectedOrderId } = usePos();
   const order = useSelectedOrder();
+
   const [fallbackOrder, setFallbackOrder] = useState<NonNullable<ReturnType<typeof useSelectedOrder>> | null>(null);
   const [remoteOrder, setRemoteOrder] = useState<ReturnType<typeof useSelectedOrder>>(null);
   const [remoteError, setRemoteError] = useState<string | null>(null);
@@ -467,6 +469,13 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
   const [posSettings, setPosSettings] = useState<PosSettingsResponse | null>(null);
   const [receiptFrameHeight, setReceiptFrameHeight] = useState<number>(860);
   const [receiptVerifyUrl, setReceiptVerifyUrl] = useState<string>('');
+  const [displayEnabled] = useState(() => {
+    try {
+      return sessionStorage.getItem(DISPLAY_ENABLED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
 
   const effectiveOrder = order ?? fallbackOrder ?? remoteOrder;
 
@@ -483,6 +492,7 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
         const json = (await res.json().catch(() => null)) as any;
         if (!res.ok) return;
         if (!mounted) return;
+
         const o = json?.order;
         if (!o || typeof o !== 'object') return;
         // Normalize into PosOrder-like shape expected by this screen.
@@ -704,6 +714,25 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
     };
   }, [posSettings]);
 
+  const updateDisplayMode = useCallback(async (mode: 'menu' | 'payment' | 'receipt') => {
+    const oid = displayOrder?.id ? String((displayOrder as any).id) : '';
+    if (!oid) return;
+    try {
+      await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(oid)}/display-mode`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+    } catch {
+      // ignore
+    }
+  }, [displayOrder?.id]);
+
+  useEffect(() => {
+    if (!displayEnabled) return;
+    void updateDisplayMode('receipt');
+  }, [displayEnabled, updateDisplayMode]);
+
   useEffect(() => {
     let mounted = true;
     const run = async () => {
@@ -749,6 +778,36 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
       return '';
     }
   }, [effectiveOrderTyped, settingsUi, receiptVerifyUrl]);
+
+  useEffect(() => {
+    try {
+      if (!displayOrder?.id) return;
+      const oid = String(displayOrder.id);
+      if (!oid) return;
+
+      const key = `mirachpos.manualPrintReceiptOnce.${oid}`;
+      if (sessionStorage.getItem(key) !== '1') return;
+      sessionStorage.removeItem(key);
+
+      const deviceId = typeof settingsUi.defaultReceiptPrinterId === 'string' ? settingsUi.defaultReceiptPrinterId : null;
+      if (deviceId && !receiptSplitId) {
+        void apiFetch(withBranchQuery(`/api/pos/print/receipt/${encodeURIComponent(String(oid))}`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId }),
+        }).catch(() => {
+          const ok = openPrintWindow(receiptHtml(effectiveOrderTyped, settingsUi, receiptVerifyUrl || undefined, 'print'));
+          if (!ok) window.print();
+        });
+        return;
+      }
+
+      const ok = openPrintWindow(receiptHtml(effectiveOrderTyped, settingsUi, receiptVerifyUrl || undefined, 'print'));
+      if (!ok) window.print();
+    } catch {
+      // ignore
+    }
+  }, [displayOrder?.id, effectiveOrderTyped, receiptSplitId, receiptVerifyUrl, settingsUi]);
 
   useEffect(() => {
     const onMsg = (ev: MessageEvent) => {
@@ -859,7 +918,13 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
           </div>
         </div>
         <div className="flex gap-3">
-          <button onClick={() => onNavigate(Screen.WAITER_HISTORY)} className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-secondary transition-colors text-muted-foreground text-sm font-medium">
+          <button
+            onClick={() => {
+              if (displayEnabled) void updateDisplayMode('menu');
+              onNavigate(Screen.WAITER_HISTORY);
+            }}
+            className="flex items-center justify-center h-10 px-4 rounded-lg border border-border hover:bg-secondary transition-colors text-muted-foreground text-sm font-medium"
+          >
             <AppIcon name="arrow_back" className="text-lg mr-2" size={18} /> History
           </button>
           <button

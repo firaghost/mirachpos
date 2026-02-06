@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' 'unsafe-inline'; connect-src 'self' https: http: ws: wss:;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' 'unsafe-inline' https://unpkg.com; connect-src 'self' https: http: ws: wss:;" />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MirachPos</title>
@@ -119,6 +119,50 @@
       })();
 
     </script>
+
+    <!-- Grafana Faro Web SDK for Frontend Observability -->
+    <script>
+      (function () {
+        var webSdkScript = document.createElement("script");
+
+        // fetch the latest 2.x.x version of the Web-SDK from the CDN
+        webSdkScript.src =
+          "https://unpkg.com/@grafana/faro-web-sdk@2/dist/bundle/faro-web-sdk.iife.js";
+
+        webSdkScript.onload = () => {
+          window.GrafanaFaroWebSdk.initializeFaro({
+            url: "https://faro-collector-prod-eu-west-2.grafana.net/collect/45b70593fd8b80c3475d69f84f79b982",
+            app: {
+              name: "MirachPos",
+              version: "1.0.0",
+              environment: "production",
+            },
+          });
+
+          // Load instrumentations at the onLoad event of the web-SDK and after the above configuration.
+          // This is important because we need to ensure that the Web-SDK has been loaded and initialized before we add further instruments!
+          var webTracingScript = document.createElement("script");
+
+          // fetch the latest 2.x.x version of the Web Tracing package from the CDN
+          webTracingScript.src =
+            "https://unpkg.com/@grafana/faro-web-tracing@2/dist/bundle/faro-web-tracing.iife.js";
+
+          // Initialize, configure (if necessary) and add the the new instrumentation to the already loaded and configured Web-SDK.
+          webTracingScript.onload = () => {
+            window.GrafanaFaroWebSdk.faro.instrumentations.add(
+              new window.GrafanaFaroWebTracing.TracingInstrumentation()
+            );
+          };
+
+          // Append the Web Tracing script script tag to the HTML page
+          document.head.appendChild(webTracingScript);
+        };
+
+        // Append the Web-SDK script script tag to the HTML page
+        document.head.appendChild(webSdkScript);
+      })();
+    </script>
+
     <style>
       /* Custom Scrollbar */
       ::-webkit-scrollbar {

@@ -104,6 +104,16 @@ const fromDateInputEndIso = (value: string) => {
   return d.toISOString();
 };
 
+const toDateOnly = (iso: string) => {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toISOString().slice(0, 10);
+  } catch {
+    return '';
+  }
+};
+
 export const GlobalReports: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -342,6 +352,42 @@ export const GlobalReports: React.FC = () => {
 
     const filename = generateFilename('global_reports', locationId ? scope : 'all_locations', fromIso, toIso);
     downloadCSV(lines.join('\n'), filename);
+  };
+
+  const exportXlsx = async () => {
+    setBanner(null);
+    const from = toDateOnly(fromIso);
+    const to = toDateOnly(toIso);
+    if (!from || !to) {
+      setBanner({ kind: 'error', message: 'Select a valid date range first.' });
+      return;
+    }
+
+    try {
+      const qs = new URLSearchParams();
+      if (locationId) qs.set('branchId', locationId);
+      qs.set('from', from);
+      qs.set('to', to);
+
+      const res = await apiFetch(`/api/owner/reports/export/xlsx?${qs.toString()}`);
+      if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
+
+      const blob = await res.blob();
+      const cd = res.headers.get('content-disposition') || '';
+      const m = /filename="?([^";]+)"?/i.exec(cd);
+      const filename = m?.[1] ? String(m[1]) : `mirachpos_reports_${from}_to_${to}.xlsx`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to export Excel.' });
+    }
   };
 
   const exportSoldCsv = () => {
@@ -1079,8 +1125,16 @@ export const GlobalReports: React.FC = () => {
                     className="h-11 rounded-xl bg-primary text-primary-foreground font-black text-sm hover:bg-primary/90 flex items-center justify-center gap-2"
                     type="button"
                   >
-                    <AppIcon name="download" className="text-[18px]" size={18} />
-                    Export Report
+                    <AppIcon name="table_view" className="text-[18px]" size={18} />
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => void exportXlsx()}
+                    className="h-11 rounded-xl bg-background border border-border text-foreground font-black text-sm hover:bg-accent hover:border-primary/50 flex items-center justify-center gap-2"
+                    type="button"
+                  >
+                    <AppIcon name="grid_on" className="text-[18px]" size={18} />
+                    Export Excel
                   </button>
                   <button
                     onClick={exportSoldCsv}

@@ -4,9 +4,11 @@ const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
 const { uid } = require('../utils/ids');
+const { sanitizeLikeInput } = require('../utils/sanitize');
 const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 const { requireRole } = require('../middleware/permissions');
+const { validateManagerCustomerCreate, validateManagerCustomerUpdate, validateManagerCustomersQuery, validateIdParam } = require('../middleware/validators');
 
 const normalizeIso = (raw) => {
   const s = String(raw || '').trim();
@@ -38,14 +40,16 @@ const makeManagerCustomersRouter = () => {
     loadEntitlements,
     requireModule('guests'),
     requireBranchId(),
+    validateManagerCustomersQuery,
     async (req, res, next) => {
     try {
       const branchId = req.branchId || resolveBranchId(req);
 
-      const page = Math.max(1, Number(req.query?.page || 1) || 1);
-      const pageSize = Math.max(1, Math.min(200, Number(req.query?.pageSize || req.query?.limit || 50) || 50));
+      const queryParams = req.validatedQuery || req.query;
+      const page = Math.max(1, Number(queryParams?.page || 1) || 1);
+      const pageSize = Math.max(1, Math.min(200, Number(queryParams?.pageSize || queryParams?.limit || 50) || 50));
       const offset = (page - 1) * pageSize;
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
+      const q = sanitizeLikeInput(queryParams?.q, { lower: true, maxLen: 80 });
 
       let query = db().from('customers').where({ tenant_id: req.tenant.id, branch_id: branchId });
       if (q) {
@@ -77,18 +81,20 @@ const makeManagerCustomersRouter = () => {
     loadEntitlements,
     requireModule('guests'),
     requireBranchId(),
+    validateManagerCustomerCreate,
     async (req, res, next) => {
     try {
       const branchId = req.branchId || resolveBranchId(req);
 
-      const name = String(req.body?.name || '').trim();
-      const phone = String(req.body?.phone || '').trim();
+      const body = req.validatedBody || req.body;
+      const name = String(body?.name || '').trim();
+      const phone = String(body?.phone || '').trim();
       if (!name) return res.status(400).json({ error: 'name_required' });
       if (!phone) return res.status(400).json({ error: 'phone_required' });
 
-      const loyaltyPoints = Number(req.body?.loyaltyPoints ?? 0) || 0;
-      const loyaltyBalance = Number(req.body?.loyaltyBalance ?? 0) || 0;
-      const status = String(req.body?.status || 'Active').trim() || 'Active';
+      const loyaltyPoints = Number(body?.loyaltyPoints ?? 0) || 0;
+      const loyaltyBalance = Number(body?.loyaltyBalance ?? 0) || 0;
+      const status = String(body?.status || 'Active').trim() || 'Active';
 
       const id = uid('cus');
       const nowIso = new Date().toISOString();
@@ -124,25 +130,29 @@ const makeManagerCustomersRouter = () => {
     loadEntitlements,
     requireModule('guests'),
     requireBranchId(),
+    validateIdParam,
+    validateManagerCustomerUpdate,
     async (req, res, next) => {
     try {
       const branchId = req.branchId || resolveBranchId(req);
 
-      const id = String(req.params?.id || '').trim();
-      if (!id) return res.status(400).json({ error: 'id_required' });
+      const { id } = req.validatedParams || req.params;
+      const customerId = String(id || '').trim();
+      if (!customerId) return res.status(400).json({ error: 'id_required' });
 
+      const body = req.validatedBody || req.body;
       const patch = { updated_at: new Date().toISOString() };
-      if (typeof req.body?.name === 'string') patch.name = req.body.name.trim();
-      if (typeof req.body?.phone === 'string') patch.phone = req.body.phone.trim();
-      if (typeof req.body?.status === 'string') patch.status = req.body.status.trim();
-      if (req.body?.loyaltyPoints != null) patch.loyalty_points = Number(req.body.loyaltyPoints || 0) || 0;
-      if (req.body?.loyaltyBalance != null) patch.loyalty_balance = Number(req.body.loyaltyBalance || 0) || 0;
-      if (typeof req.body?.updatedAt === 'string') {
-        const iso = normalizeIso(req.body.updatedAt);
+      if (typeof body?.name === 'string') patch.name = body.name.trim();
+      if (typeof body?.phone === 'string') patch.phone = body.phone.trim();
+      if (typeof body?.status === 'string') patch.status = body.status.trim();
+      if (body?.loyaltyPoints != null) patch.loyalty_points = Number(body.loyaltyPoints || 0) || 0;
+      if (body?.loyaltyBalance != null) patch.loyalty_balance = Number(body.loyaltyBalance || 0) || 0;
+      if (typeof body?.updatedAt === 'string') {
+        const iso = normalizeIso(body.updatedAt);
         if (iso) patch.updated_at = iso;
       }
 
-      const updated = await db().from('customers').where({ tenant_id: req.tenant.id, branch_id: branchId, id }).update(patch);
+      const updated = await db().from('customers').where({ tenant_id: req.tenant.id, branch_id: branchId, id: customerId }).update(patch);
       if (!updated) return res.status(404).json({ error: 'not_found' });
 
       return res.json({ ok: true });
@@ -162,14 +172,16 @@ const makeManagerCustomersRouter = () => {
     loadEntitlements,
     requireModule('guests'),
     requireBranchId(),
+    validateIdParam,
     async (req, res, next) => {
     try {
       const branchId = req.branchId || resolveBranchId(req);
 
-      const id = String(req.params?.id || '').trim();
-      if (!id) return res.status(400).json({ error: 'id_required' });
+      const { id } = req.validatedParams || req.params;
+      const customerId = String(id || '').trim();
+      if (!customerId) return res.status(400).json({ error: 'id_required' });
 
-      const deleted = await db().from('customers').where({ tenant_id: req.tenant.id, branch_id: branchId, id }).del();
+      const deleted = await db().from('customers').where({ tenant_id: req.tenant.id, branch_id: branchId, id: customerId }).del();
       if (!deleted) return res.status(404).json({ error: 'not_found' });
 
       return res.json({ ok: true });

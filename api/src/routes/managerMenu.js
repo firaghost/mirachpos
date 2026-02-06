@@ -7,6 +7,15 @@ const { makeId, uid } = require('../utils/ids');
 const { publish } = require('../services/realtimeHub');
 const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const {
+  validateIdParam,
+  validateManagerMenuProductCreate,
+  validateManagerMenuProductUpdate,
+  validateManagerMenuProductsQuery,
+  validateManagerMenuRecipesQuery,
+  validateProductIdParam,
+  validateManagerMenuRecipeUpsert,
+} = require('../middleware/validators');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -98,7 +107,7 @@ const makeManagerMenuRouter = () => {
   };
 
   // Products
-  r.get('/manager/menu/products', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
+  r.get('/manager/menu/products', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), validateManagerMenuProductsQuery, async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
@@ -106,10 +115,11 @@ const makeManagerMenuRouter = () => {
 
       const branchIds = branchIdAlternates(branchId);
 
-      const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
-      const category = typeof req.query?.category === 'string' ? req.query.category.trim() : '';
-      const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
-      const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 200) || 200));
+      const queryParams = req.validatedQuery || req.query;
+      const q = typeof queryParams?.q === 'string' ? queryParams.q.trim().toLowerCase() : '';
+      const category = typeof queryParams?.category === 'string' ? queryParams.category.trim() : '';
+      const status = typeof queryParams?.status === 'string' ? queryParams.status.trim() : '';
+      const limit = Math.max(1, Math.min(500, Number(queryParams?.limit || 200) || 200));
 
       let base = db().from('menu_products').where({ tenant_id: req.tenant.id });
       base = base.andWhere((b) => b.whereNull('branch_id').orWhereIn('branch_id', branchIds));
@@ -141,22 +151,23 @@ const makeManagerMenuRouter = () => {
     }
   });
 
-  r.post('/manager/menu/products', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
+  r.post('/manager/menu/products', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), validateManagerMenuProductCreate, async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const branchId = req.branchId || resolveBranchId(req);
 
-      const name = String(req.body?.name || '').trim();
+      const body = req.validatedBody || req.body;
+      const name = String(body?.name || '').trim();
       if (!name) return res.status(400).json({ error: 'name_required' });
 
       const id = uid('prd');
-      const category = String(req.body?.category || 'Uncategorized').trim() || 'Uncategorized';
-      const status = req.body?.status === 'Inactive' ? 'Inactive' : 'Active';
-      const price = Number(req.body?.price || 0) || 0;
-      const code = normalizeCode(req.body?.code, name);
-      const image = String(req.body?.image || '').trim();
-      const description = String(req.body?.description || '').trim();
+      const category = String(body?.category || 'Uncategorized').trim() || 'Uncategorized';
+      const status = body?.status === 'Inactive' ? 'Inactive' : 'Active';
+      const price = Number(body?.price || 0) || 0;
+      const code = normalizeCode(body?.code, name);
+      const image = String(body?.image || '').trim();
+      const description = String(body?.description || '').trim();
 
       const nowIso = new Date().toISOString();
       await db().from('menu_products').insert({
@@ -200,18 +211,19 @@ const makeManagerMenuRouter = () => {
     }
   });
 
-  r.put('/manager/menu/products/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
+  r.put('/manager/menu/products/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), validateIdParam, validateManagerMenuProductUpdate, async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const branchId = req.branchId || resolveBranchId(req);
 
-      const id = String(req.params?.id || '').trim();
-      if (!id) return res.status(400).json({ error: 'id_required' });
+      const { id } = req.validatedParams || req.params;
+      const productId = String(id || '').trim();
+      if (!productId) return res.status(400).json({ error: 'id_required' });
 
       const existing = await db()
         .from('menu_products')
-        .where({ tenant_id: req.tenant.id, id })
+        .where({ tenant_id: req.tenant.id, id: productId })
         .select(['id', 'branch_id', 'name', 'category', 'status', 'price', 'product_json'])
         .first();
       if (!existing) return res.status(404).json({ error: 'not_found' });
@@ -220,20 +232,21 @@ const makeManagerMenuRouter = () => {
       const existingBranchId = existing.branch_id ? String(existing.branch_id) : '';
       if (existingBranchId && existingBranchId !== branchId) return res.status(403).json({ error: 'forbidden' });
 
+      const body = req.validatedBody || req.body;
       const patch = { updated_at: new Date().toISOString() };
-      if (typeof req.body?.name === 'string') patch.name = req.body.name.trim();
-      if (typeof req.body?.category === 'string') patch.category = req.body.category.trim() || 'Uncategorized';
-      if (typeof req.body?.status === 'string') patch.status = req.body.status === 'Inactive' ? 'Inactive' : 'Active';
-      if (req.body?.price != null) patch.price = Number(req.body.price || 0) || 0;
+      if (typeof body?.name === 'string') patch.name = body.name.trim();
+      if (typeof body?.category === 'string') patch.category = body.category.trim() || 'Uncategorized';
+      if (typeof body?.status === 'string') patch.status = body.status === 'Inactive' ? 'Inactive' : 'Active';
+      if (body?.price != null) patch.price = Number(body.price || 0) || 0;
 
       const prevJson = safeJsonParse(existing.product_json, {});
       const nextJson = { ...prevJson };
-      if (typeof req.body?.code === 'string') nextJson.code = normalizeCode(req.body.code, String(patch.name || '')) || nextJson.code;
-      if (typeof req.body?.image === 'string') nextJson.image = req.body.image.trim();
-      if (typeof req.body?.description === 'string') nextJson.description = req.body.description.trim();
+      if (typeof body?.code === 'string') nextJson.code = normalizeCode(body.code, String(patch.name || '')) || nextJson.code;
+      if (typeof body?.image === 'string') nextJson.image = body.image.trim();
+      if (typeof body?.description === 'string') nextJson.description = body.description.trim();
       patch.product_json = JSON.stringify(nextJson);
 
-      await db().from('menu_products').where({ tenant_id: req.tenant.id, id }).update(patch);
+      await db().from('menu_products').where({ tenant_id: req.tenant.id, id: productId }).update(patch);
 
       try {
         const prevJson2 = safeJsonParse(existing.product_json, {});
@@ -244,9 +257,9 @@ const makeManagerMenuRouter = () => {
           actor_staff_id: req.auth?.staffId ? String(req.auth.staffId) : null,
           actor_role: req.auth?.role ? String(req.auth.role) : null,
           type: 'menu_product.updated',
-          summary: `Updated menu item: ${String(patch.name || existing.name || id)}`,
+          summary: `Updated menu item: ${String(patch.name || existing.name || productId)}`,
           payload_json: JSON.stringify({
-            id,
+            id: productId,
             before: {
               name: String(existing.name || ''),
               category: String(existing.category || ''),
@@ -269,7 +282,7 @@ const makeManagerMenuRouter = () => {
       }
 
       try {
-        publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'menu.product.updated', data: { productId: String(id) } });
+        publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'menu.product.updated', data: { productId: String(productId) } });
       } catch {
         // ignore
       }
@@ -279,24 +292,25 @@ const makeManagerMenuRouter = () => {
     }
   });
 
-  r.delete('/manager/menu/products/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
+  r.delete('/manager/menu/products/:id', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), validateIdParam, async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
       const branchId = req.branchId || resolveBranchId(req);
 
-      const id = String(req.params?.id || '').trim();
-      if (!id) return res.status(400).json({ error: 'id_required' });
+      const { id } = req.validatedParams || req.params;
+      const productId = String(id || '').trim();
+      if (!productId) return res.status(400).json({ error: 'id_required' });
 
-      const existing = await db().from('menu_products').where({ tenant_id: req.tenant.id, id }).select(['id', 'branch_id', 'name']).first();
+      const existing = await db().from('menu_products').where({ tenant_id: req.tenant.id, id: productId }).select(['id', 'branch_id', 'name']).first();
       if (!existing) return res.status(404).json({ error: 'not_found' });
 
       const existingBranchId = existing.branch_id ? String(existing.branch_id) : '';
       if (!existingBranchId) return res.status(403).json({ error: 'forbidden' });
       if (existingBranchId !== branchId) return res.status(403).json({ error: 'forbidden' });
 
-      await db().from('menu_products').where({ tenant_id: req.tenant.id, id }).del();
-      await db().from('menu_recipes').where({ tenant_id: req.tenant.id, branch_id: branchId, product_id: id }).del();
+      await db().from('menu_products').where({ tenant_id: req.tenant.id, id: productId }).del();
+      await db().from('menu_recipes').where({ tenant_id: req.tenant.id, branch_id: branchId, product_id: productId }).del();
 
       try {
         await db().from('audit_log').insert({
@@ -306,8 +320,8 @@ const makeManagerMenuRouter = () => {
           actor_staff_id: req.auth?.staffId ? String(req.auth.staffId) : null,
           actor_role: req.auth?.role ? String(req.auth.role) : null,
           type: 'menu_product.deleted',
-          summary: `Deleted menu item: ${existing?.name ? String(existing.name) : id}`,
-          payload_json: JSON.stringify({ id, name: existing?.name ? String(existing.name) : '' }),
+          summary: `Deleted menu item: ${existing?.name ? String(existing.name) : productId}`,
+          payload_json: JSON.stringify({ id: productId, name: existing?.name ? String(existing.name) : '' }),
           created_at: new Date().toISOString(),
         });
       } catch {
@@ -315,7 +329,7 @@ const makeManagerMenuRouter = () => {
       }
 
       try {
-        publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'menu.product.deleted', data: { productId: String(id) } });
+        publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'menu.product.deleted', data: { productId: String(productId) } });
       } catch {
         // ignore
       }
@@ -326,7 +340,7 @@ const makeManagerMenuRouter = () => {
   });
 
   // Recipes
-  r.get('/manager/menu/recipes', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
+  r.get('/manager/menu/recipes', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), validateManagerMenuRecipesQuery, async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
@@ -334,8 +348,9 @@ const makeManagerMenuRouter = () => {
 
       const branchIds = branchIdAlternates(branchId);
 
-      const productId = typeof req.query?.productId === 'string' ? req.query.productId.trim() : '';
-      const productIdsRaw = typeof req.query?.productIds === 'string' ? req.query.productIds.trim() : '';
+      const queryParams = req.validatedQuery || req.query;
+      const productId = typeof queryParams?.productId === 'string' ? queryParams.productId.trim() : '';
+      const productIdsRaw = typeof queryParams?.productIds === 'string' ? queryParams.productIds.trim() : '';
       const productIds = productIdsRaw
         ? productIdsRaw
             .split(',')
@@ -375,7 +390,7 @@ const makeManagerMenuRouter = () => {
     }
   });
 
-  r.put('/manager/menu/recipes/:productId', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
+  r.put('/manager/menu/recipes/:productId', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), validateProductIdParam, validateManagerMenuRecipeUpsert, async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
@@ -383,7 +398,8 @@ const makeManagerMenuRouter = () => {
 
       const branchIds = branchIdAlternates(branchId);
 
-      const productId = String(req.params?.productId || '').trim();
+      const { productId: productIdRaw } = req.validatedParams || req.params;
+      const productId = String(productIdRaw || '').trim();
       if (!productId) return res.status(400).json({ error: 'product_id_required' });
 
       // Must exist as a menu product visible to this branch (global or branch item)
@@ -395,7 +411,8 @@ const makeManagerMenuRouter = () => {
         .first();
       if (!prod) return res.status(404).json({ error: 'product_not_found' });
 
-      const incoming = req.body?.recipe;
+      const body = req.validatedBody || req.body;
+      const incoming = body?.recipe;
       if (!incoming || typeof incoming !== 'object') return res.status(400).json({ error: 'recipe_required' });
 
       const normalized = normalizeRecipe(incoming);
@@ -439,7 +456,7 @@ const makeManagerMenuRouter = () => {
     }
   });
 
-  r.delete('/manager/menu/recipes/:productId', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), async (req, res, next) => {
+  r.delete('/manager/menu/recipes/:productId', tenantMiddleware, requireAuth, loadEntitlements, requireModule('menu'), requireBranchId(), validateProductIdParam, async (req, res, next) => {
     try {
       if (!requireManagerOrOwner(req, res)) return;
 
@@ -447,7 +464,8 @@ const makeManagerMenuRouter = () => {
 
       const branchIds = branchIdAlternates(branchId);
 
-      const productId = String(req.params?.productId || '').trim();
+      const { productId: productIdRaw } = req.validatedParams || req.params;
+      const productId = String(productIdRaw || '').trim();
       if (!productId) return res.status(400).json({ error: 'product_id_required' });
 
       const deleted = await db()

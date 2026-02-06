@@ -36,6 +36,114 @@ const safeJsonParse = (raw, fallback) => {
     }
 };
 
+const safeText = (v) => String(v == null ? '' : v);
+
+const truncate = (s, max) => {
+    const str = safeText(s);
+    if (str.length <= max) return str;
+    return `${str.slice(0, Math.max(0, max - 1))}…`;
+};
+
+const ensureSpace = (doc, minRemainingHeight) => {
+    const bottomY = doc.page.height - doc.page.margins.bottom;
+    const remaining = bottomY - doc.y;
+    if (remaining >= minRemainingHeight) return;
+    doc.addPage();
+};
+
+const drawReportHeader = (doc, opts) => {
+    const businessName = safeText(opts?.businessName || 'MirachPOS').trim() || 'MirachPOS';
+    const reportTitle = safeText(opts?.reportTitle || 'Report').trim() || 'Report';
+    const periodText = safeText(opts?.periodText || '').trim();
+
+    const top = doc.page.margins.top;
+    const left = doc.page.margins.left;
+    const right = doc.page.width - doc.page.margins.right;
+
+    doc.save();
+    doc.fillColor('#111827');
+    doc.font('Helvetica-Bold').fontSize(16);
+    doc.text(truncate(businessName, 48), left, top, { width: right - left, align: 'left' });
+
+    doc.font('Helvetica').fontSize(9).fillColor('#6b7280');
+    doc.text(reportTitle.toUpperCase(), left, top + 20, { width: right - left, align: 'left' });
+    if (periodText) {
+        doc.text(periodText, left, top + 34, { width: right - left, align: 'left' });
+    }
+
+    doc.moveTo(left, top + 52).lineTo(right, top + 52).strokeColor('#e5e7eb').lineWidth(1).stroke();
+    doc.restore();
+
+    doc.y = Math.max(doc.y, top + 64);
+};
+
+const drawReportFooter = (doc, opts) => {
+    const left = doc.page.margins.left;
+    const right = doc.page.width - doc.page.margins.right;
+    const bottom = doc.page.height - doc.page.margins.bottom;
+
+    const pageNum = Number(opts?.pageNum || 1) || 1;
+
+    doc.save();
+    doc.strokeColor('#e5e7eb').lineWidth(1);
+    doc.moveTo(left, bottom - 18).lineTo(right, bottom - 18).stroke();
+
+    doc.fillColor('#6b7280');
+    doc.font('Helvetica').fontSize(8);
+    doc.text(`Page ${pageNum}`, left, bottom - 14, { width: right - left, align: 'right' });
+    doc.text('Powered by MirachPOS', left, bottom - 14, { width: right - left, align: 'left' });
+    doc.restore();
+};
+
+const drawTotalsBlock = (doc, totals) => {
+    const items = Array.isArray(totals) ? totals : [];
+    if (!items.length) return;
+
+    ensureSpace(doc, 26 + items.length * 14 + 42);
+
+    const left = doc.page.margins.left;
+    const right = doc.page.width - doc.page.margins.right;
+
+    doc.save();
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827');
+    doc.text('Totals', left, doc.y + 6, { width: right - left, align: 'left' });
+    doc.moveDown(0.6);
+
+    let y = doc.y;
+    for (const t of items) {
+        doc.font('Helvetica').fontSize(10).fillColor('#6b7280');
+        doc.text(safeText(t?.label || ''), left, y, { width: 300, align: 'left' });
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827');
+        doc.text(safeText(t?.value || ''), left, y, { width: right - left, align: 'right' });
+        y += 14;
+    }
+
+    doc.y = y + 8;
+    doc.restore();
+};
+
+const drawSignatures = (doc) => {
+    ensureSpace(doc, 90);
+
+    const left = doc.page.margins.left;
+    const right = doc.page.width - doc.page.margins.right;
+    const mid = left + (right - left) / 2;
+    const y = doc.y + 24;
+
+    doc.save();
+    doc.strokeColor('#9ca3af').lineWidth(1);
+    doc.moveTo(left, y).lineTo(mid - 18, y).stroke();
+    doc.moveTo(mid + 18, y).lineTo(right, y).stroke();
+
+    doc.fillColor('#6b7280');
+    doc.font('Helvetica').fontSize(9);
+    doc.text('Prepared by', left, y + 6, { width: mid - left - 18, align: 'center' });
+    doc.text('Approved by', mid + 18, y + 6, { width: right - (mid + 18), align: 'center' });
+    doc.restore();
+
+    doc.y = y + 34;
+};
+
 const makeStampCode = (invoice) => {
     const idPart = String(invoice?.id || '').split('_').pop() || String(invoice?.id || '').slice(-8);
     const dt = new Date(invoice?.issue_date || invoice?.created_at || Date.now());
@@ -275,15 +383,31 @@ const generateInvoicePDF = async (invoiceId) => {
 
 // Generate Report PDF (Generic)
 const generateReportPDF = async (reportTitle, dateRange, columns, rows) => {
+    const options = arguments.length >= 5 && arguments[4] && typeof arguments[4] === 'object' ? arguments[4] : {};
+
     const doc = new PDFDocument({ margin: 50 });
     const buffers = [];
     doc.on('data', buffers.push.bind(buffers));
 
-    // -- Header --
-    drawHeader(doc, 'REPORT');
+    let pageNum = 1;
+    const periodText = dateRange?.from && dateRange?.to
+        ? `Period: ${safeText(dateRange.from)} to ${safeText(dateRange.to)}`
+        : '';
 
-    doc.fontSize(14).text(reportTitle, 50, 140);
-    doc.fontSize(10).text(`Period: ${dateRange.from} to ${dateRange.to}`, 50, 160);
+    const headerOpts = {
+        businessName: options?.businessName,
+        reportTitle: reportTitle,
+        periodText,
+    };
+
+    drawReportHeader(doc, headerOpts);
+    drawReportFooter(doc, { pageNum });
+
+    doc.on('pageAdded', () => {
+        pageNum += 1;
+        drawReportHeader(doc, headerOpts);
+        drawReportFooter(doc, { pageNum });
+    });
 
     // -- Table --
     const table = {
@@ -297,13 +421,21 @@ const generateReportPDF = async (reportTitle, dateRange, columns, rows) => {
 
     await doc.table(table, {
         x: 50,
-        y: 190,
+        y: doc.y,
         width: 500,
-        headers: columns.map(c => ({
+        divider: {
+            header: { disabled: false, width: 1.5, opacity: 1 },
+            horizontal: { disabled: false, width: 1, opacity: 0.45 },
+        },
+        headers: columns.map((c) => ({
             width: c.width || (500 / columns.length),
             align: c.align || 'left',
         })),
     });
+
+    doc.y = doc.y + 10;
+    drawTotalsBlock(doc, options?.totals);
+    drawSignatures(doc);
 
     doc.end();
 

@@ -21,7 +21,7 @@ const tenantMiddleware = async (req, res, next) => {
     }
 
     const tenant = await db()
-      .select(['id', 'slug', 'name', 'status', 'trial_ends_at', 'plan', 'plan_ends_at'])
+      .select(['id', 'slug', 'name', 'status', 'trial_ends_at', 'plan', 'plan_ends_at', 'features_json'])
       .from('tenants')
       .where({ slug })
       .first();
