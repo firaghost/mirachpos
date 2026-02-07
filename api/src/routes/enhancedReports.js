@@ -51,12 +51,12 @@ const requireOwnerAuth = (req, res) => {
 const toDateString = (d) => {
     const s = String(d || '').trim();
     if (!s) return '';
-    
+
     const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (match) {
         return `${match[1]}-${match[2]}-${match[3]}`;
     }
-    
+
     try {
         const x = new Date(d);
         if (Number.isNaN(x.getTime())) return '';
@@ -671,6 +671,53 @@ const makeEnhancedReportsRouter = () => {
             return next(e);
         }
     });
+
+    // Schedule email reports
+    r.post('/owner/reports/schedule-email', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
+        try {
+            if (!requireOwnerAuth(req, res)) return;
+
+            const body = req.body && typeof req.body === 'object' ? req.body : {};
+            const branchId = typeof body?.branchId === 'string' ? body.branchId.trim() : null;
+            const frequency = typeof body?.frequency === 'string' ? body.frequency.trim().toLowerCase() : '';
+            const emails = Array.isArray(body?.emails) ? body.emails.filter(e => typeof e === 'string' && e.includes('@')) : [];
+
+            if (!['daily', 'weekly', 'monthly'].includes(frequency)) {
+                return res.status(400).json({ error: 'invalid_frequency', message: 'Must be daily, weekly, or monthly' });
+            }
+            if (emails.length === 0) {
+                return res.status(400).json({ error: 'emails_required', message: 'At least one valid email required' });
+            }
+
+            const scheduleId = makeId('rse');
+            const now = new Date().toISOString();
+
+            await db()
+                .from('report_email_schedules')
+                .insert({
+                    id: scheduleId,
+                    tenant_id: req.tenant.id,
+                    branch_id: branchId,
+                    frequency,
+                    emails: JSON.stringify(emails),
+                    is_active: true,
+                    created_at: now,
+                    updated_at: now,
+                })
+                .onConflict(['tenant_id', 'branch_id', 'frequency'])
+                .merge({
+                    emails: JSON.stringify(emails),
+                    is_active: true,
+                    updated_at: now,
+                });
+
+            return res.json({ ok: true, scheduleId, frequency, emails });
+        } catch (e) {
+            return next(e);
+        }
+    });
+
+
 
     // Export report data as XLSX
     r.get('/owner/reports/export/xlsx', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {

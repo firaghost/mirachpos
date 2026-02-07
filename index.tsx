@@ -18,7 +18,7 @@ const getFaroConfig = () => {
 };
 
 const faroConfig = getFaroConfig();
-if (faroConfig) {
+if (faroConfig && faroConfig.environment !== 'development') {
   initializeFaro({
     url: faroConfig.url,
     app: {

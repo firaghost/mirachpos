@@ -29,6 +29,7 @@ const addRequestIdToJsonBody = (req, res, next) => {
     const original = res.json.bind(res);
     res.json = (body) => {
         try {
+            if (res.headersSent || res.writableEnded) return res;
             const id = typeof req.requestId === 'string' ? req.requestId : '';
             if (!id) return original(body);
             if (body && typeof body === 'object' && !Array.isArray(body)) {

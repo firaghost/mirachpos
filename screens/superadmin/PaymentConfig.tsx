@@ -6,6 +6,7 @@ import { Modal } from '../../components/Modal';
 import { AppIcon } from '@/components/ui/app-icon';
 type GatewayConfig = {
   enabled: boolean;
+  enabledForPos?: boolean;
   publicKey?: string;
   secretKey?: string;
   webhookSecret?: string;
@@ -96,8 +97,8 @@ const defaultState: PaymentConfigState = {
 
     taxation: {},
   },
-  chapa: { enabled: false, publicKey: '', secretKey: '', webhookSecret: '', encryptionKey: '' },
-  telebirr: { enabled: false, appId: '', appKey: '', shortCode: '', baseUrl: '', fabricAppId: '', appSecret: '', merchantAppId: '', merchantCode: '', privateKey: '' },
+  chapa: { enabled: false, enabledForPos: false, publicKey: '', secretKey: '', webhookSecret: '', encryptionKey: '' },
+  telebirr: { enabled: false, enabledForPos: false, appId: '', appKey: '', shortCode: '', baseUrl: '', fabricAppId: '', appSecret: '', merchantAppId: '', merchantCode: '', privateKey: '' },
   cbeBirr: { enabled: false, merchantId: '', apiKey: '' },
   sms: { enabled: false, provider: 'africas_talking', apiKey: '', senderId: '' },
   settings: { environment: 'production', gracePeriodDays: 3, reportRetentionDays: 365, vatEnabled: true, starterPriceEtb: 500, growthPriceEtb: 1500 },
@@ -2931,7 +2932,18 @@ export const PaymentConfig: React.FC = () => {
                       <div className="flex flex-col flex-1">
                         <div className="flex items-center justify-between gap-4">
                           <h4 className="text-foreground font-bold text-lg">Telebirr Integration</h4>
-                          <Toggle checked={draft.telebirr.enabled} onChange={(v) => setDraft((p) => ({ ...p, telebirr: { ...p.telebirr, enabled: v } }))} />
+                          <div className="flex flex-col items-end gap-1">
+                            <Toggle
+                              checked={draft.telebirr.enabled}
+                              onChange={(v) => setDraft((p) => ({ ...p, telebirr: { ...p.telebirr, enabled: v } }))}
+                              label="Billing"
+                            />
+                            <Toggle
+                              checked={!!draft.telebirr.enabledForPos}
+                              onChange={(v) => setDraft((p) => ({ ...p, telebirr: { ...p.telebirr, enabledForPos: v } }))}
+                              label="POS / Waiter"
+                            />
+                          </div>
                         </div>
                         <p className="text-muted-foreground text-sm mb-4">Native mobile money handling. Supports direct API integration.</p>
                         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -2963,7 +2975,18 @@ export const PaymentConfig: React.FC = () => {
                       <div className="flex flex-col flex-1">
                         <div className="flex items-center justify-between gap-4">
                           <h4 className="text-foreground font-bold text-lg">Chapa</h4>
-                          <Toggle checked={draft.chapa.enabled} onChange={(v) => setDraft((p) => ({ ...p, chapa: { ...p.chapa, enabled: v } }))} />
+                          <div className="flex flex-col items-end gap-1">
+                            <Toggle
+                              checked={draft.chapa.enabled}
+                              onChange={(v) => setDraft((p) => ({ ...p, chapa: { ...p.chapa, enabled: v } }))}
+                              label="Billing"
+                            />
+                            <Toggle
+                              checked={!!draft.chapa.enabledForPos}
+                              onChange={(v) => setDraft((p) => ({ ...p, chapa: { ...p.chapa, enabledForPos: v } }))}
+                              label="POS / Waiter"
+                            />
+                          </div>
                         </div>
                         <p className="text-muted-foreground text-sm mb-4">Payment aggregator for cards and local bank transfers.</p>
                         <div className="grid grid-cols-2 gap-4 mb-4">

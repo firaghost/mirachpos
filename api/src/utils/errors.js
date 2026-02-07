@@ -99,6 +99,21 @@ const errorHandler = (err, req, res, _next) => {
     // Get logger from request or create one
     const log = req.log || require('./logger').logger;
 
+    if (res.headersSent || res.writableEnded) {
+        try {
+            log.warn({
+                type: 'error_after_response_sent',
+                requestId: req.requestId,
+                method: req.method,
+                path: req.path,
+                error: err?.message,
+            }, 'Error occurred after response was already sent');
+        } catch {
+            // ignore
+        }
+        return;
+    }
+
     // Determine if this is an operational error we can trust
     const isOperational = err instanceof AppError && err.isOperational;
 

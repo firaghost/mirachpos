@@ -9,12 +9,16 @@ const createMailTransporter = (overrides) => {
     return null;
   }
 
-  const host = String(config.mail?.host || '').trim();
-  const port = Number(overrides?.port || config.mail?.port || 587);
-  const user = String(config.mail?.user || '').trim();
-  const pass = String(config.mail?.pass || '').trim();
+  // Support both MAIL_* and SMTP_* env vars (like LandingPage server)
+  const host = String(overrides?.host || config.mail?.host || process.env.SMTP_HOST || '').trim();
+  const port = Number(overrides?.port || config.mail?.port || process.env.SMTP_PORT || 465);
+  const user = String(config.mail?.user || process.env.SMTP_USER || '').trim();
+  const pass = String(config.mail?.pass || process.env.SMTP_PASS || '').trim();
+  const from = String(config.mail?.from || process.env.MAIL_FROM || process.env.SMTP_FROM || '').trim();
+
   if (!host || !user || !pass) return null;
 
+  // Default to secure=true for port 465, false otherwise
   const secure =
     typeof overrides?.secure === 'boolean'
       ? overrides.secure
@@ -22,18 +26,41 @@ const createMailTransporter = (overrides) => {
         ? config.mail.secure
         : port === 465;
 
-  return nodemailer.createTransport({
+  const timeoutMsRaw =
+    overrides?.timeoutMs ??
+    process.env.MAIL_TIMEOUT_MS ??
+    process.env.SMTP_TIMEOUT_MS ??
+    10_000;
+  const timeoutMs = Math.max(1000, Number(timeoutMsRaw) || 30_000);
+
+  const transportOptions = {
     host,
     port,
     secure,
     auth: { user, pass },
-    family: 4,
-    requireTLS: !secure && port === 587,
-    tls: { minVersion: 'TLSv1.2', servername: host },
-    connectionTimeout: 20_000,
-    greetingTimeout: 20_000,
-    socketTimeout: 30_000,
-  });
+    connectionTimeout: timeoutMs,
+    greetingTimeout: timeoutMs,
+    socketTimeout: timeoutMs,
+  };
+
+  // Only add TLS options for port 587 with STARTTLS
+  if (!secure && (port === 587 || port === 2525)) {
+    transportOptions.requireTLS = true;
+    transportOptions.tls = {
+      rejectUnauthorized: false, // Accept self-signed certificates (common in cPanel)
+      minVersion: 'TLSv1.2',
+    };
+  }
+
+  // For port 465 SSL (common with cPanel), add TLS options to handle various certificate setups
+  if (secure) {
+    transportOptions.tls = {
+      rejectUnauthorized: false, // Accept self-signed certificates (common in cPanel)
+      minVersion: 'TLSv1.2',
+    };
+  }
+
+  return nodemailer.createTransport(transportOptions);
 };
 
 module.exports = { createMailTransporter };

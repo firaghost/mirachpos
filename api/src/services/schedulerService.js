@@ -61,7 +61,7 @@ const sendNotification = async ({ tenantId, invoiceId, type, channel, recipient,
                 console.error('[Scheduler] Email service not configured - check MAIL_HOST, MAIL_USER, MAIL_PASS');
             } else {
                 await transporter.sendMail({
-                    from: `"MirachPOS" <${process.env.MAIL_FROM || process.env.MAIL_USER}>`,
+                    from: `"MirachPOS" <${process.env.MAIL_FROM || process.env.MAIL_USERNAME}>`,
                     to: recipient,
                     subject,
                     text: message,
@@ -436,16 +436,141 @@ const runReportAggregationJob = async () => {
         jobStatus.isRunning.reportAggregation = false;
     }
 };
-
-// Schedule configuration
 const SCHEDULE = {
     paymentReminders: 6 * 60 * 60 * 1000, // Every 6 hours
     gracePeriod: 60 * 60 * 1000, // Every hour
     reportAggregation: 24 * 60 * 60 * 1000, // Every 24 hours
+    scheduledReportEmails: 24 * 60 * 60 * 1000, // Send scheduled report emails
 };
 
-let schedulerIntervals = {};
-let schedulerStarted = false;
+const runScheduledReportEmailsJob = async () => {
+    if (jobStatus.isRunning.scheduledReportEmails) return;
+    jobStatus.isRunning.scheduledReportEmails = true;
+
+    try {
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        const dayOfMonth = now.getDate();
+
+        // Determine which frequencies should run today
+        const frequenciesToRun = ['daily'];
+        if (dayOfWeek === 1) frequenciesToRun.push('weekly'); // Monday
+        if (dayOfMonth === 1) frequenciesToRun.push('monthly'); // 1st of month
+
+        const schedules = await db()
+            .select(['id', 'tenant_id', 'branch_id', 'frequency', 'emails'])
+            .from('report_email_schedules')
+            .where({ is_active: true })
+            .whereIn('frequency', frequenciesToRun);
+
+        const transporter = createMailTransporter();
+        if (!transporter) {
+            console.error('[Scheduler] Cannot send report emails - mail not configured');
+            return;
+        }
+
+        for (const schedule of schedules) {
+            try {
+                const emails = safeJsonParse(schedule.emails, []);
+                if (!emails.length) continue;
+
+                const tenant = await db()
+                    .select(['slug', 'name'])
+                    .from('tenants')
+                    .where({ id: schedule.tenant_id })
+                    .first();
+
+                const branch = schedule.branch_id
+                    ? await db().select(['name']).from('branches').where({ id: schedule.branch_id }).first()
+                    : null;
+
+                // Generate simple report summary
+                const from = today;
+                const to = today;
+                const { getDailySalesSummary } = require('./reportAggregationService');
+                const daily = await getDailySalesSummary({
+                    tenantId: schedule.tenant_id,
+                    branchId: schedule.branch_id,
+                    fromDate: from,
+                    toDate: to,
+                });
+
+                const summary = daily[0] || { netSales: 0, orderCount: 0, avgTicket: 0 };
+
+                const subject = `MirachPOS Report - ${today} - ${tenant?.name || 'Your Business'}`;
+                const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #eead2b; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px; }
+        .metric { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+        .metric:last-child { border-bottom: none; }
+        .label { color: #6b7280; }
+        .value { font-weight: bold; color: #111827; }
+        .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #6b7280; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>MirachPOS</h1>
+        <p>${tenant?.name || 'Your Business'} - ${branch?.name || 'All Locations'}</p>
+    </div>
+    <div class="content">
+        <h2>Daily Report - ${today}</h2>
+        <div class="metric">
+            <span class="label">Net Sales:</span>
+            <span class="value">ETB ${summary.netSales?.toFixed(2) || '0.00'}</span>
+        </div>
+        <div class="metric">
+            <span class="label">Orders:</span>
+            <span class="value">${summary.orderCount || 0}</span>
+        </div>
+        <div class="metric">
+            <span class="label">Avg Ticket:</span>
+            <span class="value">ETB ${summary.avgTicket?.toFixed(2) || '0.00'}</span>
+        </div>
+        <div class="footer">
+            <p>This is an automated report from MirachPOS.<br>
+            Frequency: ${schedule.frequency} | 
+            <a href="${process.env.APPS_URL || 'https://apps.mirachpos.com'}">View Dashboard</a></p>
+        </div>
+    </div>
+</body>
+</html>`;
+
+                for (const email of emails) {
+                    await transporter.sendMail({
+                        from: `"MirachPOS" <${process.env.MAIL_FROM || process.env.MAIL_USERNAME}>`,
+                        to: email,
+                        subject,
+                        html,
+                    });
+                    console.log(`[Scheduler] Report email sent to ${email} for tenant ${schedule.tenant_id}`);
+                }
+
+                // Update last run timestamp
+                await db()
+                    .from('report_email_schedules')
+                    .where({ id: schedule.id })
+                    .update({ last_run_at: new Date().toISOString() });
+
+            } catch (err) {
+                console.error(`[Scheduler] Failed to send report for schedule ${schedule.id}:`, err.message);
+            }
+        }
+
+        jobStatus.lastRun.scheduledReportEmails = new Date().toISOString();
+    } catch (e) {
+        console.error('[Scheduler] Error in scheduled report emails job:', e.message);
+    } finally {
+        jobStatus.isRunning.scheduledReportEmails = false;
+    }
+};
 
 // Start the scheduler
 const startScheduler = () => {
@@ -464,6 +589,27 @@ const startScheduler = () => {
 
     // Report aggregation - every 24 hours
     schedulerIntervals.reportAggregation = setInterval(runReportAggregationJob, SCHEDULE.reportAggregation);
+
+    // Scheduled report emails - every 24 hours at 8 AM
+    const scheduleReportEmails = () => {
+        const now = new Date();
+        const targetHour = 8; // 8 AM
+        const nextRun = new Date(now);
+        nextRun.setHours(targetHour, 0, 0, 0);
+        if (nextRun <= now) {
+            nextRun.setDate(nextRun.getDate() + 1);
+        }
+        const delay = nextRun.getTime() - now.getTime();
+
+        setTimeout(() => {
+            runScheduledReportEmailsJob();
+            scheduleReportEmails(); // Schedule next run
+        }, delay);
+
+        console.log(`[Scheduler] Report emails scheduled for ${nextRun.toISOString()}`);
+    };
+
+    scheduleReportEmails();
 
     // Run initial jobs after a short delay
     setTimeout(() => {
@@ -529,6 +675,11 @@ const getSchedulerStatus = () => {
                 isRunning: Boolean(jobStatus.isRunning.reportAggregation),
                 interval: SCHEDULE.reportAggregation,
             },
+            scheduledReportEmails: {
+                lastRun: jobStatus.lastRun.scheduledReportEmails || null,
+                isRunning: Boolean(jobStatus.isRunning.scheduledReportEmails),
+                interval: SCHEDULE.scheduledReportEmails,
+            },
         },
     };
 };
@@ -540,5 +691,6 @@ module.exports = {
     runPaymentReminderJob,
     runGracePeriodExpirationJob,
     runReportAggregationJob,
+    runScheduledReportEmailsJob,
     sendNotification,
 };

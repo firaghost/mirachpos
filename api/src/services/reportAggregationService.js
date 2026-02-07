@@ -295,37 +295,32 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
     if (orders.length === 0) {
         // No orders, ensure empty record exists
         const existingId = `dss_${tenantId}_${branchId}_${dateStr}`;
-        const existing = await db()
-            .select(['id'])
-            .from('daily_sales_summary')
-            .where({ id: existingId })
-            .first();
+        const record = {
+            id: existingId,
+            tenant_id: tenantId,
+            branch_id: branchId,
+            report_date: dateStr,
+            order_count: 0,
+            item_count: 0,
+            gross_sales_etb: 0,
+            discounts_etb: 0,
+            net_sales_etb: 0,
+            tax_etb: 0,
+            tips_etb: 0,
+            total_collected_etb: 0,
+            void_count: 0,
+            void_amount_etb: 0,
+            refund_count: 0,
+            refund_amount_etb: 0,
+            payment_breakdown_json: JSON.stringify({}),
+            avg_ticket_etb: 0,
+            first_order_at: null,
+            last_order_at: null,
+            computed_at: nowIso,
+        };
 
-        if (!existing) {
-            await db().from('daily_sales_summary').insert({
-                id: existingId,
-                tenant_id: tenantId,
-                branch_id: branchId,
-                report_date: dateStr,
-                order_count: 0,
-                item_count: 0,
-                gross_sales_etb: 0,
-                discounts_etb: 0,
-                net_sales_etb: 0,
-                tax_etb: 0,
-                tips_etb: 0,
-                total_collected_etb: 0,
-                void_count: 0,
-                void_amount_etb: 0,
-                refund_count: 0,
-                refund_amount_etb: 0,
-                payment_breakdown_json: JSON.stringify({}),
-                avg_ticket_etb: 0,
-                first_order_at: null,
-                last_order_at: null,
-                computed_at: nowIso,
-            });
-        }
+        const { id: _id, ...update } = record;
+        await db().from('daily_sales_summary').insert(record).onConflict('id').merge(update);
         return { orderCount: 0 };
     }
 
@@ -394,11 +389,7 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
 
     // Upsert the summary - delete first to avoid primary key conflicts, then insert
     const summaryId = `dss_${tenantId}_${branchId}_${dateStr}`;
-
-    // Delete existing row if present (avoids duplicate key errors)
-    await db().from('daily_sales_summary').where({ id: summaryId }).delete();
-
-    await db().from('daily_sales_summary').insert({
+    const record = {
         id: summaryId,
         tenant_id: tenantId,
         branch_id: branchId,
@@ -420,7 +411,10 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
         first_order_at: firstOrderAt,
         last_order_at: lastOrderAt,
         computed_at: nowIso,
-    });
+    };
+
+    const { id: _id, ...update } = record;
+    await db().from('daily_sales_summary').insert(record).onConflict('id').merge(update);
 
     return { orderCount, netSales, itemCount };
 };
@@ -501,28 +495,37 @@ const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
         const avgTicket = row.orderCount > 0 ? row.netSales / row.orderCount : 0;
         const id = `sss_${tenantId}_${branchId}_${dateStr}_${row.staffId}`;
 
-        await db().from('staff_sales_summary').where({ id }).delete();
+        try {
+            const record = {
+                id,
+                tenant_id: tenantId,
+                branch_id: branchId,
+                report_date: dateStr,
+                staff_id: row.staffId,
+                staff_name: row.staffName || null,
+                order_count: row.orderCount,
+                gross_sales_etb: row.grossSales,
+                discounts_etb: row.discounts,
+                net_sales_etb: row.netSales,
+                tax_etb: row.tax,
+                tips_etb: row.tips,
+                total_collected_etb: row.totalCollected,
+                payment_breakdown_json: JSON.stringify(row.paymentBreakdown),
+                avg_ticket_etb: Math.round(avgTicket * 100) / 100,
+                first_order_at: row.firstOrderAt,
+                last_order_at: row.lastOrderAt,
+                computed_at: nowIso,
+            };
 
-        await db().from('staff_sales_summary').insert({
-            id,
-            tenant_id: tenantId,
-            branch_id: branchId,
-            report_date: dateStr,
-            staff_id: row.staffId,
-            staff_name: row.staffName || null,
-            order_count: row.orderCount,
-            gross_sales_etb: row.grossSales,
-            discounts_etb: row.discounts,
-            net_sales_etb: row.netSales,
-            tax_etb: row.tax,
-            tips_etb: row.tips,
-            total_collected_etb: row.totalCollected,
-            payment_breakdown_json: JSON.stringify(row.paymentBreakdown),
-            avg_ticket_etb: Math.round(avgTicket * 100) / 100,
-            first_order_at: row.firstOrderAt,
-            last_order_at: row.lastOrderAt,
-            computed_at: nowIso,
-        });
+            const { id: _id, ...update } = record;
+            await db().from('staff_sales_summary').insert(record).onConflict('id').merge(update);
+        } catch (e) {
+            console.error('[ReportAggregation] Staff sales insert failed, retrying with update:', {
+                id,
+                staffId: row.staffId,
+                error: e?.message || String(e),
+            });
+        }
     }
 
     return { staffCount: byStaff.size, orderCount: orders.length };
@@ -553,10 +556,7 @@ const aggregateHourlySales = async ({ tenantId, branchId, date }) => {
     for (const row of hourlyData) {
         const hour = Number(row.hour || 0);
         const summaryId = `hss_${tenantId}_${branchId}_${dateStr}_${hour}`;
-
-        await db().from('hourly_sales_summary').where({ id: summaryId }).delete();
-
-        await db().from('hourly_sales_summary').insert({
+        const record = {
             id: summaryId,
             tenant_id: tenantId,
             branch_id: branchId,
@@ -566,7 +566,10 @@ const aggregateHourlySales = async ({ tenantId, branchId, date }) => {
             net_sales_etb: Number(row.net_sales || 0),
             total_collected_etb: Number(row.total_collected || 0),
             computed_at: nowIso,
-        });
+        };
+
+        const { id: _id, ...update } = record;
+        await db().from('hourly_sales_summary').insert(record).onConflict('id').merge(update);
     }
 
     return { hoursProcessed: hourlyData.length };
@@ -741,9 +744,7 @@ const aggregateProductSales = async ({ tenantId, branchId, date }) => {
         const cost = Math.max(0, data.qtySold) * unitCost;
         const profit = data.revenue - cost;
 
-        await db().from('product_sales_summary').where({ id: summaryId }).delete();
-
-        await db().from('product_sales_summary').insert({
+        const record = {
             id: summaryId,
             tenant_id: tenantId,
             branch_id: branchId,
@@ -757,7 +758,10 @@ const aggregateProductSales = async ({ tenantId, branchId, date }) => {
             profit_etb: profit,
             void_qty: data.voidQty,
             computed_at: nowIso,
-        });
+        };
+
+        const { id: _id, ...update } = record;
+        await db().from('product_sales_summary').insert(record).onConflict('id').merge(update);
     }
 
     return { productsProcessed: productMap.size };

@@ -3,8 +3,6 @@
 
 -- 1. POS Transactional Data (Orders & Payments)
 DELETE FROM order_payments WHERE tenant_id = 'tnt_a0b1013cf894f_19ba90bcc40';
-DELETE FROM order_split_items WHERE tenant_id = 'tnt_a0b1013cf894f_19ba90bcc40';
-DELETE FROM order_splits WHERE tenant_id = 'tnt_a0b1013cf894f_19ba90bcc40';
 DELETE FROM order_items WHERE tenant_id = 'tnt_a0b1013cf894f_19ba90bcc40';
 DELETE FROM pos_payment_gateway_transactions WHERE tenant_id = 'tnt_a0b1013cf894f_19ba90bcc40';
 DELETE FROM pos_public_order_links WHERE tenant_id = 'tnt_a0b1013cf894f_19ba90bcc40';

@@ -61,6 +61,12 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
   const [paymentReference, setPaymentReference] = useState<string>('');
   const [actionErr, setActionErr] = useState<string>('');
   const [posSettings, setPosSettings] = useState<PosSettingsResponse | null>(null);
+  const chapaEnabled = useMemo(() => {
+    const list = Array.isArray(posSettings?.payments?.methods) ? posSettings?.payments?.methods || [] : [];
+    const row = list.find((m) => String(m?.id || '').trim() === 'chapa');
+    if (!row) return false;
+    return row?.enabled !== false;
+  }, [posSettings]);
   const [displayEnabled, setDisplayEnabled] = useState(() => {
     try {
       return sessionStorage.getItem(DISPLAY_ENABLED_KEY) === '1';
@@ -139,8 +145,14 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       }
     };
     void run();
+
+    const onFocus = () => {
+      void run();
+    };
+    window.addEventListener('focus', onFocus);
     return () => {
       mounted = false;
+      window.removeEventListener('focus', onFocus);
     };
   }, []);
 
@@ -481,6 +493,12 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       return;
     }
 
+    if (!chapaEnabled) {
+      setActionErr('Mobile Pay is disabled.');
+      setMethod('Cash');
+      return;
+    }
+
     // Auto-generate QR on selection (once per order, no spam retries).
     const attemptKey = oid ? `order:${oid}` : '';
     if (!attemptKey) return;
@@ -491,7 +509,7 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
     chapaInitAttemptRef.current = attemptKey;
     void initiateChapaOnline();
-  }, [method, order?.id, chapaOnlineLoading, chapaOnlineActive, chapaCheckoutUrl, selectedSplitId]);
+  }, [method, order?.id, chapaOnlineLoading, chapaOnlineActive, chapaCheckoutUrl, selectedSplitId, chapaEnabled]);
 
   const initiateTelebirrOnline = async () => {
     if (!order) return;
@@ -534,6 +552,12 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
 
   const initiateChapaOnline = async () => {
     if (!order) return;
+    if (!chapaEnabled) {
+      setActionErr('Mobile Pay is disabled.');
+      setChapaOnlineActive(false);
+      setChapaCheckoutUrl(null);
+      return;
+    }
     if (!isOnline) {
       setActionErr('Mobile Pay requires internet. Please reconnect and try again.');
       return;
@@ -743,10 +767,18 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       })
       .filter((d) => d.id !== 'bank_transfer' || methodConfig.has('bank_transfer') || bankTransferConfigured);
 
-    const result = base;
+    const visible = base.filter((d) => d.id === 'cash' || d.enabled !== false);
+
+    const result = visible;
     if (!offline && order?.customer) result.push({ id: 'loyalty', label: 'Loyalty', icon: 'loyalty', value: 'Loyalty', enabled: true, reason: '' } as any);
     return result;
   }, [isOnline, methodConfig, order?.customer, bankTransferConfigured]);
+
+  useEffect(() => {
+    const allowed = new Set(methodButtons.map((b: any) => String(b?.value || '')));
+    if (allowed.has(method)) return;
+    setMethod('Cash');
+  }, [methodButtons, method]);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);

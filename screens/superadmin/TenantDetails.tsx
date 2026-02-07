@@ -47,23 +47,23 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
   const [tenant, setTenant] = useState<
     | null
     | {
-        id: string;
-        name: string;
-        slug?: string;
-        domain?: string;
-        status: string;
-        plan: string;
-        enabledModules?: string[] | null;
-        profile?: any;
-        branchesPreview?: Array<{ id: string; name: string; city?: string; status?: string }>;
-        metrics?: any;
-        incidents?: any[];
-        branches: number;
-        users: number;
-        lastActivityAt?: string;
-        createdAt?: string;
-        updatedAt?: string;
-      }
+      id: string;
+      name: string;
+      slug?: string;
+      domain?: string;
+      status: string;
+      plan: string;
+      enabledModules?: string[] | null;
+      profile?: any;
+      branchesPreview?: Array<{ id: string; name: string; city?: string; status?: string }>;
+      metrics?: any;
+      incidents?: any[];
+      branches: number;
+      users: number;
+      lastActivityAt?: string;
+      createdAt?: string;
+      updatedAt?: string;
+    }
   >(null);
 
   const [enabledModules, setEnabledModules] = useState<string[]>([]);
@@ -200,6 +200,12 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
       const rows = Array.isArray(json?.gateways) ? json.gateways : [];
       const chapa = rows.find((r: any) => String(r?.gateway || '') === 'chapa') || null;
       const santim = rows.find((r: any) => String(r?.gateway || '') === 'santimpay') || null;
+      const telebirr = rows.find((r: any) => String(r?.gateway || '') === 'telebirr') || null;
+      const cash = rows.find((r: any) => String(r?.gateway || '') === 'cash') || null;
+      const transfer = rows.find((r: any) => String(r?.gateway || '') === 'bank_transfer') || null;
+      const check = rows.find((r: any) => String(r?.gateway || '') === 'check') || null;
+
+      // Integrations default to DISABLED if null
       setPosChapaEnabled(Boolean(chapa?.enabled));
       setPosChapaSecretMasked(String(chapa?.config?.secretKeyMasked || ''));
       setPosChapaPublicMasked(String(chapa?.config?.publicKeyMasked || ''));
@@ -215,6 +221,22 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
       setPosSantimMerchantId('');
       setPosSantimPrivateKey('');
       setPosSantimPublicKey('');
+
+      setPosTelebirrEnabled(Boolean(telebirr?.enabled));
+      setPosTelebirrAppIdMasked(String(telebirr?.config?.fabricAppIdMasked || ''));
+      setPosTelebirrAppKeyMasked(String(telebirr?.config?.merchantAppIdMasked || ''));
+      setPosTelebirrShortCodeMasked(String(telebirr?.config?.merchantCodeMasked || ''));
+      setPosTelebirrPublicKeyMasked(String(telebirr?.config?.privateKeyMasked || ''));
+      setPosTelebirrAppId('');
+      setPosTelebirrAppKey('');
+      setPosTelebirrShortCode('');
+      setPosTelebirrPublicKey('');
+
+      // Generics default to ENABLED if null (meaning no specific toggle = use default)
+      setPosCashEnabled(cash ? Boolean(cash.enabled) : true);
+      setPosTransferEnabled(transfer ? Boolean(transfer.enabled) : true);
+      setPosCheckEnabled(check ? Boolean(check.enabled) : true);
+
     } catch (e) {
       setPayError(e instanceof Error ? e.message : 'Failed to load payment gateways');
     } finally {
@@ -227,6 +249,20 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
     loadPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, selectedTenantId]);
+
+  const [posCashEnabled, setPosCashEnabled] = useState(true);
+  const [posTransferEnabled, setPosTransferEnabled] = useState(true);
+  const [posCheckEnabled, setPosCheckEnabled] = useState(true);
+  const [posTelebirrEnabled, setPosTelebirrEnabled] = useState(false);
+  const [posTelebirrAppId, setPosTelebirrAppId] = useState(''); // Fabric
+  const [posTelebirrAppKey, setPosTelebirrAppKey] = useState(''); // Merchant App Id
+  const [posTelebirrShortCode, setPosTelebirrShortCode] = useState(''); // Merchant Code
+  const [posTelebirrPublicKey, setPosTelebirrPublicKey] = useState(''); // Private Key
+  const [posTelebirrAppIdMasked, setPosTelebirrAppIdMasked] = useState('');
+  const [posTelebirrAppKeyMasked, setPosTelebirrAppKeyMasked] = useState('');
+  const [posTelebirrShortCodeMasked, setPosTelebirrShortCodeMasked] = useState('');
+  const [posTelebirrPublicKeyMasked, setPosTelebirrPublicKeyMasked] = useState('');
+
 
   const savePayments = async () => {
     if (!selectedTenantId) return;
@@ -266,7 +302,15 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
       if (posSantimPrivateKey.trim()) santimBody.config.privateKey = posSantimPrivateKey;
       if (posSantimPublicKey.trim()) santimBody.config.publicKey = posSantimPublicKey;
 
-      const [resChapa, resSantim] = await Promise.all([
+      const telebirrBody: any = { enabled: Boolean(posTelebirrEnabled), config: {} };
+      if (posTelebirrAppId.trim()) telebirrBody.config.fabricAppId = posTelebirrAppId.trim();
+      if (posTelebirrAppKey.trim()) telebirrBody.config.merchantAppId = posTelebirrAppKey.trim();
+      if (posTelebirrShortCode.trim()) telebirrBody.config.merchantCode = posTelebirrShortCode.trim();
+      if (posTelebirrPublicKey.trim()) telebirrBody.config.privateKey = posTelebirrPublicKey.trim();
+
+      const genericBody = (enabled: boolean) => ({ enabled, config: {} });
+
+      const [resChapa, resSantim, resTelebirr, resCash, resTransfer, resCheck] = await Promise.all([
         apiFetch(`/api/superadmin/tenants/${encodeURIComponent(selectedTenantId)}/pos-payment-gateways/chapa`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -277,12 +321,31 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(santimBody),
         }),
+        apiFetch(`/api/superadmin/tenants/${encodeURIComponent(selectedTenantId)}/pos-payment-gateways/telebirr`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(telebirrBody),
+        }),
+        apiFetch(`/api/superadmin/tenants/${encodeURIComponent(selectedTenantId)}/pos-payment-gateways/cash`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(genericBody(posCashEnabled)),
+        }),
+        apiFetch(`/api/superadmin/tenants/${encodeURIComponent(selectedTenantId)}/pos-payment-gateways/bank_transfer`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(genericBody(posTransferEnabled)),
+        }),
+        apiFetch(`/api/superadmin/tenants/${encodeURIComponent(selectedTenantId)}/pos-payment-gateways/check`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(genericBody(posCheckEnabled)),
+        }),
       ]);
 
       const jsonChapa = (await resChapa.json().catch(() => null)) as any;
       if (!resChapa.ok) throw new Error(jsonChapa?.error || `HTTP ${resChapa.status}`);
-      const jsonSantim = (await resSantim.json().catch(() => null)) as any;
-      if (!resSantim.ok) throw new Error(jsonSantim?.error || `HTTP ${resSantim.status}`);
+      // ... verify others too if needed, or rely on any error throwing
 
       setToast('Payment gateway settings updated');
       setTimeout(() => setToast(null), 3000);
@@ -574,126 +637,126 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-[1400px] mx-auto flex flex-col gap-6">
-        {error ? (
-          <div className="mb-6 rounded-lg border border-red-900/40 bg-red-900/10 p-4 text-sm text-red-200">{error}</div>
-        ) : null}
+          {error ? (
+            <div className="mb-6 rounded-lg border border-red-900/40 bg-red-900/10 p-4 text-sm text-red-200">{error}</div>
+          ) : null}
 
-        {toast ? (
-          <div className="mb-6 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{toast}</div>
-        ) : null}
+          {toast ? (
+            <div className="mb-6 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{toast}</div>
+          ) : null}
 
-        {loading && !tenant ? (
-          <div className="mb-6 text-sm text-muted-foreground">Loading tenant...</div>
-        ) : null}
+          {loading && !tenant ? (
+            <div className="mb-6 text-sm text-muted-foreground">Loading tenant...</div>
+          ) : null}
 
-        <nav className="flex items-center text-sm">
-          <button onClick={onBack} className="text-muted-foreground hover:text-primary transition-colors font-medium">Tenants</button>
-          <span className="text-muted-foreground mx-2">/</span>
-          <span className="text-foreground font-medium">{tenant?.name || 'Tenant'}</span>
-        </nav>
+          <nav className="flex items-center text-sm">
+            <button onClick={onBack} className="text-muted-foreground hover:text-primary transition-colors font-medium">Tenants</button>
+            <span className="text-muted-foreground mx-2">/</span>
+            <span className="text-foreground font-medium">{tenant?.name || 'Tenant'}</span>
+          </nav>
 
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-border pb-6">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl md:text-4xl font-black text-foreground tracking-tight">{tenant?.name || 'Tenant'}</h1>
-              <span className={`px-2 py-0.5 rounded text-xs font-bold ${statusPill.cls}`}>{statusPill.label}</span>
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-border pb-6">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl md:text-4xl font-black text-foreground tracking-tight">{tenant?.name || 'Tenant'}</h1>
+                <span className={`px-2 py-0.5 rounded text-xs font-bold ${statusPill.cls}`}>{statusPill.label}</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <AppIcon name="fingerprint" className="text-[18px]" size={18} />
+                <span className="font-mono text-sm">ID: {tenant?.id || selectedTenantId || '-'}</span>
+                <button
+                  className="text-muted-foreground hover:text-foreground ml-1"
+                  title="Copy ID"
+                  type="button"
+                  onClick={() => {
+                    try {
+                      navigator.clipboard.writeText(String(tenant?.id || selectedTenantId || ''));
+                      setToast('Copied');
+                      setTimeout(() => setToast(null), 1500);
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                >
+                  <AppIcon name="content_copy" className="text-[16px]" size={16} />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <AppIcon name="fingerprint" className="text-[18px]" size={18} />
-              <span className="font-mono text-sm">ID: {tenant?.id || selectedTenantId || '-'}</span>
+            <div className="flex gap-3 flex-wrap">
               <button
-                className="text-muted-foreground hover:text-foreground ml-1"
-                title="Copy ID"
-                type="button"
-                onClick={() => {
-                  try {
-                    navigator.clipboard.writeText(String(tenant?.id || selectedTenantId || ''));
-                    setToast('Copied');
-                    setTimeout(() => setToast(null), 1500);
-                  } catch {
-                    // ignore
-                  }
-                }}
+                onClick={() => impersonate('Cafe Owner', Screen.OWNER_DASHBOARD)}
+                disabled={!tenant || loading}
+                className="flex items-center gap-2 h-10 px-4 bg-card hover:bg-accent border border-border rounded-lg text-foreground text-sm font-bold transition-colors"
               >
-                <AppIcon name="content_copy" className="text-[16px]" size={16} />
+                <AppIcon name="admin_panel_settings" className="text-[20px]" size={20} />
+                <span>Impersonate</span>
+              </button>
+              <button
+                type="button"
+                className="flex items-center gap-2 h-10 px-4 bg-card hover:bg-accent border border-border rounded-lg text-foreground text-sm font-bold transition-colors"
+                onClick={() => setEditOpen(true)}
+              >
+                <AppIcon name="edit" className="text-[20px]" size={20} />
+                <span>Edit Config</span>
+              </button>
+              <button
+                onClick={() => updateTenant({ status: isSuspended ? 'Active' : 'Suspended' })}
+                disabled={!tenant || loading}
+                className="flex items-center gap-2 h-10 px-4 bg-red-900/20 hover:bg-red-900/30 border border-red-900/50 rounded-lg text-red-400 text-sm font-bold transition-colors"
+              >
+                <AppIcon name="block" className="text-[20px]" size={20} />
+                <span>{isSuspended ? 'Reactivate' : 'Suspend'}</span>
               </button>
             </div>
           </div>
-          <div className="flex gap-3 flex-wrap">
-            <button
-              onClick={() => impersonate('Cafe Owner', Screen.OWNER_DASHBOARD)}
-              disabled={!tenant || loading}
-              className="flex items-center gap-2 h-10 px-4 bg-card hover:bg-accent border border-border rounded-lg text-foreground text-sm font-bold transition-colors"
-            >
-              <AppIcon name="admin_panel_settings" className="text-[20px]" size={20} />
-              <span>Impersonate</span>
-            </button>
-            <button
-              type="button"
-              className="flex items-center gap-2 h-10 px-4 bg-card hover:bg-accent border border-border rounded-lg text-foreground text-sm font-bold transition-colors"
-              onClick={() => setEditOpen(true)}
-            >
-              <AppIcon name="edit" className="text-[20px]" size={20} />
-              <span>Edit Config</span>
-            </button>
-            <button
-              onClick={() => updateTenant({ status: isSuspended ? 'Active' : 'Suspended' })}
-              disabled={!tenant || loading}
-              className="flex items-center gap-2 h-10 px-4 bg-red-900/20 hover:bg-red-900/30 border border-red-900/50 rounded-lg text-red-400 text-sm font-bold transition-colors"
-            >
-              <AppIcon name="block" className="text-[20px]" size={20} />
-              <span>{isSuspended ? 'Reactivate' : 'Suspend'}</span>
-            </button>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
-            <div className="flex justify-between items-start">
-              <p className="text-muted-foreground text-sm font-medium">Total Branches</p>
-              <AppIcon name="store" className="text-primary" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
+              <div className="flex justify-between items-start">
+                <p className="text-muted-foreground text-sm font-medium">Total Branches</p>
+                <AppIcon name="store" className="text-primary" />
+              </div>
+              <p className="text-2xl font-bold text-foreground">{Number(metrics.branches ?? tenant?.branches ?? 0) || 0}</p>
+              <div className="flex items-center gap-1 text-xs text-green-400 mt-1">
+                <AppIcon name="trending_up" className="text-[16px]" size={16} />
+                <span>+{Number(metrics.branchesNewMonth || 0) || 0} this month</span>
+              </div>
             </div>
-            <p className="text-2xl font-bold text-foreground">{Number(metrics.branches ?? tenant?.branches ?? 0) || 0}</p>
-            <div className="flex items-center gap-1 text-xs text-green-400 mt-1">
-              <AppIcon name="trending_up" className="text-[16px]" size={16} />
-              <span>+{Number(metrics.branchesNewMonth || 0) || 0} this month</span>
+            <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
+              <div className="flex justify-between items-start">
+                <p className="text-muted-foreground text-sm font-medium">Active Users</p>
+                <AppIcon name="group" className="text-primary" />
+              </div>
+              <p className="text-2xl font-bold text-foreground">{Number(metrics.users ?? tenant?.users ?? 0) || 0}</p>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                <span>Stable</span>
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
+              <div className="flex justify-between items-start">
+                <p className="text-muted-foreground text-sm font-medium">Monthly Orders</p>
+                <AppIcon name="shopping_cart" className="text-primary" />
+              </div>
+              <p className="text-2xl font-bold text-foreground">{fmtCompact(Number(metrics.ordersMonth || 0) || 0)}</p>
+              <div className="flex items-center gap-1 text-xs text-green-400 mt-1">
+                <AppIcon name="trending_up" className="text-[16px]" size={16} />
+                <span>+{Number(metrics.ordersPct || 0) || 0}% vs last mo</span>
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
+              <div className="flex justify-between items-start">
+                <p className="text-muted-foreground text-sm font-medium">Current MRR</p>
+                <AppIcon name="payments" className="text-primary" />
+              </div>
+              <p className="text-2xl font-bold text-foreground">{fmtEtb(Number(metrics.mrrEtb || 0) || 0)}</p>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                <span className="bg-primary/10 text-primary px-1 rounded">{tenant?.plan || 'Plan'}</span>
+              </div>
             </div>
           </div>
-          <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
-            <div className="flex justify-between items-start">
-              <p className="text-muted-foreground text-sm font-medium">Active Users</p>
-              <AppIcon name="group" className="text-primary" />
-            </div>
-            <p className="text-2xl font-bold text-foreground">{Number(metrics.users ?? tenant?.users ?? 0) || 0}</p>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-              <span>Stable</span>
-            </div>
-          </div>
-          <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
-            <div className="flex justify-between items-start">
-              <p className="text-muted-foreground text-sm font-medium">Monthly Orders</p>
-              <AppIcon name="shopping_cart" className="text-primary" />
-            </div>
-            <p className="text-2xl font-bold text-foreground">{fmtCompact(Number(metrics.ordersMonth || 0) || 0)}</p>
-            <div className="flex items-center gap-1 text-xs text-green-400 mt-1">
-              <AppIcon name="trending_up" className="text-[16px]" size={16} />
-              <span>+{Number(metrics.ordersPct || 0) || 0}% vs last mo</span>
-            </div>
-          </div>
-          <div className="bg-card border border-border rounded-lg p-5 flex flex-col gap-1">
-            <div className="flex justify-between items-start">
-              <p className="text-muted-foreground text-sm font-medium">Current MRR</p>
-              <AppIcon name="payments" className="text-primary" />
-            </div>
-            <p className="text-2xl font-bold text-foreground">{fmtEtb(Number(metrics.mrrEtb || 0) || 0)}</p>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-              <span className="bg-primary/10 text-primary px-1 rounded">{tenant?.plan || 'Plan'}</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Main Layout Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Main Layout Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Column: Profile & Usage */}
             <div className="lg:col-span-4 flex flex-col gap-6">
               <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -800,109 +863,108 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
             {/* Right Column: Tabs & Data */}
             <div className="lg:col-span-8 flex flex-col gap-6">
               <div className="flex items-center gap-2">
-              {[{ key: 'branches', label: 'Branches' }, { key: 'users', label: 'Users' }, { key: 'feature_access', label: 'Feature Access' }, { key: 'integrations', label: 'Integrations' }, { key: 'payments', label: 'Payments' }].map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => setTab(t.key as any)}
-                  className={`px-6 py-3 text-sm transition-colors ${
-                    tab === t.key
+                {[{ key: 'branches', label: 'Branches' }, { key: 'users', label: 'Users' }, { key: 'feature_access', label: 'Feature Access' }, { key: 'integrations', label: 'Integrations' }, { key: 'payments', label: 'Payments' }].map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setTab(t.key as any)}
+                    className={`px-6 py-3 text-sm transition-colors ${tab === t.key
                       ? 'font-bold text-primary border-b-2 border-primary'
                       : 'font-medium text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+                      }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
 
               {tab === 'branches' ? (
-              <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
-                <div className="p-4 flex justify-between items-center border-b border-border">
-                  <h3 className="font-bold text-foreground">Branch Status</h3>
-                  <button
-                    type="button"
-                    onClick={reload}
-                    className="text-xs font-bold text-primary flex items-center gap-1 hover:text-foreground transition-colors"
-                  >
-                    <AppIcon name="refresh" className="text-[16px]" size={16} />
-                    Refresh Data
-                  </button>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-muted/40 border-b border-border text-xs uppercase text-muted-foreground font-bold tracking-wider">
-                        <th className="px-6 py-3">Branch Name</th>
-                        <th className="px-6 py-3">Location ID</th>
-                        <th className="px-6 py-3">Status</th>
-                        <th className="px-6 py-3">POS Version</th>
-                        <th className="px-6 py-3 text-right">Last Sync</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-sm divide-y divide-border">
-                      {(() => {
-                        const needle = search.trim().toLowerCase();
-                        const rows = needle
-                          ? branchesTable.filter((b: any) =>
+                <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
+                  <div className="p-4 flex justify-between items-center border-b border-border">
+                    <h3 className="font-bold text-foreground">Branch Status</h3>
+                    <button
+                      type="button"
+                      onClick={reload}
+                      className="text-xs font-bold text-primary flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                      <AppIcon name="refresh" className="text-[16px]" size={16} />
+                      Refresh Data
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-muted/40 border-b border-border text-xs uppercase text-muted-foreground font-bold tracking-wider">
+                          <th className="px-6 py-3">Branch Name</th>
+                          <th className="px-6 py-3">Location ID</th>
+                          <th className="px-6 py-3">Status</th>
+                          <th className="px-6 py-3">POS Version</th>
+                          <th className="px-6 py-3 text-right">Last Sync</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm divide-y divide-border">
+                        {(() => {
+                          const needle = search.trim().toLowerCase();
+                          const rows = needle
+                            ? branchesTable.filter((b: any) =>
                               String(b?.name || '').toLowerCase().includes(needle) ||
                               String(b?.locationId || '').toLowerCase().includes(needle) ||
                               String(b?.status || '').toLowerCase().includes(needle) ||
                               String(b?.posVersion || '').toLowerCase().includes(needle)
                             )
-                          : branchesTable;
-                        return rows;
-                      })().length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="px-6 py-6 text-center text-sm text-muted-foreground">No branches found.</td>
-                        </tr>
-                      ) : (
-                        (() => {
-                          const needle = search.trim().toLowerCase();
-                          return needle
-                            ? branchesTable.filter((b: any) =>
+                            : branchesTable;
+                          return rows;
+                        })().length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="px-6 py-6 text-center text-sm text-muted-foreground">No branches found.</td>
+                          </tr>
+                        ) : (
+                          (() => {
+                            const needle = search.trim().toLowerCase();
+                            return needle
+                              ? branchesTable.filter((b: any) =>
                                 String(b?.name || '').toLowerCase().includes(needle) ||
                                 String(b?.locationId || '').toLowerCase().includes(needle) ||
                                 String(b?.status || '').toLowerCase().includes(needle) ||
                                 String(b?.posVersion || '').toLowerCase().includes(needle)
                               )
-                            : branchesTable;
-                        })().map((b: any, i: number) => {
-                          const st = branchStatusUi(String(b?.syncStatus || b?.status || 'offline'));
-                          const lastSync = String(b?.lastSyncAt || '');
-                          const lastSyncLabel = lastSync ? relTime(lastSync) : '-';
-                          return (
-                            <tr key={String(b?.id || i)} className="hover:bg-muted/40 transition-colors">
-                              <td className="px-6 py-4 font-medium text-foreground">{String(b?.name || '-')}</td>
-                              <td className="px-6 py-4 font-mono text-muted-foreground">{String(b?.locationId || b?.location || b?.id || '-')}</td>
-                              <td className="px-6 py-4">
-                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-medium ${st.cls}`}>
-                                  <span className={`size-1.5 rounded-full ${st.dot}`}></span>
-                                  {st.label}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 text-muted-foreground">{String(b?.posVersion || '-')}</td>
-                              <td className="px-6 py-4 text-right text-muted-foreground">{lastSyncLabel || '-'}</td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
+                              : branchesTable;
+                          })().map((b: any, i: number) => {
+                            const st = branchStatusUi(String(b?.syncStatus || b?.status || 'offline'));
+                            const lastSync = String(b?.lastSyncAt || '');
+                            const lastSyncLabel = lastSync ? relTime(lastSync) : '-';
+                            return (
+                              <tr key={String(b?.id || i)} className="hover:bg-muted/40 transition-colors">
+                                <td className="px-6 py-4 font-medium text-foreground">{String(b?.name || '-')}</td>
+                                <td className="px-6 py-4 font-mono text-muted-foreground">{String(b?.locationId || b?.location || b?.id || '-')}</td>
+                                <td className="px-6 py-4">
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-medium ${st.cls}`}>
+                                    <span className={`size-1.5 rounded-full ${st.dot}`}></span>
+                                    {st.label}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-muted-foreground">{String(b?.posVersion || '-')}</td>
+                                <td className="px-6 py-4 text-right text-muted-foreground">{lastSyncLabel || '-'}</td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="bg-muted/40 p-3 border-t border-border flex justify-center">
+                    <button
+                      className="text-xs text-muted-foreground hover:text-foreground font-medium flex items-center gap-1"
+                      type="button"
+                      onClick={() => {
+                        setTab('branches');
+                        setSearch('');
+                      }}
+                    >
+                      View All Branches <AppIcon name="arrow_forward" className="text-[16px]" size={16} />
+                    </button>
+                  </div>
                 </div>
-                <div className="bg-muted/40 p-3 border-t border-border flex justify-center">
-                  <button
-                    className="text-xs text-muted-foreground hover:text-foreground font-medium flex items-center gap-1"
-                    type="button"
-                    onClick={() => {
-                      setTab('branches');
-                      setSearch('');
-                    }}
-                  >
-                    View All Branches <AppIcon name="arrow_forward" className="text-[16px]" size={16} />
-                  </button>
-                </div>
-              </div>
               ) : null}
 
               {tab === 'users' ? (
@@ -938,11 +1000,11 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                           const needle = search.trim().toLowerCase();
                           const rows = needle
                             ? users.filter((u: any) =>
-                                String(u?.name || '').toLowerCase().includes(needle) ||
-                                String(u?.email || '').toLowerCase().includes(needle) ||
-                                String(u?.phone || '').toLowerCase().includes(needle) ||
-                                String(u?.role || '').toLowerCase().includes(needle)
-                              )
+                              String(u?.name || '').toLowerCase().includes(needle) ||
+                              String(u?.email || '').toLowerCase().includes(needle) ||
+                              String(u?.phone || '').toLowerCase().includes(needle) ||
+                              String(u?.role || '').toLowerCase().includes(needle)
+                            )
                             : users;
                           if (usersLoading) {
                             return (
@@ -1082,6 +1144,122 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                     <div className="mt-4 rounded-lg border border-red-600/40 bg-red-500/10 text-red-200 px-4 py-3 text-sm">{payError}</div>
                   ) : null}
 
+                  <div className="bg-muted/40 border border-border rounded-lg p-4 mt-5">
+                    <h4 className="text-sm font-bold text-foreground mb-4">Generic Payment Methods</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <AppIcon name="payments" className="text-muted-foreground" />
+                          <span className="font-bold text-foreground">Cash</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPosCashEnabled((v) => !v)}
+                          className="flex items-center gap-2 text-sm font-bold"
+                          disabled={payLoading || paySaving}
+                        >
+                          <AppIcon name={posCashEnabled ? 'toggle_on' : 'toggle_off'} className={`text-[26px] ${posCashEnabled ? 'text-primary' : 'text-muted-foreground opacity-60'}`} size={26} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <AppIcon name="account_balance" className="text-muted-foreground" />
+                          <span className="font-bold text-foreground">Bank Transfer</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPosTransferEnabled((v) => !v)}
+                          className="flex items-center gap-2 text-sm font-bold"
+                          disabled={payLoading || paySaving}
+                        >
+                          <AppIcon name={posTransferEnabled ? 'toggle_on' : 'toggle_off'} className={`text-[26px] ${posTransferEnabled ? 'text-primary' : 'text-muted-foreground opacity-60'}`} size={26} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <AppIcon name="receipt" className="text-muted-foreground" />
+                          <span className="font-bold text-foreground">Check</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPosCheckEnabled((v) => !v)}
+                          className="flex items-center gap-2 text-sm font-bold"
+                          disabled={payLoading || paySaving}
+                        >
+                          <AppIcon name={posCheckEnabled ? 'toggle_on' : 'toggle_off'} className={`text-[26px] ${posCheckEnabled ? 'text-primary' : 'text-muted-foreground opacity-60'}`} size={26} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 bg-muted/40 border border-border rounded-lg p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="text-foreground font-bold">Telebirr (POS)</div>
+                        <div className="text-xs text-muted-foreground mt-1">SuperApp / Mini-app integration.</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPosTelebirrEnabled((v) => !v)}
+                        className="flex items-center gap-2 text-sm font-bold"
+                        disabled={payLoading || paySaving}
+                      >
+                        <AppIcon name={posTelebirrEnabled ? 'toggle_on' : 'toggle_off'} className={`text-[22px] ${posTelebirrEnabled ? 'text-primary' : 'text-muted-foreground opacity-60'}`} size={22} />
+                        <span className={posTelebirrEnabled ? 'text-primary' : 'text-muted-foreground'}>{posTelebirrEnabled ? 'Enabled' : 'Disabled'}</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">App ID (Fabric)</div>
+                        <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posTelebirrAppIdMasked || '—'}</span></div>
+                        <input
+                          value={posTelebirrAppId}
+                          onChange={(e) => setPosTelebirrAppId(e.target.value)}
+                          placeholder="Fabric App ID"
+                          className="h-11 w-full rounded-lg border border-border bg-card px-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">App Key</div>
+                        <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posTelebirrAppKeyMasked || '—'}</span></div>
+                        <input
+                          value={posTelebirrAppKey}
+                          onChange={(e) => setPosTelebirrAppKey(e.target.value)}
+                          placeholder="Merchant App ID"
+                          className="h-11 w-full rounded-lg border border-border bg-card px-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Short Code</div>
+                        <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posTelebirrShortCodeMasked || '—'}</span></div>
+                        <input
+                          value={posTelebirrShortCode}
+                          onChange={(e) => setPosTelebirrShortCode(e.target.value)}
+                          placeholder="Merchant Code"
+                          className="h-11 w-full rounded-lg border border-border bg-card px-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Private Key</div>
+                        <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posTelebirrPublicKeyMasked || '—'}</span></div>
+                        <input
+                          value={posTelebirrPublicKey}
+                          onChange={(e) => setPosTelebirrPublicKey(e.target.value)}
+                          placeholder="Private Key (PEM)"
+                          type="password"
+                          className="h-11 w-full rounded-lg border border-border bg-card px-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="mt-5 bg-muted/40 border border-border rounded-lg p-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
@@ -1149,72 +1327,72 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                       Tip: If you enable Chapa while no keys are stored, the API will return <span className="font-mono text-foreground">chapa_keys_required</span>.
                     </div>
                   </div>
-                <div className="mt-5 bg-muted/40 border border-border rounded-lg p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <div className="text-foreground font-bold">SantimPay (POS)</div>
-                      <div className="text-xs text-muted-foreground mt-1">Tenant wallet settlement via SantimPay channels.</div>
+                  <div className="mt-5 bg-muted/40 border border-border rounded-lg p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="text-foreground font-bold">SantimPay (POS)</div>
+                        <div className="text-xs text-muted-foreground mt-1">Tenant wallet settlement via SantimPay channels.</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPosSantimEnabled((v) => !v)}
+                        className="flex items-center gap-2 text-sm font-bold"
+                        disabled={payLoading || paySaving}
+                      >
+                        <AppIcon name={posSantimEnabled ? 'toggle_on' : 'toggle_off'} className={`text-[22px] ${posSantimEnabled ? 'text-primary' : 'text-muted-foreground opacity-60'}`} size={22} />
+                        <span className={posSantimEnabled ? 'text-primary' : 'text-muted-foreground'}>{posSantimEnabled ? 'Enabled' : 'Disabled'}</span>
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setPosSantimEnabled((v) => !v)}
-                      className="flex items-center gap-2 text-sm font-bold"
-                      disabled={payLoading || paySaving}
-                    >
-                      <AppIcon name={posSantimEnabled ? 'toggle_on' : 'toggle_off'} className={`text-[22px] ${posSantimEnabled ? 'text-primary' : 'text-muted-foreground opacity-60'}`} size={22} />
-                      <span className={posSantimEnabled ? 'text-primary' : 'text-muted-foreground'}>{posSantimEnabled ? 'Enabled' : 'Disabled'}</span>
-                    </button>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Merchant ID</div>
-                      <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posSantimMerchantIdMasked || '—'}</span></div>
-                      <input
-                        value={posSantimMerchantId}
-                        onChange={(e) => setPosSantimMerchantId(e.target.value)}
-                        placeholder="Enter merchant id (optional)"
-                        className="h-11 w-full rounded-lg border border-border bg-card px-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        type="text"
-                        name="pos_santimpay_merchant_id"
-                        autoComplete="off"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Merchant ID</div>
+                        <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posSantimMerchantIdMasked || '—'}</span></div>
+                        <input
+                          value={posSantimMerchantId}
+                          onChange={(e) => setPosSantimMerchantId(e.target.value)}
+                          placeholder="Enter merchant id (optional)"
+                          className="h-11 w-full rounded-lg border border-border bg-card px-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          type="text"
+                          name="pos_santimpay_merchant_id"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div />
                     </div>
-                    <div />
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Private Key (ES256 PEM)</div>
-                      <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posSantimPrivateKeyMasked || '—'}</span></div>
-                      <textarea
-                        value={posSantimPrivateKey}
-                        onChange={(e) => setPosSantimPrivateKey(e.target.value)}
-                        placeholder="Paste private key PEM (optional)"
-                        className="min-h-[110px] w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        name="pos_santimpay_private_key"
-                        autoComplete="new-password"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Private Key (ES256 PEM)</div>
+                        <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posSantimPrivateKeyMasked || '—'}</span></div>
+                        <textarea
+                          value={posSantimPrivateKey}
+                          onChange={(e) => setPosSantimPrivateKey(e.target.value)}
+                          placeholder="Paste private key PEM (optional)"
+                          className="min-h-[110px] w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          name="pos_santimpay_private_key"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Public Key (PEM)</div>
+                        <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posSantimPublicKeyMasked || '—'}</span></div>
+                        <textarea
+                          value={posSantimPublicKey}
+                          onChange={(e) => setPosSantimPublicKey(e.target.value)}
+                          placeholder="Paste public key PEM (optional)"
+                          className="min-h-[110px] w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          name="pos_santimpay_public_key"
+                          autoComplete="off"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Public Key (PEM)</div>
-                      <div className="text-xs text-muted-foreground mb-2">Stored: <span className="font-mono text-foreground">{posSantimPublicKeyMasked || '—'}</span></div>
-                      <textarea
-                        value={posSantimPublicKey}
-                        onChange={(e) => setPosSantimPublicKey(e.target.value)}
-                        placeholder="Paste public key PEM (optional)"
-                        className="min-h-[110px] w-full rounded-lg border border-border bg-card px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        name="pos_santimpay_public_key"
-                        autoComplete="off"
-                      />
-                    </div>
-                  </div>
 
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    Tip: If you enable SantimPay while missing keys, the API will return <span className="font-mono text-foreground">santimpay_keys_required</span>.
+                    <div className="mt-3 text-xs text-muted-foreground">
+                      Tip: If you enable SantimPay while missing keys, the API will return <span className="font-mono text-foreground">santimpay_keys_required</span>.
+                    </div>
                   </div>
                 </div>
-              </div>
               ) : null}
 
               <div className="bg-card border border-border rounded-lg p-6">
@@ -1265,109 +1443,109 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                 </div>
               </div>
             </div>
-        </div>
-        {editOpen ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-            <div className="w-full max-w-xl rounded-xl border border-border bg-card shadow-xl">
-              <div className="p-4 border-b border-border flex items-center justify-between">
-                <div className="font-bold text-foreground">Edit Tenant Config</div>
-                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setEditOpen(false)}>
-                  <AppIcon name="close" />
-                </button>
-              </div>
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Tenant Name</div>
-                  <input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
+          </div>
+          {editOpen ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-xl rounded-xl border border-border bg-card shadow-xl">
+                <div className="p-4 border-b border-border flex items-center justify-between">
+                  <div className="font-bold text-foreground">Edit Tenant Config</div>
+                  <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setEditOpen(false)}>
+                    <AppIcon name="close" />
+                  </button>
                 </div>
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Owner</div>
-                  <input
-                    value={editOwner}
-                    onChange={(e) => setEditOwner(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Tenant Name</div>
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Owner</div>
+                    <input
+                      value={editOwner}
+                      onChange={(e) => setEditOwner(e.target.value)}
+                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Email</div>
+                    <input
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Phone</div>
+                    <input
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">City</div>
+                    <input
+                      value={editCity}
+                      onChange={(e) => setEditCity(e.target.value)}
+                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Country</div>
+                    <input
+                      value={editCountry}
+                      onChange={(e) => setEditCountry(e.target.value)}
+                      className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Email</div>
-                  <input
-                    value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
+                <div className="p-4 border-t border-border flex items-center justify-end gap-2">
+                  <button type="button" className="h-10 px-4 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent" onClick={() => setEditOpen(false)}>Cancel</button>
+                  <button type="button" className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-60" onClick={saveEditConfig} disabled={loading}>Save</button>
                 </div>
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Phone</div>
-                  <input
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">City</div>
-                  <input
-                    value={editCity}
-                    onChange={(e) => setEditCity(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Country</div>
-                  <input
-                    value={editCountry}
-                    onChange={(e) => setEditCountry(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-              </div>
-              <div className="p-4 border-t border-border flex items-center justify-end gap-2">
-                <button type="button" className="h-10 px-4 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent" onClick={() => setEditOpen(false)}>Cancel</button>
-                <button type="button" className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-60" onClick={saveEditConfig} disabled={loading}>Save</button>
               </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {auditOpen ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-            <div className="w-full max-w-3xl rounded-xl border border-border bg-card shadow-xl">
-              <div className="p-4 border-b border-border flex items-center justify-between">
-                <div className="font-bold text-foreground">Audit Log (Recent)</div>
-                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setAuditOpen(false)}>
-                  <AppIcon name="close" />
-                </button>
-              </div>
-              <div className="max-h-[70vh] overflow-y-auto p-4">
-                {(() => {
-                  const items = activity.length ? activity : incidents;
-                  const needle = search.trim().toLowerCase();
-                  const filtered = needle
-                    ? items.filter((x: any) => String(x?.type || '').toLowerCase().includes(needle) || String(x?.message || '').toLowerCase().includes(needle))
-                    : items;
-                  if (filtered.length === 0) return <div className="text-sm text-muted-foreground">No audit events.</div>;
-                  return (
-                    <div className="space-y-3">
-                      {filtered.slice(0, 50).map((ev: any) => (
-                        <div key={String(ev?.id)} className="rounded-lg border border-border bg-muted/40 p-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="text-sm font-bold text-foreground">{String(ev?.type || 'event')}</div>
-                            <div className="text-xs font-mono text-muted-foreground">{String(ev?.at ? (formatDeviceDateTime(ev.at) || '') : '')}</div>
+          {auditOpen ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-3xl rounded-xl border border-border bg-card shadow-xl">
+                <div className="p-4 border-b border-border flex items-center justify-between">
+                  <div className="font-bold text-foreground">Audit Log (Recent)</div>
+                  <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setAuditOpen(false)}>
+                    <AppIcon name="close" />
+                  </button>
+                </div>
+                <div className="max-h-[70vh] overflow-y-auto p-4">
+                  {(() => {
+                    const items = activity.length ? activity : incidents;
+                    const needle = search.trim().toLowerCase();
+                    const filtered = needle
+                      ? items.filter((x: any) => String(x?.type || '').toLowerCase().includes(needle) || String(x?.message || '').toLowerCase().includes(needle))
+                      : items;
+                    if (filtered.length === 0) return <div className="text-sm text-muted-foreground">No audit events.</div>;
+                    return (
+                      <div className="space-y-3">
+                        {filtered.slice(0, 50).map((ev: any) => (
+                          <div key={String(ev?.id)} className="rounded-lg border border-border bg-muted/40 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-bold text-foreground">{String(ev?.type || 'event')}</div>
+                              <div className="text-xs font-mono text-muted-foreground">{String(ev?.at ? (formatDeviceDateTime(ev.at) || '') : '')}</div>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">{String(ev?.message || '')}</div>
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1">{String(ev?.message || '')}</div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
         </div>
       </main>
     </div>

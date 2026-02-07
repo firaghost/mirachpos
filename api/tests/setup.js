@@ -26,7 +26,11 @@ jest.mock('../src/db', () => {
             tenants: [{ id: 't_test', slug: 'test', name: 'Test', status: 'active' }],
             pos_public_order_links: [],
             orders: [],
-            owner_settings: [{ settings_json: JSON.stringify({ business: { businessName: 'Test Cafe' } }) }],
+            owner_settings: [{ tenant_id: 't_test', settings_json: JSON.stringify({ business: { businessName: 'Test Cafe' } }) }],
+            branches: [{ tenant_id: 't_test', id: 'b_1', name: 'Main' }],
+            manager_settings: [{ tenant_id: 't_test', branch_id: 'b_1', settings_json: JSON.stringify({}) }],
+            platform_payment_config: [{ id: 1, chapa_config_json: JSON.stringify({ enabled: true }), telebirr_config_json: JSON.stringify({ enabled: true }), cbe_birr_config_json: JSON.stringify({ enabled: true }) }],
+            tenant_pos_payment_gateways: [],
             pos_payment_gateway_transactions: [],
             superadmins: [],
             jobs: [],
@@ -41,6 +45,7 @@ jest.mock('../src/db', () => {
             state.tables.pos_payment_gateway_transactions = [];
             state.tables.superadmins = [];
             state.tables.jobs = [];
+            state.tables.tenant_pos_payment_gateways = [];
         },
     };
 

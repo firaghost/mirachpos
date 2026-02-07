@@ -201,7 +201,7 @@ export const GlobalReports: React.FC = () => {
       if (locationId) qs.set('branchId', locationId);
       qs.set('from', from);
       qs.set('to', to);
-      
+
       const [res, statusRes] = await Promise.all([
         apiFetch(`/api/owner/reports?${qs.toString()}`),
         apiFetch(`/api/owner/reports/status-summary?${qs.toString()}`),
@@ -375,16 +375,16 @@ export const GlobalReports: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email,
+          emails: [email],
           frequency: scheduleFrequency,
           branchId: locationId,
-          from: fromIso,
-          to: toIso,
         }),
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => null)) as any;
-        const msg = j?.error === 'invalid_email' ? 'Invalid email.' : `Failed to schedule (HTTP ${res.status}).`;
+        const msg = j?.error === 'invalid_frequency' ? 'Invalid frequency.' :
+          j?.error === 'emails_required' ? 'At least one valid email required.' :
+            j?.message || `Failed to schedule (HTTP ${res.status}).`;
         throw new Error(msg);
       }
       setScheduleOpen(false);
@@ -611,8 +611,8 @@ export const GlobalReports: React.FC = () => {
           {banner ? (
             <div
               className={`rounded-xl border p-4 flex items-center justify-between gap-4 ${banner.kind === 'success'
-                  ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                  : 'border-destructive/20 bg-destructive/10 text-destructive'
+                ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                : 'border-destructive/20 bg-destructive/10 text-destructive'
                 }`}
             >
               <div className="text-sm font-medium">{banner.message}</div>
@@ -1091,12 +1091,13 @@ export const GlobalReports: React.FC = () => {
                       setBanner(null);
                       setScheduleOpen(true);
                     }}
-                    className="h-11 rounded-xl bg-background border border-border text-foreground font-black text-sm hover:bg-accent hover:border-primary/50 flex items-center justify-center gap-2 col-span-2"
+                    className="h-11 rounded-xl bg-background border border-border text-foreground font-black text-sm hover:bg-accent hover:border-primary/50 flex items-center justify-center gap-2"
                     type="button"
                   >
                     <AppIcon name="schedule_send" className="text-[18px]" size={18} />
                     Schedule
                   </button>
+
                 </div>
               </div>
 
@@ -1297,10 +1298,10 @@ export const GlobalReports: React.FC = () => {
                           <td className="whitespace-nowrap px-5 py-3">
                             <span
                               className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold border ${b.status === 'Open'
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-emerald-500/20'
-                                  : b.status === 'Closed'
-                                    ? 'bg-destructive/10 text-destructive border-destructive/20'
-                                    : 'bg-muted text-muted-foreground border-border'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-emerald-500/20'
+                                : b.status === 'Closed'
+                                  ? 'bg-destructive/10 text-destructive border-destructive/20'
+                                  : 'bg-muted text-muted-foreground border-border'
                                 }`}
                             >
                               {b.status}

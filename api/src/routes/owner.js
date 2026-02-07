@@ -1415,10 +1415,39 @@ const makeOwnerRouter = () => {
       const fromIso = typeof req.query?.from === 'string' ? req.query.from.trim() : '';
       const toIso = typeof req.query?.to === 'string' ? req.query.to.trim() : '';
 
-      const from = fromIso && !Number.isNaN(new Date(fromIso).getTime()) ? fromIso : startOfDayIso(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000));
-      const to = toIso && !Number.isNaN(new Date(toIso).getTime()) ? toIso : endOfDayIso(new Date());
+      const toBounds = (rawFrom, rawTo) => {
+        const fromRaw = String(rawFrom || '').trim();
+        const toRaw = String(rawTo || '').trim();
 
-      let base = db().from('orders').where({ tenant_id: req.tenant.id });
+        const isDateOnly = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || '').trim());
+        const safeDate = (s) => {
+          const d = new Date(s);
+          return Number.isNaN(d.getTime()) ? null : d;
+        };
+
+        const fallbackFrom = startOfDayIso(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000));
+        const fallbackTo = endOfDayIso(new Date());
+
+        if (!fromRaw && !toRaw) return { from: fallbackFrom, to: fallbackTo };
+
+        if (isDateOnly(fromRaw) && isDateOnly(toRaw)) {
+          const fromD = safeDate(`${fromRaw}T00:00:00.000`);
+          const toD = safeDate(`${toRaw}T00:00:00.000`);
+          if (!fromD || !toD) return { from: fallbackFrom, to: fallbackTo };
+          return { from: startOfDayIso(fromD), to: endOfDayIso(toD) };
+        }
+
+        const fromD = fromRaw ? safeDate(fromRaw) : null;
+        const toD = toRaw ? safeDate(toRaw) : null;
+        return {
+          from: fromD ? fromD.toISOString() : fallbackFrom,
+          to: toD ? toD.toISOString() : fallbackTo,
+        };
+      };
+
+      const { from, to } = toBounds(fromIso, toIso);
+
+      let base = db().from('orders').where({ tenant_id: req.tenant.id, status: 'Paid' });
       if (branchId) base = base.andWhere({ branch_id: branchId });
       base = base.andWhere('paid_at', '>=', from).andWhere('paid_at', '<=', to);
 

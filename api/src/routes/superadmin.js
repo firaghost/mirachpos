@@ -917,10 +917,10 @@ const makeSuperadminRouter = () => {
           lastActivityAt: toIso(r.updated_at),
           owner: owner
             ? {
-                name: String(owner.name || ''),
-                email: String(owner.email || ''),
-                phone: String(owner.phone || ''),
-              }
+              name: String(owner.name || ''),
+              email: String(owner.email || ''),
+              phone: String(owner.phone || ''),
+            }
             : {},
           usage,
         };
@@ -1907,6 +1907,8 @@ const makeSuperadminRouter = () => {
             merchantCodeMasked: maskSecret(cfg?.merchantCode),
             merchantIdMasked: maskSecret(cfg?.merchantId),
             privateKeyMasked: maskSecret(cfg?.privateKey),
+            fabricAppIdMasked: maskSecret(cfg?.fabricAppId),
+            merchantAppIdMasked: maskSecret(cfg?.merchantAppId),
           },
         };
       });
@@ -1924,7 +1926,8 @@ const makeSuperadminRouter = () => {
       const { gateway: gatewayRaw } = req.validatedParams || req.params;
       const gateway = String(gatewayRaw || '').trim().toLowerCase();
       if (!gateway) return res.status(400).json({ error: 'gateway_required' });
-      if (gateway !== 'chapa' && gateway !== 'telebirr' && gateway !== 'cbe_birr' && gateway !== 'santimpay') {
+      if (gateway !== 'chapa' && gateway !== 'telebirr' && gateway !== 'cbe_birr' && gateway !== 'santimpay' &&
+        gateway !== 'cash' && gateway !== 'bank_transfer' && gateway !== 'check' && gateway !== 'credit_card' && gateway !== 'mobile_money' && gateway !== 'other') {
         return res.status(400).json({ error: 'invalid_gateway' });
       }
 
@@ -2234,65 +2237,65 @@ const makeSuperadminRouter = () => {
   });
 
   r.put('/superadmin/tax-rules/:code', requireSuperadmin, validateSuperadminTaxCodeParam, validateSuperadminTaxRuleUpdate, async (req, res, next) => {
-  try {
-    const { code } = req.validatedParams || req.params;
-    if (!code) return res.status(400).json({ error: 'code_required' });
-    const existing = await db().select(['code']).from('tax_rules').where({ code }).first();
-    if (!existing) return res.status(404).json({ error: 'not_found' });
+    try {
+      const { code } = req.validatedParams || req.params;
+      if (!code) return res.status(400).json({ error: 'code_required' });
+      const existing = await db().select(['code']).from('tax_rules').where({ code }).first();
+      if (!existing) return res.status(404).json({ error: 'not_found' });
 
-    const body = req.validatedBody || req.body;
-    const patch = {};
-    if (typeof body?.name === 'string') {
-      const name = String(body.name || '').trim();
-      if (!name) return res.status(400).json({ error: 'name_required' });
-      patch.name = name;
-    }
-    if (typeof body?.ratePct !== 'undefined') {
-      const ratePct = Number(body.ratePct);
-      if (!Number.isFinite(ratePct)) return res.status(400).json({ error: 'rate_invalid' });
-      patch.rate_pct = ratePct;
-    }
-    if (typeof body?.logic === 'string') patch.logic = String(body.logic) === 'inclusive' ? 'inclusive' : 'exclusive';
-    if (typeof body?.status === 'string') {
-      const status = String(body.status || 'active');
-      if (!['active', 'suspended', 'archived'].includes(status)) return res.status(400).json({ error: 'status_invalid' });
-      patch.status = status;
-    }
-    if (typeof body?.effectiveDate === 'string') {
-      const effectiveDate = String(body.effectiveDate || '').slice(0, 10);
-      if (!effectiveDate) return res.status(400).json({ error: 'effective_date_required' });
-      patch.effective_date = effectiveDate;
-    }
-    if (typeof body?.applicabilityCategories !== 'undefined') patch.applicabilityCategories = body.applicabilityCategories;
+      const body = req.validatedBody || req.body;
+      const patch = {};
+      if (typeof body?.name === 'string') {
+        const name = String(body.name || '').trim();
+        if (!name) return res.status(400).json({ error: 'name_required' });
+        patch.name = name;
+      }
+      if (typeof body?.ratePct !== 'undefined') {
+        const ratePct = Number(body.ratePct);
+        if (!Number.isFinite(ratePct)) return res.status(400).json({ error: 'rate_invalid' });
+        patch.rate_pct = ratePct;
+      }
+      if (typeof body?.logic === 'string') patch.logic = String(body.logic) === 'inclusive' ? 'inclusive' : 'exclusive';
+      if (typeof body?.status === 'string') {
+        const status = String(body.status || 'active');
+        if (!['active', 'suspended', 'archived'].includes(status)) return res.status(400).json({ error: 'status_invalid' });
+        patch.status = status;
+      }
+      if (typeof body?.effectiveDate === 'string') {
+        const effectiveDate = String(body.effectiveDate || '').slice(0, 10);
+        if (!effectiveDate) return res.status(400).json({ error: 'effective_date_required' });
+        patch.effective_date = effectiveDate;
+      }
+      if (typeof body?.applicabilityCategories !== 'undefined') patch.applicabilityCategories = body.applicabilityCategories;
 
-    const { applicabilityCategories } = patch;
-    const nowIso = new Date().toISOString();
-    const updatePatch = { ...patch };
-    delete updatePatch.applicabilityCategories;
-    await db().from('tax_rules').where({ code }).update({ ...updatePatch, updated_at: nowIso });
-    if (typeof applicabilityCategories !== 'undefined') {
-      await db().transaction(async (trx) => {
-        await trx.from('tax_rule_category_map').where({ tax_code: code }).del();
-        await upsertCategoriesAndMap(trx, code, applicabilityCategories);
+      const { applicabilityCategories } = patch;
+      const nowIso = new Date().toISOString();
+      const updatePatch = { ...patch };
+      delete updatePatch.applicabilityCategories;
+      await db().from('tax_rules').where({ code }).update({ ...updatePatch, updated_at: nowIso });
+      if (typeof applicabilityCategories !== 'undefined') {
+        await db().transaction(async (trx) => {
+          await trx.from('tax_rule_category_map').where({ tax_code: code }).del();
+          await upsertCategoriesAndMap(trx, code, applicabilityCategories);
+        });
+      }
+
+      await db().from('audit_log').insert({
+        id: makeId('aud'),
+        tenant_id: null,
+        branch_id: null,
+        actor_staff_id: null,
+        actor_role: 'superadmin',
+        type: 'tax_rule.update',
+        summary: 'Updated tax rule',
+        payload_json: JSON.stringify({ code, patch: { ...updatePatch, applicabilityCategories: typeof applicabilityCategories === 'undefined' ? undefined : applicabilityCategories } }),
+        created_at: nowIso,
       });
+
+      return res.json({ ok: true });
+    } catch (e) {
+      return next(e);
     }
-
-    await db().from('audit_log').insert({
-      id: makeId('aud'),
-      tenant_id: null,
-      branch_id: null,
-      actor_staff_id: null,
-      actor_role: 'superadmin',
-      type: 'tax_rule.update',
-      summary: 'Updated tax rule',
-      payload_json: JSON.stringify({ code, patch: { ...updatePatch, applicabilityCategories: typeof applicabilityCategories === 'undefined' ? undefined : applicabilityCategories } }),
-      created_at: nowIso,
-    });
-
-    return res.json({ ok: true });
-  } catch (e) {
-    return next(e);
-  }
   });
 
   r.get('/superadmin/tax-categories', requireSuperadmin, async (req, res, next) => {

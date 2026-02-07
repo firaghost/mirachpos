@@ -384,13 +384,33 @@ const superadminFeatureFlagUpdateSchema = z.object({
     enabled: z.boolean().optional(),
 });
 
+const gatewayConfigSchema = z.object({
+    enabled: z.boolean().optional(),
+    enabledForPos: z.boolean().optional(),
+    publicKey: z.string().optional(),
+    secretKey: z.string().optional(),
+    webhookSecret: z.string().optional(),
+    encryptionKey: z.string().optional(),
+    appId: z.string().optional(),
+    appKey: z.string().optional(),
+    shortCode: z.string().optional(),
+    merchantId: z.string().optional(),
+    merchantAppId: z.string().optional(),
+    apiKey: z.string().optional(),
+    baseUrl: z.string().optional(),
+    fabricAppId: z.string().optional(),
+    appSecret: z.string().optional(),
+    merchantCode: z.string().optional(),
+    privateKey: z.string().optional(),
+});
+
 const superadminPaymentConfigSchema = z.object({
-    bankDetails: z.record(z.any()).optional(),
-    chapa: z.record(z.any()).optional(),
-    telebirr: z.record(z.any()).optional(),
-    cbeBirr: z.record(z.any()).optional(),
-    sms: z.record(z.any()).optional(),
-    settings: z.record(z.any()).optional(),
+    bankDetails: z.any().optional(),
+    chapa: gatewayConfigSchema.optional(),
+    telebirr: gatewayConfigSchema.optional(),
+    cbeBirr: gatewayConfigSchema.optional(),
+    sms: z.any().optional(),
+    settings: z.any().optional(),
 });
 
 const superadminOfflineAccountCreateSchema = z.object({

@@ -67,8 +67,13 @@ const probeUrl = async (url, timeoutMs) => {
 };
 
 const requestTimeout = (req, res, next) => {
-  const timeoutMs = Number(config.requestTimeoutMs || 0) || 0;
-  if (timeoutMs <= 0) return next();
+  const baseTimeoutMs = Number(config.requestTimeoutMs || 0) || 0;
+  if (baseTimeoutMs <= 0) return next();
+
+  const isTestEmail = req.path === '/api/owner/reports/test-email';
+  const overrideRaw = process.env.REPORT_TEST_EMAIL_TIMEOUT_MS;
+  const overrideMs = Math.max(0, Number(overrideRaw) || 0);
+  const timeoutMs = isTestEmail && overrideMs > 0 ? overrideMs : baseTimeoutMs;
   req.setTimeout(timeoutMs);
   res.setTimeout(timeoutMs, () => {
     if (res.headersSent) return;

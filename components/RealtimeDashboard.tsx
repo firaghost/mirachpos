@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { apiFetch } from '../../api';
-import { readSession } from '../../session';
-import { formatCurrency } from '../../utils/exportUtils';
+import { apiFetch } from '@/api';
+import { readSession } from '@/session';
+import { formatCurrency } from '@/utils/exportUtils';
 
 import { AppIcon } from '@/components/ui/app-icon';
 
@@ -37,6 +37,13 @@ export const RealtimeDashboard: React.FC<RealtimeDashboardProps> = ({ branchId }
 
     const url = new URL('/api/realtime/pos', window.location.origin);
     url.searchParams.set('token', session.token);
+
+    // Add tenant slug for EventSource (can't send custom headers)
+    const tenantSlug = session?.tenantSlug || session?.tenant?.slug || '';
+    if (tenantSlug) {
+      url.searchParams.set('tenant', tenantSlug);
+    }
+
     if (branchId) url.searchParams.set('branchId', branchId);
 
     const es = new EventSource(url.toString());
@@ -81,22 +88,14 @@ export const RealtimeDashboard: React.FC<RealtimeDashboardProps> = ({ branchId }
   }, [branchId]);
 
   const handleRealtimeEvent = (evt: any) => {
-    const { type, payload } = evt;
+    const { type, data } = evt;
 
-    switch (type) {
-      case 'order:paid':
-        setMetrics((prev) => ({
-          todaySales: prev.todaySales + (payload.total || 0),
-          todayOrders: prev.todayOrders + 1,
-          avgTicket: prev.todayOrders > 0 
-            ? (prev.todaySales + payload.total) / (prev.todayOrders + 1)
-            : payload.total,
-          activeOrders: Math.max(0, prev.activeOrders - 1),
-          lastUpdated: new Date().toISOString(),
-        }));
-        setRecentOrders((prev) => [payload, ...prev.slice(0, 9)]);
-        break;
+    // Map backend event types to frontend types
+    const eventType = type === 'pos.order.created' ? 'order:created' :
+                     type === 'pos.order.updated' ? 'order:updated' :
+                     type === 'pos.order.paid' ? 'order:paid' : type;
 
+    switch (eventType) {
       case 'order:created':
         setMetrics((prev) => ({
           ...prev,
@@ -106,19 +105,55 @@ export const RealtimeDashboard: React.FC<RealtimeDashboardProps> = ({ branchId }
         break;
 
       case 'order:updated':
-        // Update active orders count based on status
-        if (payload.status === 'Paid') {
+        // When order is paid, update metrics
+        if (data?.status === 'Paid' || data?.isPaid) {
           setMetrics((prev) => ({
             ...prev,
+            todaySales: prev.todaySales + (data.total || 0),
+            todayOrders: prev.todayOrders + 1,
+            avgTicket: prev.todayOrders > 0
+              ? (prev.todaySales + (data.total || 0)) / (prev.todayOrders + 1)
+              : (data.total || 0),
             activeOrders: Math.max(0, prev.activeOrders - 1),
             lastUpdated: new Date().toISOString(),
           }));
+          setRecentOrders((prev) => [{
+            id: data.orderId,
+            orderNumber: data.orderNumber,
+            customerName: data.customerName,
+            total: data.total,
+          }, ...prev.slice(0, 9)]);
         }
         break;
 
+      case 'order:paid':
+        setMetrics((prev) => ({
+          todaySales: prev.todaySales + (data.total || 0),
+          todayOrders: prev.todayOrders + 1,
+          avgTicket: prev.todayOrders > 0
+            ? (prev.todaySales + (data.total || 0)) / (prev.todayOrders + 1)
+            : (data.total || 0),
+          activeOrders: Math.max(0, prev.activeOrders - 1),
+          lastUpdated: new Date().toISOString(),
+        }));
+        setRecentOrders((prev) => [{
+          id: data.orderId,
+          orderNumber: data.orderNumber,
+          customerName: data.customerName,
+          total: data.total,
+        }, ...prev.slice(0, 9)]);
+        break;
+
       case 'metrics:sync':
-        // Full metrics refresh from server
-        setMetrics(payload);
+        if (data) {
+          setMetrics({
+            todaySales: data.todaySales || 0,
+            todayOrders: data.todayOrders || 0,
+            avgTicket: data.avgTicket || 0,
+            activeOrders: data.activeOrders || 0,
+            lastUpdated: new Date().toISOString(),
+          });
+        }
         break;
 
       default:
@@ -143,13 +178,13 @@ export const RealtimeDashboard: React.FC<RealtimeDashboardProps> = ({ branchId }
       if (!res.ok) throw new Error('Failed to fetch metrics');
       
       const data = await res.json();
-      if (data.ok && data.summary && data.summary.length > 0) {
-        const summary = data.summary[0];
+      if (data.ok && data.daily && data.daily.length > 0) {
+        const summary = data.daily[0];
         setMetrics({
           todaySales: summary.netSales || 0,
           todayOrders: summary.orderCount || 0,
           avgTicket: summary.avgTicket || 0,
-          activeOrders: 0, // Will be updated by realtime events
+          activeOrders: 0,
           lastUpdated: new Date().toISOString(),
         });
       }
