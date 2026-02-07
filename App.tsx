@@ -9,6 +9,7 @@ import { PosProvider } from './PosContext';
 import { apiFetch, logoutAndReload } from './api';
 
 import { AppIcon } from '@/components/ui/app-icon';
+import { TrialBanner } from './components/TrialBanner';
 // Import Cafe Owner Screens
 import { OwnerDashboard } from './screens/owner/OwnerDashboard';
 import { OwnerInventory } from './screens/owner/OwnerInventory';
@@ -715,8 +716,10 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden transition-colors duration-200">
-      <Sidebar
+    <>
+      <TrialBanner />
+      <div className="flex h-screen w-full bg-background overflow-hidden transition-colors duration-200">
+        <Sidebar
         currentScreen={currentScreen}
         setScreen={navigate}
         role={userRole!}
@@ -1053,6 +1056,7 @@ const AppContent: React.FC = () => {
         ) : null}
       </main>
     </div>
+    </>
   );
 };
 
