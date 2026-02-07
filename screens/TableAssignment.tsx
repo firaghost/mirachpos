@@ -38,7 +38,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
   const [addOpen, setAddOpen] = useState(false);
   const [newTableName, setNewTableName] = useState('');
   const [newTableSeats, setNewTableSeats] = useState('4');
-  const [newTableArea, setNewTableArea] = useState<'Main Hall' | 'Patio' | 'Bar Area' | 'Private Room'>('Main Hall');
+  const [newTableArea, setNewTableArea] = useState<string>('');
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string>('');
@@ -96,12 +96,27 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
     return map;
   }, [remoteStaff]);
 
+  const availableZones = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of tables) {
+      const z = typeof (t as any).area === 'string' ? String((t as any).area).trim() : '';
+      if (z) set.add(z);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [tables]);
+
+  useEffect(() => {
+    if (selectedZone === 'All Zones') return;
+    if (availableZones.includes(selectedZone)) return;
+    setSelectedZone('All Zones');
+  }, [availableZones, selectedZone]);
+
   const filteredTables = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return tables
       .filter((t) => {
-        const zone = (t.area ?? 'Main Hall') as string;
-        const matchesZone = selectedZone === 'All Zones' || zone === selectedZone;
+        const zone = typeof (t as any).area === 'string' ? String((t as any).area).trim() : '';
+        const matchesZone = selectedZone === 'All Zones' || (zone && zone === selectedZone);
         const matchesSearch = q.length === 0 ? true : t.name.toLowerCase().includes(q);
         return matchesZone && matchesSearch;
       })
@@ -109,7 +124,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
         id: t.id,
         code: t.name,
         seats: t.seats,
-        zone: (t.area ?? 'Main Hall') as string,
+        zone: (typeof (t as any).area === 'string' ? String((t as any).area).trim() : '') as string,
         status: t.openOrderId ? 'occupied' : 'available',
         assignedStaffId: t.assignedStaffId ?? null,
       }));
@@ -288,7 +303,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                         </div>
                         
                         <div className="flex gap-2">
-                             {['All Zones', 'Main Hall', 'Patio', 'Bar Area'].map((zone) => (
+                             {['All Zones', ...availableZones].map((zone) => (
                                 <button
                                     key={zone}
                                     onClick={() => setSelectedZone(zone)}
@@ -308,6 +323,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                 + New Table
                             </button>
                         </div>
+
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
@@ -462,7 +478,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                 setAddOpen(false);
                 setNewTableName('');
                 setNewTableSeats('4');
-                setNewTableArea('Main Hall');
+                setNewTableArea('');
             }}
             footer={
                 <div className="flex gap-3">
@@ -471,7 +487,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                             setAddOpen(false);
                             setNewTableName('');
                             setNewTableSeats('4');
-                            setNewTableArea('Main Hall');
+                            setNewTableArea('');
                         }}
                         className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
                     >
@@ -481,11 +497,12 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                         onClick={() => {
                             const seats = Number.parseInt(newTableSeats, 10);
                             if (!newTableName.trim() || !Number.isFinite(seats) || seats <= 0) return;
-                            addTable({ name: newTableName.trim(), seats, area: newTableArea });
+                            const area = newTableArea.trim();
+                            addTable({ name: newTableName.trim(), seats, area: area ? area : undefined });
                             setAddOpen(false);
                             setNewTableName('');
                             setNewTableSeats('4');
-                            setNewTableArea('Main Hall');
+                            setNewTableArea('');
                         }}
                         className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors"
                     >
@@ -500,12 +517,18 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                 <label className="text-sm font-bold text-muted-foreground">Seats</label>
                 <input value={newTableSeats} onChange={(e) => setNewTableSeats(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" placeholder="4" />
                 <label className="text-sm font-bold text-muted-foreground">Area</label>
-                <select value={newTableArea} onChange={(e) => setNewTableArea(e.target.value as any)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground">
-                    <option value="Main Hall">Main Hall</option>
-                    <option value="Patio">Patio</option>
-                    <option value="Bar Area">Bar Area</option>
-                    <option value="Private Room">Private Room</option>
-                </select>
+                <input
+                  value={newTableArea}
+                  onChange={(e) => setNewTableArea(e.target.value)}
+                  list="table-area-suggestions"
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+                  placeholder="e.g. Main Hall"
+                />
+                <datalist id="table-area-suggestions">
+                  {availableZones.map((z) => (
+                    <option key={z} value={z} />
+                  ))}
+                </datalist>
             </div>
         </Modal>
       </div>

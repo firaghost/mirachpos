@@ -8,6 +8,7 @@ import { formatDeviceTime } from '../../datetime';
 import { InitializePosModal } from '../../components/InitializePosModal';
 
 import { AppIcon } from '@/components/ui/app-icon';
+
 const readStaffNameCache = (): Record<string, string> => {
   try {
     const raw = localStorage.getItem('mirachpos.staffNameCache.v1');
@@ -32,7 +33,7 @@ const STORAGE_KEY = 'mirachpos.manager.floor.waiterId';
 export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
   const { tables, orders, selectOrder, selectTable, refreshFromServer } = usePos();
   const [initOpen, setInitOpen] = useState(false);
-  const [area, setArea] = useState<'All Areas' | 'Main Hall' | 'Patio' | 'Bar Area' | 'Private Room'>('All Areas');
+  const [area, setArea] = useState<string>('All Areas');
   const [filter, setFilter] = useState<'All' | 'Free' | 'Occupied' | 'Action'>('All');
   const [now, setNow] = useState<Date>(() => new Date());
 
@@ -131,10 +132,28 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
     return map;
   }, [remoteWaiters, staffNameCache]);
 
+  const baseTables = useMemo(() => {
+    return waiterId === 'All' ? tables : tables.filter((t) => (t.assignedStaffId ?? null) === waiterId);
+  }, [tables, waiterId]);
+
+  const availableAreas = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of baseTables) {
+      const a = typeof (t as any).area === 'string' ? String((t as any).area).trim() : '';
+      if (a) set.add(a);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [baseTables]);
+
+  useEffect(() => {
+    if (area === 'All Areas') return;
+    if (availableAreas.includes(area)) return;
+    setArea('All Areas');
+  }, [area, availableAreas]);
+
   const visibleTables = useMemo(() => {
-    const base = waiterId === 'All' ? tables : tables.filter((t) => (t.assignedStaffId ?? null) === waiterId);
-    const anyHasArea = base.some((t) => typeof (t as any).area === 'string');
-    const inArea = anyHasArea && area !== 'All Areas' ? base.filter((t) => (t as any).area === area) : base;
+    const anyHasArea = baseTables.some((t) => typeof (t as any).area === 'string');
+    const inArea = anyHasArea && area !== 'All Areas' ? baseTables.filter((t) => (t as any).area === area) : baseTables;
 
     if (filter === 'All') return inArea;
     if (filter === 'Free') return inArea.filter((t) => t.openOrderId == null);
@@ -144,12 +163,11 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
       const o = ordersById.get(t.openOrderId);
       return t.status === 'Payment' || o?.status === 'Ready';
     });
-  }, [tables, waiterId, area, filter, ordersById]);
+  }, [area, baseTables, filter, ordersById]);
 
   const counts = useMemo(() => {
-    const base = waiterId === 'All' ? tables : tables.filter((t) => (t.assignedStaffId ?? null) === waiterId);
-    const anyHasArea = base.some((t) => typeof (t as any).area === 'string');
-    const inArea = anyHasArea && area !== 'All Areas' ? base.filter((t) => (t as any).area === area) : base;
+    const anyHasArea = baseTables.some((t) => typeof (t as any).area === 'string');
+    const inArea = anyHasArea && area !== 'All Areas' ? baseTables.filter((t) => (t as any).area === area) : baseTables;
 
     const free = inArea.filter((t) => t.openOrderId == null).length;
     const occupied = inArea.length - free;
@@ -159,7 +177,7 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
       return t.status === 'Payment' || o?.status === 'Ready';
     }).length;
     return { all: inArea.length, free, occupied, action };
-  }, [tables, waiterId, area, ordersById]);
+  }, [area, baseTables, ordersById]);
 
   const handleTableClick = (tableId: string) => {
     const table = tables.find((t) => t.id === tableId);
@@ -224,11 +242,15 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
 
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div className="flex gap-6 overflow-x-auto">
-              <button onClick={() => setArea('All Areas')} className={`pb-2 border-b-4 font-bold text-sm tracking-wide ${area === 'All Areas' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>All Areas</button>
-              <button onClick={() => setArea('Main Hall')} className={`pb-2 border-b-4 font-bold text-sm tracking-wide ${area === 'Main Hall' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>Main Hall</button>
-              <button onClick={() => setArea('Patio')} className={`pb-2 border-b-4 font-bold text-sm tracking-wide ${area === 'Patio' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>Patio</button>
-              <button onClick={() => setArea('Bar Area')} className={`pb-2 border-b-4 font-bold text-sm tracking-wide ${area === 'Bar Area' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>Bar Area</button>
-              <button onClick={() => setArea('Private Room')} className={`pb-2 border-b-4 font-bold text-sm tracking-wide ${area === 'Private Room' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>Private Room</button>
+              {[{ key: 'All Areas', label: 'All Areas' }, ...availableAreas.map((a) => ({ key: a, label: a }))].map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setArea(t.key)}
+                  className={`pb-2 border-b-4 font-bold text-sm tracking-wide ${area === t.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
 
             <div className="flex gap-2 overflow-x-auto items-center">

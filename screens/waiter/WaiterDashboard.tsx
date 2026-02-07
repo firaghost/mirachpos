@@ -68,7 +68,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
 
   const isImpersonationEnabled = sessionRole === 'Branch Manager' || sessionRole === 'Cafe Owner' || sessionRole === 'Waiter Manager';
   const isWaiterManager = sessionRole === 'Waiter Manager';
-  const [area, setArea] = useState<'All Areas' | 'Main Hall' | 'Patio' | 'Bar Area' | 'Private Room'>('All Areas');
+  const [area, setArea] = useState<string>('All Areas');
   const [filter, setFilter] = useState<'All' | 'Free' | 'Occupied' | 'Action'>('All');
   const [now, setNow] = useState<Date>(() => new Date());
   const [draftLoading, setDraftLoading] = useState(false);
@@ -139,6 +139,21 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
       return assigned === effectiveWaiterId;
     });
   }, [impersonateWaiterId, isImpersonationEnabled, staffId, tables]);
+
+  const availableAreas = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of visibleTables) {
+      const a = typeof (t as any).area === 'string' ? String((t as any).area).trim() : '';
+      if (a) set.add(a);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [visibleTables]);
+
+  useEffect(() => {
+    if (area === 'All Areas') return;
+    if (availableAreas.includes(area)) return;
+    setArea('All Areas');
+  }, [area, availableAreas]);
 
   const remoteWaiters = useMemo(() => {
     return remoteStaff.filter((s) => String(s.roleName || '').trim() === 'Waiter');
@@ -674,11 +689,15 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
         {/* Floor Tabs & Status Filter Row */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between px-6 pb-0 gap-4">
           <div className="flex gap-6 border-b border-transparent xl:border-none overflow-x-auto">
-            <button onClick={() => setArea('All Areas')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'All Areas' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>All Areas</button>
-            <button onClick={() => setArea('Main Hall')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'Main Hall' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>Main Hall</button>
-            <button onClick={() => setArea('Patio')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'Patio' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>Patio</button>
-            <button onClick={() => setArea('Bar Area')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'Bar Area' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>Bar Area</button>
-            <button onClick={() => setArea('Private Room')} className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === 'Private Room' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}>Private Room</button>
+            {[{ key: 'All Areas', label: 'All Areas' }, ...availableAreas.map((a) => ({ key: a, label: a }))].map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setArea(t.key)}
+                className={`pb-3 border-b-4 font-bold text-sm tracking-wide ${area === t.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground transition-colors'}`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
           <div className="flex gap-2 pb-3 overflow-x-auto items-center">
             <button onClick={() => setFilter('All')} className={`flex h-8 shrink-0 items-center gap-2 rounded-full px-4 transition-colors ${filter === 'All' ? 'bg-primary text-primary-foreground' : 'border border-border bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground'}`}>

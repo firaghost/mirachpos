@@ -49,6 +49,8 @@ export const formatReadableDate = (isoString: string | null | undefined): string
     }
 };
 
+export const formatDate = formatReadableDate;
+
 /**
  * Format ISO datetime to readable format (e.g., "Jan 10, 2026 at 10:04 AM")
  */
