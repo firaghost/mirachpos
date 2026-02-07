@@ -64,6 +64,48 @@ const makeStaffRouter = () => {
     }
   });
 
+  // Get staff preferences (notifications, display)
+  r.get('/staff/preferences', tenantMiddleware, requireAuth, async (req, res, next) => {
+    try {
+      const staffId = String(req.auth?.staffId || '').trim();
+      if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+
+      const row = await db()
+        .select(['preferences_json'])
+        .from('staff')
+        .where({ tenant_id: req.tenant.id, id: staffId })
+        .first();
+
+      const preferences = row?.preferences_json ? JSON.parse(row.preferences_json) : {};
+      return res.json({ ok: true, preferences });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  // Update staff preferences
+  r.put('/staff/preferences', tenantMiddleware, requireAuth, async (req, res, next) => {
+    try {
+      const staffId = String(req.auth?.staffId || '').trim();
+      if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const preferences = body.preferences || {};
+
+      await db()
+        .from('staff')
+        .where({ tenant_id: req.tenant.id, id: staffId })
+        .update({ 
+          preferences_json: JSON.stringify(preferences),
+          updated_at: new Date().toISOString() 
+        });
+
+      return res.json({ ok: true });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
   r.get(
     '/staff/shifts',
     tenantMiddleware,

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
 import { Screen } from '../../types';
 import { readSession } from '../../session';
@@ -49,6 +49,25 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
     showImages: true,
   });
 
+  // Load preferences from backend on mount
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const res = await apiFetch('/api/staff/preferences');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.ok && json.preferences) {
+            setNotifications(json.preferences.notifications || notifications);
+            setDisplay(json.preferences.display || display);
+          }
+        }
+      } catch {
+        // Ignore - use defaults
+      }
+    };
+    loadPreferences();
+  }, []);
+
   const session = useMemo(() => {
     try {
       return readSession<any>();
@@ -59,7 +78,6 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
 
   const staffId = typeof session?.staffId === 'string' ? session.staffId : '';
   const branchId = typeof session?.branchId === 'string' ? session.branchId : '';
-  const tenantId = typeof session?.tenantId === 'string' ? session.tenantId : '';
   const role = typeof session?.role === 'string' ? session.role : '';
 
   const wantsPassword = newPassword.trim().length > 0 || confirmPassword.trim().length > 0;
@@ -154,29 +172,18 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
 
   const SecretInput: React.FC<{ value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void; placeholder?: string }> = ({ value, onChange, show, onToggle, placeholder }) => {
     return (
-      <div
-        className="flex items-center gap-2"
-        onPointerDownCapture={(e) => e.stopPropagation()}
-        onMouseDownCapture={(e) => e.stopPropagation()}
-        onClickCapture={(e) => e.stopPropagation()}
-      >
+      <div className="flex items-center gap-2">
         <input
           type={show ? 'text' : 'password'}
           value={value}
-          onPointerDown={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onFocus={(e) => e.stopPropagation()}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 h-11 bg-background border border-border rounded-lg px-4 text-foreground pointer-events-auto select-text"
+          className="flex-1 h-11 bg-background border border-border rounded-lg px-4 text-foreground"
         />
         <button
           type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => {
-            e.stopPropagation();
+            e.preventDefault();
             onToggle();
           }}
           className="h-11 px-3 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground"
@@ -193,7 +200,7 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
       <header className="flex items-center justify-between px-6 py-5 border-b border-border bg-card">
         <div>
           <div className="text-2xl font-extrabold tracking-tight">Settings</div>
-          <div className="text-xs text-muted-foreground mt-1">Security    Password & PIN</div>
+          <div className="text-xs text-muted-foreground mt-1">Security, Password and PIN</div>
         </div>
         <button
           onClick={() => {
@@ -239,9 +246,9 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {tab === 'security' && '🔐 Security'}
-                {tab === 'notifications' && '🔔 Notifications'}
-                {tab === 'display' && '🎨 Display'}
+                {tab === 'security' && 'Security'}
+                {tab === 'notifications' && 'Notifications'}
+                {tab === 'display' && 'Display'}
               </button>
             ))}
           </div>
@@ -360,7 +367,22 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
 
               <div className="flex items-center justify-end">
                 <button
-                  onClick={() => setOk('Notification preferences saved (local storage)')}
+                  onClick={async () => {
+                    try {
+                      const res = await apiFetch('/api/staff/preferences', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ preferences: { notifications, display } }),
+                      });
+                      if (res.ok) {
+                        setOk('Preferences saved.');
+                      } else {
+                        setErr('Failed to save preferences.');
+                      }
+                    } catch {
+                      setErr('Failed to save preferences.');
+                    }
+                  }}
                   className="h-11 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold"
                 >
                   Save Preferences
@@ -416,7 +438,22 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
 
               <div className="flex items-center justify-end">
                 <button
-                  onClick={() => setOk('Display settings saved (local storage)')}
+                  onClick={async () => {
+                    try {
+                      const res = await apiFetch('/api/staff/preferences', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ preferences: { notifications, display } }),
+                      });
+                      if (res.ok) {
+                        setOk('Settings saved.');
+                      } else {
+                        setErr('Failed to save settings.');
+                      }
+                    } catch {
+                      setErr('Failed to save settings.');
+                    }
+                  }}
                   className="h-11 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold"
                 >
                   Save Settings
