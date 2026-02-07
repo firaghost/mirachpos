@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../api';
 import { Screen } from '../../types';
 import { readSession } from '../../session';
@@ -48,6 +48,25 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
     compactMode: false,
     showImages: true,
   });
+
+  // Load preferences from backend on mount
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const res = await apiFetch('/api/staff/preferences');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.ok && json.preferences) {
+            setNotifications(json.preferences.notifications || notifications);
+            setDisplay(json.preferences.display || display);
+          }
+        }
+      } catch {
+        // Ignore - use defaults
+      }
+    };
+    loadPreferences();
+  }, []);
 
   const session = useMemo(() => {
     try {
@@ -348,7 +367,22 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
 
               <div className="flex items-center justify-end">
                 <button
-                  onClick={() => setOk('Notification preferences saved (local storage)')}
+                  onClick={async () => {
+                    try {
+                      const res = await apiFetch('/api/staff/preferences', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ preferences: { notifications, display } }),
+                      });
+                      if (res.ok) {
+                        setOk('Preferences saved.');
+                      } else {
+                        setErr('Failed to save preferences.');
+                      }
+                    } catch {
+                      setErr('Failed to save preferences.');
+                    }
+                  }}
                   className="h-11 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold"
                 >
                   Save Preferences
@@ -404,7 +438,22 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
 
               <div className="flex items-center justify-end">
                 <button
-                  onClick={() => setOk('Display settings saved (local storage)')}
+                  onClick={async () => {
+                    try {
+                      const res = await apiFetch('/api/staff/preferences', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ preferences: { notifications, display } }),
+                      });
+                      if (res.ok) {
+                        setOk('Settings saved.');
+                      } else {
+                        setErr('Failed to save settings.');
+                      }
+                    } catch {
+                      setErr('Failed to save settings.');
+                    }
+                  }}
                   className="h-11 px-5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold"
                 >
                   Save Settings
