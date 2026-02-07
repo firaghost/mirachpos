@@ -16,6 +16,8 @@ import { PortalMenu, type PortalMenuAnchorRect } from '../../components/PortalMe
 import { readSession } from '../../session';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
 import { formatDeviceDateTime } from '../../datetime';
+import { RealtimeDashboard } from '../../components/RealtimeDashboard';
+import { PeriodComparison, PeriodComparisonSelector } from '../../components/PeriodComparison';
 
 import { AppIcon } from '@/components/ui/app-icon';
 type Branch = { id: string; name: string };
@@ -105,7 +107,10 @@ export const GlobalReports: React.FC = () => {
   const [fromIso, setFromIso] = useState<string>(() => toLocalDateOnly(todayLocal()));
   const [toIso, setToIso] = useState<string>(() => toLocalDateOnly(todayLocal()));
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string>('');
-  const [tab, setTab] = useState<'ledger' | 'mix' | 'void' | 'labor'>('ledger');
+  const [tab, setTab] = useState<'realtime' | 'comparison' | 'ledger' | 'mix' | 'void' | 'labor'>('realtime');
+  const [comparisonPeriod, setComparisonPeriod] = useState('last7days');
+  const [comparisonData, setComparisonData] = useState<any>(null);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -1323,6 +1328,18 @@ export const GlobalReports: React.FC = () => {
           <div className="flex flex-col rounded-xl border border-border bg-card overflow-hidden">
             <div className="flex flex-wrap items-center border-b border-border bg-muted/20 px-4 pt-4">
               <button
+                onClick={() => setTab('realtime')}
+                className={`mr-4 pb-4 ${tab === 'realtime' ? 'border-b-2 border-primary text-foreground font-bold' : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground font-medium'} text-sm px-2`}
+              >
+                Real-time
+              </button>
+              <button
+                onClick={() => setTab('comparison')}
+                className={`mr-4 pb-4 ${tab === 'comparison' ? 'border-b-2 border-primary text-foreground font-bold' : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground font-medium'} text-sm px-2`}
+              >
+                Period Comparison
+              </button>
+              <button
                 onClick={() => setTab('ledger')}
                 className={`mr-4 pb-4 ${tab === 'ledger' ? 'border-b-2 border-primary text-foreground font-bold' : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground font-medium'} text-sm px-2`}
               >
@@ -1354,7 +1371,70 @@ export const GlobalReports: React.FC = () => {
               </div>
             </div>
 
-            {tab === 'ledger' ? (
+            {tab === 'realtime' ? (
+              <div className="p-4">
+                <RealtimeDashboard branchId={locationId || undefined} />
+              </div>
+            ) : tab === 'comparison' ? (
+              <div className="p-4 space-y-4">
+                <PeriodComparisonSelector
+                  value={comparisonPeriod as any}
+                  onChange={async (period, current, previous) => {
+                    setComparisonPeriod(period);
+                    setComparisonLoading(true);
+                    try {
+                      const params = new URLSearchParams();
+                      params.set('currentFrom', current.from);
+                      params.set('currentTo', current.to);
+                      params.set('previousFrom', previous.from);
+                      params.set('previousTo', previous.to);
+                      if (locationId) params.set('branchId', locationId);
+
+                      const res = await apiFetch(`/api/owner/reports/compare?${params.toString()}`);
+                      if (res.ok) {
+                        const data = await res.json();
+                        if (data.ok) setComparisonData(data);
+                      }
+                    } catch (e) {
+                      console.error('Failed to load comparison:', e);
+                    } finally {
+                      setComparisonLoading(false);
+                    }
+                  }}
+                />
+                {comparisonLoading ? (
+                  <div className="p-8 text-center text-muted-foreground">Loading comparison...</div>
+                ) : comparisonData ? (
+                  <PeriodComparison
+                    title="Period Performance Comparison"
+                    currentPeriod={{ from: comparisonData.currentPeriod.from, to: comparisonData.currentPeriod.to }}
+                    previousPeriod={{ from: comparisonData.previousPeriod.from, to: comparisonData.previousPeriod.to }}
+                    data={{
+                      sales: {
+                        label: 'Sales',
+                        current: comparisonData.currentPeriod.sales,
+                        previous: comparisonData.previousPeriod.sales,
+                      },
+                      orders: {
+                        label: 'Orders',
+                        current: comparisonData.currentPeriod.orders,
+                        previous: comparisonData.previousPeriod.orders,
+                      },
+                      avgTicket: {
+                        label: 'Avg Ticket',
+                        current: comparisonData.currentPeriod.avgTicket,
+                        previous: comparisonData.previousPeriod.avgTicket,
+                      },
+                      items: {
+                        label: 'Items',
+                        current: comparisonData.currentPeriod.items,
+                        previous: comparisonData.previousPeriod.items,
+                      },
+                    }}
+                  />
+                ) : null}
+              </div>
+            ) : tab === 'ledger' ? (
               <div className="flex items-center justify-between gap-4 p-4">
                 <div className="relative max-w-sm w-full">
                   <AppIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-[20px]" size={20} />
