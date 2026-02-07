@@ -36,61 +36,88 @@ const makeWaiterRouter = () => {
     return v;
   };
 
-  const buildWaiterDailyByProduct = async ({ tenantId, branchId, fromDateOnly, toDateOnly }) => {
-    const from = parseIsoDateOnly(fromDateOnly);
-    const to = parseIsoDateOnly(toDateOnly);
-    if (!from || !to) return { ok: false, error: 'invalid_range' };
+  const buildWaiterTodaySalesReport = async ({ tenantId, branchId, date }) => {
+    const day = parseIsoDateOnly(date);
+    if (!day) return { ok: false, error: 'invalid_range' };
 
-    const fromIso = `${from} 00:00:00`;
-    const toIso = `${to} 23:59:59`;
+    const fromDt = `${day} 00:00:00`;
+    const toDt = `${day} 23:59:59`;
+    const fromIso = `${day}T00:00:00.000Z`;
+    const toIso = `${day}T23:59:59.999Z`;
 
-    const rows = await db()
-      .select(['id', 'total', 'paid_at', 'payload'])
-      .from('orders')
-      .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
-      .andWhere('paid_at', '>=', fromIso)
-      .andWhere('paid_at', '<=', toIso);
+    const orderAgg = await db()
+      .from({ o: 'orders' })
+      .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
+      .andWhere((qb) => {
+        qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+      })
+      .select([
+        db().raw('COUNT(*) as order_count'),
+        db().raw('COALESCE(SUM(COALESCE(o.discount, 0)), 0) as discounts_etb'),
+        db().raw('COALESCE(SUM(COALESCE(o.tax, 0)), 0) as tax_etb'),
+        db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as tips_etb'),
+        db().raw('COALESCE(SUM(COALESCE(o.total, 0)), 0) as total_collected_etb'),
+        db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as net_sales_etb'),
+      ])
+      .first();
 
-    const byKey = new Map();
-    let ordersPaid = 0;
-    let totalCollected = 0;
+    const products = await db()
+      .from({ oi: 'order_items' })
+      .innerJoin({ o: 'orders' }, function () {
+        this.on('o.id', '=', 'oi.order_id')
+          .andOn('o.tenant_id', '=', 'oi.tenant_id')
+          .andOn('o.branch_id', '=', 'oi.branch_id');
+      })
+      .leftJoin({ p: 'menu_products' }, function () {
+        this.on('p.id', '=', 'oi.product_id')
+          .andOn('p.tenant_id', '=', 'oi.tenant_id')
+          .andOn('p.branch_id', '=', 'oi.branch_id');
+      })
+      .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
+      .andWhere((qb) => {
+        qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+      })
+      .select([
+        db().raw("COALESCE(NULLIF(TRIM(oi.product_id), ''), NULLIF(TRIM(oi.product_code), ''), TRIM(oi.name)) as product_id"),
+        db().raw("COALESCE(NULLIF(TRIM(p.name), ''), TRIM(oi.name)) as product_name"),
+        db().raw("COALESCE(NULLIF(TRIM(p.category), ''), '') as category"),
+        db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0))) as qty_sold'),
+        db().raw('SUM(GREATEST(0, COALESCE(oi.voided_qty, 0))) as void_qty'),
+        db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) * COALESCE(oi.unit_price, 0)) as revenue_etb'),
+      ])
+      .groupBy(['product_id', 'product_name', 'category'])
+      .orderBy(db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) * COALESCE(oi.unit_price, 0))'), 'desc')
+      .limit(5000);
 
-    for (const o of rows) {
-      ordersPaid += 1;
-      totalCollected += Number(o.total || 0) || 0;
+    const rows = products.map((r) => ({
+      productId: String(r.product_id || '').trim(),
+      name: String(r.product_name || r.product_id || '').trim(),
+      category: String(r.category || 'Uncategorized').trim() || 'Uncategorized',
+      qtySold: Number(r.qty_sold || 0) || 0,
+      revenue: Number(r.revenue_etb || 0) || 0,
+      voidQty: Number(r.void_qty || 0) || 0,
+    }));
 
-      let payload = {};
-      try {
-        payload = o?.payload ? JSON.parse(String(o.payload)) : {};
-      } catch {
-        payload = {};
-      }
+    const orderCount = Number(orderAgg?.order_count || 0) || 0;
+    const discounts = Number(orderAgg?.discounts_etb || 0) || 0;
+    const tax = Number(orderAgg?.tax_etb || 0) || 0;
+    const tips = Number(orderAgg?.tips_etb || 0) || 0;
+    const totalCollected = Number(orderAgg?.total_collected_etb || 0) || 0;
+    const netSales = Number(orderAgg?.net_sales_etb || 0) || 0;
+    const grossSales = netSales + discounts;
 
-      const items = Array.isArray(payload?.items) ? payload.items : [];
-      for (const it of items) {
-        if (!it || typeof it !== 'object') continue;
-        const productId = String(it.productId || it.product_id || it.id || '').trim();
-        const name = String(it.name || it.productName || '').trim();
-        const qty = Number(it.qty ?? 0) || 0;
-        const unitPrice = Number(it.unitPrice ?? it.unit_price ?? it.price ?? 0) || 0;
-        if (!productId && !name) continue;
-        if (qty <= 0) continue;
-
-        const key = productId || name.toLowerCase();
-        const prev = byKey.get(key) || { productId, productName: name, qty: 0, total: 0 };
-        prev.productId = prev.productId || productId;
-        prev.productName = prev.productName || name;
-        prev.qty += qty;
-        prev.total += qty * unitPrice;
-        byKey.set(key, prev);
-      }
-    }
-
-    const products = Array.from(byKey.values())
-      .filter((p) => (p.productId || p.productName) && p.qty > 0)
-      .sort((a, b) => b.total - a.total);
-
-    return { ok: true, from, to, ordersPaid, totalCollected, products };
+    return {
+      ok: true,
+      date: day,
+      orderCount,
+      grossSales,
+      discounts,
+      netSales,
+      tax,
+      tips,
+      totalCollected,
+      products: rows,
+    };
   };
 
   const resolveBranchId = (req) => {
@@ -316,10 +343,8 @@ const makeWaiterRouter = () => {
 
       const branchId = resolveBranchId(req);
       const today = new Date().toISOString().slice(0, 10);
-      const from = typeof req.query?.from === 'string' ? req.query.from.trim() : today;
-      const to = typeof req.query?.to === 'string' ? req.query.to.trim() : today;
 
-      const agg = await buildWaiterDailyByProduct({ tenantId: req.tenant.id, branchId, fromDateOnly: from, toDateOnly: to });
+      const agg = await buildWaiterTodaySalesReport({ tenantId: req.tenant.id, branchId, date: today });
       if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
 
       const businessName = await getTenantBusinessName(req.tenant.id);
@@ -328,34 +353,103 @@ const makeWaiterRouter = () => {
       wb.creator = 'MirachPOS';
       wb.created = new Date();
 
+      // Summary sheet: Centered header and full totals block
       const summary = wb.addWorksheet('Summary');
+      const summaryMaxCol = 2;
+      
+            // Header rows
       summary.addRow([businessName]);
-      summary.getRow(summary.rowCount).font = { bold: true, size: 14 };
+      summary.getRow(1).font = { bold: true, size: 16 };
+      summary.getRow(1).alignment = { horizontal: 'center' };
+      summary.mergeCells(1, 1, 1, summaryMaxCol);
+
       summary.addRow(['Waiter Daily Sales']);
-      summary.getRow(summary.rowCount).font = { bold: true, size: 12 };
-      summary.addRow([`${agg.from} → ${agg.to}`]);
+      summary.getRow(2).font = { bold: true, size: 14 };
+      summary.getRow(2).alignment = { horizontal: 'center' };
+      summary.mergeCells(2, 1, 2, summaryMaxCol);
+
+      summary.addRow([`Period: ${agg.date} to ${agg.date}`]);
+      summary.getRow(3).font = { size: 11 };
+      summary.getRow(3).alignment = { horizontal: 'center' };
+      summary.mergeCells(3, 1, 3, summaryMaxCol);
+
       summary.addRow([]);
-      summary.addRow(['Orders Paid', agg.ordersPaid]);
+
+      // Data rows
+      summary.addRow(['Orders Paid', agg.orderCount]);
+      summary.addRow(['Gross Sales (ETB)', Number(agg.grossSales || 0).toFixed(2)]);
+      summary.addRow(['Discounts (ETB)', Number(agg.discounts || 0).toFixed(2)]);
+      summary.addRow(['Net Sales (ETB)', Number(agg.netSales || 0).toFixed(2)]);
+      summary.addRow(['Tax (ETB)', Number(agg.tax || 0).toFixed(2)]);
+      summary.addRow(['Tips (ETB)', Number(agg.tips || 0).toFixed(2)]);
       summary.addRow(['Total Collected (ETB)', Number(agg.totalCollected || 0).toFixed(2)]);
+      
       summary.getColumn(1).width = 26;
       summary.getColumn(2).width = 18;
+      summary.getColumn(2).alignment = { horizontal: 'right' };
 
+      // Products sheet: Centered header and all columns from image example
       const products = wb.addWorksheet('Products');
-      products.addRow(['Product ID', 'Product Name', 'Qty', 'Total (ETB)']);
-      products.getRow(1).font = { bold: true };
+      const prodMaxCol = 9;
+
+      // Header rows
+      products.addRow([businessName]);
+      products.getRow(1).font = { bold: true, size: 16 };
+      products.getRow(1).alignment = { horizontal: 'center' };
+      products.mergeCells(1, 1, 1, prodMaxCol);
+
+      products.addRow(['Product Performance']);
+      products.getRow(2).font = { bold: true, size: 14 };
+      products.getRow(2).alignment = { horizontal: 'center' };
+      products.mergeCells(2, 1, 2, prodMaxCol);
+
+      products.addRow([`Period: ${agg.date} to ${agg.date}`]);
+      products.getRow(3).font = { size: 11 };
+      products.getRow(3).alignment = { horizontal: 'center' };
+      products.mergeCells(3, 1, 3, prodMaxCol);
+
+      products.addRow([]);
+
+      // Table Header row
+      const headerCols = ['Product ID', 'Name', 'Category', 'Qty Sold', 'Unit Price', 'Revenue (ETB)', 'Cost (ETB)', 'Profit (ETB)', 'Void Qty'];
+      products.addRow(headerCols);
+      const headerRow = products.getRow(5);
+      headerRow.font = { bold: true };
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+
       products.columns = [
         { key: 'productId', width: 18 },
-        { key: 'productName', width: 34 },
-        { key: 'qty', width: 10 },
-        { key: 'total', width: 16, style: { numFmt: '#,##0.00' } },
+        { key: 'name', width: 32 },
+        { key: 'category', width: 18 },
+        { key: 'qtySold', width: 10 },
+        { key: 'unitPrice', width: 14, style: { numFmt: '#,##0.00' } },
+        { key: 'revenue', width: 16, style: { numFmt: '#,##0.00' } },
+        { key: 'cost', width: 14, style: { numFmt: '#,##0.00' } },
+        { key: 'profit', width: 14, style: { numFmt: '#,##0.00' } },
+        { key: 'voidQty', width: 10 },
       ];
 
       for (const p of agg.products) {
-        products.addRow([String(p.productId || ''), String(p.productName || ''), Number(p.qty || 0), Number(p.total || 0)]);
+        const qtySold = Number(p.qtySold || 0);
+        const revenue = Number(p.revenue || 0);
+        const unitPrice = qtySold > 0 ? revenue / qtySold : 0;
+        products.addRow([
+          String(p.productId || ''),
+          String(p.name || ''),
+          String(p.category || ''),
+          qtySold,
+          unitPrice,
+          revenue,
+          0, // cost not available for waiter
+          revenue, // profit = revenue (cost not available)
+          Number(p.voidQty || 0),
+        ]);
       }
 
+      products.views = [{ state: 'frozen', ySplit: 5 }];
+
       const buf = await wb.xlsx.writeBuffer();
-      const filename = `waiter_daily_sales_${branchId}_${agg.from}_to_${agg.to}.xlsx`;
+      const filename = `waiter_daily_sales_${branchId}_${agg.date}.xlsx`;
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       return res.send(Buffer.from(buf));
@@ -375,36 +469,46 @@ const makeWaiterRouter = () => {
 
       const branchId = resolveBranchId(req);
       const today = new Date().toISOString().slice(0, 10);
-      const from = typeof req.query?.from === 'string' ? req.query.from.trim() : today;
-      const to = typeof req.query?.to === 'string' ? req.query.to.trim() : today;
 
-      const agg = await buildWaiterDailyByProduct({ tenantId: req.tenant.id, branchId, fromDateOnly: from, toDateOnly: to });
+      const agg = await buildWaiterTodaySalesReport({ tenantId: req.tenant.id, branchId, date: today });
       if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
 
       const businessName = await getTenantBusinessName(req.tenant.id);
       const { generateReportPDF } = require('../services/pdfService');
 
+      const settingsRow = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: req.tenant.id }).first();
+      const settingsRaw = settingsRow?.settings_json ? String(settingsRow.settings_json) : '';
+      let logoDataUrl = '';
+      try {
+        const parsed = settingsRaw ? JSON.parse(settingsRaw) : {};
+        logoDataUrl = typeof parsed?.receipt?.logoDataUrl === 'string' ? String(parsed.receipt.logoDataUrl) : '';
+      } catch {
+        logoDataUrl = '';
+      }
+
       const totals = [
-        { label: 'Orders Paid', value: String(agg.ordersPaid || 0) },
-        { label: 'Total Collected', value: `ETB ${(Number(agg.totalCollected || 0) || 0).toFixed(2)}` },
+        { label: 'Orders', value: String(agg.orderCount || 0) },
+        { label: 'Net Sales', value: `ETB ${(Number(agg.netSales || 0) || 0).toFixed(2)}` },
+        { label: 'Tax', value: `ETB ${(Number(agg.tax || 0) || 0).toFixed(2)}` },
+        { label: 'Collected', value: `ETB ${(Number(agg.totalCollected || 0) || 0).toFixed(2)}` },
       ];
 
       const columns = [
-        { header: 'Product ID', key: 'productId', width: 120 },
-        { header: 'Product', key: 'productName', width: 200 },
-        { header: 'Qty', key: 'qty', width: 60, align: 'right' },
-        { header: 'Total (ETB)', key: 'total', width: 90, align: 'right', format: (n) => Number(n).toFixed(2) },
+        { header: 'Product', key: 'name', width: 220 },
+        { header: 'Category', key: 'category', width: 120 },
+        { header: 'Qty Sold', key: 'qtySold', width: 70, align: 'right' },
+        { header: 'Revenue (ETB)', key: 'revenue', width: 90, align: 'right', format: (n) => Number(n).toFixed(2) },
       ];
 
       const rows = agg.products.map((p) => ({
-        productId: String(p.productId || ''),
-        productName: String(p.productName || ''),
-        qty: Number(p.qty || 0),
-        total: Number(p.total || 0),
+        name: String(p.name || ''),
+        category: String(p.category || ''),
+        qtySold: Number(p.qtySold || 0),
+        revenue: Number(p.revenue || 0),
       }));
 
-      const pdf = await generateReportPDF('Waiter Daily Sales', { from: agg.from, to: agg.to }, columns, rows, { businessName, totals });
-      const filename = `waiter_daily_sales_${branchId}_${agg.from}_to_${agg.to}.pdf`;
+      const pdf = await generateReportPDF('Waiter Daily Sales', { from: agg.date, to: agg.date }, columns, rows, { businessName, totals, logoDataUrl });
+      const filename = `waiter_daily_sales_${branchId}_${agg.date}.pdf`;
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       return res.send(pdf);

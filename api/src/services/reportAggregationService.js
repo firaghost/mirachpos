@@ -18,8 +18,11 @@ const safeJsonParse = (raw, fallback) => {
 };
 
 const toDateString = (date) => {
+    const s = String(date || '').trim();
+    const match = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return match[1];
     const d = new Date(date);
-    return d.toISOString().split('T')[0];
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
 };
 
 const normalizePaymentKey = (method) => {
@@ -39,11 +42,115 @@ const isIsoDateOnly = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || '').trim());
 const getDayBounds = (dateStr) => {
     const d = String(dateStr || '').trim();
     if (!d) return null;
+    // Use very wide bounds to catch orders across any timezone differences
+    // Some systems store UTC, some store local time - cover both
+    const prevDay = addDaysUtc(d, -2);
+    const nextDay = addDaysUtc(d, 2);
     return {
-        mysqlStart: `${d} 00:00:00`,
-        mysqlEnd: `${d} 23:59:59`,
-        isoStart: `${d}T00:00:00.000Z`,
-        isoEnd: `${d}T23:59:59.999Z`,
+        mysqlStart: `${prevDay} 00:00:00`,
+        mysqlEnd: `${nextDay} 23:59:59`,
+        isoStart: `${prevDay}T00:00:00.000Z`,
+        isoEnd: `${nextDay}T23:59:59.999Z`,
+    };
+};
+
+const getRangeBounds = (fromDateStr, toDateStr) => {
+    const from = toDateString(fromDateStr);
+    const to = toDateString(toDateStr);
+    if (!from || !to) return null;
+
+    const startMs = new Date(`${from}T00:00:00.000Z`).getTime();
+    const endMs = new Date(`${to}T00:00:00.000Z`).getTime();
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return null;
+
+    return {
+        from,
+        to,
+        mysqlStart: `${from} 00:00:00`,
+        mysqlEnd: `${to} 23:59:59`,
+        isoStart: `${from}T00:00:00.000Z`,
+        isoEnd: `${to}T23:59:59.999Z`,
+    };
+};
+
+const getOrderStatusSummary = async ({ tenantId, branchId, fromDate, toDate }) => {
+    const bounds = getRangeBounds(fromDate, toDate);
+    if (!bounds) return { ok: false, error: 'invalid_range' };
+
+    const { from, to, mysqlStart, mysqlEnd, isoStart, isoEnd } = bounds;
+
+    const scopePaid = { tenant_id: tenantId, status: 'Paid' };
+    const scopeAll = { tenant_id: tenantId };
+    if (branchId) {
+        scopePaid.branch_id = branchId;
+        scopeAll.branch_id = branchId;
+    }
+
+    const [paidAggRow, statusRows, voidRefundAggRows] = await Promise.all([
+        db()
+            .from('orders')
+            .where(scopePaid)
+            .andWhere((qb) => {
+                qb.whereBetween('paid_at', [mysqlStart, mysqlEnd]).orWhereBetween('paid_at', [isoStart, isoEnd]);
+            })
+            .sum({ total: 'total' })
+            .count({ count: '*' })
+            .first(),
+        db()
+            .from('orders')
+            .where(scopeAll)
+            .andWhere((qb) => {
+                qb.whereBetween('created_at', [mysqlStart, mysqlEnd]).orWhereBetween('created_at', [isoStart, isoEnd]);
+            })
+            .select(['status'])
+            .count({ count: '*' })
+            .groupBy(['status']),
+        db()
+            .from({ v: 'void_refund_log' })
+            .where({ 'v.tenant_id': tenantId })
+            .modify((qb) => {
+                if (branchId) qb.andWhere('v.branch_id', branchId);
+            })
+            .andWhere((qb) => {
+                qb.whereBetween('v.occurred_at', [mysqlStart, mysqlEnd]).orWhereBetween('v.occurred_at', [isoStart, isoEnd]);
+            })
+            .select(['v.type'])
+            .sum({ amount: 'v.amount_etb' })
+            .count({ count: '*' })
+            .groupBy(['v.type']),
+    ]);
+
+    const paid = {
+        count: Number(paidAggRow?.count ?? 0) || 0,
+        totalCollected: Number(paidAggRow?.total ?? 0) || 0,
+    };
+
+    const byStatus = {};
+    for (const r of Array.isArray(statusRows) ? statusRows : []) {
+        const st = String(r?.status || '').trim() || 'Unknown';
+        byStatus[st] = Number(r?.count ?? 0) || 0;
+    }
+
+    const terminalStatuses = new Set(['Paid', 'Voided', 'Refunded']);
+    const nonPaidCount = Object.entries(byStatus).reduce((acc, [st, cnt]) => (terminalStatuses.has(st) ? acc : acc + (Number(cnt) || 0)), 0);
+
+    const voidRefund = {};
+    for (const r of Array.isArray(voidRefundAggRows) ? voidRefundAggRows : []) {
+        const tp = String(r?.type || '').trim() || 'unknown';
+        voidRefund[tp] = {
+            count: Number(r?.count ?? 0) || 0,
+            amount: Number(r?.amount ?? 0) || 0,
+        };
+    }
+
+    return {
+        ok: true,
+        from,
+        to,
+        paid,
+        nonPaid: { count: nonPaidCount },
+        byStatus,
+        voidRefund,
     };
 };
 
@@ -86,11 +193,15 @@ const ensureAggregatedForRange = async ({ tenantId, branchId, fromDate, toDate }
             ? [String(branchId).trim()].filter(Boolean)
             : await listTenantBranchesWithOrdersOnDate({ tenantId, date: dateObj });
 
+        console.log(`[ReportAggregation] Processing day ${day}, found ${branches.length} branches with orders`);
+
         for (const bid of branches) {
             let okAny = false;
 
             try {
-                await aggregateDailySales({ tenantId, branchId: bid, date: dateObj });
+                console.log(`[ReportAggregation] Running aggregateDailySales for ${tenantId}/${bid}/${day}`);
+                const result = await aggregateDailySales({ tenantId, branchId: bid, date: dateObj });
+                console.log(`[ReportAggregation] aggregateDailySales result:`, result);
                 okAny = true;
             } catch (e) {
                 console.error('[ReportAggregation] aggregateDailySales failed', {
@@ -233,6 +344,7 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
     let firstOrderAt = null;
     let lastOrderAt = null;
 
+    let totalCollected = 0;
     for (const order of orders) {
         orderCount++;
 
@@ -253,8 +365,8 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
 
         // Track first/last order
         const paidAt = order.paid_at;
-        if (!firstOrderAt || paidAt < firstOrderAt) firstOrderAt = paidAt;
-        if (!lastOrderAt || paidAt > lastOrderAt) lastOrderAt = paidAt;
+        if (!firstOrderAt || (paidAt && paidAt < firstOrderAt)) firstOrderAt = paidAt;
+        if (!lastOrderAt || (paidAt && paidAt > lastOrderAt)) lastOrderAt = paidAt;
 
         // Parse payload for items and payment method
         const payload = safeJsonParse(order.payload, {});
@@ -273,61 +385,42 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
 
         // Payment method breakdown (use collected total)
         const paymentMethod = String(payload.paymentMethod || payload.method || payload.tender || 'Other').trim();
-        const pmKey = paymentMethod.toLowerCase().replace(/\s+/g, '_') || 'other';
+        const pmKey = normalizePaymentKey(paymentMethod);
         paymentBreakdown[pmKey] = (paymentBreakdown[pmKey] || 0) + total;
     }
 
     const netSales = Math.max(0, grossSales - discounts);
     const avgTicket = orderCount > 0 ? netSales / orderCount : 0;
 
-    // Upsert the summary
+    // Upsert the summary - delete first to avoid primary key conflicts, then insert
     const summaryId = `dss_${tenantId}_${branchId}_${dateStr}`;
 
-    await db()
-        .from('daily_sales_summary')
-        .insert({
-            id: summaryId,
-            tenant_id: tenantId,
-            branch_id: branchId,
-            report_date: dateStr,
-            order_count: orderCount,
-            item_count: itemCount,
-            gross_sales_etb: grossSales,
-            discounts_etb: discounts,
-            net_sales_etb: netSales,
-            tax_etb: tax,
-            tips_etb: tips,
-            total_collected_etb: totalCollected,
-            void_count: voidCount,
-            void_amount_etb: voidAmount,
-            refund_count: refundCount,
-            refund_amount_etb: refundAmount,
-            payment_breakdown_json: JSON.stringify(paymentBreakdown),
-            avg_ticket_etb: Math.round(avgTicket * 100) / 100,
-            first_order_at: firstOrderAt,
-            last_order_at: lastOrderAt,
-            computed_at: nowIso,
-        })
-        .onConflict(['tenant_id', 'branch_id', 'report_date'])
-        .merge({
-            order_count: orderCount,
-            item_count: itemCount,
-            gross_sales_etb: grossSales,
-            discounts_etb: discounts,
-            net_sales_etb: netSales,
-            tax_etb: tax,
-            tips_etb: tips,
-            total_collected_etb: totalCollected,
-            void_count: voidCount,
-            void_amount_etb: voidAmount,
-            refund_count: refundCount,
-            refund_amount_etb: refundAmount,
-            payment_breakdown_json: JSON.stringify(paymentBreakdown),
-            avg_ticket_etb: Math.round(avgTicket * 100) / 100,
-            first_order_at: firstOrderAt,
-            last_order_at: lastOrderAt,
-            computed_at: nowIso,
-        });
+    // Delete existing row if present (avoids duplicate key errors)
+    await db().from('daily_sales_summary').where({ id: summaryId }).delete();
+
+    await db().from('daily_sales_summary').insert({
+        id: summaryId,
+        tenant_id: tenantId,
+        branch_id: branchId,
+        report_date: dateStr,
+        order_count: orderCount,
+        item_count: itemCount,
+        gross_sales_etb: grossSales,
+        discounts_etb: discounts,
+        net_sales_etb: netSales,
+        tax_etb: tax,
+        tips_etb: tips,
+        total_collected_etb: totalCollected,
+        void_count: voidCount,
+        void_amount_etb: voidAmount,
+        refund_count: refundCount,
+        refund_amount_etb: refundAmount,
+        payment_breakdown_json: JSON.stringify(paymentBreakdown),
+        avg_ticket_etb: Math.round(avgTicket * 100) / 100,
+        first_order_at: firstOrderAt,
+        last_order_at: lastOrderAt,
+        computed_at: nowIso,
+    });
 
     return { orderCount, netSales, itemCount };
 };
@@ -408,44 +501,28 @@ const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
         const avgTicket = row.orderCount > 0 ? row.netSales / row.orderCount : 0;
         const id = `sss_${tenantId}_${branchId}_${dateStr}_${row.staffId}`;
 
-        await db()
-            .from('staff_sales_summary')
-            .insert({
-                id,
-                tenant_id: tenantId,
-                branch_id: branchId,
-                report_date: dateStr,
-                staff_id: row.staffId,
-                staff_name: row.staffName || null,
-                order_count: row.orderCount,
-                gross_sales_etb: row.grossSales,
-                discounts_etb: row.discounts,
-                net_sales_etb: row.netSales,
-                tax_etb: row.tax,
-                tips_etb: row.tips,
-                total_collected_etb: row.totalCollected,
-                payment_breakdown_json: JSON.stringify(row.paymentBreakdown),
-                avg_ticket_etb: Math.round(avgTicket * 100) / 100,
-                first_order_at: row.firstOrderAt,
-                last_order_at: row.lastOrderAt,
-                computed_at: nowIso,
-            })
-            .onConflict(['tenant_id', 'branch_id', 'report_date', 'staff_id'])
-            .merge({
-                staff_name: row.staffName || null,
-                order_count: row.orderCount,
-                gross_sales_etb: row.grossSales,
-                discounts_etb: row.discounts,
-                net_sales_etb: row.netSales,
-                tax_etb: row.tax,
-                tips_etb: row.tips,
-                total_collected_etb: row.totalCollected,
-                payment_breakdown_json: JSON.stringify(row.paymentBreakdown),
-                avg_ticket_etb: Math.round(avgTicket * 100) / 100,
-                first_order_at: row.firstOrderAt,
-                last_order_at: row.lastOrderAt,
-                computed_at: nowIso,
-            });
+        await db().from('staff_sales_summary').where({ id }).delete();
+
+        await db().from('staff_sales_summary').insert({
+            id,
+            tenant_id: tenantId,
+            branch_id: branchId,
+            report_date: dateStr,
+            staff_id: row.staffId,
+            staff_name: row.staffName || null,
+            order_count: row.orderCount,
+            gross_sales_etb: row.grossSales,
+            discounts_etb: row.discounts,
+            net_sales_etb: row.netSales,
+            tax_etb: row.tax,
+            tips_etb: row.tips,
+            total_collected_etb: row.totalCollected,
+            payment_breakdown_json: JSON.stringify(row.paymentBreakdown),
+            avg_ticket_etb: Math.round(avgTicket * 100) / 100,
+            first_order_at: row.firstOrderAt,
+            last_order_at: row.lastOrderAt,
+            computed_at: nowIso,
+        });
     }
 
     return { staffCount: byStaff.size, orderCount: orders.length };
@@ -477,26 +554,19 @@ const aggregateHourlySales = async ({ tenantId, branchId, date }) => {
         const hour = Number(row.hour || 0);
         const summaryId = `hss_${tenantId}_${branchId}_${dateStr}_${hour}`;
 
-        await db()
-            .from('hourly_sales_summary')
-            .insert({
-                id: summaryId,
-                tenant_id: tenantId,
-                branch_id: branchId,
-                report_date: dateStr,
-                hour,
-                order_count: Number(row.order_count || 0),
-                net_sales_etb: Number(row.net_sales || 0),
-                total_collected_etb: Number(row.total_collected || 0),
-                computed_at: nowIso,
-            })
-            .onConflict(['tenant_id', 'branch_id', 'report_date', 'hour'])
-            .merge({
-                order_count: Number(row.order_count || 0),
-                net_sales_etb: Number(row.net_sales || 0),
-                total_collected_etb: Number(row.total_collected || 0),
-                computed_at: nowIso,
-            });
+        await db().from('hourly_sales_summary').where({ id: summaryId }).delete();
+
+        await db().from('hourly_sales_summary').insert({
+            id: summaryId,
+            tenant_id: tenantId,
+            branch_id: branchId,
+            report_date: dateStr,
+            hour,
+            order_count: Number(row.order_count || 0),
+            net_sales_etb: Number(row.net_sales || 0),
+            total_collected_etb: Number(row.total_collected || 0),
+            computed_at: nowIso,
+        });
     }
 
     return { hoursProcessed: hourlyData.length };
@@ -671,34 +741,23 @@ const aggregateProductSales = async ({ tenantId, branchId, date }) => {
         const cost = Math.max(0, data.qtySold) * unitCost;
         const profit = data.revenue - cost;
 
-        await db()
-            .from('product_sales_summary')
-            .insert({
-                id: summaryId,
-                tenant_id: tenantId,
-                branch_id: branchId,
-                product_id: productId,
-                product_name: data.name,
-                category: data.category,
-                report_date: dateStr,
-                qty_sold: data.qtySold,
-                revenue_etb: data.revenue,
-                cost_etb: cost,
-                profit_etb: profit,
-                void_qty: data.voidQty,
-                computed_at: nowIso,
-            })
-            .onConflict(['tenant_id', 'branch_id', 'product_id', 'report_date'])
-            .merge({
-                product_name: data.name,
-                category: data.category,
-                qty_sold: data.qtySold,
-                revenue_etb: data.revenue,
-                cost_etb: cost,
-                profit_etb: profit,
-                void_qty: data.voidQty,
-                computed_at: nowIso,
-            });
+        await db().from('product_sales_summary').where({ id: summaryId }).delete();
+
+        await db().from('product_sales_summary').insert({
+            id: summaryId,
+            tenant_id: tenantId,
+            branch_id: branchId,
+            product_id: productId,
+            product_name: data.name,
+            category: data.category,
+            report_date: dateStr,
+            qty_sold: data.qtySold,
+            revenue_etb: data.revenue,
+            cost_etb: cost,
+            profit_etb: profit,
+            void_qty: data.voidQty,
+            computed_at: nowIso,
+        });
     }
 
     return { productsProcessed: productMap.size };
@@ -878,7 +937,7 @@ const runDailyAggregation = async (date = null) => {
     return { date: dateStr, processed, errors };
 };
 
-const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate }) => {
+const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate, mode = 'daily' }) => {
     const fromDt = `${fromDate} 00:00:00`;
     const toDt = `${toDate} 23:59:59`;
     const fromIso = `${fromDate}T00:00:00.000Z`;
@@ -893,19 +952,35 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate }) =>
 
     if (branchId) ordersQ = ordersQ.andWhere({ 'o.branch_id': branchId });
 
-    const orderAgg = await ordersQ
-        .select([
-            db().raw('DATE(o.paid_at) as report_date'),
-            'o.branch_id',
-            db().raw('COUNT(*) as order_count'),
-            db().raw('COALESCE(SUM(COALESCE(o.discount, 0)), 0) as discounts_etb'),
-            db().raw('COALESCE(SUM(COALESCE(o.tax, 0)), 0) as tax_etb'),
-            db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as tips_etb'),
-            db().raw('COALESCE(SUM(COALESCE(o.total, 0)), 0) as total_collected_etb'),
-            db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as net_sales_etb'),
-        ])
-        .groupBy(['report_date', 'o.branch_id'])
-        .orderBy([{ column: db().raw('report_date'), order: 'asc' }, { column: 'o.branch_id', order: 'asc' }]);
+    const isRangeMode = mode === 'range';
+
+    let orderAgg;
+    if (isRangeMode) {
+        const [row] = await ordersQ
+            .select([
+                db().raw('COUNT(*) as order_count'),
+                db().raw('COALESCE(SUM(COALESCE(o.discount, 0)), 0) as discounts_etb'),
+                db().raw('COALESCE(SUM(COALESCE(o.tax, 0)), 0) as tax_etb'),
+                db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as tips_etb'),
+                db().raw('COALESCE(SUM(COALESCE(o.total, 0)), 0) as total_collected_etb'),
+                db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as net_sales_etb'),
+            ]);
+        orderAgg = row ? [row] : [];
+    } else {
+        orderAgg = await ordersQ
+            .select([
+                db().raw('DATE(o.paid_at) as report_date'),
+                'o.branch_id',
+                db().raw('COUNT(*) as order_count'),
+                db().raw('COALESCE(SUM(COALESCE(o.discount, 0)), 0) as discounts_etb'),
+                db().raw('COALESCE(SUM(COALESCE(o.tax, 0)), 0) as tax_etb'),
+                db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as tips_etb'),
+                db().raw('COALESCE(SUM(COALESCE(o.total, 0)), 0) as total_collected_etb'),
+                db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as net_sales_etb'),
+            ])
+            .groupBy(['report_date', 'o.branch_id'])
+            .orderBy([{ column: db().raw('report_date'), order: 'asc' }, { column: 'o.branch_id', order: 'asc' }]);
+    }
 
     let itemsQ = db()
         .from({ oi: 'order_items' })
@@ -921,20 +996,33 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate }) =>
 
     if (branchId) itemsQ = itemsQ.andWhere({ 'o.branch_id': branchId });
 
-    const itemAgg = await itemsQ
-        .select([
-            db().raw('DATE(o.paid_at) as report_date'),
-            'o.branch_id',
-            db().raw('COALESCE(SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0))), 0) as item_count'),
-        ])
-        .groupBy(['report_date', 'o.branch_id']);
+    let itemAgg;
+    if (isRangeMode) {
+        const [row] = await itemsQ
+            .select([
+                db().raw('COALESCE(SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0))), 0) as item_count'),
+            ]);
+        itemAgg = row ? [row] : [];
+    } else {
+        itemAgg = await itemsQ
+            .select([
+                db().raw('DATE(o.paid_at) as report_date'),
+                'o.branch_id',
+                db().raw('COALESCE(SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0))), 0) as item_count'),
+            ])
+            .groupBy(['report_date', 'o.branch_id']);
+    }
 
     const itemCountByKey = new Map();
     for (const r of itemAgg) {
-        const d = r.report_date ? String(r.report_date).slice(0, 10) : '';
-        const b = String(r.branch_id || '');
-        const key = `${d}|${b}`;
-        itemCountByKey.set(key, Number(r.item_count || 0) || 0);
+        if (isRangeMode) {
+            itemCountByKey.set('range', Number(r.item_count || 0) || 0);
+        } else {
+            const d = r.report_date ? String(r.report_date).slice(0, 10) : '';
+            const b = String(r.branch_id || '');
+            const key = `${d}|${b}`;
+            itemCountByKey.set(key, Number(r.item_count || 0) || 0);
+        }
     }
 
     let paymentQ = db()
@@ -956,7 +1044,7 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate }) =>
     for (const r of paymentRows) {
         const d = r.report_date ? String(r.report_date).slice(0, 10) : '';
         const b = String(r.branch_id || '');
-        const key = `${d}|${b}`;
+        const key = isRangeMode ? 'range' : `${d}|${b}`;
         const total = Number(r.total || 0) || 0;
         const payload = safeJsonParse(r.payload, {});
         const pmKey = normalizePaymentKey(payload?.paymentMethod || payload?.method || payload?.tender);
@@ -966,10 +1054,10 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate }) =>
         paymentByKey.set(key, cur);
     }
 
-    return orderAgg.map((r) => {
-        const date = r.report_date ? String(r.report_date).slice(0, 10) : '';
-        const bid = String(r.branch_id || '');
-        const key = `${date}|${bid}`;
+    return orderAgg.map((r, idx) => {
+        const date = isRangeMode ? `${fromDate} to ${toDate}` : (r.report_date ? String(r.report_date).slice(0, 10) : '');
+        const bid = isRangeMode ? (branchId || 'all') : String(r.branch_id || '');
+        const key = isRangeMode ? 'range' : `${date}|${bid}`;
 
         const orderCount = Number(r.order_count || 0) || 0;
         const discounts = Number(r.discounts_etb || 0) || 0;
@@ -1190,12 +1278,13 @@ module.exports = {
     aggregateProductSales,
     aggregateCategorySales,
     aggregateStaffSales,
-    buildShiftReport,
-    runDailyAggregation,
     ensureAggregatedForRange,
     getDailySalesSummary,
-    getHourlySalesHeatmap,
     getProductPerformance,
     getStaffSalesSummary,
+    getHourlySalesHeatmap,
+    buildShiftReport,
+    runDailyAggregation,
     cleanupOldReports,
+    getOrderStatusSummary,
 };

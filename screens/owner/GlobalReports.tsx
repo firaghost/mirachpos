@@ -16,15 +16,6 @@ import { PortalMenu, type PortalMenuAnchorRect } from '../../components/PortalMe
 import { readSession } from '../../session';
 import { OwnerPageHeader } from '../../components/OwnerPageHeader';
 import { formatDeviceDateTime } from '../../datetime';
-import {
-  downloadCSV,
-  escapeCSV,
-  formatCurrency,
-  formatReadableDate,
-  generateReportHeader,
-  generateSectionHeader,
-  generateFilename,
-} from '../../utils/exportUtils';
 
 import { AppIcon } from '@/components/ui/app-icon';
 type Branch = { id: string; name: string };
@@ -60,58 +51,49 @@ type ReportsResponse = {
   };
 };
 
-const startOfThisMonthIso = () => {
+type StatusSummaryResp = {
+  ok: boolean;
+  branchId: string | null;
+  from: string;
+  to: string;
+  summary: {
+    from: string;
+    to: string;
+    paid: { count: number; totalCollected: number };
+    nonPaid: { count: number };
+    byStatus: Record<string, number>;
+    voidRefund: Record<string, { count: number; amount: number }>;
+  };
+};
+
+const toLocalDateOnly = (d: Date) => {
+  const x = new Date(d);
+  const yyyy = x.getFullYear();
+  const mm = String(x.getMonth() + 1).padStart(2, '0');
+  const dd = String(x.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const addDaysLocal = (d: Date, days: number) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() + days);
+  return x;
+};
+
+const todayLocal = () => {
   const d = new Date();
-  d.setDate(1);
   d.setHours(0, 0, 0, 0);
-  return d.toISOString();
+  return d;
 };
 
-const endOfTodayIso = () => {
-  const d = new Date();
-  d.setHours(23, 59, 59, 999);
-  return d.toISOString();
+const toDateInput = (dateOnly: string) => {
+  const s = String(dateOnly || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
 };
 
-const toDateInput = (iso: string) => {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  } catch {
-    return '';
-  }
-};
-
-const fromDateInputStartIso = (value: string) => {
-  if (!value) return '';
-  const [yyyy, mm, dd] = value.split('-').map((x) => Number(x));
-  if (!yyyy || !mm || !dd) return '';
-  const d = new Date(Date.UTC(yyyy, mm - 1, dd, 0, 0, 0, 0));
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toISOString();
-};
-
-const fromDateInputEndIso = (value: string) => {
-  if (!value) return '';
-  const [yyyy, mm, dd] = value.split('-').map((x) => Number(x));
-  if (!yyyy || !mm || !dd) return '';
-  const d = new Date(Date.UTC(yyyy, mm - 1, dd, 23, 59, 59, 999));
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toISOString();
-};
-
-const toDateOnly = (iso: string) => {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toISOString().slice(0, 10);
-  } catch {
-    return '';
-  }
+const toDateOnly = (dateOnly: string) => {
+  const s = String(dateOnly || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
 };
 
 export const GlobalReports: React.FC = () => {
@@ -120,14 +102,15 @@ export const GlobalReports: React.FC = () => {
   const [banner, setBanner] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [locationId, setLocationId] = useState<string>('');
-  const [fromIso, setFromIso] = useState<string>(() => startOfThisMonthIso());
-  const [toIso, setToIso] = useState<string>(() => endOfTodayIso());
+  const [fromIso, setFromIso] = useState<string>(() => toLocalDateOnly(todayLocal()));
+  const [toIso, setToIso] = useState<string>(() => toLocalDateOnly(todayLocal()));
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string>('');
   const [tab, setTab] = useState<'ledger' | 'mix' | 'void' | 'labor'>('ledger');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [reports, setReports] = useState<ReportsResponse | null>(null);
+  const [statusSummary, setStatusSummary] = useState<StatusSummaryResp['summary'] | null>(null);
   const [rangeOpen, setRangeOpen] = useState(false);
   const [rangeAnchor, setRangeAnchor] = useState<PortalMenuAnchorRect | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -207,23 +190,61 @@ export const GlobalReports: React.FC = () => {
         // ignore
       }
 
+      const from = toDateOnly(fromIso);
+      const to = toDateOnly(toIso);
       const qs = new URLSearchParams();
       if (locationId) qs.set('branchId', locationId);
-      if (fromIso) qs.set('from', fromIso);
-      if (toIso) qs.set('to', toIso);
-      const url = qs.toString() ? `/api/owner/reports?${qs.toString()}` : '/api/owner/reports';
-      const res = await apiFetch(url);
+      qs.set('from', from);
+      qs.set('to', to);
+      
+      const [res, statusRes] = await Promise.all([
+        apiFetch(`/api/owner/reports?${qs.toString()}`),
+        apiFetch(`/api/owner/reports/status-summary?${qs.toString()}`),
+      ]);
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as ReportsResponse;
+      const statusJson = (await statusRes.json().catch(() => null)) as any;
+      const summary = statusRes.ok && statusJson?.summary && typeof statusJson.summary === 'object'
+        ? (statusJson.summary as StatusSummaryResp['summary'])
+        : null;
+
       setReports(data);
+      setStatusSummary(summary);
       setLastUpdatedAt(new Date().toISOString());
     } catch {
       setError('Start the API server (npm run dev:api).');
       setReports(null);
+      setStatusSummary(null);
     } finally {
       setLoading(false);
     }
   }, [fromIso, locationId, toIso]);
+
+  const nonPaidRows = useMemo(() => {
+    const s = statusSummary;
+    if (!s) return [] as Array<{ status: string; count: number }>;
+    const terminal = new Set(['Paid', 'Voided', 'Refunded']);
+    const rows = Object.entries(s.byStatus || {})
+      .map(([status, count]) => ({ status, count: Number(count || 0) || 0 }))
+      .filter((r) => r.count > 0 && !terminal.has(r.status));
+    rows.sort((a, b) => b.count - a.count);
+    return rows;
+  }, [statusSummary]);
+
+  const voidRefundTotals = useMemo(() => {
+    const s = statusSummary;
+    if (!s) return { voidCount: 0, voidAmount: 0, refundCount: 0, refundAmount: 0 };
+    const v = s.voidRefund || {};
+    const voidRow = (v as any).void || (v as any).VOID || (v as any).Void;
+    const refundRow = (v as any).refund || (v as any).REFUND || (v as any).Refund;
+    return {
+      voidCount: Number(voidRow?.count ?? 0) || 0,
+      voidAmount: Number(voidRow?.amount ?? 0) || 0,
+      refundCount: Number(refundRow?.count ?? 0) || 0,
+      refundAmount: Number(refundRow?.amount ?? 0) || 0,
+    };
+  }, [statusSummary]);
 
   useEffect(() => {
     fetchAll();
@@ -262,98 +283,6 @@ export const GlobalReports: React.FC = () => {
     return filteredLedger.slice(start, start + pageSize);
   }, [filteredLedger, safePage]);
 
-  const csvEscape = (v: unknown) => {
-    const s = String(v ?? '');
-    return `"${s.replace(/"/g, '""')}"`;
-  };
-
-  const exportCsv = () => {
-    const r = reports;
-    if (!r) return;
-    const scope = locationId ? branches.find((b) => b.id === locationId)?.name || locationId : 'All Locations';
-
-    let generatedBy = '';
-    try {
-      const s = readSession<any>();
-      generatedBy = String(s?.name || s?.username || s?.email || s?.role || '').trim();
-    } catch {
-      // ignore
-    }
-
-    const lines: string[] = [];
-
-    // Professional header
-    const headerLines = generateReportHeader({
-      businessName: tenantName,
-      branchName: scope !== 'All Locations' ? scope : undefined,
-      reportTitle: 'Global Reports',
-      fromDate: fromIso || '',
-      toDate: toIso || '',
-      generatedBy: generatedBy || undefined,
-    });
-    lines.push(...headerLines);
-
-    // Summary Totals
-    lines.push(...generateSectionHeader('Summary Totals'));
-    lines.push([escapeCSV('Metric'), escapeCSV('Value')].join(','));
-    lines.push([escapeCSV('Transactions'), escapeCSV(String(totals.txCount))].join(','));
-    lines.push([escapeCSV('Net Sales'), escapeCSV(formatCurrency(totals.netSales))].join(','));
-    lines.push([escapeCSV('Tax Collected'), escapeCSV(formatCurrency(totals.tax))].join(','));
-    lines.push([escapeCSV('Tips'), escapeCSV(formatCurrency(totals.tips))].join(','));
-    lines.push([escapeCSV('Discounts'), escapeCSV(formatCurrency(-Math.abs(totals.discounts)))].join(','));
-    lines.push([escapeCSV('Total Collected'), escapeCSV(formatCurrency(totals.totalCollected))].join(','));
-
-    // Payment Methods
-    const pmRows = Array.isArray((r as any).paymentMethods) ? ((r as any).paymentMethods as any[]) : [];
-    if (pmRows.length) {
-      lines.push(...generateSectionHeader('Payment Methods'));
-      lines.push([escapeCSV('Method'), escapeCSV('Transactions'), escapeCSV('Amount')].join(','));
-      for (const p of pmRows) {
-        lines.push([escapeCSV(p.name), escapeCSV(String(p.txCount)), escapeCSV(formatCurrency(p.amount))].join(','));
-      }
-    }
-
-    // Branch Breakdown
-    if (!locationId && Array.isArray(r.branchBreakdown) && r.branchBreakdown.length) {
-      lines.push(...generateSectionHeader('Branch Performance'));
-      lines.push([escapeCSV('Branch'), escapeCSV('Status'), escapeCSV('Orders'), escapeCSV('Net Sales'), escapeCSV('Tax'), escapeCSV('Tips'), escapeCSV('Discounts'), escapeCSV('Total')].join(','));
-      for (const b of r.branchBreakdown) {
-        lines.push([
-          escapeCSV(b.name),
-          escapeCSV(b.status),
-          escapeCSV(String(b.txCount)),
-          escapeCSV(formatCurrency(b.netSales)),
-          escapeCSV(formatCurrency(b.tax)),
-          escapeCSV(formatCurrency(b.tips)),
-          escapeCSV(formatCurrency(-Math.abs(b.discounts))),
-          escapeCSV(formatCurrency(b.totalCollected)),
-        ].join(','));
-      }
-    }
-
-    // Daily Ledger
-    lines.push(...generateSectionHeader('Daily Sales Ledger'));
-    lines.push([escapeCSV('Date'), escapeCSV('Orders'), escapeCSV('Net Sales'), escapeCSV('Tax'), escapeCSV('Tips'), escapeCSV('Discounts'), escapeCSV('Total')].join(','));
-    for (const x of r.ledger) {
-      lines.push([
-        escapeCSV(formatReadableDate(x.date)),
-        escapeCSV(String(x.txCount)),
-        escapeCSV(formatCurrency(x.netSales)),
-        escapeCSV(formatCurrency(x.tax)),
-        escapeCSV(formatCurrency(x.tips)),
-        escapeCSV(formatCurrency(-Math.abs(x.discounts))),
-        escapeCSV(formatCurrency(x.totalCollected)),
-      ].join(','));
-    }
-
-    // Footer
-    lines.push('');
-    lines.push(escapeCSV('Powered by MirachPOS'));
-
-    const filename = generateFilename('global_reports', locationId ? scope : 'all_locations', fromIso, toIso);
-    downloadCSV(lines.join('\n'), filename);
-  };
-
   const exportXlsx = async () => {
     setBanner(null);
     const from = toDateOnly(fromIso);
@@ -375,7 +304,7 @@ export const GlobalReports: React.FC = () => {
       const blob = await res.blob();
       const cd = res.headers.get('content-disposition') || '';
       const m = /filename="?([^";]+)"?/i.exec(cd);
-      const filename = m?.[1] ? String(m[1]) : `mirachpos_reports_${from}_to_${to}.xlsx`;
+      const filename = m?.[1] ? String(m[1]) : `owner_reports_${from}_to_${to}.xlsx`;
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -390,38 +319,41 @@ export const GlobalReports: React.FC = () => {
     }
   };
 
-  const exportSoldCsv = () => {
-    const generatedAt = new Date().toISOString();
-    const scope = locationId ? branches.find((b) => b.id === locationId)?.name || locationId : 'All Locations';
-    const sortLabel = soldSort === 'qty' ? 'qty' : 'revenue';
-    const q = soldSearch.trim();
-
-    const lines: string[] = [];
-    lines.push(`${tenantName} - What\'s Sold`);
-    lines.push('Powered by MirachPos');
-    lines.push('');
-    lines.push(['GeneratedAt', generatedAt].map(csvEscape).join(','));
-    lines.push(['Location', scope].map(csvEscape).join(','));
-    lines.push(['From', fromIso || ''].map(csvEscape).join(','));
-    lines.push(['To', toIso || ''].map(csvEscape).join(','));
-    lines.push(['Sort', sortLabel].map(csvEscape).join(','));
-    if (q) lines.push(['Search', q].map(csvEscape).join(','));
-    lines.push('');
-
-    lines.push(['Item', 'Category', 'Qty', 'Revenue'].map(csvEscape).join(','));
-    for (const it of soldItemsSorted) {
-      lines.push([it.name, it.category || 'Uncategorized', it.qty, it.revenue].map(csvEscape).join(','));
+  const exportPdf = async () => {
+    setBanner(null);
+    const from = toDateOnly(fromIso);
+    const to = toDateOnly(toIso);
+    if (!from || !to) {
+      setBanner({ kind: 'error', message: 'Select a valid date range first.' });
+      return;
     }
 
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `what-sold-${locationId || 'all'}-${generatedAt.slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    try {
+      const qs = new URLSearchParams();
+      if (locationId) qs.set('branchId', locationId);
+      qs.set('from', from);
+      qs.set('to', to);
+      qs.set('type', 'daily');
+
+      const res = await apiFetch(`/api/owner/reports/export/pdf?${qs.toString()}`);
+      if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
+
+      const blob = await res.blob();
+      const cd = res.headers.get('content-disposition') || '';
+      const m = /filename="?([^";]+)"?/i.exec(cd);
+      const filename = m?.[1] ? String(m[1]) : `owner_report_${from}_to_${to}.pdf`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to export PDF.' });
+    }
   };
 
   const submitSchedule = async () => {
@@ -591,25 +523,32 @@ export const GlobalReports: React.FC = () => {
     return { total, primary, pct, list };
   }, [paymentMethods]);
 
-  const presetThisMonth = () => {
-    setFromIso(startOfThisMonthIso());
-    setToIso(endOfTodayIso());
+  const presetToday = () => {
+    const t = todayLocal();
+    const s = toLocalDateOnly(t);
+    setFromIso(s);
+    setToIso(s);
   };
 
-  const presetLast30 = () => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    const from = new Date(d.getTime() - 29 * 24 * 60 * 60 * 1000);
-    from.setHours(0, 0, 0, 0);
-    setFromIso(from.toISOString());
-    setToIso(endOfTodayIso());
+  const presetWeekly = () => {
+    const end = todayLocal();
+    const start = addDaysLocal(end, -6);
+    setFromIso(toLocalDateOnly(start));
+    setToIso(toLocalDateOnly(end));
   };
 
-  const presetThisYear = () => {
-    const d = new Date();
-    const from = new Date(d.getFullYear(), 0, 1, 0, 0, 0, 0);
-    setFromIso(from.toISOString());
-    setToIso(endOfTodayIso());
+  const presetMonthly = () => {
+    const end = todayLocal();
+    const start = addDaysLocal(end, -29);
+    setFromIso(toLocalDateOnly(start));
+    setToIso(toLocalDateOnly(end));
+  };
+
+  const presetYearly = () => {
+    const end = todayLocal();
+    const start = addDaysLocal(end, -364);
+    setFromIso(toLocalDateOnly(start));
+    setToIso(toLocalDateOnly(end));
   };
 
   return (
@@ -644,7 +583,7 @@ export const GlobalReports: React.FC = () => {
               <span className="hidden sm:inline">Refresh</span>
             </button>
             <button
-              onClick={exportCsv}
+              onClick={() => void exportXlsx()}
               className="flex items-center justify-center gap-2 h-10 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-md"
               type="button"
             >
@@ -804,9 +743,13 @@ export const GlobalReports: React.FC = () => {
                   <div className="p-3">
                     <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Date Range</div>
                     <div className="mt-2 grid grid-cols-3 gap-2">
-                      <button onClick={presetThisMonth} className="h-9 rounded-lg bg-background border border-border text-sm text-foreground hover:bg-accent hover:border-primary/50" type="button">This Month</button>
-                      <button onClick={presetLast30} className="h-9 rounded-lg bg-background border border-border text-sm text-foreground hover:bg-accent hover:border-primary/50" type="button">Last 30</button>
-                      <button onClick={presetThisYear} className="h-9 rounded-lg bg-background border border-border text-sm text-foreground hover:bg-accent hover:border-primary/50" type="button">This Year</button>
+                      <button onClick={presetToday} className="h-9 rounded-lg bg-background border border-border text-sm text-foreground hover:bg-accent hover:border-primary/50" type="button">Today</button>
+                      <button onClick={presetWeekly} className="h-9 rounded-lg bg-background border border-border text-sm text-foreground hover:bg-accent hover:border-primary/50" type="button">Weekly</button>
+                      <button onClick={presetMonthly} className="h-9 rounded-lg bg-background border border-border text-sm text-foreground hover:bg-accent hover:border-primary/50" type="button">Monthly</button>
+                    </div>
+
+                    <div className="mt-2 grid grid-cols-1 gap-2">
+                      <button onClick={presetYearly} className="h-9 rounded-lg bg-background border border-border text-sm text-foreground hover:bg-accent hover:border-primary/50" type="button">Yearly</button>
                     </div>
 
                     <div className="mt-3 grid grid-cols-2 gap-2">
@@ -814,7 +757,7 @@ export const GlobalReports: React.FC = () => {
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">From</span>
                         <input
                           value={toDateInput(draftFromIso || fromIso)}
-                          onChange={(e) => setDraftFromIso(fromDateInputStartIso(e.target.value))}
+                          onChange={(e) => setDraftFromIso(e.target.value)}
                           type="date"
                           className="h-9 rounded-lg border border-border bg-background text-foreground px-2 text-sm focus:border-primary focus:outline-none"
                         />
@@ -823,7 +766,7 @@ export const GlobalReports: React.FC = () => {
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">To</span>
                         <input
                           value={toDateInput(draftToIso || toIso)}
-                          onChange={(e) => setDraftToIso(fromDateInputEndIso(e.target.value))}
+                          onChange={(e) => setDraftToIso(e.target.value)}
                           type="date"
                           className="h-9 rounded-lg border border-border bg-background text-foreground px-2 text-sm focus:border-primary focus:outline-none"
                         />
@@ -843,8 +786,10 @@ export const GlobalReports: React.FC = () => {
                       </button>
                       <button
                         onClick={() => {
-                          if (draftFromIso) setFromIso(draftFromIso);
-                          if (draftToIso) setToIso(draftToIso);
+                          const nextFrom = toDateOnly(draftFromIso || fromIso);
+                          const nextTo = toDateOnly(draftToIso || toIso);
+                          if (nextFrom) setFromIso(nextFrom);
+                          if (nextTo) setToIso(nextTo);
                           setRangeOpen(false);
                           setRangeAnchor(null);
                         }}
@@ -1121,12 +1066,12 @@ export const GlobalReports: React.FC = () => {
 
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <button
-                    onClick={exportCsv}
+                    onClick={() => void exportPdf()}
                     className="h-11 rounded-xl bg-primary text-primary-foreground font-black text-sm hover:bg-primary/90 flex items-center justify-center gap-2"
                     type="button"
                   >
-                    <AppIcon name="table_view" className="text-[18px]" size={18} />
-                    Export CSV
+                    <AppIcon name="picture_as_pdf" className="text-[18px]" size={18} />
+                    Export PDF
                   </button>
                   <button
                     onClick={() => void exportXlsx()}
@@ -1135,14 +1080,6 @@ export const GlobalReports: React.FC = () => {
                   >
                     <AppIcon name="grid_on" className="text-[18px]" size={18} />
                     Export Excel
-                  </button>
-                  <button
-                    onClick={exportSoldCsv}
-                    className="h-11 rounded-xl bg-background border border-border text-foreground font-black text-sm hover:bg-accent hover:border-primary/50 flex items-center justify-center gap-2"
-                    type="button"
-                  >
-                    <AppIcon name="table_view" className="text-[18px]" size={18} />
-                    Export Sold
                   </button>
                   <button
                     onClick={() => {

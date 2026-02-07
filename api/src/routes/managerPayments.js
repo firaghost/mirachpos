@@ -73,7 +73,14 @@ const makeManagerPaymentsRouter = () => {
       const branchId = req.branchId || resolveBranchId(req);
 
       const from = isoDateTime(req.query?.from);
-      const to = isoDateTime(req.query?.to);
+      let to = isoDateTime(req.query?.to);
+      
+      // If to is same as from, make it end of day (next day midnight) to include full day
+      if (to && from && to === from) {
+        const toDate = new Date(to);
+        toDate.setUTCDate(toDate.getUTCDate() + 1);
+        to = toDate.toISOString();
+      }
       const method = typeof req.query?.method === 'string' ? req.query.method.trim() : '';
       const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 200) || 200));
 

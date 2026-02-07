@@ -22,6 +22,7 @@ const {
   getDailySalesSummary,
   getProductPerformance,
   getStaffSalesSummary,
+  getOrderStatusSummary,
 } = require('../services/reportAggregationService');
 
 const startOfDayIso = (d) => {
@@ -66,22 +67,72 @@ const getTenantBusinessName = async (tenantId) => {
   }
 };
 
+const sanitizeFilenamePart = (raw) => {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  return s
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+    .slice(0, 60);
+};
+
 const makeManagerRouter = () => {
   const r = express.Router();
 
   const toIsoDateOnly = (raw) => {
     const s = String(raw || '').trim();
     if (!s) return '';
-    const m = /^\d{4}-\d{2}-\d{2}$/.exec(s);
-    if (!m) return '';
-    const d = new Date(`${s}T00:00:00.000Z`);
-    if (Number.isNaN(d.getTime())) return '';
-    return s;
+    
+    const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return `${match[1]}-${match[2]}-${match[3]}`;
+    }
+    
+    try {
+      const d = new Date(s);
+      if (Number.isNaN(d.getTime())) return '';
+      const year = d.getUTCFullYear();
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch {
+      return '';
+    }
   };
 
   const normalizeInt = (raw, fallback) => {
     const n = Number(raw);
     return Number.isFinite(n) ? n : fallback;
+  };
+
+  const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate }) => {
+    const from = toIsoDateOnly(fromDate);
+    const to = toIsoDateOnly(toDate);
+    
+    const rows = await db()
+      .from('daily_sales_summary')
+      .where({ tenant_id: tenantId, branch_id: branchId })
+      .andWhere('report_date', '>=', from)
+      .andWhere('report_date', '<=', to)
+      .orderBy('report_date', 'asc')
+      .select([
+        'report_date as date',
+        'order_count as orderCount',
+        'item_count as itemCount',
+        'gross_sales_etb as grossSales',
+        'discounts_etb as discounts',
+        'net_sales_etb as netSales',
+        'tax_etb as tax',
+        'tips_etb as tips',
+        'total_collected_etb as totalCollected',
+        'avg_ticket_etb as avgTicket',
+        'payment_breakdown_json',
+      ]);
+
+    return rows.map(r => ({
+      ...r,
+      paymentBreakdown: safeJsonParse(r.payment_breakdown_json, {}),
+    }));
   };
 
   const safeJsonParse = (raw, fallback) => {
@@ -94,6 +145,7 @@ const makeManagerRouter = () => {
     }
   };
 
+  // Manager Overview: Professional data flow
   r.get(
     '/manager/overview',
     tenantMiddleware,
@@ -104,152 +156,77 @@ const makeManagerRouter = () => {
     requirePermission('reports.read'),
     async (req, res, next) => {
       try {
-        try {
-          res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-          res.set('Pragma', 'no-cache');
-          res.set('Expires', '0');
-          res.set('Vary', 'Origin, Authorization, X-Tenant');
-        } catch {
-          // ignore
-        }
-
         let branchId = req.branchId || resolveBranchId(req);
         if (!branchId) {
-          const row = await db()
-            .select(['id'])
-            .from('branches')
-            .where({ tenant_id: req.tenant.id })
-            .orderBy('name', 'asc')
-            .first();
+          const row = await db().select(['id']).from('branches').where({ tenant_id: req.tenant.id }).orderBy('name', 'asc').first();
           branchId = row?.id ? String(row.id) : '';
         }
         if (!branchId) return res.status(400).json({ error: 'branch_required' });
 
-        const rangeRaw = typeof req.query?.range === 'string' ? req.query.range.trim() : 'Daily';
-        const rangeKey = String(rangeRaw.split(':')[0] || '').trim();
-        const range = ['Daily', 'Weekly', 'Monthly'].includes(rangeKey) ? rangeKey : 'Daily';
+        const from = toIsoDateOnly(req.query?.from);
+        const to = toIsoDateOnly(req.query?.to);
 
-        // Log warning if range was malformed (like Daily:1)
-        if (rangeRaw !== range && rangeRaw !== 'Daily') {
-          try {
-            if (req.log?.warn) req.log.warn({ rangeRaw, range }, 'manager/overview received malformed range parameter');
-            else console.warn(`manager/overview received malformed range parameter: "${rangeRaw}"`);
-          } catch { /* ignore */ }
+        if (!from || !to) {
+          // Default to last 14 days if no range provided
+          const now = new Date();
+          const toDate = toIsoDateOnly(now);
+          const fromDate = toIsoDateOnly(new Date(now.getTime() - 13 * 24 * 60 * 60 * 1000));
+          return res.redirect(`${req.baseUrl}/manager/overview?from=${fromDate}&to=${toDate}`);
         }
 
-        const now = new Date();
+        const daily = await getDailySalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+        
+        // KPIs based on selected range
+        const salesTotal = daily.reduce((s, r) => s + (Number(r.grossSales) || 0), 0);
+        const ordersTotal = daily.reduce((s, r) => s + (Number(r.orderCount) || 0), 0);
+        const avgTicket = ordersTotal > 0 ? salesTotal / ordersTotal : 0;
 
-        const days = range === 'Monthly' ? 180 : range === 'Weekly' ? 60 : 14;
-        const from = startOfDayIso(new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000));
-        const to = endOfDayIso(now);
-
-        const todayStart = startOfDayIso(now);
-        const todayEnd = endOfDayIso(now);
-
-        const todayAgg = await db()
-          .from('orders')
-          .where({ tenant_id: req.tenant.id, branch_id: branchId, status: 'Paid' })
-          .andWhere('paid_at', '>=', todayStart)
-          .andWhere('paid_at', '<=', todayEnd)
-          .sum({ revenue: 'total' })
-          .count({ cnt: '*' })
-          .first();
-
-        const salesToday = Number(todayAgg?.revenue || 0) || 0;
-        const paidTodayCount = Number(todayAgg?.cnt ?? todayAgg?.count ?? todayAgg?.['count(*)'] ?? 0) || 0;
-        const avgTicketToday = paidTodayCount > 0 ? salesToday / paidTodayCount : 0;
-
-        const openOrdersRow = await db()
-          .from('orders')
-          .where({ tenant_id: req.tenant.id, branch_id: branchId })
-          .andWhereNot({ status: 'Paid' })
-          .count({ cnt: '*' })
-          .first();
-        const openOrders = Number(openOrdersRow?.cnt ?? openOrdersRow?.count ?? openOrdersRow?.['count(*)'] ?? 0) || 0;
-
-        const staffOnShiftRow = await db()
-          .from('shift_logs')
-          .where({ tenant_id: req.tenant.id, branch_id: branchId })
-          .whereNull('clock_out_at')
-          .count({ cnt: '*' })
-          .first();
-        const staffOnShift = Number(staffOnShiftRow?.cnt ?? staffOnShiftRow?.count ?? staffOnShiftRow?.['count(*)'] ?? 0) || 0;
-
-        let trendRows;
-        if (range === 'Monthly') {
-          trendRows = await db()
-            .from('orders')
-            .where({ tenant_id: req.tenant.id, branch_id: branchId, status: 'Paid' })
-            .andWhere('paid_at', '>=', from)
-            .andWhere('paid_at', '<=', to)
-            .select([
-              db().raw("DATE_FORMAT(paid_at, '%Y-%m') as k"),
-              db().raw('COUNT(*) as orders'),
-              db().raw('COALESCE(SUM(total), 0) as revenue'),
-            ])
-            .groupBy([db().raw("DATE_FORMAT(paid_at, '%Y-%m')")])
-            .orderBy(db().raw("DATE_FORMAT(paid_at, '%Y-%m')"), 'asc');
-        } else if (range === 'Weekly') {
-          trendRows = await db()
-            .from('orders')
-            .where({ tenant_id: req.tenant.id, branch_id: branchId, status: 'Paid' })
-            .andWhere('paid_at', '>=', from)
-            .andWhere('paid_at', '<=', to)
-            .select([
-              db().raw("YEARWEEK(paid_at, 3) as k"),
-              db().raw('COUNT(*) as orders'),
-              db().raw('COALESCE(SUM(total), 0) as revenue'),
-            ])
-            .groupBy([db().raw('YEARWEEK(paid_at, 3)')])
-            .orderBy(db().raw('YEARWEEK(paid_at, 3)'), 'asc');
-        } else {
-          trendRows = await db()
-            .from('orders')
-            .where({ tenant_id: req.tenant.id, branch_id: branchId, status: 'Paid' })
-            .andWhere('paid_at', '>=', from)
-            .andWhere('paid_at', '<=', to)
-            .select([
-              db().raw('DATE(paid_at) as k'),
-              db().raw('COUNT(*) as orders'),
-              db().raw('COALESCE(SUM(total), 0) as revenue'),
-            ])
-            .groupBy([db().raw('DATE(paid_at)')])
-            .orderBy(db().raw('DATE(paid_at)'), 'asc');
-        }
-
-        const trend = (Array.isArray(trendRows) ? trendRows : []).map((r) => ({
-          key: r.k != null ? String(r.k) : '',
-          revenue: Number(r.revenue || 0) || 0,
-          orders: Number(r.orders || 0) || 0,
-        }));
-
-        const recentRows = await db()
-          .from('orders')
-          .where({ tenant_id: req.tenant.id, branch_id: branchId, status: 'Paid' })
-          .orderBy('paid_at', 'desc')
-          .limit(10)
-          .select(['id', 'total', 'paid_at']);
-
-        const recentPaid = recentRows.map((x) => ({
-          id: String(x.id),
-          total: Number(x.total || 0) || 0,
-          paidAt: x.paid_at ? new Date(x.paid_at).toISOString() : null,
-        }));
+        // Open orders count (current state)
+        const openOrdersRow = await db().from('orders').where({ tenant_id: req.tenant.id, branch_id: branchId }).andWhereNot({ status: 'Paid' }).count({ cnt: '*' }).first();
+        const openOrders = Number(openOrdersRow?.cnt ?? 0) || 0;
 
         return res.json({
           ok: true,
           branchId,
-          range,
           from,
           to,
-          kpis: { salesToday, openOrders, staffOnShift, avgTicketToday },
-          trend,
-          recentPaid,
+          kpis: { salesTotal, ordersTotal, avgTicket, openOrders },
+          trend: daily.map(d => ({ key: d.date, revenue: d.grossSales, orders: d.orderCount })),
         });
       } catch (e) {
         return next(e);
       }
-    });
+    }
+  );
+
+  r.get(
+    '/manager/reports/status-summary',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Branch Manager', 'Cafe Owner'),
+    loadEntitlements,
+    requireModule('reports'),
+    requirePermission('reports.read'),
+    requireBranchId(),
+    async (req, res, next) => {
+      try {
+        const branchId = req.branchId || resolveBranchId(req);
+        const from = toIsoDateOnly(req.query?.from);
+        const to = toIsoDateOnly(req.query?.to);
+        if (!from || !to) return res.status(400).json({ error: 'invalid_range' });
+
+        const agg = await ensureAggregatedForRange({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+        if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
+
+        const summary = await getOrderStatusSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+        if (!summary?.ok) return res.status(400).json({ error: summary?.error || 'invalid_range' });
+
+        return res.json({ ok: true, branchId, from, to, summary });
+      } catch (e) {
+        return next(e);
+      }
+    }
+  );
 
   r.get(
     '/manager/settings',
@@ -264,11 +241,7 @@ const makeManagerRouter = () => {
       try {
         const branchId = req.branchId || resolveBranchId(req);
 
-        const row = await db()
-          .select(['settings_json'])
-          .from('manager_settings')
-          .where({ tenant_id: req.tenant.id, branch_id: branchId })
-          .first();
+        const row = await db().select(['settings_json']).from('manager_settings').where({ tenant_id: req.tenant.id, branch_id: branchId }).first();
 
         const settings = (() => {
           try {
@@ -296,135 +269,21 @@ const makeManagerRouter = () => {
     async (req, res, next) => {
       try {
         const branchId = req.branchId || resolveBranchId(req);
+        const settings = req.body?.settings || {};
 
-        const body = req.body && typeof req.body === 'object' ? req.body : null;
-        const settings = body && body.settings && typeof body.settings === 'object' ? body.settings : null;
-        if (!settings) return res.status(400).json({ error: 'invalid_settings' });
-
-        const nowIso = new Date().toISOString();
         await db()
           .from('manager_settings')
-          .insert({ tenant_id: req.tenant.id, branch_id: branchId, settings_json: JSON.stringify(settings), updated_at: nowIso })
+          .insert({
+            tenant_id: req.tenant.id,
+            branch_id: branchId,
+            settings_json: JSON.stringify(settings),
+          })
           .onConflict(['tenant_id', 'branch_id'])
-          .merge({ settings_json: JSON.stringify(settings), updated_at: nowIso });
+          .merge({
+            settings_json: JSON.stringify(settings),
+          });
 
-        const row = await db()
-          .select(['settings_json'])
-          .from('manager_settings')
-          .where({ tenant_id: req.tenant.id, branch_id: branchId })
-          .first();
-
-        const stored = (() => {
-          try {
-            return row?.settings_json ? JSON.parse(String(row.settings_json)) : {};
-          } catch {
-            return {};
-          }
-        })();
-
-        return res.json({ ok: true, tenantId: req.tenant.id, branchId, settings: stored });
-      } catch (e) {
-        return next(e);
-      }
-    });
-
-  // Integrations (read-only for Branch Manager UI)
-  r.get(
-    '/manager/integrations',
-    tenantMiddleware,
-    requireAuth,
-    requireRole('Branch Manager', 'Cafe Owner'),
-    loadEntitlements,
-    requireModule('settings'),
-    requirePermission('manager.settings.read'),
-    requireBranchId(),
-    async (req, res, next) => {
-      try {
-        const rows = await db()
-          .from({ ti: 'tenant_integrations' })
-          .leftJoin({ ic: 'integrations_catalog' }, 'ic.id', 'ti.integration_id')
-          .select([
-            'ti.id',
-            'ti.integration_id',
-            'ti.status',
-            'ti.installed_at',
-            'ti.updated_at',
-            'ic.code',
-            'ic.name',
-            'ic.category',
-            'ic.integration_type',
-            'ic.is_available',
-          ])
-          .where({ 'ti.tenant_id': req.tenant.id })
-          .orderBy('ti.updated_at', 'desc')
-          .limit(500);
-
-        const installed = (rows || []).map((r0) => ({
-          id: String(r0.id),
-          integrationId: String(r0.integration_id || ''),
-          code: r0.code != null ? String(r0.code) : '',
-          name: r0.name != null ? String(r0.name) : '',
-          category: r0.category != null ? String(r0.category) : '',
-          integrationType: r0.integration_type != null ? String(r0.integration_type) : '',
-          isAvailable: Boolean(r0.is_available),
-          status: String(r0.status || 'installed'),
-          installedAt: r0.installed_at ? new Date(r0.installed_at).toISOString() : '',
-          updatedAt: r0.updated_at ? new Date(r0.updated_at).toISOString() : '',
-        }));
-
-        return res.json({ ok: true, installed });
-      } catch (e) {
-        return next(e);
-      }
-    });
-
-  // Add-ons (read-only for Branch Manager UI)
-  r.get(
-    '/manager/addons',
-    tenantMiddleware,
-    requireAuth,
-    requireRole('Branch Manager', 'Cafe Owner'),
-    loadEntitlements,
-    requireModule('settings'),
-    requirePermission('manager.settings.read'),
-    requireBranchId(),
-    async (req, res, next) => {
-      try {
-        const rows = await db()
-          .from({ tas: 'tenant_addon_subscriptions' })
-          .leftJoin({ ap: 'addon_packages' }, 'ap.id', 'tas.addon_id')
-          .select([
-            'tas.id',
-            'tas.addon_id',
-            'tas.status',
-            'tas.billing_frequency',
-            'tas.price_paid_etb',
-            'tas.activation_date',
-            'tas.next_renewal_date',
-            'tas.cancellation_date',
-            'ap.code',
-            'ap.name',
-            'ap.category',
-          ])
-          .where({ 'tas.tenant_id': req.tenant.id })
-          .orderBy('tas.updated_at', 'desc')
-          .limit(500);
-
-        const subscriptions = (rows || []).map((r0) => ({
-          id: String(r0.id),
-          addonId: String(r0.addon_id || ''),
-          code: r0.code != null ? String(r0.code) : '',
-          name: r0.name != null ? String(r0.name) : '',
-          category: r0.category != null ? String(r0.category) : '',
-          status: String(r0.status || ''),
-          billingFrequency: String(r0.billing_frequency || 'monthly'),
-          pricePaidEtb: Number(r0.price_paid_etb || 0) || 0,
-          activationDate: r0.activation_date ? new Date(r0.activation_date).toISOString() : '',
-          nextRenewalDate: r0.next_renewal_date ? new Date(r0.next_renewal_date).toISOString() : '',
-          cancellationDate: r0.cancellation_date ? new Date(r0.cancellation_date).toISOString() : '',
-        }));
-
-        return res.json({ ok: true, subscriptions });
+        return res.json({ ok: true });
       } catch (e) {
         return next(e);
       }
@@ -435,26 +294,27 @@ const makeManagerRouter = () => {
     tenantMiddleware,
     requireAuth,
     requireRole('Branch Manager', 'Cafe Owner'),
-    requirePermission('manager.settings.write'),
-    requireBranchId(),
+    loadEntitlements,
+    requirePermission('settings.write'),
     async (req, res, next) => {
       try {
-        const dataUrl = String(req.body?.dataUrl || '').trim();
-        if (!dataUrl.startsWith('data:')) return res.status(400).json({ error: 'invalid_dataUrl' });
+        const { image } = req.body;
+        if (!image) return res.status(400).json({ error: 'missing_image' });
 
-        const m = dataUrl.match(/^data:([a-zA-Z0-9/+.-]+);base64,(.+)$/);
-        if (!m) return res.status(400).json({ error: 'invalid_dataUrl' });
-        const mime = String(m[1] || '').toLowerCase();
-        const b64 = String(m[2] || '');
+        const parts = image.split(';base64,');
+        if (parts.length !== 2) return res.status(400).json({ error: 'invalid_image_format' });
 
-        const allowed = new Map([
-          ['image/png', 'png'],
-          ['image/jpeg', 'jpg'],
-          ['image/jpg', 'jpg'],
-          ['image/webp', 'webp'],
-          ['image/gif', 'gif'],
-        ]);
-        const ext = allowed.get(mime);
+        const meta = parts[0];
+        const b64 = parts[1];
+
+        const ext = meta.includes('image/png')
+          ? 'png'
+          : meta.includes('image/jpeg')
+            ? 'jpg'
+            : meta.includes('image/webp')
+              ? 'webp'
+              : '';
+
         if (!ext) return res.status(400).json({ error: 'unsupported_image_type' });
 
         const buf = Buffer.from(b64, 'base64');
@@ -507,26 +367,22 @@ const makeManagerRouter = () => {
         const fromAt = parseIso(req.query?.from);
         const toAt = parseIso(req.query?.to);
 
-        const businessHeader = (() => {
-          return {
-            businessName: '',
-            legalName: '',
-            tin: '',
-            phone: '',
-            email: '',
-            address: '',
-            receipt: { showTin: true, logoDataUrl: '' },
-          };
-        })();
+        const businessHeader = {
+          businessName: '',
+          legalName: '',
+          tin: '',
+          phone: '',
+          email: '',
+          address: '',
+          receipt: { showTin: true, logoDataUrl: '' },
+        };
 
         try {
           const row = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: req.tenant.id }).first();
-          let settings;
+          let settings = {};
           try {
             settings = row?.settings_json ? JSON.parse(String(row.settings_json)) : {};
-          } catch {
-            settings = {};
-          }
+          } catch (e) {}
           const business = settings?.business && typeof settings.business === 'object' ? settings.business : {};
           const receipt = settings?.receipt && typeof settings.receipt === 'object' ? settings.receipt : {};
           businessHeader.businessName = String(business.businessName || '').trim();
@@ -539,9 +395,7 @@ const makeManagerRouter = () => {
             showTin: typeof receipt.showTin === 'boolean' ? receipt.showTin : true,
             logoDataUrl: typeof receipt.logoDataUrl === 'string' ? receipt.logoDataUrl : '',
           };
-        } catch {
-          // ignore
-        }
+        } catch (e) {}
 
         const staffRows = await db()
           .from('staff')
@@ -563,7 +417,6 @@ const makeManagerRouter = () => {
           .from('shift_logs')
           .where({ tenant_id: req.tenant.id, branch_id: branchId });
 
-        // If a range is provided, fetch shifts overlapping the range.
         if (fromAt && toAt && toAt.getTime() >= fromAt.getTime()) {
           const fromIso = fromAt.toISOString();
           const toIso = toAt.toISOString();
@@ -578,24 +431,14 @@ const makeManagerRouter = () => {
           shiftQ = shiftQ.orderBy('clock_in_at', 'desc').limit(200);
         }
 
-        const shiftRows = await shiftQ.select(['id', 'staff_id', 'clock_in_at', 'clock_out_at']);
+        const shiftRowsResult = await shiftQ.select(['id', 'staff_id', 'clock_in_at', 'clock_out_at']);
 
-        const shiftLogs = shiftRows.map((l) => ({
+        const shiftLogs = shiftRowsResult.map((l) => ({
           id: String(l.id),
           staffId: String(l.staff_id),
           clockInAt: l.clock_in_at ? new Date(l.clock_in_at).toISOString() : '',
           clockOutAt: l.clock_out_at ? new Date(l.clock_out_at).toISOString() : null,
         }));
-
-        const safeJsonParse = (raw, fallback) => {
-          try {
-            if (!raw) return fallback;
-            const parsed = JSON.parse(String(raw));
-            return parsed ?? fallback;
-          } catch {
-            return fallback;
-          }
-        };
 
         const cashRows = await db()
           .from('finance_ledger')
@@ -665,77 +508,26 @@ const makeManagerRouter = () => {
     async (req, res, next) => {
       try {
         const branchId = req.branchId || resolveBranchId(req);
-
         const from = toIsoDateOnly(req.query?.from);
         const to = toIsoDateOnly(req.query?.to);
         if (!from || !to) return res.status(400).json({ error: 'invalid_range' });
 
-        const limit = Math.max(1, Math.min(400, normalizeInt(req.query?.limit, 120)));
+        const agg = await ensureAggregatedForRange({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+        if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
 
-        const rows = await db()
-          .from('daily_sales_summary')
-          .where({ tenant_id: req.tenant.id, branch_id: branchId })
-          .andWhere('report_date', '>=', from)
-          .andWhere('report_date', '<=', to)
-          .orderBy('report_date', 'asc')
-          .limit(limit)
-          .select([
-            'report_date',
-            'order_count',
-            'item_count',
-            'gross_sales_etb',
-            'discounts_etb',
-            'net_sales_etb',
-            'tax_etb',
-            'tips_etb',
-            'total_collected_etb',
-            'void_count',
-            'void_amount_etb',
-            'refund_count',
-            'refund_amount_etb',
-            'payment_breakdown_json',
-            'avg_ticket_etb',
-            'first_order_at',
-            'last_order_at',
-            'computed_at',
-          ]);
-
-        const safeJsonParse = (raw, fallback) => {
-          try {
-            if (!raw) return fallback;
-            const parsed = JSON.parse(String(raw));
-            return parsed ?? fallback;
-          } catch {
-            return fallback;
-          }
-        };
-
-        const daily = rows.map((r) => ({
-          date: r.report_date ? new Date(r.report_date).toISOString().slice(0, 10) : '',
-          orderCount: Number(r.order_count || 0) || 0,
-          itemCount: Number(r.item_count || 0) || 0,
-          grossSales: Number(r.gross_sales_etb || 0) || 0,
-          discounts: Number(r.discounts_etb || 0) || 0,
-          netSales: Number(r.net_sales_etb || 0) || 0,
-          tax: Number(r.tax_etb || 0) || 0,
-          tips: Number(r.tips_etb || 0) || 0,
-          totalCollected: Number(r.total_collected_etb || 0) || 0,
-          voidCount: Number(r.void_count || 0) || 0,
-          voidAmount: Number(r.void_amount_etb || 0) || 0,
-          refundCount: Number(r.refund_count || 0) || 0,
-          refundAmount: Number(r.refund_amount_etb || 0) || 0,
-          paymentBreakdown: safeJsonParse(r.payment_breakdown_json, {}),
-          avgTicket: Number(r.avg_ticket_etb || 0) || 0,
-          firstOrderAt: r.first_order_at ? new Date(r.first_order_at).toISOString() : null,
-          lastOrderAt: r.last_order_at ? new Date(r.last_order_at).toISOString() : null,
-          computedAt: r.computed_at ? new Date(r.computed_at).toISOString() : null,
-        }));
+        const daily = await getDailySalesSummary({
+          tenantId: req.tenant.id,
+          branchId,
+          fromDate: from,
+          toDate: to,
+        });
 
         return res.json({ ok: true, branchId, from, to, daily });
       } catch (e) {
         return next(e);
       }
-    });
+    }
+  );
 
   // Export: XLSX (multi-sheet)
   r.get(
@@ -754,16 +546,16 @@ const makeManagerRouter = () => {
         const from = toIsoDateOnly(req.query?.from);
         const to = toIsoDateOnly(req.query?.to);
         if (!from || !to) return res.status(400).json({ error: 'invalid_range' });
-        if (new Date(`${to}T00:00:00.000Z`).getTime() < new Date(`${from}T00:00:00.000Z`).getTime()) {
-          return res.status(400).json({ error: 'invalid_range' });
-        }
 
         const agg = await ensureAggregatedForRange({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
         if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
 
-        const businessName = await getTenantBusinessName(req.tenant.id);
-
-        const [daily, products, staff, voids] = await Promise.all([
+        const [
+          daily,
+          products,
+          staff,
+          voids,
+        ] = await Promise.all([
           getDailySalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to }),
           getProductPerformance({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 5000 }),
           getStaffSalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 5000 }),
@@ -802,8 +594,9 @@ const makeManagerRouter = () => {
         const payments = sumPaymentBreakdown(daily);
 
         const { buildOwnerReportWorkbook } = require('../services/reportXlsxExportService');
+        const bizName = await getTenantBusinessName(req.tenant.id);
         const buf = await buildOwnerReportWorkbook({
-          businessName,
+          businessName: bizName,
           fromDate: from,
           toDate: to,
           daily,
@@ -813,7 +606,9 @@ const makeManagerRouter = () => {
           voids,
         });
 
-        const filename = `mirachpos_reports_${branchId}_${from}_to_${to}.xlsx`;
+        const branchRow = await db().select(['name']).from('branches').where({ tenant_id: req.tenant.id, id: branchId }).first();
+        const branchName = sanitizeFilenamePart(branchRow?.name || '') || sanitizeFilenamePart(branchId) || 'branch';
+        const filename = `mirachpos_reports_${branchName}_${from}_to_${to}.xlsx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         return res.send(buf);
@@ -849,10 +644,20 @@ const makeManagerRouter = () => {
         if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
 
         const businessName = await getTenantBusinessName(req.tenant.id);
+
+        const settingsRow = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: req.tenant.id }).first();
+        const settingsRaw = settingsRow?.settings_json ? String(settingsRow.settings_json) : '';
+        const settingsParsed = settingsRaw ? safeJsonParse(settingsRaw, {}) : {};
+        const receipt = settingsParsed?.receipt && typeof settingsParsed.receipt === 'object' ? settingsParsed.receipt : {};
+        const logoDataUrl = typeof receipt.logoDataUrl === 'string' ? String(receipt.logoDataUrl) : '';
+
         const { generateReportPDF } = require('../services/pdfService');
 
         let pdfBuffer = null;
         let filename = `report_${branchId}_${from}_to_${to}.pdf`;
+
+        const branchRow = await db().select(['name']).from('branches').where({ tenant_id: req.tenant.id, id: branchId }).first();
+        const branchName = sanitizeFilenamePart(branchRow?.name || '') || sanitizeFilenamePart(branchId) || 'branch';
 
         if (reportType === 'daily') {
           const data = await getDailySalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
@@ -878,12 +683,12 @@ const makeManagerRouter = () => {
             { header: 'Net', key: 'netSales', width: 80, align: 'right', format: (n) => Number(n).toFixed(2) },
           ];
 
-          pdfBuffer = await generateReportPDF('Daily Sales Summary', { from, to }, columns, data, { businessName, totals });
-          filename = `daily_sales_${branchId}_${from}_to_${to}.pdf`;
+          pdfBuffer = await generateReportPDF('Daily Sales Summary', { from, to }, columns, data, { businessName, totals, logoDataUrl });
+          filename = `daily_sales_${branchName}_${from}_to_${to}.pdf`;
         }
 
         if (reportType === 'products') {
-          const data = await getProductPerformance({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 500 });
+          const data = await getProductPerformance({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 5000 });
           const totals = (() => {
             const qty = data.reduce((s, r) => s + (Number(r.qtySold || 0) || 0), 0);
             const revenue = data.reduce((s, r) => s + (Number(r.revenue || 0) || 0), 0);
@@ -905,8 +710,8 @@ const makeManagerRouter = () => {
             { header: 'Profit', key: 'profit', width: 80, align: 'right', format: (n) => Number(n).toFixed(2) },
           ];
 
-          pdfBuffer = await generateReportPDF('Product Performance', { from, to }, columns, data, { businessName, totals });
-          filename = `product_performance_${branchId}_${from}_to_${to}.pdf`;
+          pdfBuffer = await generateReportPDF('Product Performance', { from, to }, columns, data, { businessName, totals, logoDataUrl });
+          filename = `product_performance_${branchName}_${from}_to_${to}.pdf`;
         }
 
         if (!pdfBuffer) return res.status(400).json({ error: 'invalid_type' });
@@ -1402,5 +1207,4 @@ const makeManagerRouter = () => {
 
   return r;
 };
-
 module.exports = { makeManagerRouter };

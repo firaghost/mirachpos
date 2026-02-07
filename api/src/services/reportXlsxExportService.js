@@ -5,14 +5,46 @@ const asNumber = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+// Helper to format date without timezone shift
+const formatDateOnly = (dateStr) => {
+  const s = String(dateStr || '').trim();
+  if (!s) return '';
+  // If already in YYYY-MM-DD format, return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Try to parse and format without timezone conversion
+  try {
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return s;
+    // Format as YYYY-MM-DD using UTC to avoid shift
+    return d.toISOString().slice(0, 10);
+  } catch {
+    return s;
+  }
+};
+
 const toIsoDateOnly = (raw) => {
   const s = String(raw || '').trim();
   if (!s) return '';
-  const m = /^\d{4}-\d{2}-\d{2}$/.exec(s);
-  if (!m) return '';
-  const d = new Date(`${s}T00:00:00.000Z`);
-  if (Number.isNaN(d.getTime())) return '';
-  return s;
+  
+  // Extract YYYY-MM-DD directly from the string to avoid ANY Date object parsing
+  // which might apply a timezone shift based on the current machine's local time.
+  const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+  
+  // Last resort: if it's a timestamp or other format
+  try {
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return '';
+    // Use getUTC* to ensure zero timezone shift
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch {
+    return '';
+  }
 };
 
 const setColumns = (ws, columns) => {
@@ -23,18 +55,33 @@ const setColumns = (ws, columns) => {
   }));
 };
 
-const addMetaBlock = (ws, businessName, reportTitle, fromDate, toDate) => {
+const addMetaBlock = (ws, businessName, reportTitle, fromDate, toDate, maxCol = 8) => {
   const title = String(reportTitle || 'Report');
   const biz = String(businessName || '');
 
+  // Row 1: Business name - merged and centered
   ws.addRow([biz]);
-  ws.getRow(ws.rowCount).font = { bold: true, size: 14 };
+  const bizRow = ws.getRow(1);
+  bizRow.font = { bold: true, size: 16 };
+  bizRow.alignment = { horizontal: 'center' };
+  ws.mergeCells(1, 1, 1, maxCol);
 
+  // Row 2: Report title - merged and centered
   ws.addRow([title]);
-  ws.getRow(ws.rowCount).font = { bold: true, size: 12 };
+  const titleRow = ws.getRow(2);
+  titleRow.font = { bold: true, size: 14 };
+  titleRow.alignment = { horizontal: 'center' };
+  ws.mergeCells(2, 1, 2, maxCol);
 
-  const range = `${String(fromDate || '').trim()} → ${String(toDate || '').trim()}`.trim();
+  // Row 3: Date range - merged and centered
+  const range = `Period: ${String(fromDate || '').trim()} to ${String(toDate || '').trim()}`.trim();
   ws.addRow([range]);
+  const rangeRow = ws.getRow(3);
+  rangeRow.font = { size: 11 };
+  rangeRow.alignment = { horizontal: 'center' };
+  ws.mergeCells(3, 1, 3, maxCol);
+
+  // Row 4: Empty
   ws.addRow([]);
 };
 
@@ -42,15 +89,16 @@ const addTable = (ws, columns, rows) => {
   const cols = Array.isArray(columns) ? columns : [];
   const dataRows = Array.isArray(rows) ? rows : [];
 
+  const startRow = ws.rowCount + 1;
   ws.addRow(cols.map((c) => c.header));
-  const headerRow = ws.getRow(ws.rowCount);
+  const headerRow = ws.getRow(startRow);
   headerRow.font = { bold: true };
+  headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
 
   for (const r of dataRows) {
     ws.addRow(cols.map((c) => (r && Object.prototype.hasOwnProperty.call(r, c.key) ? r[c.key] : '')));
   }
 
-  const startRow = ws.rowCount - dataRows.length;
   const endRow = ws.rowCount;
 
   for (let i = startRow; i <= endRow; i++) {
@@ -58,7 +106,7 @@ const addTable = (ws, columns, rows) => {
     row.alignment = { vertical: 'middle' };
   }
 
-  ws.views = [{ state: 'frozen', ySplit: 5 }];
+  ws.views = [{ state: 'frozen', ySplit: startRow }];
 };
 
 const buildOwnerReportWorkbook = async ({
@@ -79,7 +127,7 @@ const buildOwnerReportWorkbook = async ({
   const to = toIsoDateOnly(toDate);
 
   const dailySheet = wb.addWorksheet('Summary');
-  addMetaBlock(dailySheet, businessName, 'Sales Summary', from || fromDate, to || toDate);
+  addMetaBlock(dailySheet, businessName, 'Sales Summary', from || fromDate, to || toDate, 11);
   const dailyCols = [
     { header: 'Date', key: 'date', width: 14 },
     { header: 'Branch', key: 'branchId', width: 18 },
@@ -111,12 +159,13 @@ const buildOwnerReportWorkbook = async ({
   addTable(dailySheet, dailyCols.map((c) => ({ header: c.header, key: c.key })), dailyRows);
 
   const productsSheet = wb.addWorksheet('Products');
-  addMetaBlock(productsSheet, businessName, 'Product Performance', from || fromDate, to || toDate);
+  addMetaBlock(productsSheet, businessName, 'Product Performance', from || fromDate, to || toDate, 9);
   const productCols = [
     { header: 'Product ID', key: 'productId', width: 18 },
     { header: 'Name', key: 'name', width: 32 },
     { header: 'Category', key: 'category', width: 20 },
     { header: 'Qty Sold', key: 'qtySold', width: 12 },
+    { header: 'Unit Price', key: 'unitPrice', width: 14, style: { numFmt: '#,##0.00' } },
     { header: 'Revenue', key: 'revenue', width: 14, style: { numFmt: '#,##0.00' } },
     { header: 'Cost', key: 'cost', width: 14, style: { numFmt: '#,##0.00' } },
     { header: 'Profit', key: 'profit', width: 14, style: { numFmt: '#,##0.00' } },
@@ -129,6 +178,7 @@ const buildOwnerReportWorkbook = async ({
     name: String(r?.name || ''),
     category: String(r?.category || ''),
     qtySold: asNumber(r?.qtySold),
+    unitPrice: asNumber(r?.qtySold) > 0 ? asNumber(r?.revenue) / asNumber(r?.qtySold) : 0,
     revenue: asNumber(r?.revenue),
     cost: asNumber(r?.cost),
     profit: asNumber(r?.profit),
@@ -137,7 +187,7 @@ const buildOwnerReportWorkbook = async ({
   addTable(productsSheet, productCols.map((c) => ({ header: c.header, key: c.key })), prodRows);
 
   const staffSheet = wb.addWorksheet('Staff');
-  addMetaBlock(staffSheet, businessName, 'Staff Sales', from || fromDate, to || toDate);
+  addMetaBlock(staffSheet, businessName, 'Staff Sales', from || fromDate, to || toDate, 9);
   const staffCols = [
     { header: 'Staff ID', key: 'staffId', width: 18 },
     { header: 'Name', key: 'staffName', width: 28 },
@@ -165,7 +215,7 @@ const buildOwnerReportWorkbook = async ({
   addTable(staffSheet, staffCols.map((c) => ({ header: c.header, key: c.key })), staffRows);
 
   const paymentsSheet = wb.addWorksheet('Payments');
-  addMetaBlock(paymentsSheet, businessName, 'Payments Breakdown', from || fromDate, to || toDate);
+  addMetaBlock(paymentsSheet, businessName, 'Payments Breakdown', from || fromDate, to || toDate, 2);
   const paymentCols = [
     { header: 'Method', key: 'method', width: 20 },
     { header: 'Amount', key: 'amount', width: 16, style: { numFmt: '#,##0.00' } },
@@ -181,7 +231,7 @@ const buildOwnerReportWorkbook = async ({
   addTable(paymentsSheet, paymentCols.map((c) => ({ header: c.header, key: c.key })), paymentRows);
 
   const voidsSheet = wb.addWorksheet('Voids');
-  addMetaBlock(voidsSheet, businessName, 'Voids & Refunds', from || fromDate, to || toDate);
+  addMetaBlock(voidsSheet, businessName, 'Voids & Refunds', from || fromDate, to || toDate, 9);
   const voidCols = [
     { header: 'ID', key: 'id', width: 18 },
     { header: 'Type', key: 'type', width: 10 },

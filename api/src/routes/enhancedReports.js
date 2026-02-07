@@ -6,7 +6,7 @@
  * - Product performance
  * - Shift reports
  * - Void/refund analysis
- * - PDF/CSV export
+ * - PDF export
  */
 
 const express = require('express');
@@ -28,6 +28,7 @@ const {
     aggregateHourlySales,
     aggregateProductSales,
     ensureAggregatedForRange,
+    getOrderStatusSummary,
 } = require('../services/reportAggregationService');
 
 const safeJsonParse = (raw, fallback) => {
@@ -48,8 +49,24 @@ const requireOwnerAuth = (req, res) => {
 };
 
 const toDateString = (d) => {
-    const x = new Date(d);
-    return x.toISOString().split('T')[0];
+    const s = String(d || '').trim();
+    if (!s) return '';
+    
+    const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+        return `${match[1]}-${match[2]}-${match[3]}`;
+    }
+    
+    try {
+        const x = new Date(d);
+        if (Number.isNaN(x.getTime())) return '';
+        const year = x.getUTCFullYear();
+        const month = String(x.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(x.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    } catch {
+        return '';
+    }
 };
 
 const getOwnerBusinessName = async (tenantId) => {
@@ -63,6 +80,15 @@ const getOwnerBusinessName = async (tenantId) => {
     } catch {
         return 'MirachPOS';
     }
+};
+
+const sanitizeFilenamePart = (raw) => {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    return s
+        .replace(/\s+/g, '_')
+        .replace(/[^a-zA-Z0-9._-]/g, '')
+        .slice(0, 60);
 };
 
 const sumPaymentBreakdown = (dailyRows) => {
@@ -132,6 +158,25 @@ const makeEnhancedReportsRouter = () => {
                 },
                 dateRange: { from, to },
             });
+        } catch (e) {
+            return next(e);
+        }
+    });
+
+    r.get('/owner/reports/status-summary', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
+        try {
+            if (!requireOwnerAuth(req, res)) return;
+
+            const branchId = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : null;
+            const from = toDateString(req.query?.from);
+            const to = toDateString(req.query?.to);
+
+            if (!from || !to) return res.status(400).json({ error: 'invalid_range' });
+
+            const summary = await getOrderStatusSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+            if (!summary?.ok) return res.status(400).json({ error: summary?.error || 'invalid_range' });
+
+            return res.json({ ok: true, branchId, from, to, summary });
         } catch (e) {
             return next(e);
         }
@@ -495,66 +540,6 @@ const makeEnhancedReportsRouter = () => {
         }
     });
 
-    // Export report data as CSV
-    r.get('/owner/reports/export/csv', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
-        try {
-            if (!requireOwnerAuth(req, res)) return;
-            const reportType = typeof req.query?.type === 'string' ? req.query.type.trim() : 'daily';
-            const branchId = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : null;
-            const fromIso = typeof req.query?.from === 'string' ? req.query.from.trim() : '';
-            const toIso = typeof req.query?.to === 'string' ? req.query.to.trim() : '';
-
-            const now = new Date();
-            const from = fromIso && !Number.isNaN(new Date(fromIso).getTime())
-                ? toDateString(fromIso)
-                : toDateString(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
-            const to = toIso && !Number.isNaN(new Date(toIso).getTime())
-                ? toDateString(toIso)
-                : toDateString(now);
-            if (new Date(to).getTime() < new Date(from).getTime()) {
-                return res.status(400).json({ error: 'invalid_range' });
-            }
-
-            const agg = await ensureAggregatedForRange({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
-            if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
-
-            let csvContent = '';
-            let filename = 'report.csv';
-
-            if (reportType === 'daily') {
-                const data = await getDailySalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
-
-                csvContent = 'Date,Branch ID,Orders,Items,Gross Sales,Discounts,Net Sales,Tax,Tips,Total Collected,Avg Ticket\n';
-                for (const row of data) {
-                    csvContent += `${row.date},${row.branchId},${row.orderCount},${row.itemCount},${row.grossSales},${row.discounts},${row.netSales},${row.tax},${row.tips},${row.totalCollected},${row.avgTicket}\n`;
-                }
-                filename = `daily_sales_${from}_to_${to}.csv`;
-            } else if (reportType === 'products') {
-                const data = await getProductPerformance({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 5000 });
-
-                csvContent = 'Product ID,Name,Category,Qty Sold,Revenue,Cost,Profit,Void Qty\n';
-                for (const row of data) {
-                    csvContent += `${row.productId},"${row.name.replace(/"/g, '""')}","${row.category.replace(/"/g, '""')}",${row.qtySold},${row.revenue},${row.cost},${row.profit},${row.voidQty}\n`;
-                }
-                filename = `product_performance_${from}_to_${to}.csv`;
-            } else if (reportType === 'hourly') {
-                const data = await getHourlySalesHeatmap({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
-
-                csvContent = 'Hour,Label,Order Count,Sales,Avg Sales\n';
-                for (const row of data) {
-                    csvContent += `${row.hour},${row.label},${row.orderCount},${row.sales},${row.avgSales}\n`;
-                }
-                filename = `hourly_sales_${from}_to_${to}.csv`;
-            }
-
-            res.setHeader('Content-Type', 'text/csv');
-            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-            return res.send(csvContent);
-        } catch (e) {
-            return next(e);
-        }
-    });
-
     // Export report data as PDF
     r.get('/owner/reports/export/pdf', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
         try {
@@ -566,12 +551,9 @@ const makeEnhancedReportsRouter = () => {
             const toIso = typeof req.query?.to === 'string' ? req.query.to.trim() : '';
 
             const now = new Date();
-            const from = fromIso && !Number.isNaN(new Date(fromIso).getTime())
-                ? toDateString(fromIso)
-                : toDateString(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
-            const to = toIso && !Number.isNaN(new Date(toIso).getTime())
-                ? toDateString(toIso)
-                : toDateString(now);
+            const from = fromIso ? toDateString(fromIso) : toDateString(new Date(now.getTime() - 13 * 24 * 60 * 60 * 1000));
+            const to = toIso ? toDateString(toIso) : toDateString(now);
+
             if (new Date(to).getTime() < new Date(from).getTime()) {
                 return res.status(400).json({ error: 'invalid_range' });
             }
@@ -579,17 +561,27 @@ const makeEnhancedReportsRouter = () => {
             const agg = await ensureAggregatedForRange({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
             if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
 
-            // Dynamically require to ensure service is available
             const { generateReportPDF } = require('../services/pdfService');
-
             const businessName = await getOwnerBusinessName(req.tenant.id);
 
+            const settingsRow = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: req.tenant.id }).first();
+            const settingsRaw = settingsRow?.settings_json ? String(settingsRow.settings_json) : '';
+            const settingsParsed = safeJsonParse(settingsRaw, {});
+            const receipt = settingsParsed?.receipt && typeof settingsParsed.receipt === 'object' ? settingsParsed.receipt : {};
+            const logoDataUrl = typeof receipt.logoDataUrl === 'string' ? String(receipt.logoDataUrl) : '';
+
+            let branchName = '';
+            if (branchId) {
+                const br = await db().select(['name']).from('branches').where({ tenant_id: req.tenant.id, id: branchId }).first();
+                branchName = sanitizeFilenamePart(br?.name || '') || sanitizeFilenamePart(branchId);
+            }
+            const fileScope = branchName || 'all';
+
             let pdfBuffer = null;
-            let filename = 'report.pdf';
+            let filename = `owner_report_${fileScope}_${from}_to_${to}.pdf`;
 
             if (reportType === 'daily') {
                 const data = await getDailySalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
-
                 const totals = (() => {
                     const orders = data.reduce((s, r) => s + (Number(r.orderCount || 0) || 0), 0);
                     const netSales = data.reduce((s, r) => s + (Number(r.netSales || 0) || 0), 0);
@@ -608,16 +600,16 @@ const makeEnhancedReportsRouter = () => {
                 const columns = [
                     { header: 'Date', key: 'date', width: 70 },
                     { header: 'Orders', key: 'orderCount', width: 60, align: 'center' },
-                    { header: 'Gross', key: 'grossSales', width: 80, align: 'right', format: n => Number(n).toFixed(2) },
-                    { header: 'Net', key: 'netSales', width: 80, align: 'right', format: n => Number(n).toFixed(2) },
+                    { header: 'Gross', key: 'grossSales', width: 80, align: 'right', format: (n) => Number(n).toFixed(2) },
+                    { header: 'Net', key: 'netSales', width: 80, align: 'right', format: (n) => Number(n).toFixed(2) },
                 ];
 
-                pdfBuffer = await generateReportPDF('Daily Sales Summary', { from, to }, columns, data, { businessName, totals });
-                filename = `daily_sales_${from}_to_${to}.pdf`;
+                pdfBuffer = await generateReportPDF('Daily Sales Summary', { from, to }, columns, data, { businessName, totals, logoDataUrl });
+                filename = `owner_daily_sales_${fileScope}_${from}_to_${to}.pdf`;
+            }
 
-            } else if (reportType === 'products') {
+            if (reportType === 'products') {
                 const data = await getProductPerformance({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 5000 });
-
                 const totals = (() => {
                     const qty = data.reduce((s, r) => s + (Number(r.qtySold || 0) || 0), 0);
                     const revenue = data.reduce((s, r) => s + (Number(r.revenue || 0) || 0), 0);
@@ -632,39 +624,15 @@ const makeEnhancedReportsRouter = () => {
                 })();
 
                 const columns = [
-                    { header: 'Product', key: 'name', width: 150 },
+                    { header: 'Product', key: 'name', width: 160 },
                     { header: 'Category', key: 'category', width: 100 },
-                    { header: 'Qty', key: 'qtySold', width: 60, align: 'right' },
-                    { header: 'Revenue', key: 'revenue', width: 80, align: 'right', format: n => Number(n).toFixed(2) },
-                    { header: 'Cost', key: 'cost', width: 80, align: 'right', format: n => Number(n).toFixed(2) },
-                    { header: 'Profit', key: 'profit', width: 80, align: 'right', format: n => Number(n).toFixed(2) },
-                    { header: 'Void Qty', key: 'voidQty', width: 70, align: 'right' },
+                    { header: 'Qty', key: 'qtySold', width: 60, align: 'center' },
+                    { header: 'Revenue', key: 'revenue', width: 80, align: 'right', format: (n) => Number(n).toFixed(2) },
+                    { header: 'Profit', key: 'profit', width: 80, align: 'right', format: (n) => Number(n).toFixed(2) },
                 ];
 
-                pdfBuffer = await generateReportPDF('Product Performance', { from, to }, columns, data, { businessName, totals });
-                filename = `product_performance_${from}_to_${to}.pdf`;
-
-            } else if (reportType === 'hourly') {
-                const data = await getHourlySalesHeatmap({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
-
-                const totals = (() => {
-                    const orders = data.reduce((s, r) => s + (Number(r.orderCount || 0) || 0), 0);
-                    const sales = data.reduce((s, r) => s + (Number(r.sales || 0) || 0), 0);
-                    return [
-                        { label: 'Orders', value: String(orders) },
-                        { label: 'Sales', value: `ETB ${sales.toFixed(2)}` },
-                    ];
-                })();
-
-                const columns = [
-                    { header: 'Time', key: 'label', width: 80 },
-                    { header: 'Orders', key: 'orderCount', width: 80, align: 'center' },
-                    { header: 'Sales', key: 'sales', width: 100, align: 'right', format: n => Number(n).toFixed(2) },
-                    { header: 'Avg Tkt', key: 'avgSales', width: 100, align: 'right', format: n => Number(n).toFixed(2) },
-                ];
-
-                pdfBuffer = await generateReportPDF('Hourly Sales Analysis', { from, to }, columns, data, { businessName, totals });
-                filename = `hourly_sales_${from}_to_${to}.pdf`;
+                pdfBuffer = await generateReportPDF('Product Performance', { from, to }, columns, data, { businessName, totals, logoDataUrl });
+                filename = `owner_product_performance_${fileScope}_${from}_to_${to}.pdf`;
             }
 
             if (!pdfBuffer) return res.status(400).json({ error: 'invalid_type' });
@@ -677,22 +645,46 @@ const makeEnhancedReportsRouter = () => {
         }
     });
 
-    // Export report data as XLSX (multi-sheet)
+    // Get aggregated daily sales summary (dashboard / overview)
+    r.get('/owner/reports/daily', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
+        try {
+            if (!requireOwnerAuth(req, res)) return;
+
+            const branchId = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : null;
+            const from = toDateString(req.query?.from);
+            const to = toDateString(req.query?.to);
+
+            if (!from || !to) return res.status(400).json({ error: 'invalid_range' });
+
+            const agg = await ensureAggregatedForRange({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
+            if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
+
+            const daily = await getDailySalesSummary({
+                tenantId: req.tenant.id,
+                branchId,
+                fromDate: from,
+                toDate: to,
+            });
+
+            return res.json({ ok: true, branchId, from, to, daily });
+        } catch (e) {
+            return next(e);
+        }
+    });
+
+    // Export report data as XLSX
     r.get('/owner/reports/export/xlsx', tenantMiddleware, requireAuth, loadEntitlements, requireModule('reports'), async (req, res, next) => {
         try {
             if (!requireOwnerAuth(req, res)) return;
 
+            const reportType = typeof req.query?.type === 'string' ? req.query.type.trim() : 'daily';
             const branchId = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : null;
             const fromIso = typeof req.query?.from === 'string' ? req.query.from.trim() : '';
             const toIso = typeof req.query?.to === 'string' ? req.query.to.trim() : '';
 
             const now = new Date();
-            const from = fromIso && !Number.isNaN(new Date(fromIso).getTime())
-                ? toDateString(fromIso)
-                : toDateString(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
-            const to = toIso && !Number.isNaN(new Date(toIso).getTime())
-                ? toDateString(toIso)
-                : toDateString(now);
+            const from = fromIso ? toDateString(fromIso) : toDateString(new Date(now.getTime() - 13 * 24 * 60 * 60 * 1000));
+            const to = toIso ? toDateString(toIso) : toDateString(now);
 
             if (new Date(to).getTime() < new Date(from).getTime()) {
                 return res.status(400).json({ error: 'invalid_range' });
@@ -765,7 +757,13 @@ const makeEnhancedReportsRouter = () => {
                 voids: voidsRes,
             });
 
-            const filename = `mirachpos_reports_${from}_to_${to}.xlsx`;
+            let branchName = '';
+            if (branchId) {
+                const br = await db().select(['name']).from('branches').where({ tenant_id: req.tenant.id, id: branchId }).first();
+                branchName = sanitizeFilenamePart(br?.name || '') || sanitizeFilenamePart(branchId);
+            }
+            const fileScope = branchName || 'all';
+            const filename = `owner_reports_${fileScope}_${from}_to_${to}.xlsx`;
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
             return res.send(buf);

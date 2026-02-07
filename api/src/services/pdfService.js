@@ -17,6 +17,129 @@ const fmtMoney = (n) => {
     const safe = Number.isFinite(x) ? x : 0;
     return `ETB ${safe.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
+
+function drawKpiTiles(doc, totals) {
+    const items = Array.isArray(totals) ? totals : [];
+    if (!items.length) return;
+
+    const left = doc.page.margins.left;
+    const right = doc.page.width - doc.page.margins.right;
+    const width = right - left;
+    const tileGap = 10;
+    const tileH = 48;
+    const tilesPerRow = width >= 520 ? 4 : 3;
+    const tileW = (width - tileGap * (tilesPerRow - 1)) / tilesPerRow;
+
+    const maxTiles = Math.min(items.length, tilesPerRow);
+    ensureSpace(doc, tileH + 14);
+
+    doc.save();
+    let x = left;
+    const y = doc.y;
+    for (let i = 0; i < maxTiles; i++) {
+        const t = items[i] || {};
+        doc.roundedRect(x, y, tileW, tileH, 10).fill('#f8fafc');
+        doc.roundedRect(x, y, tileW, tileH, 10).strokeColor('#e5e7eb').lineWidth(1).stroke();
+
+        doc.fillColor('#64748b');
+        doc.font('Helvetica').fontSize(8);
+        doc.text(truncate(safeText(t.label || ''), 24), x + 10, y + 9, { width: tileW - 20, align: 'left' });
+
+        doc.fillColor('#0f172a');
+        doc.font('Helvetica-Bold').fontSize(11);
+        doc.text(truncate(safeText(t.value || ''), 22), x + 10, y + 24, { width: tileW - 20, align: 'left' });
+
+        x += tileW + tileGap;
+    }
+    doc.restore();
+
+    doc.y = y + tileH + 14;
+}
+
+function normalizeColumns(doc, columns) {
+    const left = doc.page.margins.left;
+    const right = doc.page.width - doc.page.margins.right;
+    const width = right - left;
+    const cols = Array.isArray(columns) ? columns : [];
+    const base = cols.map((c) => {
+        const w = Number(c?.width);
+        return { ...c, width: Number.isFinite(w) && w > 0 ? w : 100 };
+    });
+
+    const sum = base.reduce((s, c) => s + (Number(c.width) || 0), 0) || 1;
+    const usable = Math.max(280, width);
+    return base.map((c) => ({
+        ...c,
+        _w: Math.max(44, Math.floor((usable * (Number(c.width) || 0)) / sum)),
+    }));
+}
+
+function renderSimpleTable(doc, columns, rows) {
+    const cols = normalizeColumns(doc, columns);
+    const data = Array.isArray(rows) ? rows : [];
+
+    const left = doc.page.margins.left;
+    const right = doc.page.width - doc.page.margins.right;
+    const width = right - left;
+
+    const headerH = 22;
+    const rowH = 18;
+    const padX = 6;
+
+    const drawHeaderRow = () => {
+        ensureSpace(doc, headerH + rowH);
+
+        const y = doc.y;
+        doc.save();
+        doc.rect(left, y, width, headerH).fill('#111827');
+        doc.fillColor('#ffffff');
+        doc.font('Helvetica-Bold').fontSize(9);
+
+        let x = left;
+        for (const c of cols) {
+            doc.text(truncate(safeText(c.header || ''), 26), x + padX, y + 6, {
+                width: c._w - padX * 2,
+                align: c.align || 'left',
+                lineBreak: false,
+            });
+            x += c._w;
+        }
+        doc.restore();
+        doc.y = y + headerH;
+    };
+
+    drawHeaderRow();
+
+    for (let i = 0; i < data.length; i++) {
+        const r = data[i];
+        ensureSpace(doc, rowH + 8);
+        const y = doc.y;
+        const zebra = i % 2 === 0;
+        doc.save();
+        if (zebra) doc.rect(left, y, width, rowH).fill('#f8fafc');
+        doc.strokeColor('#e5e7eb').lineWidth(1);
+        doc.moveTo(left, y + rowH).lineTo(right, y + rowH).stroke();
+
+        doc.fillColor('#0f172a');
+        doc.font('Helvetica').fontSize(9);
+
+        let x = left;
+        for (const c of cols) {
+            const raw = r && Object.prototype.hasOwnProperty.call(r, c.key) ? r[c.key] : '';
+            const val = c.format ? c.format(raw) : safeText(raw);
+            const maxChars = Math.max(8, Math.floor((c._w - padX * 2) / 5));
+            doc.text(truncate(val, maxChars), x + padX, y + 5, {
+                width: c._w - padX * 2,
+                align: c.align || 'left',
+                lineBreak: false,
+            });
+            x += c._w;
+        }
+
+        doc.restore();
+        doc.y = y + rowH;
+    }
+}
 const fmtDate = (d) => {
     try {
         const dt = new Date(d);
@@ -38,6 +161,21 @@ const safeJsonParse = (raw, fallback) => {
 
 const safeText = (v) => String(v == null ? '' : v);
 
+const parseImageDataUrl = (dataUrl) => {
+    const raw = String(dataUrl || '').trim();
+    if (!raw) return null;
+    const m = /^data:image\/(png|jpe?g|webp);base64,(.+)$/i.exec(raw);
+    if (!m) return null;
+    try {
+        const ext = String(m[1] || '').toLowerCase();
+        const buf = Buffer.from(String(m[2] || ''), 'base64');
+        if (!buf.length) return null;
+        return { ext, buf };
+    } catch {
+        return null;
+    }
+};
+
 const truncate = (s, max) => {
     const str = safeText(s);
     if (str.length <= max) return str;
@@ -56,28 +194,50 @@ const drawReportHeader = (doc, opts) => {
     const reportTitle = safeText(opts?.reportTitle || 'Report').trim() || 'Report';
     const periodText = safeText(opts?.periodText || '').trim();
 
+    const accent = safeText(opts?.accent || '#111827').trim() || '#111827';
+    const logoDataUrl = opts?.logoDataUrl;
+    const parsedLogo = parseImageDataUrl(logoDataUrl);
+
     const top = doc.page.margins.top;
     const left = doc.page.margins.left;
     const right = doc.page.width - doc.page.margins.right;
 
     doc.save();
-    doc.fillColor('#111827');
-    doc.font('Helvetica-Bold').fontSize(16);
-    doc.text(truncate(businessName, 48), left, top, { width: right - left, align: 'left' });
+    doc.rect(left, top, right - left, 56).fill('#0b1220');
+    doc.rect(left, top + 56, right - left, 4).fill(accent);
 
-    doc.font('Helvetica').fontSize(9).fillColor('#6b7280');
-    doc.text(reportTitle.toUpperCase(), left, top + 20, { width: right - left, align: 'left' });
-    if (periodText) {
-        doc.text(periodText, left, top + 34, { width: right - left, align: 'left' });
+    const hasLogo = !!parsedLogo;
+    const logoSize = 28;
+    const logoX = left + 14;
+    const logoY = top + 14;
+    if (hasLogo) {
+        try {
+            doc.image(parsedLogo.buf, logoX, logoY, { width: logoSize, height: logoSize });
+        } catch {
+            // ignore
+        }
     }
 
-    doc.moveTo(left, top + 52).lineTo(right, top + 52).strokeColor('#e5e7eb').lineWidth(1).stroke();
+    const textX = hasLogo ? logoX + logoSize + 10 : left + 14;
+    const titleRightX = right - 14;
+
+    doc.fillColor('#ffffff');
+    doc.font('Helvetica-Bold').fontSize(14);
+    doc.text(truncate(businessName, 48), textX, top + 12, { width: titleRightX - textX, align: 'left' });
+
+    doc.font('Helvetica').fontSize(9).fillColor('#cbd5e1');
+    doc.text(reportTitle.toUpperCase(), textX, top + 30, { width: titleRightX - textX, align: 'left' });
+    if (periodText) {
+        doc.text(periodText, textX, top + 42, { width: titleRightX - textX, align: 'left' });
+    }
+
     doc.restore();
 
-    doc.y = Math.max(doc.y, top + 64);
+    doc.y = Math.max(doc.y, top + 74);
 };
 
 const drawReportFooter = (doc, opts) => {
+    const yBefore = doc.y;
     const left = doc.page.margins.left;
     const right = doc.page.width - doc.page.margins.right;
     const bottom = doc.page.height - doc.page.margins.bottom;
@@ -93,6 +253,8 @@ const drawReportFooter = (doc, opts) => {
     doc.text(`Page ${pageNum}`, left, bottom - 14, { width: right - left, align: 'right' });
     doc.text('Powered by MirachPOS', left, bottom - 14, { width: right - left, align: 'left' });
     doc.restore();
+
+    doc.y = yBefore;
 };
 
 const drawTotalsBlock = (doc, totals) => {
@@ -398,6 +560,8 @@ const generateReportPDF = async (reportTitle, dateRange, columns, rows) => {
         businessName: options?.businessName,
         reportTitle: reportTitle,
         periodText,
+        logoDataUrl: options?.logoDataUrl,
+        accent: options?.accent || '#C8A870',
     };
 
     drawReportHeader(doc, headerOpts);
@@ -409,31 +573,11 @@ const generateReportPDF = async (reportTitle, dateRange, columns, rows) => {
         drawReportFooter(doc, { pageNum });
     });
 
-    // -- Table --
-    const table = {
-        title: '',
-        headers: columns.map(c => c.header),
-        rows: rows.map(r => columns.map(c => {
-            const val = r[c.key];
-            return c.format ? c.format(val) : String(val ?? '');
-        })),
-    };
+    doc.font('Helvetica').fontSize(9).fillColor('#0f172a');
+    drawKpiTiles(doc, options?.totals);
+    renderSimpleTable(doc, columns, rows);
 
-    await doc.table(table, {
-        x: 50,
-        y: doc.y,
-        width: 500,
-        divider: {
-            header: { disabled: false, width: 1.5, opacity: 1 },
-            horizontal: { disabled: false, width: 1, opacity: 0.45 },
-        },
-        headers: columns.map((c) => ({
-            width: c.width || (500 / columns.length),
-            align: c.align || 'left',
-        })),
-    });
-
-    doc.y = doc.y + 10;
+    doc.y = doc.y + 12;
     drawTotalsBlock(doc, options?.totals);
     drawSignatures(doc);
 

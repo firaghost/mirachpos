@@ -67,6 +67,7 @@ const authLimiter = rateLimit({
     }),
     keyGenerator: getClientIp,
     skipSuccessfulRequests: true, // Don't count successful logins
+    skip: (req) => req.method === 'OPTIONS', // Skip CORS preflight
 });
 
 // Strict limiter - 10 requests per minute (for sensitive operations)

@@ -5,18 +5,13 @@ import { Screen } from '../../types';
 import { readSession, updateSession } from '../../session';
 import { formatDeviceDate, formatDeviceDateTime } from '../../datetime';
 import {
-  downloadCSV,
-  escapeCSV,
   formatCurrency,
   formatReadableDate,
   formatReadableDateTime,
-  generateReportHeader,
-  generateSectionHeader,
-  generateFilename,
 } from '../../utils/exportUtils';
 
 import { AppIcon } from '@/components/ui/app-icon';
-type Period = 'Daily' | 'Weekly' | 'Monthly';
+type Period = 'Daily' | 'Weekly' | 'Monthly' | 'Yearly';
 
 type DateMode = 'Period' | 'Custom';
 
@@ -151,6 +146,21 @@ type ManagerReportsResp = {
   expenses: Expense[];
 };
 
+type StatusSummaryResp = {
+  ok: boolean;
+  branchId: string;
+  from: string;
+  to: string;
+  summary: {
+    from: string;
+    to: string;
+    paid: { count: number; totalCollected: number };
+    nonPaid: { count: number };
+    byStatus: Record<string, number>;
+    voidRefund: Record<string, { count: number; amount: number }>;
+  };
+};
+
 type PaymentTx = {
   id: string;
   number: string;
@@ -198,7 +208,13 @@ const isWorkerRole = (role: string) => {
 
 const formatDateLabel = (d: Date) => formatDeviceDate(d, { month: 'short', day: '2-digit', year: 'numeric' });
 
-const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
+const toLocalDateOnly = (d: Date) => {
+  const x = new Date(d);
+  const yyyy = x.getFullYear();
+  const mm = String(x.getMonth() + 1).padStart(2, '0');
+  const dd = String(x.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
 
 const parseIsoDate = (iso: string) => {
   const m = /^\d{4}-\d{2}-\d{2}$/.exec(String(iso ?? ''));
@@ -212,6 +228,7 @@ export const BranchReports: React.FC = () => {
   const [remoteLoading, setRemoteLoading] = useState(true);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
+  const [statusSummary, setStatusSummary] = useState<StatusSummaryResp['summary'] | null>(null);
   const [payments, setPayments] = useState<PaymentTx[]>([]);
   const [paymentsPrev, setPaymentsPrev] = useState<PaymentTx[]>([]);
   const [dailyAgg, setDailyAgg] = useState<DailyAggPoint[]>([]);
@@ -222,19 +239,20 @@ export const BranchReports: React.FC = () => {
   const [voidAgg, setVoidAgg] = useState<VoidRefundEvent[]>([]);
   const [staffAgg, setStaffAgg] = useState<StaffAggRow[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
-  const [period, setPeriod] = useState<Period>('Weekly');
+  const [period, setPeriod] = useState<Period>('Daily');
   const [showAll, setShowAll] = useState(false);
   const [dateMode, setDateMode] = useState<DateMode>('Period');
-  const [fromDate, setFromDate] = useState<string>(() => toIsoDate(addDays(startOfDay(new Date()), -7)));
-  const [toDate, setToDate] = useState<string>(() => toIsoDate(startOfDay(new Date())));
+  const [fromDate, setFromDate] = useState<string>(() => toLocalDateOnly(startOfDay(new Date())));
+  const [toDate, setToDate] = useState<string>(() => toLocalDateOnly(startOfDay(new Date())));
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
   const rangeWindow = useMemo(() => {
     const now = new Date();
-    const end = addDays(startOfDay(now), 1);
-    if (period === 'Daily') return { start: addDays(end, -1), end };
-    if (period === 'Weekly') return { start: addDays(end, -7), end };
-    return { start: addDays(end, -30), end };
+    const end = startOfDay(now);
+    if (period === 'Daily') return { start: end, end: end };
+    if (period === 'Weekly') return { start: addDays(end, -6), end };
+    if (period === 'Monthly') return { start: addDays(end, -29), end };
+    return { start: addDays(end, -364), end };
   }, [period]);
 
   const effectiveRange = useMemo(() => {
@@ -243,10 +261,15 @@ export const BranchReports: React.FC = () => {
     const to = parseIsoDate(toDate);
     if (!from || !to) return rangeWindow;
     const start = startOfDay(from);
-    const end = addDays(startOfDay(to), 1);
-    if (end.getTime() <= start.getTime()) return rangeWindow;
+    const end = startOfDay(to);
     return { start, end };
   }, [dateMode, fromDate, rangeWindow, toDate]);
+
+  useEffect(() => {
+    if (dateMode !== 'Period') return;
+    setFromDate(toLocalDateOnly(rangeWindow.start));
+    setToDate(toLocalDateOnly(rangeWindow.end));
+  }, [dateMode, rangeWindow.end, rangeWindow.start]);
 
   const prevRangeWindow = useMemo(() => {
     const days = dateMode === 'Custom' ? Math.max(1, Math.round((effectiveRange.end.getTime() - effectiveRange.start.getTime()) / (1000 * 60 * 60 * 24))) : period === 'Daily' ? 1 : period === 'Weekly' ? 7 : 30;
@@ -282,8 +305,8 @@ export const BranchReports: React.FC = () => {
 
         const qs = new URLSearchParams();
         if (branchOverride) qs.set('branchId', branchOverride);
-        qs.set('from', effectiveRange.start.toISOString());
-        qs.set('to', effectiveRange.end.toISOString());
+        qs.set('from', toLocalDateOnly(effectiveRange.start));
+        qs.set('to', toLocalDateOnly(effectiveRange.end));
         const url = `/api/manager/reports?${qs.toString()}`;
         const res = await apiFetch(url);
         if (!res.ok) throw new Error(String(res.status));
@@ -346,8 +369,8 @@ export const BranchReports: React.FC = () => {
             })()
             : '';
 
-        const fetchRange = async (fromIso: string, toIso: string) => {
-          const qs = new URLSearchParams({ from: fromIso, to: toIso, limit: '500' });
+        const fetchRange = async (from: string, to: string) => {
+          const qs = new URLSearchParams({ from, to, limit: '500' });
           if (branchOverride) qs.set('branchId', branchOverride);
           const res = await apiFetch(`/api/manager/payments?${qs.toString()}`);
           const json = (await res.json().catch(() => null)) as any;
@@ -384,12 +407,12 @@ export const BranchReports: React.FC = () => {
             .filter((x) => x.id);
         };
 
-        const fromIso = effectiveRange.start.toISOString();
-        const toIso = effectiveRange.end.toISOString();
-        const fromPrevIso = prevRangeWindow.start.toISOString();
-        const toPrevIso = prevRangeWindow.end.toISOString();
+        const from = toLocalDateOnly(effectiveRange.start);
+        const to = toLocalDateOnly(effectiveRange.end);
+        const fromPrev = toLocalDateOnly(prevRangeWindow.start);
+        const toPrev = toLocalDateOnly(prevRangeWindow.end);
 
-        const [cur, prev] = await Promise.all([fetchRange(fromIso, toIso), fetchRange(fromPrevIso, toPrevIso)]);
+        const [cur, prev] = await Promise.all([fetchRange(from, to), fetchRange(fromPrev, toPrev)]);
 
         if (!mounted) return;
         setPayments(cur);
@@ -425,8 +448,8 @@ export const BranchReports: React.FC = () => {
             })()
             : '';
 
-        const fromDate = effectiveRange.start.toISOString().slice(0, 10);
-        const toDate = addDays(effectiveRange.end, -1).toISOString().slice(0, 10);
+        const fromDate = toLocalDateOnly(effectiveRange.start);
+        const toDate = toLocalDateOnly(effectiveRange.end);
         const qsDaily = new URLSearchParams({ from: fromDate, to: toDate, limit: '400' });
         if (branchOverride) qsDaily.set('branchId', branchOverride);
 
@@ -446,7 +469,7 @@ export const BranchReports: React.FC = () => {
 
         let mappedHourly: HourlyAggPoint[] = [];
         if (period === 'Daily') {
-          const day = effectiveRange.start.toISOString().slice(0, 10);
+          const day = toLocalDateOnly(effectiveRange.start);
           const qsHourly = new URLSearchParams({ date: day });
           if (branchOverride) qsHourly.set('branchId', branchOverride);
           const hRes = await apiFetch(`/api/manager/reports/hourly?${qsHourly.toString()}`);
@@ -494,7 +517,9 @@ export const BranchReports: React.FC = () => {
           }))
           .filter((r) => r.category);
 
-        const qsShift = new URLSearchParams({ from: effectiveRange.start.toISOString(), to: effectiveRange.end.toISOString(), limit: '100' });
+        const shiftFrom = `${toLocalDateOnly(effectiveRange.start)}T00:00:00.000Z`;
+        const shiftTo = `${toLocalDateOnly(effectiveRange.end)}T23:59:59.999Z`;
+        const qsShift = new URLSearchParams({ from: shiftFrom, to: shiftTo, limit: '100' });
         if (branchOverride) qsShift.set('branchId', branchOverride);
         const sRes = await apiFetch(`/api/manager/reports/shifts?${qsShift.toString()}`);
         const sJson = (await sRes.json().catch(() => null)) as any;
@@ -515,7 +540,9 @@ export const BranchReports: React.FC = () => {
           }))
           .filter((r) => r.id);
 
-        const qsVoid = new URLSearchParams({ from: effectiveRange.start.toISOString(), to: effectiveRange.end.toISOString(), limit: '200' });
+        const voidFrom = `${toLocalDateOnly(effectiveRange.start)}T00:00:00.000Z`;
+        const voidTo = `${toLocalDateOnly(effectiveRange.end)}T23:59:59.999Z`;
+        const qsVoid = new URLSearchParams({ from: voidFrom, to: voidTo, limit: '200' });
         if (branchOverride) qsVoid.set('branchId', branchOverride);
         const vRes = await apiFetch(`/api/manager/reports/voids?${qsVoid.toString()}`);
         const vJson = (await vRes.json().catch(() => null)) as any;
@@ -554,6 +581,15 @@ export const BranchReports: React.FC = () => {
           }))
           .filter((r) => r.staffId || r.staffName);
 
+        const qsStatus = new URLSearchParams({ from: fromDate, to: toDate });
+        if (branchOverride) qsStatus.set('branchId', branchOverride);
+        const statusRes = await apiFetch(`/api/manager/reports/status-summary?${qsStatus.toString()}`);
+        const statusJson = (await statusRes.json().catch(() => null)) as any;
+        const summary =
+          statusRes.ok && statusJson?.summary && typeof statusJson.summary === 'object'
+            ? (statusJson.summary as StatusSummaryResp['summary'])
+            : null;
+
         if (!mounted) return;
         if (dailyRes.ok) setDailyAgg(mappedDaily);
         if (mappedHourly.length > 0) setHourlyAgg(mappedHourly);
@@ -563,6 +599,7 @@ export const BranchReports: React.FC = () => {
         if (sRes.ok) setShiftAgg(mappedShifts);
         if (vRes.ok) setVoidAgg(mappedVoids);
         if (stRes.ok) setStaffAgg(mappedStaff);
+        setStatusSummary(summary);
       } catch {
         if (!mounted) return;
         setDailyAgg([]);
@@ -572,6 +609,7 @@ export const BranchReports: React.FC = () => {
         setShiftAgg([]);
         setVoidAgg([]);
         setStaffAgg([]);
+        setStatusSummary(null);
       }
     };
     void run();
@@ -579,6 +617,31 @@ export const BranchReports: React.FC = () => {
       mounted = false;
     };
   }, [effectiveRange.end, effectiveRange.start, period]);
+
+  const nonPaidRows = useMemo(() => {
+    const s = statusSummary;
+    if (!s) return [] as Array<{ status: string; count: number }>;
+    const terminal = new Set(['Paid', 'Voided', 'Refunded']);
+    const rows = Object.entries(s.byStatus || {})
+      .map(([status, count]) => ({ status, count: Number(count || 0) || 0 }))
+      .filter((r) => r.count > 0 && !terminal.has(r.status));
+    rows.sort((a, b) => b.count - a.count);
+    return rows;
+  }, [statusSummary]);
+
+  const voidRefundTotals = useMemo(() => {
+    const s = statusSummary;
+    if (!s) return { voidCount: 0, voidAmount: 0, refundCount: 0, refundAmount: 0 };
+    const v = s.voidRefund || {};
+    const voidRow = v.void || v.VOID || v.Void;
+    const refundRow = v.refund || v.REFUND || v.Refund;
+    return {
+      voidCount: Number(voidRow?.count ?? 0) || 0,
+      voidAmount: Number(voidRow?.amount ?? 0) || 0,
+      refundCount: Number(refundRow?.count ?? 0) || 0,
+      refundAmount: Number(refundRow?.amount ?? 0) || 0,
+    };
+  }, [statusSummary]);
 
   const openBranchSelect = () => {
     try {
@@ -880,14 +943,14 @@ export const BranchReports: React.FC = () => {
     const start = startOfDay(rangeWindow.start);
     const points = Array.from({ length: days }, (_, i) => addDays(start, i));
     const map = new Map<string, number>();
-    for (const p of points) map.set(p.toISOString().slice(0, 10), 0);
+    for (const p of points) map.set(toLocalDateOnly(p), 0);
     for (const p of payments) {
-      const key = new Date(p.paidAt ?? p.createdAt ?? '').toISOString().slice(0, 10);
+      const key = toLocalDateOnly(new Date(p.paidAt ?? p.createdAt ?? ''));
       map.set(key, (map.get(key) ?? 0) + (p.total ?? 0));
     }
     return points.map((d) => ({
       label: period === 'Weekly' ? (formatDeviceDate(d, { weekday: 'short' }) || '') : (formatDeviceDate(d, { month: 'short', day: '2-digit' }) || ''),
-      revenue: map.get(d.toISOString().slice(0, 10)) ?? 0,
+      revenue: map.get(toLocalDateOnly(d)) ?? 0,
     }));
   }, [dailyAgg, hourlyAgg, payments, period, rangeWindow.start]);
 
@@ -926,381 +989,10 @@ export const BranchReports: React.FC = () => {
         payment: p.method ?? 'Unknown',
         amount: p.total ?? 0,
         statusLabel: 'Completed',
-        statusTone: 'success',
+        statusTone: 'success' as const,
       };
     });
   }, [paymentsSorted]);
-
-  const exportFullCsv = () => {
-    const esc = (v: unknown) => {
-      const s = String(v ?? '');
-      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-
-    // One consistent schema for all rows (Excel-friendly).
-    const headers = [
-      'section',
-      'record_type',
-      'date',
-      'id',
-      'name',
-      'category',
-      'method',
-      'qty',
-      'orders',
-      'hours',
-      'revenue',
-      'expenses',
-      'profit',
-      'amount',
-      'expected_cash',
-      'actual_cash',
-      'cash_difference',
-      'status',
-      'reason',
-      'performed_by',
-      'authorized_by',
-      'notes',
-    ];
-
-    type Row = Record<(typeof headers)[number], string>;
-    const makeRow = (): Row => Object.fromEntries(headers.map((h) => [h, ''])) as Row;
-
-    const reportName = `${branchName || 'Branch'} Analytics Report`;
-    const toIso = (d: Date) => d.toISOString();
-    const push = (out: Row[], patch: Partial<Row>) => out.push({ ...makeRow(), ...patch });
-
-    const reportRows: Row[] = [];
-
-    // Meta
-    push(reportRows, { section: 'meta', record_type: 'report', name: reportName, notes: '' });
-    push(reportRows, { section: 'meta', record_type: 'period', name: period, date: toIso(new Date()) });
-    push(reportRows, { section: 'meta', record_type: 'range_from', date: toIso(effectiveRange.start) });
-    push(reportRows, { section: 'meta', record_type: 'range_to', date: toIso(effectiveRange.end) });
-
-    // KPIs
-    push(reportRows, { section: 'kpi', record_type: 'total_revenue', amount: String(totalRevenue), revenue: formatMoney(totalRevenue), notes: `delta_pct=${revenueDelta.toFixed(2)}` });
-    push(reportRows, { section: 'kpi', record_type: 'total_expenses', amount: String(totalExpenses), expenses: formatMoney(totalExpenses) });
-    push(reportRows, { section: 'kpi', record_type: 'net_profit', amount: String(netProfit), profit: formatMoney(netProfit), notes: `delta_pct=${profitDelta.toFixed(2)}` });
-    push(reportRows, { section: 'kpi', record_type: 'orders_processed', orders: String(ordersProcessed), notes: `delta_pct=${ordersDelta.toFixed(2)}` });
-    push(reportRows, { section: 'kpi', record_type: 'avg_order_value', amount: String(avgOrderValue), notes: `delta_pct=${aovDelta.toFixed(2)}` });
-    push(reportRows, { section: 'kpi', record_type: 'cash_expected', expected_cash: formatMoney(cashSummary.expected), amount: String(cashSummary.expected) });
-    push(reportRows, { section: 'kpi', record_type: 'cash_actual', actual_cash: formatMoney(cashSummary.actual), amount: String(cashSummary.actual) });
-    push(reportRows, { section: 'kpi', record_type: 'cash_discrepancy', cash_difference: formatMoney(cashSummary.discrepancy), amount: String(cashSummary.discrepancy) });
-
-    // Payment mix
-    for (const [method, v] of paymentBreakdown) {
-      push(reportRows, {
-        section: 'payments',
-        record_type: 'payment_method',
-        method,
-        amount: String(v.sum),
-        revenue: formatMoney(v.sum),
-        orders: String(v.count),
-      });
-    }
-
-    // Daily summary
-    for (const d of dailyAgg.slice(0, 400)) {
-      push(reportRows, {
-        section: 'trend',
-        record_type: 'daily',
-        date: `${d.date}T00:00:00`,
-        orders: String(d.orderCount),
-        revenue: formatMoney(d.totalCollected ?? 0),
-        amount: String(d.totalCollected ?? 0),
-      });
-    }
-
-    // Categories
-    for (const c of categoryAgg.slice(0, 200)) {
-      push(reportRows, {
-        section: 'categories',
-        record_type: 'category',
-        category: c.category,
-        qty: String(c.qtySold),
-        orders: String(c.orderCount),
-        revenue: formatMoney(c.revenue),
-        amount: String(c.revenue),
-      });
-    }
-
-    // Products
-    for (const p of productAgg.slice(0, 200)) {
-      push(reportRows, {
-        section: 'products',
-        record_type: 'product',
-        id: p.productId,
-        name: p.name,
-        category: p.category,
-        qty: String(p.qtySold),
-        revenue: formatMoney(p.revenue),
-        amount: String(p.revenue),
-        profit: formatMoney(p.profit),
-      });
-    }
-
-    // Expenses
-    for (const e of expensesInRange.slice(0, 500)) {
-      push(reportRows, {
-        section: 'expenses',
-        record_type: 'expense',
-        date: new Date(e.createdAt).toISOString(),
-        id: e.id,
-        name: e.title,
-        category: e.vendor,
-        amount: String(e.amount),
-        expenses: formatMoney(e.amount),
-      });
-    }
-
-    // Shifts
-    for (const s of shiftAgg.slice(0, 500)) {
-      push(reportRows, {
-        section: 'shifts',
-        record_type: 'shift',
-        id: s.id,
-        name: s.staffName,
-        status: s.status,
-        date: s.openedAt || '',
-        expected_cash: s.expectedCash == null ? '' : formatMoney(s.expectedCash),
-        actual_cash: s.closingCash == null ? '' : formatMoney(s.closingCash),
-        cash_difference: s.cashDifference == null ? '' : formatMoney(s.cashDifference),
-        orders: String(s.orderCount),
-        revenue: formatMoney(s.totalCollected),
-        amount: String(s.totalCollected),
-        notes: s.closedAt ? `closed_at=${s.closedAt}` : '',
-      });
-    }
-
-    // Voids & refunds
-    for (const v of voidAgg.slice(0, 1000)) {
-      push(reportRows, {
-        section: 'voids_refunds',
-        record_type: 'event',
-        date: v.occurredAt || '',
-        id: v.id,
-        name: v.productName,
-        qty: String(v.qty),
-        amount: String(v.amount),
-        expenses: formatMoney(v.amount),
-        reason: v.reason,
-        performed_by: v.performedBy,
-        authorized_by: v.authorizedBy,
-        notes: `type=${v.type}; order_id=${v.orderId}`,
-      });
-    }
-
-    // Staff performance
-    for (const r of staffPerformance.rows) {
-      push(reportRows, {
-        section: 'staff',
-        record_type: 'staff',
-        id: r.id,
-        name: r.name,
-        category: r.role,
-        hours: r.hours.toFixed(2),
-        orders: String(r.orderCount),
-        revenue: formatMoney(r.revenue),
-        amount: String(r.revenue),
-        profit: formatMoney(r.revPerHour),
-        notes: `avg_ticket=${formatMoney(r.aov)}; shifts=${String(r.shifts)}`,
-      });
-    }
-
-    // Recent transactions
-    for (const t of recentTransactions) {
-      push(reportRows, {
-        section: 'transactions',
-        record_type: 'payment',
-        date: t.date,
-        id: t.id,
-        method: t.payment,
-        amount: String(t.amount),
-        revenue: formatMoney(t.amount),
-        status: t.statusLabel,
-      });
-    }
-
-    const lines: string[] = [];
-    lines.push(headers.map(esc).join(','));
-    for (const r of reportRows) {
-      lines.push(headers.map((h) => esc(r[h as keyof Row])).join(','));
-    }
-
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `analytics_${branchName || 'branch'}_${effectiveRange.start.toISOString().slice(0, 10)}_${addDays(effectiveRange.end, -1).toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const exportCsv = () => {
-    // Get business info
-    const bizName = businessHeader?.businessName || 'MirachPOS';
-    let generatedBy = '';
-    try {
-      const s = readSession<any>();
-      generatedBy = String(s?.name || s?.username || s?.email || s?.role || '').trim();
-    } catch {
-      // ignore
-    }
-
-    const lines: string[] = [];
-
-    // Professional header
-    const headerLines = generateReportHeader({
-      businessName: bizName,
-      branchName: branchName || undefined,
-      reportTitle: 'Sales Analytics Report',
-      fromDate: effectiveRange.start.toISOString(),
-      toDate: addDays(effectiveRange.end, -1).toISOString(),
-      generatedBy: generatedBy || undefined,
-    });
-    lines.push(...headerLines);
-
-    // Calculate values
-    const discountsTotal = payments.reduce((s, p) => s + (Number(p.discount ?? 0) || 0), 0);
-    const grossSales = totalRevenue + discountsTotal;
-    const voidRefundTotal = voidAgg.reduce((s, v) => s + (Number(v.amount ?? 0) || 0), 0);
-    const taxCollected = payments.reduce((s, p) => s + (Number(p.tax ?? 0) || 0), 0);
-    const tipsCollected = payments.reduce((s, p) => s + (Number(p.tip ?? 0) || 0), 0);
-
-    // Section 1: Sales Summary
-    lines.push(...generateSectionHeader('Sales Summary'));
-    lines.push([escapeCSV('Metric'), escapeCSV('Amount (ETB)')].join(','));
-    lines.push([escapeCSV('Gross Sales'), escapeCSV(formatCurrency(grossSales))].join(','));
-    lines.push([escapeCSV('Discounts'), escapeCSV(formatCurrency(-discountsTotal))].join(','));
-    lines.push([escapeCSV('Voids & Refunds'), escapeCSV(formatCurrency(-voidRefundTotal))].join(','));
-    lines.push([escapeCSV('Net Sales'), escapeCSV(formatCurrency(totalRevenue))].join(','));
-    lines.push([escapeCSV('Tax Collected'), escapeCSV(formatCurrency(taxCollected))].join(','));
-    lines.push([escapeCSV('Tips Collected'), escapeCSV(formatCurrency(tipsCollected))].join(','));
-    lines.push('');
-    lines.push([escapeCSV('Orders Processed'), escapeCSV(String(ordersProcessed))].join(','));
-    lines.push([escapeCSV('Average Order Value'), escapeCSV(formatCurrency(avgOrderValue))].join(','));
-
-    // Section 2: Payment Methods
-    lines.push(...generateSectionHeader('Payment Methods'));
-    lines.push([escapeCSV('Method'), escapeCSV('Orders'), escapeCSV('Amount (ETB)')].join(','));
-    for (const [method, v] of paymentBreakdown) {
-      lines.push([escapeCSV(method), escapeCSV(String(v.count)), escapeCSV(formatCurrency(v.sum))].join(','));
-    }
-
-    // Section 3: Cash Control
-    const cashSales = (() => {
-      const row = paymentBreakdown.find(([k]) => String(k).toLowerCase().includes('cash'));
-      return row ? Number(row[1].sum ?? 0) || 0 : 0;
-    })();
-    lines.push(...generateSectionHeader('Cash Control'));
-    lines.push([escapeCSV('Item'), escapeCSV('Amount (ETB)')].join(','));
-    lines.push([escapeCSV('Opening Cash'), escapeCSV(formatCurrency(cashSummary.opening))].join(','));
-    lines.push([escapeCSV('Cash Sales'), escapeCSV(formatCurrency(cashSales))].join(','));
-    lines.push([escapeCSV('Expenses / Paid-outs'), escapeCSV(formatCurrency(-totalExpenses))].join(','));
-    lines.push([escapeCSV('Expected Cash'), escapeCSV(formatCurrency(cashSummary.expected))].join(','));
-    lines.push([escapeCSV('Actual Cash'), escapeCSV(formatCurrency(cashSummary.actual))].join(','));
-    lines.push([escapeCSV('Over/Short'), escapeCSV(formatCurrency(cashSummary.discrepancy))].join(','));
-
-    // Section 4: Staff Performance
-    lines.push(...generateSectionHeader('Staff Performance'));
-    lines.push([escapeCSV('Staff Name'), escapeCSV('Orders'), escapeCSV('Net Sales'), escapeCSV('Tips'), escapeCSV('Hours')].join(','));
-    const baseStaffRows = staffAgg.length
-      ? [...staffAgg]
-      : staffPerformance.allRows.map((r) => ({ staffId: r.id, staffName: r.name, orderCount: r.orderCount, netSales: r.revenue, tips: (r as any).tips ?? 0 }));
-    const filtered = selectedStaffId ? baseStaffRows.filter((r) => r.staffId === selectedStaffId) : baseStaffRows;
-    for (const r of filtered) {
-      const hours = staffPerformance.allRows.find((x) => x.id === r.staffId)?.hours ?? 0;
-      lines.push([
-        escapeCSV(r.staffName || r.staffId),
-        escapeCSV(String(r.orderCount ?? 0)),
-        escapeCSV(formatCurrency(r.netSales ?? 0)),
-        escapeCSV(formatCurrency((r as any).tips ?? 0)),
-        escapeCSV(Number(hours || 0).toFixed(1)),
-      ].join(','));
-    }
-
-    // Footer
-    lines.push('');
-    lines.push('');
-    lines.push(escapeCSV('Powered by MirachPOS'));
-
-    // Download with UTF-8 BOM
-    const filename = generateFilename('sales_report', branchName || 'branch', effectiveRange.start.toISOString(), addDays(effectiveRange.end, -1).toISOString());
-    downloadCSV(lines.join('\n'), filename);
-  };
-
-  const exportStaffCsv = () => {
-    const esc = (v: unknown) => {
-      const s = String(v ?? '');
-      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-
-    const headers = ['staff_id', 'staff_name', 'orders', 'net_sales', 'gross_sales', 'discounts', 'tax', 'tips', 'total_collected', 'hours'];
-    const lines: string[] = [];
-    lines.push(headers.map(esc).join(','));
-
-    const hoursByStaffId = new Map<string, number>();
-    const startMs = effectiveRange.start.getTime();
-    const endMs = effectiveRange.end.getTime();
-    for (const l of shiftLogs) {
-      const inAt = new Date(l.clockInAt).getTime();
-      const outAt = new Date(l.clockOutAt ?? new Date().toISOString()).getTime();
-      const overlapStart = Math.max(inAt, startMs);
-      const overlapEnd = Math.min(outAt, endMs);
-      if (overlapEnd <= overlapStart) continue;
-      const hours = (overlapEnd - overlapStart) / (1000 * 60 * 60);
-      hoursByStaffId.set(l.staffId, (hoursByStaffId.get(l.staffId) ?? 0) + hours);
-    }
-
-    const staffRows = staffAgg.length
-      ? [...staffAgg]
-      : staffPerformance.allRows.map((r) => ({
-        staffId: r.id,
-        staffName: r.name,
-        orderCount: r.orderCount,
-        netSales: r.revenue,
-        grossSales: r.revenue,
-        discounts: 0,
-        tax: 0,
-        tips: (r as any).tips ?? 0,
-        totalCollected: r.revenue,
-      }));
-
-    const filteredStaffRows = selectedStaffId ? staffRows.filter((r) => r.staffId === selectedStaffId) : staffRows;
-
-    for (const r of filteredStaffRows) {
-      const hours = hoursByStaffId.get(r.staffId) ?? 0;
-      lines.push(
-        [
-          r.staffId,
-          r.staffName,
-          String(r.orderCount ?? 0),
-          String(r.netSales ?? 0),
-          String(r.grossSales ?? 0),
-          String(r.discounts ?? 0),
-          String(r.tax ?? 0),
-          String(r.tips ?? 0),
-          String(r.totalCollected ?? 0),
-          hours.toFixed(2),
-        ]
-          .map(esc)
-          .join(','),
-      );
-    }
-
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `staff_report_${selectedStaffId || 'all'}_${branchName || 'branch'}_${effectiveRange.start.toISOString().slice(0, 10)}_${addDays(effectiveRange.end, -1).toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
 
   const branchName = useMemo(() => {
     const bid = remote?.branchId ? String(remote.branchId) : '';
@@ -1310,56 +1002,68 @@ export const BranchReports: React.FC = () => {
   }, [branches, remote?.branchId]);
 
   const exportPdf = async () => {
-    const dateFrom = effectiveRange.start.toISOString().slice(0, 10);
-    const dateTo = addDays(effectiveRange.end, -1).toISOString().slice(0, 10);
+    const dateFrom = toLocalDateOnly(effectiveRange.start);
+    const dateTo = toLocalDateOnly(effectiveRange.end);
 
     const qs = new URLSearchParams();
     qs.set('type', 'daily');
     qs.set('from', dateFrom);
     qs.set('to', dateTo);
 
-    const res = await apiFetch(`/api/manager/reports/export/pdf?${qs.toString()}`);
-    if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
+    try {
+      const res = await apiFetch(`/api/manager/reports/export/pdf?${qs.toString()}`);
+      if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
 
-    const blob = await res.blob();
-    const cd = res.headers.get('content-disposition') || '';
-    const m = /filename="?([^";]+)"?/i.exec(cd);
-    const filename = m?.[1] ? String(m[1]) : `sales_report_${branchName || 'branch'}_${dateFrom}_${dateTo}.pdf`;
+      const blob = await res.blob();
+      const cd = res.headers.get('content-disposition') || '';
+      const m = /filename="?([^";]+)"?/i.exec(cd);
+      const filename = m?.[1] ? String(m[1]) : `sales_report_${branchName || 'branch'}_${dateFrom}_${dateTo}.pdf`;
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('PDF export error:', e);
+    }
   };
 
   const exportExcel = async () => {
-    const dateFrom = effectiveRange.start.toISOString().slice(0, 10);
-    const dateTo = addDays(effectiveRange.end, -1).toISOString().slice(0, 10);
+    const dateFrom = toLocalDateOnly(effectiveRange.start);
+    const dateTo = toLocalDateOnly(effectiveRange.end);
 
     const qs = new URLSearchParams();
     qs.set('from', dateFrom);
     qs.set('to', dateTo);
-    const res = await apiFetch(`/api/manager/reports/export/xlsx?${qs.toString()}`);
-    if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
+    try {
+      const res = await apiFetch(`/api/manager/reports/export/xlsx?${qs.toString()}`);
+      if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
 
-    const blob = await res.blob();
-    const cd = res.headers.get('content-disposition') || '';
-    const m = /filename="?([^";]+)"?/i.exec(cd);
-    const filename = m?.[1] ? String(m[1]) : `report_${branchName || 'branch'}_${dateFrom}_${dateTo}.xlsx`;
+      const blob = await res.blob();
+      const cd = res.headers.get('content-disposition') || '';
+      const m = /filename="?([^";]+)"?/i.exec(cd);
+      const filename = m?.[1] ? String(m[1]) : `report_${branchName || 'branch'}_${dateFrom}_${dateTo}.xlsx`;
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Excel export error:', e);
+    }
   };
+
+  const exportFullCsv = () => {};
+  const exportCsv = () => {};
+  const exportStaffCsv = () => {};
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
@@ -1371,9 +1075,10 @@ export const BranchReports: React.FC = () => {
                 <div className="text-2xl font-black tracking-tight">Analytics</div>
                 <div className="text-sm text-muted-foreground mt-1">
                   {branchName ? `${branchName} • ` : ''}
-                  {formatDateLabel(effectiveRange.start)} → {formatDateLabel(addDays(effectiveRange.end, -1))}
+                  {formatDateLabel(effectiveRange.start)} → {formatDateLabel(effectiveRange.end)}
                 </div>
               </div>
+
               <div className="flex items-center gap-2">
                 <div className="hidden sm:flex items-center gap-2 h-10 px-3 rounded-lg border border-border bg-background">
                   <span className="text-xs font-extrabold text-muted-foreground">Staff</span>
@@ -1412,53 +1117,28 @@ export const BranchReports: React.FC = () => {
                       />
                       {/* Dropdown menu */}
                       <div className="absolute right-0 top-12 z-50 w-56 rounded-xl border border-border bg-card shadow-xl py-2">
-                        <div className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                          Export Format
+                        <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-accent/50 border-b border-border">
+                          Export Professional Reports
                         </div>
                         <button
-                          onClick={() => { exportCsv(); setExportMenuOpen(false); }}
+                          onClick={() => { exportExcel(); setExportMenuOpen(false); }}
                           className="w-full px-4 py-3 text-left hover:bg-accent flex items-center gap-3 text-foreground"
                         >
-                          <AppIcon name="table_view" className="text-primary" />
-                          <div>
-                            <div className="font-bold text-sm">CSV Summary</div>
-                            <div className="text-xs text-muted-foreground">Key metrics for accounting</div>
+                          <AppIcon name="description" className="text-emerald-500" />
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm">Excel Spreadsheet</span>
+                            <span className="text-[10px] text-muted-foreground">Comprehensive multi-sheet report</span>
                           </div>
                         </button>
                         <button
-                          onClick={() => { void exportExcel(); setExportMenuOpen(false); }}
-                          className="w-full px-4 py-3 text-left hover:bg-accent flex items-center gap-3 text-foreground"
+                          onClick={() => { exportPdf(); setExportMenuOpen(false); }}
+                          className="w-full px-4 py-3 text-left hover:bg-accent flex items-center gap-3 text-foreground border-t border-border"
                         >
-                          <AppIcon name="grid_on" className="text-green-500" />
-                          <div>
-                            <div className="font-bold text-sm">Excel Workbook</div>
-                            <div className="text-xs text-muted-foreground">Full data with sheets</div>
+                          <AppIcon name="picture_as_pdf" className="text-rose-500" />
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm">PDF Document</span>
+                            <span className="text-[10px] text-muted-foreground">Print-ready professional summary</span>
                           </div>
-                        </button>
-                        <button
-                          onClick={() => { void exportPdf(); setExportMenuOpen(false); }}
-                          className="w-full px-4 py-3 text-left hover:bg-accent flex items-center gap-3 text-foreground"
-                        >
-                          <AppIcon name="picture_as_pdf" className="text-red-500" />
-                          <div>
-                            <div className="font-bold text-sm">PDF Report</div>
-                            <div className="text-xs text-muted-foreground">Print-ready document</div>
-                          </div>
-                        </button>
-                        <div className="border-t border-border my-2" />
-                        <button
-                          onClick={() => { exportFullCsv(); setExportMenuOpen(false); }}
-                          className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-3 text-muted-foreground"
-                        >
-                          <AppIcon name="database" className="text-lg" size={18} />
-                          <div className="text-xs">Raw Data (CSV)</div>
-                        </button>
-                        <button
-                          onClick={() => { exportStaffCsv(); setExportMenuOpen(false); }}
-                          className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-3 text-muted-foreground"
-                        >
-                          <AppIcon name="groups" className="text-lg" size={18} />
-                          <div className="text-xs">Staff Report (CSV)</div>
                         </button>
                       </div>
                     </>
@@ -1504,6 +1184,39 @@ export const BranchReports: React.FC = () => {
               </button>
             </div>
 
+            {dateMode === 'Period' ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setPeriod('Daily')}
+                  className={`h-9 px-3 rounded-lg border text-sm font-bold ${period === 'Daily' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:text-foreground hover:bg-accent'}`}
+                  type="button"
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => setPeriod('Weekly')}
+                  className={`h-9 px-3 rounded-lg border text-sm font-bold ${period === 'Weekly' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:text-foreground hover:bg-accent'}`}
+                  type="button"
+                >
+                  Weekly
+                </button>
+                <button
+                  onClick={() => setPeriod('Monthly')}
+                  className={`h-9 px-3 rounded-lg border text-sm font-bold ${period === 'Monthly' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:text-foreground hover:bg-accent'}`}
+                  type="button"
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setPeriod('Yearly')}
+                  className={`h-9 px-3 rounded-lg border text-sm font-bold ${period === 'Yearly' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:text-foreground hover:bg-accent'}`}
+                  type="button"
+                >
+                  Yearly
+                </button>
+              </div>
+            ) : null}
+
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">From</span>
@@ -1533,8 +1246,8 @@ export const BranchReports: React.FC = () => {
                 onClick={() => {
                   setDateMode('Period');
                   const now = startOfDay(new Date());
-                  setFromDate(toIsoDate(addDays(now, -7)));
-                  setToDate(toIsoDate(now));
+                  setFromDate(toLocalDateOnly(addDays(now, -6)));
+                  setToDate(toLocalDateOnly(now));
                 }}
                 className="h-9 px-3 rounded-lg border border-border bg-background text-muted-foreground text-sm font-bold hover:text-foreground hover:bg-accent"
               >

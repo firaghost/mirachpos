@@ -28,4 +28,7 @@ api/.env.*
 *.sw?
 api/.env
 mobile
-.agent
+
+# Allow agent rules/skills to be readable by IDE tools
+.agent/
+.agent/**
