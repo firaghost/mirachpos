@@ -59,7 +59,6 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
 
   const staffId = typeof session?.staffId === 'string' ? session.staffId : '';
   const branchId = typeof session?.branchId === 'string' ? session.branchId : '';
-  const tenantId = typeof session?.tenantId === 'string' ? session.tenantId : '';
   const role = typeof session?.role === 'string' ? session.role : '';
 
   const wantsPassword = newPassword.trim().length > 0 || confirmPassword.trim().length > 0;
@@ -154,29 +153,18 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
 
   const SecretInput: React.FC<{ value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void; placeholder?: string }> = ({ value, onChange, show, onToggle, placeholder }) => {
     return (
-      <div
-        className="flex items-center gap-2"
-        onPointerDownCapture={(e) => e.stopPropagation()}
-        onMouseDownCapture={(e) => e.stopPropagation()}
-        onClickCapture={(e) => e.stopPropagation()}
-      >
+      <div className="flex items-center gap-2">
         <input
           type={show ? 'text' : 'password'}
           value={value}
-          onPointerDown={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onFocus={(e) => e.stopPropagation()}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 h-11 bg-background border border-border rounded-lg px-4 text-foreground pointer-events-auto select-text"
+          className="flex-1 h-11 bg-background border border-border rounded-lg px-4 text-foreground"
         />
         <button
           type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => {
-            e.stopPropagation();
+            e.preventDefault();
             onToggle();
           }}
           className="h-11 px-3 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground"
@@ -193,7 +181,7 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
       <header className="flex items-center justify-between px-6 py-5 border-b border-border bg-card">
         <div>
           <div className="text-2xl font-extrabold tracking-tight">Settings</div>
-          <div className="text-xs text-muted-foreground mt-1">Security    Password & PIN</div>
+          <div className="text-xs text-muted-foreground mt-1">Security, Password and PIN</div>
         </div>
         <button
           onClick={() => {
@@ -239,9 +227,9 @@ export const WaiterSettings: React.FC<Props> = ({ onNavigate }) => {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {tab === 'security' && '🔐 Security'}
-                {tab === 'notifications' && '🔔 Notifications'}
-                {tab === 'display' && '🎨 Display'}
+                {tab === 'security' && 'Security'}
+                {tab === 'notifications' && 'Notifications'}
+                {tab === 'display' && 'Display'}
               </button>
             ))}
           </div>
