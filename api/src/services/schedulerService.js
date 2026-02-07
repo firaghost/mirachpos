@@ -12,6 +12,8 @@ const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 const { checkDueInvoices } = require('./invoiceService');
 const { runDailyAggregation, cleanupOldReports } = require('./reportAggregationService');
+const { createMailTransporter } = require('../utils/mail');
+const { paymentReminderTemplate, overdueTemplate, suspendedTemplate } = require('./emailTemplates');
 
 const safeJsonParse = (raw, fallback) => {
     try {
@@ -43,7 +45,7 @@ const getNotificationConfig = async () => {
 };
 
 // Send notification (email or SMS)
-const sendNotification = async ({ tenantId, invoiceId, type, channel, recipient, message, subject }) => {
+const sendNotification = async ({ tenantId, invoiceId, type, channel, recipient, message, subject, html }) => {
     const nowIso = new Date().toISOString();
     const notificationId = makeId('notif');
 
@@ -52,10 +54,48 @@ const sendNotification = async ({ tenantId, invoiceId, type, channel, recipient,
 
     try {
         if (channel === 'email') {
-            // In production, integrate with email service (SendGrid, AWS SES, etc.)
-            console.log(`[Scheduler] Email notification to ${recipient}: ${subject}`);
-            console.log(`[Scheduler] Message: ${message}`);
-            status = 'sent';
+            const transporter = createMailTransporter();
+            if (!transporter) {
+                status = 'failed';
+                errorMessage = 'Email service not configured';
+                console.error('[Scheduler] Email service not configured - check MAIL_HOST, MAIL_USER, MAIL_PASS');
+            } else {
+                await transporter.sendMail({
+                    from: `"MirachPOS" <${process.env.MAIL_FROM || process.env.MAIL_USER}>`,
+                    to: recipient,
+                    subject,
+                    text: message,
+                    html: html || `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${subject}</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #4F46E5; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px; }
+        .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #6b7280; }
+        .button { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>MirachPOS</h1>
+    </div>
+    <div class="content">
+        <p>${message.replace(/\n/g, '<br>')}</p>
+        <div class="footer">
+            <p>This is an automated message from MirachPOS.<br>
+            Please do not reply to this email.</p>
+        </div>
+    </div>
+</body>
+</html>`,
+                });
+                status = 'sent';
+                console.log(`[Scheduler] Email sent successfully to ${recipient}: ${subject}`);
+            }
         } else if (channel === 'sms') {
             const config = await getNotificationConfig();
             if (!config.sms.enabled) {
@@ -154,9 +194,16 @@ const runPaymentReminderJob = async () => {
             const contacts = await getTenantContacts(invoice.tenant_id);
             if (!contacts.email && !contacts.phone) continue;
 
+            const daysRemaining = 3;
             const message = `Reminder: Your invoice ${invoice.invoice_number} for ETB ${invoice.total_etb} is due on ${new Date(invoice.due_date).toLocaleDateString()}. Please complete payment to avoid service interruption.`;
 
             if (contacts.email && contacts.emailEnabled) {
+                const html = paymentReminderTemplate({
+                    invoiceNumber: invoice.invoice_number,
+                    amount: invoice.total_etb,
+                    dueDate: invoice.due_date,
+                    daysRemaining,
+                });
                 await sendNotification({
                     tenantId: invoice.tenant_id,
                     invoiceId: invoice.id,
@@ -165,6 +212,7 @@ const runPaymentReminderJob = async () => {
                     recipient: contacts.email,
                     subject: `Payment Reminder: Invoice ${invoice.invoice_number}`,
                     message,
+                    html,
                 });
                 remindersSent++;
             }
@@ -190,9 +238,16 @@ const runPaymentReminderJob = async () => {
             const contacts = await getTenantContacts(invoice.tenant_id);
             if (!contacts.email && !contacts.phone) continue;
 
+            const daysRemaining = 1;
             const message = `URGENT: Your invoice ${invoice.invoice_number} for ETB ${invoice.total_etb} is due TOMORROW. Pay now to avoid service interruption.`;
 
             if (contacts.email && contacts.emailEnabled) {
+                const html = paymentReminderTemplate({
+                    invoiceNumber: invoice.invoice_number,
+                    amount: invoice.total_etb,
+                    dueDate: invoice.due_date,
+                    daysRemaining,
+                });
                 await sendNotification({
                     tenantId: invoice.tenant_id,
                     invoiceId: invoice.id,
@@ -201,6 +256,7 @@ const runPaymentReminderJob = async () => {
                     recipient: contacts.email,
                     subject: `URGENT: Invoice ${invoice.invoice_number} Due Tomorrow`,
                     message,
+                    html,
                 });
                 remindersSent++;
             }
@@ -226,9 +282,16 @@ const runPaymentReminderJob = async () => {
             const contacts = await getTenantContacts(invoice.tenant_id);
             if (!contacts.email && !contacts.phone) continue;
 
+            const daysOverdue = Math.floor((Date.now() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24));
             const message = `OVERDUE: Your invoice ${invoice.invoice_number} for ETB ${invoice.total_etb} is past due. Please pay immediately to restore full service access.`;
 
             if (contacts.email && contacts.emailEnabled) {
+                const html = overdueTemplate({
+                    invoiceNumber: invoice.invoice_number,
+                    amount: invoice.total_etb,
+                    dueDate: invoice.due_date,
+                    daysOverdue,
+                });
                 await sendNotification({
                     tenantId: invoice.tenant_id,
                     invoiceId: invoice.id,
@@ -237,6 +300,7 @@ const runPaymentReminderJob = async () => {
                     recipient: contacts.email,
                     subject: `OVERDUE: Invoice ${invoice.invoice_number} Past Due`,
                     message,
+                    html,
                 });
                 remindersSent++;
             }
@@ -322,6 +386,7 @@ const runGracePeriodExpirationJob = async () => {
             // Notify tenant
             const contacts = await getTenantContacts(sub.tenant_id);
             if (contacts.email && contacts.emailEnabled) {
+                const html = suspendedTemplate({ tenantName: '' });
                 await sendNotification({
                     tenantId: sub.tenant_id,
                     invoiceId: null,
@@ -330,6 +395,7 @@ const runGracePeriodExpirationJob = async () => {
                     recipient: contacts.email,
                     subject: 'Account Suspended - Payment Required',
                     message: 'Your MirachPOS account has been suspended due to non-payment. Please complete payment to restore access.',
+                    html,
                 });
             }
 

@@ -44,6 +44,8 @@ const { makeManagerAuditRouter } = require('./routes/managerAudit');
 const { makeManagerPaymentsRouter } = require('./routes/managerPayments');
 const { makeManagerCustomersRouter } = require('./routes/managerCustomers');
 const { makeEnhancedReportsRouter } = require('./routes/enhancedReports');
+const { makeCustomReportsRouter } = require('./routes/customReports');
+const { makeIntegrationRouter } = require('./routes/integrations');
 const { makeManagerPrintRouter } = require('./routes/managerPrint');
 const { makeTelebirrStandingOrderRouter } = require('./routes/telebirrStandingOrder');
 const { makeRealtimeRouter } = require('./routes/realtime');
@@ -315,6 +317,8 @@ const createApp = () => {
   app.use('/api', makeManagerPaymentsRouter());
   app.use('/api', makeManagerCustomersRouter());
   app.use('/api', makeEnhancedReportsRouter());
+  app.use('/api', makeCustomReportsRouter());
+  app.use('/api', makeIntegrationRouter());
   app.use('/api', makeManagerPrintRouter());
   app.use('/api', makeTelebirrStandingOrderRouter());
   app.use('/api', makeRealtimeRouter());
