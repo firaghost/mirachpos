@@ -15,6 +15,10 @@ const { runDailyAggregation, cleanupOldReports } = require('./reportAggregationS
 const { createMailTransporter } = require('../utils/mail');
 const { paymentReminderTemplate, overdueTemplate, suspendedTemplate } = require('./emailTemplates');
 
+let schedulerStarted = false;
+let schedulerIntervals = {};
+let schedulerTimeouts = {};
+
 const safeJsonParse = (raw, fallback) => {
     try {
         if (!raw) return fallback;
@@ -436,6 +440,7 @@ const runReportAggregationJob = async () => {
         jobStatus.isRunning.reportAggregation = false;
     }
 };
+
 const SCHEDULE = {
     paymentReminders: 6 * 60 * 60 * 1000, // Every 6 hours
     gracePeriod: 60 * 60 * 1000, // Every hour
@@ -601,7 +606,7 @@ const startScheduler = () => {
         }
         const delay = nextRun.getTime() - now.getTime();
 
-        setTimeout(() => {
+        schedulerTimeouts.reportEmails = setTimeout(() => {
             runScheduledReportEmailsJob();
             scheduleReportEmails(); // Schedule next run
         }, delay);
@@ -628,7 +633,7 @@ const startScheduler = () => {
         }
         const delay = nextRun.getTime() - now.getTime();
 
-        setTimeout(() => {
+        schedulerTimeouts.reportAggregation = setTimeout(() => {
             runReportAggregationJob();
             scheduleReportAggregation(); // Schedule next run
         }, delay);
@@ -650,6 +655,11 @@ const stopScheduler = () => {
         clearInterval(schedulerIntervals[key]);
     }
     schedulerIntervals = {};
+
+    for (const key of Object.keys(schedulerTimeouts)) {
+        clearTimeout(schedulerTimeouts[key]);
+    }
+    schedulerTimeouts = {};
     schedulerStarted = false;
 
     console.log('[Scheduler] Background jobs stopped');

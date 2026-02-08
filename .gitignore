@@ -32,3 +32,6 @@ mobile
 # Allow agent rules/skills to be readable by IDE tools
 .agent/
 .agent/**
+api/src/utils.tar
+api/src/routes.tar
+api/src/cronDaily.tar
