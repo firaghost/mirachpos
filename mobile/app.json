@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "Tium Cafe",
+    "slug": "tium-cafe",
+    "scheme": "cafev",
+    "version": "0.1.8",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_ERROR_RECOVERY",
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/9bc6f003-ae88-4be4-9b15-022b060859f6"
+    },
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon/Icon1.png",
+    "splash": {
+      "image": "./assets/splash/Splash6.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#2C1810"
+    },
+    "assetBundlePatterns": [
+      "assets/**"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "buildNumber": "8"
+    },
+    "android": {
+      "package": "com.firago.Tiumcafe",
+      "versionCode": 8,
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon/Icon1.png",
+        "backgroundColor": "#2C1810"
+      },
+      "splash": {
+        "image": "./assets/splash/Splash6.png",
+        "resizeMode": "cover",
+        "backgroundColor": "#2C1810"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-updates",
+      "expo-font",
+      "expo-notifications",
+      "expo-web-browser",
+      "expo-sqlite",
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9bc6f003-ae88-4be4-9b15-022b060859f6"
+      }
+    },
+    "owner": "firago"
+  }
+}

@@ -1,0 +1,16 @@
+.expo/
+cafepos-cb899-firebase-adminsdk-fbsvc-d352ec81b4.json
+cafepos-cb899-firebase-adminsdk-fbsvc-67cbddb94c.json
+google-services.json
+GoogleService-Info.plist
+*.p8
+*.keystore
+*.jks
+*.mobileprovision
+*.cer
+*.p12
+.env*
+firebase-admin-*.json
+service-account*.json
+eas.json
+mobile.env*

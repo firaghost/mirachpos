@@ -84,7 +84,12 @@ const startBackgroundServices = () => {
 };
 
 const startHttpServer = async () => {
-  await initDb();
+  const skipDbInitOnBoot =
+    String(process.env.NODE_ENV || '') === 'test' || String(process.env.SKIP_DB_INIT_ON_BOOT || '').trim() === '1';
+
+  if (!skipDbInitOnBoot) {
+    await initDb();
+  }
   const server = app.listen(config.port, () => {
     // eslint-disable-next-line no-console
     console.log(`mirachpos-api listening on ${config.port}`);
