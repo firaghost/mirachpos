@@ -158,6 +158,80 @@ type BranchSettingsState = {
 
 const uid = (prefix: string) => `${prefix}-${Math.random().toString(16).slice(2)}-${Date.now().toString(16)}`;
 
+const normalizeDeviceKind = (d: any): ConnectedDevice['kind'] => {
+  const raw = typeof d?.kind === 'string' ? d.kind.trim() : '';
+  const profile = typeof d?.profile === 'string' ? d.profile.trim() : '';
+  const usage = typeof d?.usage === 'string' ? d.usage.trim().toString().toLowerCase() : '';
+  const printerish =
+    profile === 'Receipt' ||
+    profile === 'Kitchen' ||
+    profile === 'Bar' ||
+    usage.includes('receipt') ||
+    usage.includes('kitchen') ||
+    usage.includes('bar') ||
+    usage.includes('print') ||
+    typeof d?.printerName === 'string';
+
+  if (raw === 'Printer') return 'Printer';
+  if (raw === 'CashDrawer') return 'CashDrawer';
+  if (raw === 'KDS') return printerish ? 'Printer' : 'KDS';
+  if (printerish) return 'Printer';
+  return 'Printer';
+};
+
+const normalizeDevices = (raw: any): ConnectedDevice[] => {
+  const arr = Array.isArray(raw) ? raw : [];
+  return arr
+    .map((d: any) => {
+      const connection = ((): ConnectedDevice['connection'] => {
+        const c = typeof d?.connection === 'string' ? d.connection.trim() : '';
+        if (c === 'LAN' || c === 'USB' || c === 'whitetooth' || c === 'Cloud') return c;
+        return 'LAN';
+      })();
+
+      const setupMode = ((): ConnectedDevice['setupMode'] => {
+        const s = typeof d?.setupMode === 'string' ? d.setupMode.trim() : '';
+        if (s === 'Auto' || s === 'Manual') return s;
+        return 'Manual';
+      })();
+
+      const profile = ((): ConnectedDevice['profile'] => {
+        const p = typeof d?.profile === 'string' ? d.profile.trim() : '';
+        if (p === 'Receipt' || p === 'Kitchen' || p === 'Bar') return p;
+        const usage = typeof d?.usage === 'string' ? d.usage.trim().toLowerCase() : '';
+        if (usage.includes('drink') || usage.includes('bar')) return 'Bar';
+        if (usage.includes('kitchen') || usage.includes('food')) return 'Kitchen';
+        return 'Receipt';
+      })();
+
+      const status = ((): DeviceStatus => {
+        const s = typeof d?.status === 'string' ? d.status.trim() : '';
+        if (s === 'Online' || s === 'Offline') return s;
+        return 'Online';
+      })();
+
+      const kind = normalizeDeviceKind({ ...d, profile });
+
+      return {
+        id: String(d?.id || '').trim(),
+        name: String(d?.name || ''),
+        model: String(d?.model || ''),
+        ip: String(d?.ip || ''),
+        port: String(d?.port || ''),
+        connection,
+        setupMode,
+        whitetoothName: typeof d?.whitetoothName === 'string' ? d.whitetoothName : undefined,
+        cloudId: typeof d?.cloudId === 'string' ? d.cloudId : undefined,
+        printerName: typeof d?.printerName === 'string' ? d.printerName : undefined,
+        profile,
+        usage: String(d?.usage || ''),
+        kind,
+        status,
+      } as ConnectedDevice;
+    })
+    .filter((d) => Boolean(d.id));
+};
+
 const deepEqual = (a: unknown, b: unknown) => {
   try {
     return JSON.stringify(a) === JSON.stringify(b);
@@ -729,9 +803,11 @@ export const BranchSettings: React.FC = () => {
       }
     }
 
-    const deviceIds = new Set((nextSettings.devices || []).map((d) => String(d?.id || '')).filter(Boolean));
+    const normalizedDevices = normalizeDevices(nextSettings.devices);
+    const deviceIds = new Set(normalizedDevices.map((d) => String(d?.id || '')).filter(Boolean));
     const normalized: BranchSettingsState = {
       ...nextSettings,
+      devices: normalizedDevices,
       taxes: {
         ...nextSettings.taxes,
         vatRate: Number.isFinite(vatRate) ? vatRate : nextSettings.taxes.vatRate,
@@ -833,7 +909,7 @@ export const BranchSettings: React.FC = () => {
           : base.payments.requireReferenceForMethods,
       },
       fiscal: { ...base.fiscal, ...(next.fiscal ?? {}) },
-      devices: Array.isArray(next.devices) ? (next.devices as ConnectedDevice[]) : base.devices,
+      devices: normalizeDevices(next.devices ?? base.devices),
     };
   };
 
@@ -897,14 +973,16 @@ export const BranchSettings: React.FC = () => {
     };
   }, []);
 
+  const [ownerBusinessName, setOwnerBusinessName] = useState<string>('');
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   const [addOpen, setAddOpen] = useState(false);
   const [editDeviceId, setEditDeviceId] = useState<string | null>(null);
   const [deviceFormState, setDeviceFormState] = useState<ConnectedDevice | null>(null);
   const [settingsDevice, setSettingsDevice] = useState<ConnectedDevice | null>(null);
   const [settingsDeviceDraft, setSettingsDeviceDraft] = useState<ConnectedDevice | null>(null);
   const [testPrintDevice, setTestPrintDevice] = useState<ConnectedDevice | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [ownerBusinessName, setOwnerBusinessName] = useState<string>('');
   const [testPrintStatus, setTestPrintStatus] = useState<string>('');
 
   const addDisabled = useMemo(() => {
@@ -913,6 +991,7 @@ export const BranchSettings: React.FC = () => {
     if (deviceFormState.connection === 'LAN') return !deviceFormState.ip.trim() || !deviceFormState.port.trim();
     if (deviceFormState.connection === 'whitetooth') return !deviceFormState.whitetoothName?.trim();
     if (deviceFormState.connection === 'Cloud') return !deviceFormState.cloudId?.trim();
+    if (deviceFormState.connection === 'USB') return false;
     return true;
   }, [deviceFormState]);
 

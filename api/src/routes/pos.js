@@ -2781,6 +2781,56 @@ const makePosRouter = () => {
       }
     });
 
+  r.put(
+    '/pos/tables/:id/assign',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('pos'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
+      try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+        const id = String(req.params?.id || '').trim();
+        if (!id) return res.status(400).json({ error: 'table_required' });
+
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const patch = {};
+
+        if (typeof body?.assignedStaffId === 'string') {
+          patch.assigned_staff_id = body.assignedStaffId.trim() ? body.assignedStaffId.trim() : null;
+        }
+        if (typeof body?.assignedStaffName === 'string') {
+          patch.assigned_staff_name = body.assignedStaffName.trim() ? body.assignedStaffName.trim() : null;
+        }
+
+        const nowIso = new Date().toISOString();
+        patch.updated_at = nowIso;
+
+        const updated = await db()
+          .from('restaurant_tables')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
+          .update(patch);
+        if (!updated) return res.status(404).json({ error: 'table_not_found' });
+
+        const row = await loadRestaurantTable({ tenantId: req.tenant.id, branchId, tableId: id });
+
+        try {
+          publish({ tenantId: String(req.tenant.id), branchId: String(branchId), type: 'pos.table.updated', data: { tableId: String(id) } });
+        } catch {
+          // ignore
+        }
+
+        return res.json({ ok: true, tenantId: req.tenant.id, branchId, table: mapRestaurantTableRow(row) });
+      } catch (e) {
+        return next(e);
+      }
+    },
+  );
+
   r.delete(
     '/pos/tables/:id',
     tenantMiddleware,

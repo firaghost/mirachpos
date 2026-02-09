@@ -2615,7 +2615,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       void Promise.all(
         (Array.isArray(tableIds) ? tableIds : []).map((id) =>
           (async () => {
-            const url = withBranchQuery(`/api/pos/tables/${encodeURIComponent(id)}`);
+            const url = withBranchQuery(`/api/pos/tables/${encodeURIComponent(id)}/assign`);
             const body = { assignedStaffId: staffId, assignedStaffName: staffId ? staffName : null };
             if (offline) {
               await enqueueOutboxHttp({ url, method: 'PUT', body, headers: { 'Content-Type': 'application/json' } });
