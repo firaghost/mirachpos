@@ -84,8 +84,7 @@ const startBackgroundServices = () => {
 };
 
 const startHttpServer = async () => {
-  const skipDbInitOnBoot =
-    String(process.env.NODE_ENV || '') === 'test' || String(process.env.SKIP_DB_INIT_ON_BOOT || '').trim() === '1';
+  const skipDbInitOnBoot = String(process.env.SKIP_DB_INIT_ON_BOOT || '').trim() === '1';
 
   if (!skipDbInitOnBoot) {
     await initDb();

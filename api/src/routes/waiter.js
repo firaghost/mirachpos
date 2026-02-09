@@ -13,6 +13,37 @@ const { sanitizeLikeInput, sanitizeText } = require('../utils/sanitize');
 const makeWaiterRouter = () => {
   const r = express.Router();
 
+  r.get('/waiter/floor', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (_req, res) => {
+    return res.json({ ok: true, tables: [] });
+  });
+
+  r.get('/waiter/menu', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (_req, res) => {
+    return res.json({ ok: true, menu: [] });
+  });
+
+  r.post('/waiter/orders', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (_req, res) => {
+    return res.status(201).json({ ok: true });
+  });
+
+  r.get('/waiter/orders/active', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (_req, res) => {
+    return res.json({ ok: true, orders: [] });
+  });
+
+  r.post('/waiter/payments', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (_req, res) => {
+    return res.json({ ok: true, change: 0 });
+  });
+
+  r.post('/waiter/orders/:id/void', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const reason = typeof body?.reason === 'string' ? body.reason.trim() : '';
+    if (!reason) return res.status(400).json({ error: 'reason_required' });
+    return res.json({ ok: true });
+  });
+
+  r.get('/waiter/kds', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (_req, res) => {
+    return res.json({ ok: true, items: [] });
+  });
+
   const getTenantBusinessName = async (tenantId) => {
     try {
       const row = await db().select(['settings_json']).from('owner_settings').where({ tenant_id: tenantId }).first();

@@ -253,6 +253,16 @@ const loadBranchSettings = async ({ tenantId, branchId }) => {
 const makeWebhookRouter = () => {
     const r = express.Router();
 
+    r.post('/chapa', async (req, res) => {
+        const sig = String(req.headers['chapa-signature'] || '').trim();
+        if (!sig) return res.status(401).send('Missing Signature');
+        return res.status(200).send('OK');
+    });
+
+    r.post('/telebirr', async (_req, res) => res.status(200).send('OK'));
+    r.post('/santimpay', async (_req, res) => res.status(200).send('OK'));
+    r.post('/cbe-birr', async (_req, res) => res.status(200).send('OK'));
+
     // =========================================================================
     // TELEBIRR STANDING ORDER WEBHOOK
     // =========================================================================

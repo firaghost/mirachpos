@@ -57,7 +57,7 @@ const sanitizeString = (str) => {
   
   // Remove potential XSS characters
   return str
-    .replace(/<script[^<]*(?:(?!</script>)<[^*]*(?:[\s\S]*?$)?)<\/script>/gi, '')
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[\s\S])*<\/script>/gi, '')
     .replace(/<script/gi, '')
     .trim();
 };

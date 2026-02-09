@@ -20,7 +20,7 @@ const tenantMiddleware = async (req, res, next) => {
       return res.status(400).json({ error: 'tenant_required' });
     }
 
-    const tenant = await db()
+    let tenant = await db()
       .select(['id', 'slug', 'name', 'status', 'trial_ends_at', 'plan', 'plan_ends_at', 'features_json'])
       .from('tenants')
       .where({ slug })

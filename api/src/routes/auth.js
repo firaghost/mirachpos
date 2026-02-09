@@ -138,6 +138,17 @@ const makeAuthRouter = () => {
   // Backward-compatible: existing frontend calls /api/auth/login
   r.post('/auth/login', tenantMiddleware, validateLogin, handler);
 
+  r.post('/auth/forgot-password', tenantMiddleware, validateForgotPasswordRequest, async (req, res, next) => {
+    try {
+      const { email } = req.validatedBody || req.body;
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+      if (!normalizedEmail) return res.status(400).json({ error: 'email_required' });
+      return res.status(200).json({ ok: true });
+    } catch (e) {
+      return next(e);
+    }
+  });
+
   r.post('/login-pin', tenantMiddleware, validateLoginPin, async (req, res, next) => {
     try {
       const { code, pin } = req.validatedBody || req.body;

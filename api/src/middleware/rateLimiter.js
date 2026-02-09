@@ -65,7 +65,9 @@ const authLimiter = rateLimit({
         message: 'Too many login attempts. Please try again in 15 minutes.',
         retryAfter: 900,
     }),
-    keyGenerator: getClientIp,
+    keyGenerator: (req, res) => {
+        return getClientIp(req, res);
+    },
     skipSuccessfulRequests: true, // Don't count successful logins
     skip: (req) => req.method === 'OPTIONS', // Skip CORS preflight
 });

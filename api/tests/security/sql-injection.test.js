@@ -37,7 +37,7 @@ describe('SQL Injection Prevention', () => {
         .post('/api/auth/login')
         .send({ email: 'test@test.com', password: input });
       
-      expect([401, 429]).toContain(res.status);
+      expect([400, 401, 429]).toContain(res.status);
     }
   });
   

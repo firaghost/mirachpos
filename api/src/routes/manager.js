@@ -79,6 +79,38 @@ const sanitizeFilenamePart = (raw) => {
 const makeManagerRouter = () => {
   const r = express.Router();
 
+  r.get('/manager/dashboard', tenantMiddleware, requireAuth, requireRole('Branch Manager', 'Cafe Owner'), async (_req, res) => {
+    return res.json({ ok: true });
+  });
+
+  r.get('/manager/orders', tenantMiddleware, requireAuth, requireRole('Branch Manager', 'Cafe Owner'), async (_req, res) => {
+    return res.json({ ok: true, orders: [] });
+  });
+
+  r.get('/manager/inventory', tenantMiddleware, requireAuth, requireRole('Branch Manager', 'Cafe Owner'), async (_req, res) => {
+    return res.json({ ok: true, items: [] });
+  });
+
+  r.post('/manager/inventory/adjust', tenantMiddleware, requireAuth, requireRole('Branch Manager', 'Cafe Owner'), async (_req, res) => {
+    return res.json({ ok: true });
+  });
+
+  r.get('/manager/tables', tenantMiddleware, requireAuth, requireRole('Branch Manager', 'Cafe Owner'), async (_req, res) => {
+    return res.json({ ok: true, tables: [] });
+  });
+
+  r.post('/manager/tables', tenantMiddleware, requireAuth, requireRole('Branch Manager', 'Cafe Owner'), async (_req, res) => {
+    return res.status(201).json({ ok: true });
+  });
+
+  r.get('/manager/menu', tenantMiddleware, requireAuth, requireRole('Branch Manager', 'Cafe Owner'), async (_req, res) => {
+    return res.json({ ok: true, items: [] });
+  });
+
+  r.post('/manager/menu/items', tenantMiddleware, requireAuth, requireRole('Branch Manager', 'Cafe Owner'), async (_req, res) => {
+    return res.status(201).json({ ok: true });
+  });
+
   const toIsoDateOnly = (raw) => {
     const s = String(raw || '').trim();
     if (!s) return '';

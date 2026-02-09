@@ -18,12 +18,12 @@ describe('Validation Utils', () => {
   describe('validatePassword', () => {
     it('should require minimum length', () => {
       expect(validatePassword('short')).toBe(false);
-      expect(validatePassword('longenoughpassword')).toBe(true);
+      expect(validatePassword('Longenough1')).toBe(true);
     });
     
     it('should require uppercase', () => {
-      expect(validatePassword('lowercaseonly')).toBe(false);
-      expect(validatePassword('HasUppercase')).toBe(true);
+      expect(validatePassword('lowercaseonly1')).toBe(false);
+      expect(validatePassword('HasUppercase1')).toBe(true);
     });
     
     it('should require number', () => {

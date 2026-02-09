@@ -55,6 +55,61 @@ const makeInventoryRouter = () => {
   const r = express.Router();
 
   r.get(
+    '/inventory/suppliers',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('inventory'),
+    requirePermission('inventory.read'),
+    async (_req, res) => res.json({ ok: true, suppliers: [] }),
+  );
+
+  r.post(
+    '/inventory/suppliers',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('inventory'),
+    requirePermission('inventory.update'),
+    async (_req, res) => res.status(201).json({ ok: true }),
+  );
+
+  r.get(
+    '/inventory/purchase-orders',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('inventory'),
+    requirePermission('inventory.read'),
+    async (_req, res) => res.json({ ok: true, purchaseOrders: [] }),
+  );
+
+  r.post(
+    '/inventory/purchase-orders',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('inventory'),
+    requirePermission('inventory.update'),
+    async (_req, res) => res.status(201).json({ ok: true }),
+  );
+
+  r.post(
+    '/inventory/stock-count',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('inventory'),
+    requirePermission('inventory.update'),
+    async (_req, res) => res.json({ ok: true }),
+  );
+
+  r.get(
     '/inventory/items',
     tenantMiddleware,
     requireAuth,

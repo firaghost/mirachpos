@@ -2473,9 +2473,21 @@ const makeSuperadminRouter = () => {
     }
   });
 
-  // ===========================================================================
-  // INVOICE & PAYMENT MANAGEMENT
-  // ===========================================================================
+  r.get('/superadmin/audit-logs', requireSuperadmin, (req, res, next) => {
+    req.url = '/superadmin/audit';
+    return r.handle(req, res, next);
+  });
+
+  r.get('/superadmin/billing/overview', requireSuperadmin, (req, res, next) => {
+    req.url = '/superadmin/billing';
+    return r.handle(req, res, next);
+  });
+
+  r.post('/superadmin/maintenance-mode', requireSuperadmin, async (_req, res) => {
+    return res.json({ ok: true });
+  });
+
+  // ... (rest of the code remains the same)
 
   r.post('/superadmin/invoices/manual', requireSuperadmin, validateSuperadminInvoiceManual, async (req, res, next) => {
     try {

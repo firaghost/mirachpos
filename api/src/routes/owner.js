@@ -335,6 +335,22 @@ const makeOwnerRouter = () => {
   });
 
   r.get(
+    '/owner/dashboard',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner'),
+    loadEntitlements,
+    requireModule('owner_dashboard'),
+    async (req, res, next) => {
+    try {
+      req.url = '/owner/overview';
+      return next('route');
+    } catch (e) {
+      return next(e);
+    }
+  });
+
+  r.get(
     '/owner/integrations',
     tenantMiddleware,
     requireAuth,

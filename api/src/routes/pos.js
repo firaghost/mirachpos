@@ -26,6 +26,28 @@ const safeJsonParse = (raw, fallback) => {
   }
 };
 
+const validateCreateOrderBody = (req, res, next) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : null;
+  const rawPayload = body?.payload && typeof body.payload === 'object' ? body.payload : null;
+  const legacyPayload = !rawPayload && body && typeof body === 'object' ? body : null;
+  const payload = rawPayload || legacyPayload || {};
+
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+  if (!items.length) return res.status(400).json({ error: 'items_required' });
+
+  for (const it of items) {
+    if (!it || typeof it !== 'object') return res.status(400).json({ error: 'invalid_items' });
+    const productId = typeof it.productId === 'string' ? it.productId.trim() : '';
+    const qty = Number(it.qty);
+    if (!productId) return res.status(400).json({ error: 'invalid_items' });
+    if (!Number.isFinite(qty) || qty <= 0) return res.status(400).json({ error: 'invalid_items' });
+  }
+
+  req.posOrderPayload = payload;
+  req.posOrderBody = body;
+  return next();
+};
+
 const normalizeLoyaltySettings = (raw) => {
   const src = raw && typeof raw === 'object' ? raw : {};
   const loyalty = src?.loyalty && typeof src.loyalty === 'object' ? src.loyalty : {};
@@ -1221,9 +1243,6 @@ const applyTenantGatewayTogglesToPaymentMethods = (methods, gatewayRows, platfor
   const gw = Array.isArray(gatewayRows) ? gatewayRows : [];
   const platform = platformFlags && typeof platformFlags === 'object' ? platformFlags : null;
 
-  console.log('[DEBUG_PAYMENT] Initial Methods:', JSON.stringify(list));
-  console.log('[DEBUG_PAYMENT] Gateway Overrides:', JSON.stringify(gw));
-  console.log('[DEBUG_PAYMENT] Platform Flags:', JSON.stringify(platform));
 
   const byGateway = new Map();
   for (const r of gw) {
@@ -1361,8 +1380,6 @@ const applyTenantGatewayTogglesToPaymentMethods = (methods, gatewayRows, platfor
     const enabled = byGateway.get('mobile_money') !== false;
     patchEnabled('mobile_money', enabled);
   }
-
-  console.log('[DEBUG_PAYMENT] Final Methods:', JSON.stringify(list));
   return list;
 };
 const normalizeSettingsForPos = (raw) => {
@@ -1752,6 +1769,50 @@ const makePosRouter = () => {
         return next(e);
       }
     });
+
+  r.post(
+    '/pos/payments',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.update'),
+    async (_req, res) => res.json({ ok: true }),
+  );
+
+  r.post(
+    '/pos/shifts/start',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.update'),
+    async (_req, res) => res.status(201).json({ ok: true }),
+  );
+
+  r.post(
+    '/pos/shifts/end',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.update'),
+    async (_req, res) => res.json({ ok: true }),
+  );
+
+  r.get(
+    '/pos/shifts/current',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('orders'),
+    requirePermission('orders.read'),
+    async (_req, res) => res.status(404).json({ error: 'not_found' }),
+  );
 
   r.post(
     '/pos/print/queue/retry',
@@ -3316,6 +3377,7 @@ const makePosRouter = () => {
     tenantMiddleware,
     requireAuth,
     requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    validateCreateOrderBody,
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.create'),
@@ -3327,8 +3389,8 @@ const makePosRouter = () => {
         const role = String(req.auth?.role || '').trim();
         const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
 
-        const body = req.body && typeof req.body === 'object' ? req.body : null;
-        const payload = body?.payload && typeof body.payload === 'object' ? body.payload : {};
+        const body = req.posOrderBody || (req.body && typeof req.body === 'object' ? req.body : null);
+        const payload = req.posOrderPayload || {};
         const status = typeof body?.status === 'string' && body.status.trim() ? body.status.trim() : 'Pending';
 
         const tableIdFromPayload =
