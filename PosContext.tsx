@@ -161,14 +161,25 @@ const openPrintWindow = (html: string) => {
     w.document.open();
     w.document.write(html);
     w.document.close();
-    const t = w.setTimeout(() => {
+    let didPrint = false;
+    const tryPrint = () => {
+      if (didPrint) return;
+      didPrint = true;
       try {
         w.focus();
         w.print();
       } catch {
         // ignore
       }
-    }, 250);
+    };
+
+    try {
+      w.addEventListener('load', tryPrint);
+    } catch {
+      // ignore
+    }
+
+    const t = w.setTimeout(tryPrint, 900);
     w.addEventListener('beforeunload', () => {
       try {
         w.clearTimeout(t);
@@ -272,6 +283,7 @@ type PosContextType = {
   notifications: PosNotification[];
   realtime: { connected: boolean; lastErrorAt: string; lastError: string };
   outbox: { total: number; ready: number; maxAttempts: number; nextAttemptAtMin: string; stuck: number; stuckAfter: number };
+  kitchenPrintByOrderId: Record<string, { status: 'printed' | 'queued' | 'failed'; message: string; updatedAt: string }>;
   getUiPref: <T = any>(key: string, fallback: T) => T;
   setUiPref: (key: string, value: any) => void;
   selectedTableId: string | null;
@@ -297,6 +309,8 @@ type PosContextType = {
   deleteProduct: (productId: string) => void;
   updateProductPrice: (productId: string, price: number) => void;
   sendOrderToKitchen: (tableId: string, notes?: string) => string;
+  printKitchenTicket: (orderId: string, opts?: { mode?: 'auto' | 'dialog' }) => Promise<void>;
+  retryKitchenTicket: (orderId: string) => Promise<void>;
   importDraftToKitchenOrder: (args: {
     draftId: string;
     createdByStaffId?: string;
@@ -439,6 +453,8 @@ const ensureNextProductCode = (existing: Product[]) => {
 };
 
 const PosContext = createContext<PosContextType | undefined>(undefined);
+
+const nowIso = () => new Date().toISOString();
 
 const generateId = () => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -749,6 +765,9 @@ type ApiPosOrderRow = {
 
 export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<PersistedState>(() => readState());
+  const [kitchenPrintByOrderId, setKitchenPrintByOrderId] = useState<
+    Record<string, { status: 'printed' | 'queued' | 'failed'; message: string; updatedAt: string }>
+  >({});
   const lastSentRef = useRef<string>('');
   const lastRefreshAtRef = useRef<number>(0);
   const realtimeRef = useRef<{ es: EventSource | null; retryTimer: number | null }>({ es: null, retryTimer: null });
@@ -836,6 +855,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const w = window as any;
     const pos = w?.mirachpos?.pos;
     const outbox = w?.mirachpos?.outbox;
+    const printers = w?.mirachpos?.printers;
     return {
       posUpsertTables: typeof pos?.upsertTables === 'function' ? (pos.upsertTables as (p: any) => Promise<any>) : null,
       posListTables: typeof pos?.listTables === 'function' ? (pos.listTables as (p: any) => Promise<any>) : null,
@@ -849,6 +869,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       outboxStats: typeof outbox?.stats === 'function' ? (outbox.stats as (p: any) => Promise<any>) : null,
       outboxAck: typeof outbox?.ack === 'function' ? (outbox.ack as (p: any) => Promise<any>) : null,
       outboxBump: typeof outbox?.bump === 'function' ? (outbox.bump as (p: any) => Promise<any>) : null,
+      printersList: typeof printers?.list === 'function' ? (printers.list as () => Promise<any>) : null,
+      printersPrintHtml: typeof printers?.printHtml === 'function' ? (printers.printHtml as (p: any) => Promise<any>) : null,
     };
   }, []);
 
@@ -902,9 +924,242 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           payload: { url, method, headers, body },
         });
       } catch {
+        // ignore
       }
     },
     [electronApis],
+  );
+
+  const enqueueOutboxPrintHtml = useCallback(
+    async (args: { html: string; deviceName: string }) => {
+      const scopeKey = getBranchScopeKey();
+      if (!scopeKey) return;
+      if (!electronApis.outboxEnqueue) return;
+      const html = typeof args?.html === 'string' ? args.html : '';
+      const deviceName = typeof args?.deviceName === 'string' ? args.deviceName.trim() : '';
+      if (!html.trim() || !deviceName) return;
+      try {
+        await electronApis.outboxEnqueue({
+          scopeKey,
+          kind: 'print.html',
+          payload: { html, deviceName },
+        });
+      } catch {
+        // ignore
+      }
+    },
+    [electronApis.outboxEnqueue, getBranchScopeKey],
+  );
+
+  const loadKitchenPrinterTarget = useCallback(() => {
+    try {
+      const raw = readBranchSettingsRaw();
+      if (!raw) return null;
+      const settings = JSON.parse(raw) as any;
+      const deviceId = typeof settings?.defaultKitchenPrinterId === 'string' ? settings.defaultKitchenPrinterId : '';
+      const devices = Array.isArray(settings?.devices) ? settings.devices : [];
+      const device = deviceId ? devices.find((d: any) => String(d?.id || '') === deviceId) : null;
+      if (!device) return null;
+
+      const connection = String(device?.connection || '').trim();
+      const printerName = typeof device?.printerName === 'string' ? device.printerName.trim() : '';
+      return { connection, printerName, deviceId };
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const computeKitchenDeltaLines = useCallback(
+    (before: Array<{ name: string; qty: number; note?: string }>, after: Array<{ name: string; qty: number; note?: string }>) => {
+      const keyFor = (l: { name: string; note?: string }) => `${String(l?.name || '').trim()}|${String(l?.note || '').trim()}`;
+
+      const b = new Map<string, number>();
+      for (const x of Array.isArray(before) ? before : []) {
+        if (!x) continue;
+        const name = String(x?.name || '').trim();
+        const qty = Number(x?.qty ?? 0) || 0;
+        const note = typeof x?.note === 'string' ? x.note.trim() : '';
+        if (!name || qty <= 0) continue;
+        const k = keyFor({ name, note });
+        b.set(k, (b.get(k) || 0) + qty);
+      }
+
+      const a = new Map<string, number>();
+      for (const x of Array.isArray(after) ? after : []) {
+        if (!x) continue;
+        const name = String(x?.name || '').trim();
+        const qty = Number(x?.qty ?? 0) || 0;
+        const note = typeof x?.note === 'string' ? x.note.trim() : '';
+        if (!name || qty <= 0) continue;
+        const k = keyFor({ name, note });
+        a.set(k, (a.get(k) || 0) + qty);
+      }
+
+      const out: Array<{ name: string; qty: number; note?: string }> = [];
+      const keys = new Set<string>([...b.keys(), ...a.keys()]);
+      for (const k of keys) {
+        const diff = (a.get(k) || 0) - (b.get(k) || 0);
+        if (!diff) continue;
+        const [name, note] = k.split('|');
+        out.push({ name: String(name || ''), qty: diff, ...(note ? { note } : {}) });
+      }
+      return out;
+    },
+    [],
+  );
+
+  const pendingChangePrintTimersRef = useRef<Record<string, number>>({});
+
+  const queueKitchenSnapshot = useCallback((orderId: string, lines: Array<{ name: string; qty: number; note?: string }>) => {
+    try {
+      const key = `mirachpos.kitchenSnapshot.${orderId}`;
+      sessionStorage.setItem(key, JSON.stringify({ lines }));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const readKitchenSnapshotLines = useCallback((orderId: string) => {
+    try {
+      const key = `mirachpos.kitchenSnapshot.${orderId}`;
+      const raw = sessionStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as any;
+      return Array.isArray(parsed?.lines) ? parsed.lines : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const printKitchenUsbOrQueue = useCallback(
+    async (args: { orderId: string; html: string; deviceName: string }) => {
+      if (!electronApis.printersPrintHtml) {
+        await enqueueOutboxPrintHtml({ html: args.html, deviceName: args.deviceName });
+        return;
+      }
+      try {
+        await electronApis.printersPrintHtml({ html: args.html, deviceName: args.deviceName, silent: true });
+      } catch {
+        await enqueueOutboxPrintHtml({ html: args.html, deviceName: args.deviceName });
+      }
+    },
+    [electronApis.printersPrintHtml, enqueueOutboxPrintHtml],
+  );
+
+  const setKitchenPrintStatus = useCallback(
+    (args: { orderId: string; status: 'printed' | 'queued' | 'failed'; message: string }) => {
+      const oid = String(args?.orderId || '').trim();
+      if (!oid) return;
+      setKitchenPrintByOrderId((cur) => ({
+        ...cur,
+        [oid]: { status: args.status, message: String(args.message || ''), updatedAt: nowIso() },
+      }));
+    },
+    [],
+  );
+
+  const attemptKitchenAutoPrint = useCallback(
+    async (args: { order: PosOrder; lines: Array<{ name: string; qty: number; note?: string }>; title?: string }) => {
+      const oid = String(args?.order?.id || '').trim();
+      if (!oid) return;
+
+      const title = typeof args?.title === 'string' && args.title.trim() ? args.title.trim() : 'Kitchen Ticket';
+      const { beep } = readKitchenPrintSettings();
+      const lines = Array.isArray(args?.lines) ? args.lines : [];
+
+      const usbTarget = loadKitchenPrinterTarget();
+      if (usbTarget && usbTarget.connection === 'USB' && usbTarget.printerName) {
+        const html = kitchenTicketHtml(title, args.order, lines);
+        if (!electronApis.printersPrintHtml) {
+          await enqueueOutboxPrintHtml({ html, deviceName: usbTarget.printerName });
+          setKitchenPrintStatus({ orderId: oid, status: 'queued', message: 'Queued (retrying)' });
+          return;
+        }
+        try {
+          await electronApis.printersPrintHtml({ html, deviceName: usbTarget.printerName, silent: true });
+          setKitchenPrintStatus({ orderId: oid, status: 'printed', message: 'Printed' });
+        } catch {
+          await enqueueOutboxPrintHtml({ html, deviceName: usbTarget.printerName });
+          setKitchenPrintStatus({ orderId: oid, status: 'queued', message: 'Queued (retrying)' });
+        }
+        return;
+      }
+
+      const kitchenDeviceId = (() => {
+        try {
+          const raw = readBranchSettingsRaw();
+          if (!raw) return '';
+          const settings = JSON.parse(raw) as BranchSettingsForPrinting;
+          return typeof settings?.defaultKitchenPrinterId === 'string' ? settings.defaultKitchenPrinterId : '';
+        } catch {
+          return '';
+        }
+      })();
+
+      if (!kitchenDeviceId) {
+        setKitchenPrintStatus({ orderId: oid, status: 'failed', message: 'Failed (no kitchen printer)' });
+        return;
+      }
+
+      try {
+        const res = await apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(oid)}`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId: kitchenDeviceId, title, lines, beep }),
+        });
+        if (res.ok) {
+          setKitchenPrintStatus({ orderId: oid, status: 'printed', message: 'Printed' });
+          return;
+        }
+        if (res.status === 202) {
+          setKitchenPrintStatus({ orderId: oid, status: 'queued', message: 'Queued (retrying)' });
+          return;
+        }
+        const json = (await res.json().catch(() => null)) as any;
+        const err = typeof json?.error === 'string' && json.error.trim() ? json.error.trim() : `HTTP ${res.status}`;
+        setKitchenPrintStatus({ orderId: oid, status: 'failed', message: `Failed (${err})` });
+      } catch {
+        setKitchenPrintStatus({ orderId: oid, status: 'queued', message: 'Queued (retrying)' });
+      }
+    },
+    [electronApis.printersPrintHtml, enqueueOutboxPrintHtml, loadKitchenPrinterTarget, setKitchenPrintStatus],
+  );
+
+  const scheduleKitchenChangesPrint = useCallback(
+    (order: PosOrder) => {
+      try {
+        const { autoKitchen, beep } = readKitchenPrintSettings();
+        if (!autoKitchen) return;
+
+        const target = loadKitchenPrinterTarget();
+        if (!target || target.connection !== 'USB' || !target.printerName) return;
+
+        const oid = String(order?.id || '').trim();
+        if (!oid) return;
+
+        const existing = pendingChangePrintTimersRef.current[oid];
+        if (existing) window.clearTimeout(existing);
+
+        pendingChangePrintTimersRef.current[oid] = window.setTimeout(() => {
+          try {
+            const beforeLines = readKitchenSnapshotLines(oid);
+            if (!beforeLines) return;
+            const afterLines = order.items.map((i) => ({ name: i.name, qty: i.qty, note: i.note }));
+            const delta = computeKitchenDeltaLines(beforeLines, afterLines);
+            if (!delta.length) return;
+
+            const html = kitchenTicketHtml('CHANGES', order, delta);
+            void printKitchenUsbOrQueue({ orderId: oid, html, deviceName: target.printerName });
+            queueKitchenSnapshot(oid, afterLines);
+          } catch {
+            // ignore
+          }
+        }, 700);
+      } catch {
+        // ignore
+      }
+    },
+    [computeKitchenDeltaLines, loadKitchenPrinterTarget, printKitchenUsbOrQueue, queueKitchenSnapshot, readKitchenSnapshotLines],
   );
 
   const queueOfflineWrite = useCallback(
@@ -2092,6 +2347,17 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                       headers: hdrs,
                       body: hasBody ? JSON.stringify(body ?? null) : undefined,
                     });
+                  } else if (kind === 'print.html') {
+                    const html = typeof payload?.html === 'string' ? payload.html : '';
+                    const deviceName = typeof payload?.deviceName === 'string' ? payload.deviceName : '';
+                    if (!electronApis.printersPrintHtml) {
+                      const delayMs = bumpDelayMsForAttempts(Number(item?.attempts || 0) || 0);
+                      await electronApis.outboxBump!({ id, delayMs });
+                      continue;
+                    }
+                    await electronApis.printersPrintHtml({ html, deviceName, silent: true });
+                    ackIds.push(id);
+                    continue;
                   } else if (kind === 'pos.state') {
                     // Deprecated legacy behavior.
                     // We no longer sync whole POS JSON state to the server.
@@ -2659,7 +2925,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const order = newOrder;
         const allLines = order.items.map((i) => ({ name: i.name, qty: i.qty, note: i.note }));
 
-        // Ensure the order exists in DB before attempting to print (print endpoint loads order from DB).
+        setKitchenPrintStatus({ orderId, status: 'queued', message: 'Queued (retrying)' });
         void (async () => {
           try {
             await persistOrder(order);
@@ -2668,88 +2934,12 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
 
           if (separateDrinkTickets && hasBarRoute) {
-            const drinks = allLines.filter((l) => isDrinkLine(l.name));
             const food = allLines.filter((l) => !isDrinkLine(l.name));
-
-            if (food.length > 0) {
-              void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lines: food, beep }),
-              }).catch(() => {
-                const ok = openPrintWindow(kitchenTicketHtml('Kitchen Ticket', order, food));
-                if (!ok) {
-                  setState((s) => ({
-                    ...s,
-                    notifications: [
-                      {
-                        id: generateId(),
-                        type: 'Kitchen',
-                        title: 'Printing blocked',
-                        message: 'Popup blocked. Allow popups to print kitchen tickets.',
-                        orderId,
-                        createdAt: new Date().toISOString(),
-                        read: false,
-                      },
-                      ...s.notifications,
-                    ],
-                  }));
-                }
-              });
-            }
-
-            if (drinks.length > 0) {
-              void apiFetch(withBranchQuery(`/api/pos/print/bar/${encodeURIComponent(String(orderId))}`), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lines: drinks, beep }),
-              }).catch(() => {
-                const ok = openPrintWindow(kitchenTicketHtml('Bar Ticket', order, drinks));
-                if (!ok) {
-                  setState((s) => ({
-                    ...s,
-                    notifications: [
-                      {
-                        id: generateId(),
-                        type: 'Kitchen',
-                        title: 'Printing blocked',
-                        message: 'Popup blocked. Allow popups to print kitchen tickets.',
-                        orderId,
-                        createdAt: new Date().toISOString(),
-                        read: false,
-                      },
-                      ...s.notifications,
-                    ],
-                  }));
-                }
-              });
-            }
+            if (food.length > 0) await attemptKitchenAutoPrint({ order, lines: food, title: 'Kitchen Ticket' });
           } else {
-            void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ lines: allLines, beep }),
-            }).catch(() => {
-              const ok = openPrintWindow(kitchenTicketHtml('Kitchen Ticket', order, allLines));
-              if (!ok) {
-                setState((s) => ({
-                  ...s,
-                  notifications: [
-                    {
-                      id: generateId(),
-                      type: 'Kitchen',
-                      title: 'Printing blocked',
-                      message: 'Popup blocked. Allow popups to print kitchen tickets.',
-                      orderId,
-                      createdAt: new Date().toISOString(),
-                      read: false,
-                    },
-                    ...s.notifications,
-                  ],
-                }));
-              }
-            });
+            await attemptKitchenAutoPrint({ order, lines: allLines, title: 'Kitchen Ticket' });
           }
+          queueKitchenSnapshot(orderId, allLines);
         })();
       }
     } catch {
@@ -2765,6 +2955,83 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     return orderId;
+  };
+
+  const printKitchenTicket: PosContextType['printKitchenTicket'] = async (orderId, opts) => {
+    const oid = String(orderId || '').trim();
+    if (!oid) return;
+
+    const order = stateRef.current.orders.find((o) => o.id === oid);
+    if (!order) return;
+
+    const lines = order.items.map((i) => ({ name: i.name, qty: i.qty, note: i.note }));
+
+    if (opts?.mode === 'dialog') {
+      openPrintWindow(kitchenTicketHtml('Kitchen Ticket', order, lines));
+      return;
+    }
+
+    const { beep } = readKitchenPrintSettings();
+
+    const kitchenDeviceId = (() => {
+      try {
+        const raw = readBranchSettingsRaw();
+        if (!raw) return '';
+        const settings = JSON.parse(raw) as BranchSettingsForPrinting;
+        return typeof settings?.defaultKitchenPrinterId === 'string' ? settings.defaultKitchenPrinterId : '';
+      } catch {
+        return '';
+      }
+    })();
+
+    const usbTarget = loadKitchenPrinterTarget();
+    if (usbTarget && usbTarget.connection === 'USB' && usbTarget.printerName) {
+      const html = kitchenTicketHtml('Kitchen Ticket', order, lines);
+      await printKitchenUsbOrQueue({ orderId: oid, html, deviceName: usbTarget.printerName });
+      queueKitchenSnapshot(oid, lines);
+      return;
+    }
+
+    if (!kitchenDeviceId) {
+      const ok = openPrintWindow(kitchenTicketHtml('Kitchen Ticket', order, lines));
+      if (!ok) window.print();
+      throw new Error('Kitchen printer is not configured');
+    }
+
+    try {
+      await persistOrder(order);
+    } catch {
+      // ignore
+    }
+
+    try {
+      const res = await apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(oid)}`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId: kitchenDeviceId, title: 'Kitchen Ticket', lines, beep }),
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => null)) as any;
+        const err = typeof json?.error === 'string' && json.error.trim() ? json.error.trim() : `HTTP ${res.status}`;
+        throw new Error(err);
+      }
+    } catch (e) {
+      const ok = openPrintWindow(kitchenTicketHtml('Kitchen Ticket', order, lines));
+      if (!ok) window.print();
+      throw e;
+    }
+  };
+
+  const retryKitchenTicket: PosContextType['retryKitchenTicket'] = async (orderId) => {
+    const oid = String(orderId || '').trim();
+    if (!oid) return;
+
+    const order = stateRef.current.orders.find((o) => o.id === oid);
+    if (!order) return;
+
+    const lines = order.items.map((i) => ({ name: i.name, qty: i.qty, note: i.note }));
+    setKitchenPrintStatus({ orderId: oid, status: 'queued', message: 'Queued (retrying)' });
+    await attemptKitchenAutoPrint({ order, lines, title: 'Kitchen Ticket' });
   };
 
   const importDraftToKitchenOrder: PosContextType['importDraftToKitchenOrder'] = (args) => {
@@ -2877,6 +3144,14 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (autoKitchen) {
         const order = newOrder;
         const allLines = order.items.map((i) => ({ name: i.name, qty: i.qty, note: i.note }));
+
+        const usbTarget = loadKitchenPrinterTarget();
+        if (usbTarget && usbTarget.connection === 'USB' && usbTarget.printerName) {
+          const html = kitchenTicketHtml('Kitchen Ticket', order, allLines);
+          void printKitchenUsbOrQueue({ orderId, html, deviceName: usbTarget.printerName });
+          queueKitchenSnapshot(orderId, allLines);
+          return orderId;
+        }
 
         if (separateDrinkTickets && hasBarRoute) {
           const drinks = allLines.filter((l) => isDrinkLine(l.name));
@@ -3004,6 +3279,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     queueMicrotask(() => {
       try {
         if (updatedOrder) upsertLocalOrderBundle(updatedOrder);
+        if (updatedOrder) scheduleKitchenChangesPrint(updatedOrder);
       } catch {
         // ignore
       }
@@ -3031,6 +3307,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     queueMicrotask(() => {
       try {
         if (updatedOrder) upsertLocalOrderBundle(updatedOrder);
+        if (updatedOrder) scheduleKitchenChangesPrint(updatedOrder);
       } catch {
         // ignore
       }
@@ -3114,11 +3391,9 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               if (res.ok) {
                 // FAST AUTO-PRINT: Fire and forget if enabled
                 if (updatedOrder.status === 'Cooking' && state.settings.printerPrefs.autoPrintKitchenTickets && state.settings.defaultKitchenPrinterId) {
-                  void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(updatedOrder.id)}`), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ deviceId: state.settings.defaultKitchenPrinterId }),
-                  }).catch(() => { });
+                  const allLines = updatedOrder.items.map((i) => ({ name: i.name, qty: i.qty, note: i.note }));
+                  setKitchenPrintStatus({ orderId: updatedOrder.id, status: 'queued', message: 'Queued (retrying)' });
+                  void attemptKitchenAutoPrint({ order: updatedOrder, lines: allLines, title: 'Kitchen Ticket' });
                 }
                 return;
               }
@@ -3568,6 +3843,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notifications: state.notifications,
     realtime: realtimeStatus,
     outbox: outboxStatus,
+    kitchenPrintByOrderId,
     getUiPref,
     setUiPref,
     selectedTableId: state.selectedTableId,
@@ -3590,6 +3866,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deleteProduct,
     updateProductPrice,
     sendOrderToKitchen,
+    printKitchenTicket,
+    retryKitchenTicket,
     importDraftToKitchenOrder,
     setPendingOrderItemQty,
     setPendingOrderItemNote,

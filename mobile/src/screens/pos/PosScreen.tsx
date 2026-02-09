@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { getProductsLocal, upsertProducts, setLastProfile, countOutboxPending } from '@/lib/db'
-import { fetchPosMenuProducts } from '@/lib/mirachposSession'
+import { createPosOrder, fetchPosMenuProducts, updatePosOrder } from '@/lib/mirachposSession'
 import { useMobileOrderStore, type MobileOrderItem } from '@/state/orderStore'
 import { ProductDetailModal } from './ProductDetail'
 import { FinalizeOrderModal } from './FinalizeOrder'
@@ -525,436 +525,43 @@ export function PosScreen({ footerHeight, onOpenOrders, onBack }: PosProps) {
         }
       } catch {}
 
-      const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser()
-      if (userErr || !user) throw new Error('Not authenticated')
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, branch_id, organization_id')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (profileError || !profile) throw new Error('Profile not found')
-      if (!profile.branch_id) throw new Error('No active branch for user')
-
-      // Pre-validate coupon (server-side) so waiter sees exact discount
-      try {
-        const code = (couponCode || '').trim()
-        if (code) {
-          const { data, error } = await supabase.rpc('validate_coupon', {
-            p_branch_id: profile.branch_id,
-            p_code: code,
-            p_total_amount: total,
-          })
-          if (error) {
-            const msg = String(error.message || '')
-            let friendly = 'Coupon invalid'
-            if (/invalid_coupon/i.test(msg)) friendly = 'Coupon not found or inactive'
-            else if (/coupon_exhausted/i.test(msg)) friendly = 'Coupon usage limit reached'
-            else if (/coupon_min_total_not_met/i.test(msg)) friendly = 'Order total is below coupon minimum'
-            setCouponError(friendly)
-            throw new Error(friendly)
-          }
-          const row: any = Array.isArray(data) ? (data[0] ?? null) : (data as any)
-          const disc = Number(row?.discount ?? 0)
-          const normalized = (row?.normalized_code as string | null) ?? null
-          if (normalized) setCouponCode(normalized)
-          setDiscount(Number.isFinite(disc) ? disc : 0)
-          setCouponError(null)
-        } else {
-          setDiscount(0)
-          setCouponError(null)
-        }
-      } catch (vErr) {
-        // Bubble up to be handled by general error handler
-        throw vErr
+      const posPayload = {
+        tableId: opts?.goToPayments ? undefined : (tableId ?? undefined),
+        tableName: opts?.goToPayments ? undefined : (tableName ?? undefined),
+        items: items.map((it) => ({
+          productId: String(it.productId),
+          name: String(it.name || 'Item'),
+          qty: Number(it.quantity || 0) || 0,
+          unitPrice: Number(it.price || 0) || 0,
+        })).filter((x) => x.productId && x.qty > 0),
       }
 
-      const itemsPayload = items.map((it) => {
-        const mods = [...(it.modifiers ?? [])]
-        if ((it.note ?? '').trim().length > 0) mods.push(`note:${(it.note ?? '').trim()}`)
-        return {
-          product_id: it.productId,
-          quantity: it.quantity,
-          unit_price: it.price,
-          total_price: it.price * it.quantity,
-          modifiers: mods,
-          status: 'pending',
-        }
-      })
+      if (posPayload.items.length === 0) throw new Error('empty_order')
 
       if (editingOrderId) {
-        // Update existing pending order instead of creating a new one
-        // 1) Load previous items for logging
-        let prevForLog: Array<{ name: string; quantity: number; modifiers: string[] }> = []
-        try {
-          const { data: prevRows } = await supabase
-            .from('order_items')
-            .select('quantity, modifiers, products(name)')
-            .eq('order_id', editingOrderId)
-          prevForLog = (prevRows ?? []).map((r: any) => ({
-            name: (r?.products?.name as string) ?? 'Item',
-            quantity: Number(r?.quantity ?? 0),
-            modifiers: ((r?.modifiers as string[]) ?? []).filter(Boolean),
-          }))
-        } catch { }
-
-        // 2) Prepare new items for logging
-        const newForLog: Array<{ name: string; quantity: number; modifiers: string[] }> = items.map((it) => ({
-          name: it.name,
-          quantity: it.quantity,
-          modifiers: (it.modifiers ?? []).filter(Boolean),
-        }))
-
-        // 3) Insert change log
-        try {
-          await supabase.from('order_change_logs').insert({
-            order_id: editingOrderId,
-            branch_id: (profile as any).branch_id,
-            staff_id: (profile as any).id,
-            previous_items: prevForLog,
-            new_items: newForLog,
-            reason: 'edit',
-          })
-        } catch { }
-
-        // 4) Update header and replace items
-        // attempt to update with optional instructions/coupon fields; fallback if columns missing
-        let updErr: any = null
-        try {
-          const payload: any = {
-            total_amount: total,
-            tax_amount: tax,
-            discount_amount: 0,
-            table_id: tableId,
-            is_guest: isGuest || null,
-            customer_name: isGuest ? (selectedGuestName.trim() || null) : null,
-            status: (opts?.goToPayments ? 'served' : undefined) as any,
-            instructions: (cartNote || '').trim() || undefined,
-            coupon_code: (couponCode || '').trim() || undefined,
-          }
-          const { error } = await supabase.from('orders').update(payload).eq('id', editingOrderId)
-          updErr = error
-        } catch (e: any) {
-          updErr = e
-        }
-        if (updErr) {
-          const msg = String(updErr?.message ?? '')
-          if (/(column\s+instructions|column\s+coupon_code|does not exist|unknown column|schema\s+cache|42703|instructions|coupon|order_type)/i.test(msg)) {
-            try {
-          const allTableIds = [tableId, ...(extraTableIds || [])].filter(Boolean) as string[]
-          if (allTableIds.length > 1) {
-            try { await supabase.from('order_tables').delete().eq('order_id', editingOrderId) } catch {}
-            await supabase.from('order_tables').insert(allTableIds.map((tid) => ({ order_id: editingOrderId, table_id: tid })))
-          }
-        } catch {}
-
-          }
-        }
-
-        // If guest, register visit and decrement allowance
-        if (isGuest && selectedGuestName.trim()) {
-          try {
-            let guestId: string | null = null
-            const name = selectedGuestName.trim()
-            const orgId = (profile as any).organization_id
-            if (orgId && name) {
-              const { data: existing } = await supabase
-                .from('guests')
-                .select('id')
-                .eq('organization_id', orgId)
-                .eq('full_name', name)
-                .maybeSingle()
-              if (existing?.id) guestId = existing.id as string
-              else {
-                const { data: created } = await supabase
-                  .from('guests')
-                  .insert({ organization_id: orgId, full_name: name, type: 'invited', is_active: true })
-                  .select('id')
-                  .single()
-                guestId = (created as any)?.id ?? null
-              }
-            }
-            await supabase.from('guest_visits').insert({
-              guest_id: guestId,
-              branch_id: (profile as any).branch_id,
-              order_id: editingOrderId,
-              amount_consumed: Number(total),
-              is_paid_by_guest: true,
-              covered_by_org: false,
-            })
-            if (guestId) {
-              const { data: g } = await supabase
-                .from('guests')
-                .select('allowance_limit')
-                .eq('id', guestId)
-                .maybeSingle()
-              const cur = Number((g as any)?.allowance_limit ?? null)
-              if (!Number.isNaN(cur)) {
-                const next = Math.max(0, cur - Number(total))
-                await supabase.from('guests').update({ allowance_limit: next }).eq('id', guestId)
-              }
-            }
-          } catch {}
-        }
-
-        // Replace order items
-        const { error: delErr } = await supabase
-          .from('order_items')
-          .delete()
-          .eq('order_id', editingOrderId)
-        if (delErr) throw new Error(delErr.message)
-
-        // Try insert with branch_id/staff_id to satisfy RLS; fallback if columns missing
-        let insertErr: any = null
-        try {
-          const payloadWithId = itemsPayload.map((p) => ({ ...p, order_id: editingOrderId, branch_id: (profile as any).branch_id, staff_id: (profile as any).id }))
-          const { error: insErr } = await supabase.from('order_items').insert(payloadWithId)
-          insertErr = insErr
-        } catch (e: any) { insertErr = e }
-        if (insertErr) {
-          const msg = String(insertErr?.message ?? '')
-          if (/(branch_id|staff_id|column\s+branch_id|column\s+staff_id|does not exist|unknown column|42703|schema\s+cache)/i.test(msg)) {
-            const payloadWithId = itemsPayload.map((p) => ({ ...p, order_id: editingOrderId }))
-            const { error: ins2 } = await supabase.from('order_items').insert(payloadWithId)
-            if (ins2) throw new Error(ins2.message)
-          } else {
-            throw new Error(msg || 'Failed to insert order items')
-          }
-        }
-
-        // Best-effort: mark table(s) occupied when order is saved/edited
-        try {
-          const allTableIds = [tableId, ...(extraTableIds || [])].filter(Boolean) as string[]
-          if (allTableIds.length > 0) {
-            await supabase.from('tables').update({ status: 'occupied' }).in('id', allTableIds)
-          }
-        } catch {}
-
+        await updatePosOrder({
+          orderId: editingOrderId,
+          status: opts?.goToPayments ? 'Served' : 'Pending',
+          payload: posPayload as any,
+        })
         clear()
         setEditingOrder(null)
         try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success) } catch { }
         setFinalizeOpen(false)
         openOrders(editingOrderId)
       } else {
-        // Create new order flow
-        // insert with optional instructions/coupon, fallback if columns missing
-        let order: any = null
-        let orderError: any = null
-        try {
-          const res = await supabase
-            .from('orders')
-            .insert({
-              branch_id: profile.branch_id,
-              staff_id: profile.id,
-              table_id: opts?.goToPayments ? null : tableId,
-              status: opts?.goToPayments ? 'served' : 'pending',
-              total_amount: total,
-              tax_amount: tax,
-              discount_amount: 0,
-              payment_status: 'unpaid',
-              is_guest: isGuest || null,
-              customer_name: isGuest ? (selectedGuestName.trim() || null) : null,
-              instructions: (cartNote || '').trim() || undefined,
-              coupon_code: (couponCode || '').trim() || undefined,
-              order_type: (opts?.goToPayments ? 'takeaway' : undefined) as any,
-            })
-            .select('id')
-            .single()
-          order = res.data
-          orderError = res.error
-        } catch (e: any) {
-          orderError = e
-        }
-        if (orderError || !order) {
-          const msg = String(orderError?.message ?? '')
-          if (/(column\s+instructions|column\s+coupon_code|does not exist|unknown column|schema\s+cache|42703|instructions|coupon)/i.test(msg)) {
-            const res2 = await supabase
-              .from('orders')
-              .insert({
-                branch_id: profile.branch_id,
-                staff_id: profile.id,
-                table_id: opts?.goToPayments ? null : tableId,
-                status: opts?.goToPayments ? 'served' : 'pending',
-                total_amount: total,
-                tax_amount: tax,
-                discount_amount: 0,
-                payment_status: 'unpaid',
-                is_guest: isGuest || null,
-                customer_name: isGuest ? (selectedGuestName.trim() || null) : null,
-              })
-              .select('id')
-              .single()
-            order = res2.data
-            if (res2.error || !order) throw new Error(res2.error?.message || 'Order create failed')
-          } else {
-            throw new Error(msg || 'Order create failed')
-          }
-        }
-
-        // Persist extra tables if join table exists; ignore if not
-        try {
-          const allTableIds = [tableId, ...(extraTableIds || [])].filter(Boolean) as string[]
-          if (allTableIds.length > 1) {
-            await supabase.from('order_tables').insert(allTableIds.map((tid) => ({ order_id: order.id as string, table_id: tid })))
-          }
-        } catch {}
-
-        // Try insert with branch_id/staff_id to satisfy RLS; fallback if columns missing
-        {
-          let itemsInsertError: any = null
-          try {
-            const payloadWithId = itemsPayload.map((p) => ({ ...p, order_id: order.id as string, branch_id: (profile as any).branch_id, staff_id: (profile as any).id }))
-            const { error } = await supabase.from('order_items').insert(payloadWithId)
-            itemsInsertError = error
-          } catch (e: any) { itemsInsertError = e }
-          if (itemsInsertError) {
-            const msg = String(itemsInsertError?.message ?? '')
-            if (/(branch_id|staff_id|column\s+branch_id|column\s+staff_id|does not exist|unknown column|42703|schema\s+cache)/i.test(msg)) {
-              const payloadWithId = itemsPayload.map((p) => ({ ...p, order_id: order.id as string }))
-              const { error: itemsInsertError2 } = await supabase.from('order_items').insert(payloadWithId)
-              if (itemsInsertError2) throw new Error(itemsInsertError2.message)
-            } else {
-              throw new Error(msg || 'Failed to insert order items')
-            }
-          }
-        }
-
-        // Best-effort: mark table(s) occupied when order is created
-        try {
-          const allTableIds = [tableId, ...(extraTableIds || [])].filter(Boolean) as string[]
-          if (allTableIds.length > 0) {
-            await supabase.from('tables').update({ status: 'occupied' }).in('id', allTableIds)
-          }
-        } catch {}
-
-        // If guest, register visit and decrement allowance
-        if (isGuest && selectedGuestName.trim()) {
-          try {
-            let guestId: string | null = null
-            const name = selectedGuestName.trim()
-            const orgId = (profile as any).organization_id
-            if (orgId && name) {
-              const { data: existing } = await supabase
-                .from('guests')
-                .select('id')
-                .eq('organization_id', orgId)
-                .eq('full_name', name)
-                .maybeSingle()
-              if (existing?.id) guestId = existing.id as string
-              else {
-                const { data: created } = await supabase
-                  .from('guests')
-                  .insert({ organization_id: orgId, full_name: name, type: 'invited', is_active: true })
-                  .select('id')
-                  .single()
-                guestId = (created as any)?.id ?? null
-              }
-            }
-            await supabase.from('guest_visits').insert({
-              guest_id: guestId,
-              branch_id: (profile as any).branch_id,
-              order_id: order.id as string,
-              amount_consumed: Number(total),
-              is_paid_by_guest: true,
-              covered_by_org: false,
-            })
-            if (guestId) {
-              const { data: g } = await supabase
-                .from('guests')
-                .select('allowance_limit')
-                .eq('id', guestId)
-                .maybeSingle()
-              const cur = Number((g as any)?.allowance_limit ?? null)
-              if (!Number.isNaN(cur)) {
-                const next = Math.max(0, cur - Number(total))
-                await supabase.from('guests').update({ allowance_limit: next }).eq('id', guestId)
-              }
-            }
-          } catch {}
-        }
-
-        // Best-effort inventory deduction (mirrors web POS and offline queue behavior)
-        try {
-          const productIds = Array.from(new Set(items.map((i) => i.productId)))
-          if (productIds.length > 0) {
-            const { data: recipeRows, error: recipeError } = await supabase
-              .from('recipes')
-              .select('product_id, inventory_item_id, quantity_required, yield_loss_percentage')
-              .in('product_id', productIds)
-            if (!recipeError && recipeRows && recipeRows.length > 0) {
-              const inventoryIds = Array.from(new Set(recipeRows.map((r: any) => r.inventory_item_id as string)))
-              const { data: inventoryItems, error: inventoryError } = await supabase
-                .from('inventory_items')
-                .select('id, current_stock')
-                .in('id', inventoryIds)
-              if (!inventoryError && inventoryItems) {
-                const quantityByInventory = new Map<string, number>()
-                items.forEach((orderItem) => {
-                  const recipesForProduct = recipeRows.filter((r: any) => r.product_id === orderItem.productId)
-                  recipesForProduct.forEach((r: any) => {
-                    const baseQty = Number(r.quantity_required ?? 0) * orderItem.quantity
-                    const yieldLoss = Number(r.yield_loss_percentage ?? 0)
-                    const factor = 1 + yieldLoss / 100
-                    const totalQty = baseQty * factor
-                    if (totalQty <= 0) return
-                    const key = r.inventory_item_id as string
-                    const existing = quantityByInventory.get(key) ?? 0
-                    quantityByInventory.set(key, existing + totalQty)
-                  })
-                })
-                const stockMovementsPayload: any[] = []
-                for (const [inventoryItemId, totalQty] of quantityByInventory.entries()) {
-                  stockMovementsPayload.push({
-                    inventory_item_id: inventoryItemId,
-                    branch_id: profile.branch_id,
-                    movement_type: 'out',
-                    quantity: totalQty,
-                    reason: 'Sale deduction',
-                    related_order_id: order.id,
-                    created_by: profile.id,
-                  })
-                }
-                if (stockMovementsPayload.length > 0) {
-                  const { error: movementError } = await supabase.from('stock_movements').insert(stockMovementsPayload)
-                  if (!movementError) {
-                    for (const inv of inventoryItems as any[]) {
-                      const key = inv.id as string
-                      const deduct = quantityByInventory.get(key) ?? 0
-                      if (deduct <= 0) continue
-                      const current = Number(inv.current_stock ?? 0)
-                      const next = current - deduct
-                      const { error: updateError } = await supabase
-                        .from('inventory_items')
-                        .update({ current_stock: next })
-                        .eq('id', key)
-                        .eq('branch_id', profile.branch_id)
-                      if (updateError) {
-                        console.warn('Inventory update failed for', key, updateError?.message)
-                        break
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        } catch {}
-
+        const created = await createPosOrder({
+          status: opts?.goToPayments ? 'Served' : 'Pending',
+          payload: posPayload as any,
+        })
         clear()
         try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success) } catch { }
-        setSuccessLabel('Order placed')
-        setSuccessOpen(true)
-        setTimeout(() => setSuccessOpen(false), 2000)
         setFinalizeOpen(false)
         if (opts?.goToPayments) {
-          setFocusPaymentOrder(order.id)
+          setFocusPaymentOrder(created.id)
           setActiveTab('Payments')
         } else {
-          openOrders(order.id)
+          openOrders(created.id)
         }
       }
     } catch (e: any) {

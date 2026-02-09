@@ -125,6 +125,58 @@ const createMainWindow = async () => {
   return win;
 };
 
+const listPrintersSafe = (win) => {
+  try {
+    if (!win || win.isDestroyed()) return [];
+    return win.webContents.getPrintersAsync ? win.webContents.getPrintersAsync() : [];
+  } catch {
+    return [];
+  }
+};
+
+const printHtmlToDevice = async ({ html, deviceName, silent }) => {
+  const target = mainWindow;
+  if (!target || target.isDestroyed()) throw new Error('no_window');
+  const content = typeof html === 'string' ? html : '';
+  const name = typeof deviceName === 'string' ? deviceName.trim() : '';
+  if (!content.trim()) throw new Error('html_required');
+  if (!name) throw new Error('device_required');
+
+  const printWin = new BrowserWindow({
+    width: 420,
+    height: 700,
+    show: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  try {
+    await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(content)}`);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    const printers = await listPrintersSafe(target);
+    const exists = Array.isArray(printers) && printers.some((p) => String(p?.name || '').trim() === name);
+    if (!exists) throw new Error('printer_not_found');
+
+    const ok = await printWin.webContents.print({
+      silent: silent !== false,
+      printBackground: true,
+      deviceName: name,
+    });
+    if (!ok) throw new Error('print_failed');
+    return { ok: true };
+  } finally {
+    try {
+      if (!printWin.isDestroyed()) printWin.destroy();
+    } catch {
+      // ignore
+    }
+  }
+};
+
 const wireAutoUpdater = () => {
   try {
     if (!autoUpdater || isDev) return;
@@ -304,6 +356,29 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('mirachpos.outbox.bump', async (_evt, payload) => {
     return db.outboxBumpAttempt ? db.outboxBumpAttempt(payload) : { ok: false };
+  });
+
+  ipcMain.handle('mirachpos.printers.list', async () => {
+    try {
+      const win = mainWindow;
+      if (!win || win.isDestroyed()) return [];
+      const printers = await listPrintersSafe(win);
+      if (!Array.isArray(printers)) return [];
+      return printers.map((p) => ({
+        name: String(p?.name || '').trim(),
+        isDefault: Boolean(p?.isDefault),
+        status: String(p?.status || '').trim(),
+      })).filter((p) => p.name);
+    } catch {
+      return [];
+    }
+  });
+
+  ipcMain.handle('mirachpos.printers.printHtml', async (_evt, payload) => {
+    const html = payload && typeof payload === 'object' ? payload.html : '';
+    const deviceName = payload && typeof payload === 'object' ? payload.deviceName : '';
+    const silent = payload && typeof payload === 'object' ? payload.silent : true;
+    return await printHtmlToDevice({ html, deviceName, silent });
   });
 
   mainWindow = await createMainWindow();

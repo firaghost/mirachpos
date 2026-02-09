@@ -4,9 +4,7 @@
     "slug": "tium-cafe",
     "scheme": "cafev",
     "version": "0.1.8",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "0.1.8",
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_ERROR_RECOVERY",

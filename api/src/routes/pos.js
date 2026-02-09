@@ -1902,7 +1902,8 @@ const makePosRouter = () => {
         const meta = safeJsonParse(row?.payload_json, {});
         const lines = Array.isArray(meta?.lines) ? meta.lines : null;
         const beep = meta?.beep === true;
-        const payload = makeKitchenTicketPayload({ title: 'Kitchen Ticket', orderRow: patchedOrderRow, lines, beep });
+        const title = typeof meta?.title === 'string' && meta.title.trim() ? meta.title.trim() : 'Kitchen Ticket';
+        const payload = makeKitchenTicketPayload({ title, orderRow: patchedOrderRow, lines, beep });
 
         const nowIso = new Date().toISOString();
         try {
@@ -2461,7 +2462,8 @@ const makePosRouter = () => {
 
         const lines = Array.isArray(req.body?.lines) ? req.body.lines : null;
         const beep = req.body?.beep === true;
-        const payload = makeKitchenTicketPayload({ title: 'Kitchen Ticket', orderRow: patchedOrderRow, lines, beep });
+        const title = typeof req.body?.title === 'string' && req.body.title.trim() ? req.body.title.trim() : 'Kitchen Ticket';
+        const payload = makeKitchenTicketPayload({ title, orderRow: patchedOrderRow, lines, beep });
         try {
           await sendTcp({ host, port, data: payload, timeoutMs: 8000 });
         } catch (e) {
@@ -2490,7 +2492,7 @@ const makePosRouter = () => {
                 attempts: 0,
                 last_attempt_at: null,
                 next_attempt_at: new Date(Date.now() + 10000).toISOString(),
-                payload_json: JSON.stringify({ lines, beep }),
+                payload_json: JSON.stringify({ title, lines, beep }),
                 created_at: nowIso,
                 updated_at: nowIso,
               });
@@ -2513,7 +2515,7 @@ const makePosRouter = () => {
             attempts: 0,
             last_attempt_at: null,
             next_attempt_at: new Date(Date.now() + 10000).toISOString(),
-            payload_json: JSON.stringify({ lines, beep }),
+            payload_json: JSON.stringify({ title, lines, beep }),
             created_at: nowIso,
             updated_at: nowIso,
           });

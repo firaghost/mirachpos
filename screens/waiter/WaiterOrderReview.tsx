@@ -11,7 +11,7 @@ interface Props {
 }
 
 export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
-  const { voidOrder, voidOrderItem, setPendingOrderItemQty, setPendingOrderItemNote, setOrderCustomer, setOrderSplits, refreshFromServer, queueOfflineWrite } = usePos();
+  const { voidOrder, voidOrderItem, setPendingOrderItemQty, setPendingOrderItemNote, setOrderCustomer, setOrderSplits, refreshFromServer, queueOfflineWrite, printKitchenTicket, kitchenPrintByOrderId, retryKitchenTicket } = usePos();
   const order = useSelectedOrder();
 
   const [editMode, setEditMode] = useState(false);
@@ -25,6 +25,10 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
   const [customerOpen, setCustomerOpen] = useState(false);
 
   const [orderNotesDraft, setOrderNotesDraft] = useState('');
+
+  const [printLoading, setPrintLoading] = useState(false);
+  const [printError, setPrintError] = useState<string>('');
+  const [printMsg, setPrintMsg] = useState<string>('');
 
   useEffect(() => {
     setOrderNotesDraft(order?.notes ?? '');
@@ -243,6 +247,26 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => {
+              if (!order?.id) return;
+              setPrintError('');
+              setPrintMsg('Sent to printer');
+              setPrintLoading(true);
+              window.setTimeout(() => setPrintLoading(false), 700);
+              Promise.resolve(printKitchenTicket(order.id, { mode: 'dialog' })).catch((e) => {
+                setPrintError(e instanceof Error ? e.message : 'Print failed');
+                setPrintMsg('');
+                setPrintLoading(false);
+              });
+            }}
+            disabled={printLoading}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card hover:bg-secondary border border-border text-foreground text-sm font-semibold transition-all hover:border-muted-foreground/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Print kitchen ticket"
+          >
+            <AppIcon name="print" className="text-[20px]" size={20} />
+            <span>{printLoading ? 'Printing...' : 'Print'}</span>
+          </button>
+          <button
             onClick={() => onNavigate(Screen.WAITER_MENU)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground text-sm font-semibold transition-all hover:border-muted-foreground/30"
           >
@@ -251,6 +275,48 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
           </button>
         </div>
       </header>
+
+      {printError ? (
+        <div className="px-6 md:px-10 py-3 border-b border-border bg-destructive/10 text-destructive text-sm font-semibold">
+          {printError}
+        </div>
+      ) : null}
+
+      {!printError && printMsg ? (
+        <div className="px-6 md:px-10 py-3 border-b border-border bg-secondary/30 text-foreground/80 text-sm font-semibold">
+          {printMsg}
+        </div>
+      ) : null}
+
+      {order?.id && kitchenPrintByOrderId?.[order.id] ? (
+        (() => {
+          const st = kitchenPrintByOrderId[order.id];
+          const isFailed = st.status === 'failed';
+          const isQueued = st.status === 'queued';
+          const isPrinted = st.status === 'printed';
+          const badgeClass = isPrinted
+            ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+            : isQueued
+              ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+              : 'bg-destructive/10 text-destructive border-destructive/20';
+          return (
+            <div className={`px-6 md:px-10 py-3 border-b border-border text-sm font-semibold flex items-center justify-between gap-3 ${badgeClass}`}>
+              <div>
+                <span className="font-extrabold">Kitchen ticket:</span> {st.message}
+              </div>
+              {isFailed ? (
+                <button
+                  onClick={() => void retryKitchenTicket(order.id)}
+                  className="px-3 py-1 rounded bg-background/60 hover:bg-background border border-border font-extrabold"
+                  title="Retry kitchen ticket print"
+                >
+                  Tap to retry
+                </button>
+              ) : null}
+            </div>
+          );
+        })()
+      ) : null}
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-6 md:p-10">

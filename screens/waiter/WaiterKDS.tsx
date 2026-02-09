@@ -10,11 +10,12 @@ interface Props {
 }
 
 export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
-  const { orders, setOrderStatus, refreshFromServer } = usePos();
+  const { orders, setOrderStatus, refreshFromServer, printKitchenTicket, kitchenPrintByOrderId, retryKitchenTicket } = usePos();
   const [filter, setFilter] = useState<'All' | 'Ready' | 'Preparing' | 'Served' | 'Voided' | 'Completed'>('All');
   const [query, setQuery] = useState('');
 
   const [actionErr, setActionErr] = useState('');
+  const [actionMsg, setActionMsg] = useState('');
 
   const [now, setNow] = useState<Date>(() => new Date());
   const [isOnline, setIsOnline] = useState<boolean>(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
@@ -26,6 +27,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
 
   const refresh = async () => {
     setActionErr('');
+    setActionMsg('');
     try {
       await refreshFromServer();
     } catch {
@@ -144,20 +146,57 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
       </div>
 
       <div className="p-4 border-t border-border bg-background">
-        <button className="w-full bg-secondary hover:bg-secondary/80 text-foreground font-bold text-lg py-4 rounded-lg flex items-center justify-center gap-2 uppercase tracking-wide border border-border">
-          <span>Print</span>
+        <button
+          onClick={() => handlePrint(o.id)}
+          disabled={printingOrderId === o.id}
+          className="w-full bg-secondary hover:bg-secondary/80 text-foreground font-bold text-lg py-4 rounded-lg flex items-center justify-center gap-2 uppercase tracking-wide border border-border disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Print kitchen ticket"
+        >
+          <span>{printingOrderId === o.id ? 'Printing...' : 'Print'}</span>
           <AppIcon name="print" />
         </button>
       </div>
     </article>
   );
 
-  const renderActiveCard = (o: (typeof orders)[number]) => (
-    <article key={o.id} className={`flex flex-col bg-card rounded-xl border shadow-lg overflow-hidden h-full min-h-[440px] relative transition-all ${
-      o.status === 'Ready'
-        ? 'border-primary/50 shadow-lg shadow-primary/10'
-        : 'border-border'
-    } hover:border-primary/40`}>
+  const [printingOrderId, setPrintingOrderId] = useState<string | null>(null);
+
+  const handlePrint = (orderId: string) => {
+    const oid = String(orderId || '').trim();
+    if (!oid) return;
+    setActionErr('');
+    setActionMsg('Sent to printer');
+    setPrintingOrderId(oid);
+    window.setTimeout(() => {
+      setPrintingOrderId((cur) => (cur === oid ? null : cur));
+    }, 700);
+    Promise.resolve(printKitchenTicket(oid, { mode: 'dialog' })).catch((e) => {
+      const msg = e instanceof Error ? e.message : 'Print failed';
+      setActionErr(msg);
+      setActionMsg('');
+      setPrintingOrderId((cur) => (cur === oid ? null : cur));
+    });
+  };
+
+  const renderActiveCard = (o: (typeof orders)[number]) => {
+    const st = kitchenPrintByOrderId?.[o.id];
+    const isFailed = st?.status === 'failed';
+    const isQueued = st?.status === 'queued';
+    const isPrinted = st?.status === 'printed';
+    const badgeClass = isPrinted
+      ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+      : isQueued
+        ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+        : isFailed
+          ? 'bg-destructive/10 text-destructive border-destructive/20'
+          : 'bg-secondary text-muted-foreground border-border';
+
+    return (
+      <article key={o.id} className={`flex flex-col bg-card rounded-xl border shadow-lg overflow-hidden h-full min-h-[440px] relative transition-all ${
+        o.status === 'Ready'
+          ? 'border-primary/50 shadow-lg shadow-primary/10'
+          : 'border-border'
+      } hover:border-primary/40`}>
       <div className={`p-4 flex justify-between items-start border-b ${
         o.status === 'Ready' ? 'bg-primary/10 border-primary/20' : 'bg-secondary/50 border-border'
       }`}>
@@ -167,6 +206,21 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
             <span className="text-muted-foreground text-sm font-mono">{o.number}</span>
           </div>
           <div className="text-xs text-muted-foreground font-semibold mt-1">Placed by: <span className="text-foreground">{o.createdByName ?? (o.createdByStaffId ?? ' ”')}</span></div>
+          {st ? (
+            <div className={`mt-2 inline-flex items-center gap-2 px-2 py-1 rounded border text-[11px] font-bold ${badgeClass}`}>
+              <span>Kitchen ticket:</span>
+              <span>{st.message || (isPrinted ? 'Printed' : isQueued ? 'Queued (retrying)' : 'Failed')}</span>
+              {isFailed ? (
+                <button
+                  onClick={() => void retryKitchenTicket(o.id)}
+                  className="ml-1 underline font-extrabold"
+                  title="Retry kitchen ticket print"
+                >
+                  Tap to retry
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className="flex items-center gap-1 bg-background px-2 py-1 rounded text-primary font-bold font-mono border border-border">
@@ -238,9 +292,19 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
             <AppIcon name="check_circle" />
           </button>
         )}
+        <button
+          onClick={() => handlePrint(o.id)}
+          disabled={printingOrderId === o.id}
+          className="w-full mt-3 bg-card hover:bg-secondary border border-border text-foreground font-bold text-lg py-3 rounded-lg flex items-center justify-center gap-2 uppercase tracking-wide transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Print kitchen ticket"
+        >
+          <AppIcon name="print" className="text-[20px]" />
+          <span>{printingOrderId === o.id ? 'Printing...' : 'Print Ticket'}</span>
+        </button>
       </div>
     </article>
-  );
+    );
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
@@ -265,6 +329,7 @@ export const WaiterKDS: React.FC<Props> = ({ onNavigate }) => {
               <span>Shift #1024</span>
             </p>
             {actionErr ? <div className="mt-2 text-xs text-destructive font-semibold">{actionErr}</div> : null}
+            {!actionErr && actionMsg ? <div className="mt-2 text-xs text-foreground/80 font-semibold">{actionMsg}</div> : null}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">

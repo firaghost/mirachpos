@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld('mirachpos', {
   config: {
     apiBase,
   },
+  printers: {
+    list: () => ipcRenderer.invoke('mirachpos.printers.list'),
+    printHtml: (payload) => ipcRenderer.invoke('mirachpos.printers.printHtml', payload),
+  },
   updater: {
     getState: () => ipcRenderer.invoke('mirachpos.updater.getState'),
     check: () => ipcRenderer.invoke('mirachpos.updater.check'),

@@ -43,10 +43,11 @@ type ConnectedDevice = {
   model: string;
   ip: string;
   port: string;
-  connection: 'LAN' | 'whitetooth' | 'Cloud';
+  connection: 'LAN' | 'USB' | 'whitetooth' | 'Cloud';
   setupMode: 'Auto' | 'Manual';
   whitetoothName?: string;
   cloudId?: string;
+  printerName?: string;
   profile: 'Receipt' | 'Kitchen' | 'Bar';
   usage: string;
   kind: 'Printer' | 'KDS' | 'CashDrawer';
@@ -1053,6 +1054,7 @@ export const BranchSettings: React.FC = () => {
       setupMode: 'Manual',
       whitetoothName: '',
       cloudId: '',
+      printerName: '',
       profile: 'Receipt',
       usage: '',
       kind: 'Printer',
@@ -2548,6 +2550,7 @@ export const BranchSettings: React.FC = () => {
                     className="mt-2"
                   >
                     <option value="LAN">LAN</option>
+                    <option value="USB">USB</option>
                     <option value="whitetooth">whitetooth</option>
                     <option value="Cloud">Cloud</option>
                   </Select>
@@ -2597,6 +2600,18 @@ export const BranchSettings: React.FC = () => {
                       placeholder="9100"
                     />
                   </div>
+                </div>
+              ) : null}
+
+              {settingsDeviceDraft.connection === 'USB' ? (
+                <div>
+                  <label className="text-sm font-bold text-muted-foreground">Windows Printer Name</label>
+                  <Input
+                    value={settingsDeviceDraft.printerName ?? ''}
+                    onChange={(e) => setSettingsDeviceDraft((p) => (p ? { ...p, printerName: e.target.value } : p))}
+                    className="mt-2"
+                    placeholder="e.g. EPSON TM-T20II Receipt"
+                  />
                 </div>
               ) : null}
 

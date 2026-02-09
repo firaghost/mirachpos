@@ -37,13 +37,23 @@ interface TableRow {
   zone?: string | null
 }
 
+function normalizeTableStatus(raw: string | null | undefined): string | null {
+  const s = String(raw || '').trim().toLowerCase()
+  if (!s) return null
+  if (s === 'free' || s === 'available') return 'available'
+  if (s === 'reserved') return 'reserved'
+  if (s === 'cleaning') return 'cleaning'
+  if (s === 'occupied' || s === 'pending' || s === 'cooking' || s === 'ready' || s === 'payment') return 'occupied'
+  return 'occupied'
+}
+
 async function fetchTables(): Promise<TableRow[]> {
   try {
     const tables = await withTimeout(fetchPosTables(), 15000)
     const rows: TableRow[] = (tables ?? []).map((t) => ({
       id: String(t.id),
       name: String(t.name || 'Table'),
-      status: t.status ? String(t.status) : null,
+      status: normalizeTableStatus(t.status),
       zone: (t.area as any) ?? null,
     }))
     try {
@@ -52,8 +62,8 @@ async function fetchTables(): Promise<TableRow[]> {
     return rows
   } catch (e) {
     const local = await getTablesLocal()
-    if (local.length > 0) return local.map((t) => ({ id: t.id, name: t.name, status: t.status ?? null, zone: null }))
-    return []
+    if (local.length > 0) return local.map((t) => ({ id: t.id, name: t.name, status: normalizeTableStatus(t.status), zone: null }))
+    throw e
   }
 }
 
@@ -109,9 +119,11 @@ export function TablesScreen({ onOpenOrders, onTableSelected }: { onOpenOrders?:
     }
   }, [])
 
+  const normalizeZone = (z: string) => String(z || '').trim().toLowerCase()
+
   const tablesFiltered = useMemo(() => {
     const arr = zoneSupported
-      ? ((data ?? []) as TableRow[]).filter((t) => (t.zone || 'Main hall') === activeZone)
+      ? ((data ?? []) as TableRow[]).filter((t) => normalizeZone(t.zone || 'Main hall') === normalizeZone(activeZone))
       : ((data ?? []) as TableRow[])
     const q = query.trim().toLowerCase()
     if (!q) return arr
@@ -244,7 +256,7 @@ export function TablesScreen({ onOpenOrders, onTableSelected }: { onOpenOrders?:
             }
             renderItem={({ item }) => {
               const selected = selectionOrder.includes(item.id)
-              const statusStr = (item.status ?? '').toLowerCase() as any
+              const statusStr = (item.status ?? '') as any
 
               return (
                 <TableIcon
