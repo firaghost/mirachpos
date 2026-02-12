@@ -6,6 +6,7 @@ const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
 const { requireRole, requirePermission } = require('../middleware/permissions');
+const { logAudit } = require('../utils/logger');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -217,16 +218,15 @@ const makeInventoryRouter = () => {
       });
 
       try {
-        await db().from('audit_log').insert({
-          id: makeId('aud'),
-          tenant_id: req.tenant.id,
-          branch_id: branchId,
-          actor_staff_id: req.auth?.staffId ? String(req.auth.staffId) : null,
-          actor_role: req.auth?.role ? String(req.auth.role) : null,
+        await logAudit({
+          tenantId: req.tenant.id,
+          branchId,
+          actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+          actorRole: req.auth?.role ? String(req.auth.role) : null,
           type: 'inventory_item.created',
           summary: `Created inventory item: ${name}`,
-          payload_json: JSON.stringify({ id, name, category: category || null, stock, unit: unit || null, minStock, price }),
-          created_at: nowIso,
+          payload: { id, name, category: category || null, stock, unit: unit || null, minStock, price },
+          requestId: req.requestId,
         });
       } catch {
         // ignore audit failures
@@ -297,15 +297,14 @@ const makeInventoryRouter = () => {
         const prevPrice = Number(prevJson?.cost ?? prevJson?.unitCost ?? prevJson?.price ?? 0) || 0;
         const nextJsonObj = safeJsonParse(patch.item_json, prevJson);
         const nextPrice = Number(nextJsonObj?.cost ?? nextJsonObj?.unitCost ?? nextJsonObj?.price ?? prevPrice) || 0;
-        await db().from('audit_log').insert({
-          id: makeId('aud'),
-          tenant_id: req.tenant.id,
-          branch_id: branchId,
-          actor_staff_id: req.auth?.staffId ? String(req.auth.staffId) : null,
-          actor_role: req.auth?.role ? String(req.auth.role) : null,
+        await logAudit({
+          tenantId: req.tenant.id,
+          branchId,
+          actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+          actorRole: req.auth?.role ? String(req.auth.role) : null,
           type: 'inventory_item.updated',
           summary: `Updated inventory item: ${String(patch.name || existing.name || id)}`,
-          payload_json: JSON.stringify({
+          payload: {
             id,
             before: {
               name: String(existing.name || ''),
@@ -323,8 +322,8 @@ const makeInventoryRouter = () => {
               minStock: patch.reorder_level ?? (Number(existing.reorder_level || 0) || 0),
               price: nextPrice,
             },
-          }),
-          created_at: patch.updated_at,
+          },
+          requestId: req.requestId,
         });
       } catch {
         // ignore audit failures
@@ -357,16 +356,15 @@ const makeInventoryRouter = () => {
       await db().from('inventory_items').where({ tenant_id: req.tenant.id, id }).delete();
 
       try {
-        await db().from('audit_log').insert({
-          id: makeId('aud'),
-          tenant_id: req.tenant.id,
-          branch_id: branchId,
-          actor_staff_id: req.auth?.staffId ? String(req.auth.staffId) : null,
-          actor_role: req.auth?.role ? String(req.auth.role) : null,
+        await logAudit({
+          tenantId: req.tenant.id,
+          branchId,
+          actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+          actorRole: req.auth?.role ? String(req.auth.role) : null,
           type: 'inventory_item.deleted',
           summary: `Deleted inventory item: ${existing?.name ? String(existing.name) : id}`,
-          payload_json: JSON.stringify({ id, name: existing?.name ? String(existing.name) : '' }),
-          created_at: new Date().toISOString(),
+          payload: { id, name: existing?.name ? String(existing.name) : '' },
+          requestId: req.requestId,
         });
       } catch {
         // ignore audit failures

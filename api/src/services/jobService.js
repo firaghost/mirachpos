@@ -5,6 +5,13 @@ const { logger } = require('../utils/logger');
 
 const handlers = new Map();
 
+let workerInterval;
+
+const isTestEnv = () =>
+    process.env.NODE_ENV === 'test' ||
+    String(process.env.JEST_WORKER_ID || '').trim() !== '' ||
+    String(process.env.JEST || '').trim() !== '';
+
 /**
  * Register a job handler
  * @param {string} type 
@@ -131,12 +138,25 @@ const processJobs = async () => {
  */
 const startJobWorker = (intervalMs = 10000) => {
     logger.info('Starting job worker...');
-    setInterval(processJobs, intervalMs);
+    if (workerInterval) return;
+    workerInterval = setInterval(processJobs, intervalMs);
+
+    if (isTestEnv() && typeof workerInterval?.unref === 'function') {
+        workerInterval.unref();
+    }
+};
+
+const stopJobWorker = () => {
+    if (!workerInterval) return;
+    clearInterval(workerInterval);
+    workerInterval = undefined;
+    logger.info('Stopped job worker');
 };
 
 module.exports = {
     enqueueJob,
     registerHandler,
     startJobWorker,
+    stopJobWorker,
     processJobs // Exported for testing
 };

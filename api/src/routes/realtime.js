@@ -9,6 +9,11 @@ const { subscribe } = require('../services/realtimeHub');
 const makeRealtimeRouter = () => {
   const r = express.Router();
 
+  const isTestEnv =
+    process.env.NODE_ENV === 'test' ||
+    String(process.env.JEST_WORKER_ID || '').trim() !== '' ||
+    String(process.env.JEST || '').trim() !== '';
+
   // Server-Sent Events stream for realtime POS updates.
   // Auth: supports Authorization: Bearer <token> OR ?token=... (needed for EventSource)
   // Tenant: provided via X-Tenant header OR query (?tenant=...)
@@ -66,14 +71,30 @@ const makeRealtimeRouter = () => {
       }
     }, 25000);
 
-    req.on('close', () => {
+    if (isTestEnv && typeof keepAlive?.unref === 'function') keepAlive.unref();
+
+    let cleanedUp = false;
+    const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
       try {
         clearInterval(keepAlive);
+      } catch {
+        // ignore
+      }
+      try {
         unsubscribe();
       } catch {
         // ignore
       }
+    };
+
+    req.on('close', () => {
+      cleanup();
     });
+
+    res.on('close', cleanup);
+    res.on('finish', cleanup);
     },
   );
 

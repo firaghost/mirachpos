@@ -1,12 +1,27 @@
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     const apiTarget = (env.API_TARGET && String(env.API_TARGET).trim()) ? String(env.API_TARGET).trim() : 'http://127.0.0.1:3001';
+    const analyze = String(process.env.ANALYZE || '').trim() === '1';
     return {
       base: mode === 'desktop' || String(env.VITE_RELATIVE_BASE || '') === '1' ? './' : '/',
+      plugins: [
+        react(),
+        ...(analyze
+          ? [
+              visualizer({
+                filename: 'dist/bundle-report.html',
+                open: true,
+                gzipSize: true,
+                brotliSize: true,
+              }),
+            ]
+          : []),
+      ],
       server: {
         port: 5173,
         strictPort: true,
@@ -22,6 +37,17 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         },
-      }
+      },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              charts: ['recharts'],
+              pdf: ['jspdf', 'jspdf-autotable', 'html2canvas'],
+              icons: ['lucide-react'],
+            },
+          },
+        },
+      },
     };
 });

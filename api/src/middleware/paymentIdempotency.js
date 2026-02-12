@@ -16,14 +16,21 @@ const cache = new Map();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 // Cleanup old cache entries periodically
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of cache.entries()) {
         if (now - entry.timestamp > CACHE_TTL) {
             cache.delete(key);
         }
     }
-}, 5 * 60 * 1000); // Every 5 minutes
+}, 10 * 60 * 1000); // Run every 10 minutes
+
+const isTestEnv =
+    process.env.NODE_ENV === 'test' ||
+    String(process.env.JEST_WORKER_ID || '').trim() !== '' ||
+    String(process.env.JEST || '').trim() !== '';
+
+if (isTestEnv && typeof cleanupInterval?.unref === 'function') cleanupInterval.unref();
 
 /**
  * Check if we've already processed this request

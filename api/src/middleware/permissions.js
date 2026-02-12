@@ -1,6 +1,6 @@
 const { db } = require('../db');
-const { makeId } = require('../utils/ids');
 const { config } = require('../config');
+const { logAudit } = require('../utils/logger');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -9,24 +9,6 @@ const safeJsonParse = (raw, fallback) => {
     return parsed ?? fallback;
   } catch {
     return fallback;
-  }
-};
-
-const logAudit = async ({ tenantId, branchId, actorStaffId, actorRole, type, summary, payload }) => {
-  try {
-    await db().from('audit_log').insert({
-      id: makeId('aud'),
-      tenant_id: tenantId || null,
-      branch_id: branchId || null,
-      actor_staff_id: actorStaffId || null,
-      actor_role: actorRole || null,
-      type,
-      summary: summary || null,
-      payload_json: payload != null ? JSON.stringify(payload) : null,
-      created_at: new Date().toISOString(),
-    });
-  } catch {
-    // ignore
   }
 };
 
@@ -59,7 +41,9 @@ const deny = async (req, res, { permission, role, reason }) => {
       reason: reason || null,
       path: String(req.originalUrl || req.url || ''),
       method: String(req.method || ''),
+      requestId: req.requestId ? String(req.requestId) : null,
     },
+    requestId: req.requestId ? String(req.requestId) : null,
   });
   return res.status(403).json({ error: 'forbidden' });
 };

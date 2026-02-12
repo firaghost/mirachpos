@@ -1,0 +1,46 @@
+type User @table {
+  username: String!
+  passwordHash: String!
+  role: String!
+  createdAt: Timestamp!
+  displayName: String
+  email: String
+}
+
+type MenuItem @table {
+  name: String!
+  price: Float!
+  category: String!
+  createdAt: Timestamp!
+  description: String
+  imageUrl: String
+  inStock: Boolean
+}
+
+type Order @table {
+  orderDate: Date!
+  totalAmount: Float!
+  status: String!
+  createdAt: Timestamp!
+  user: User
+  discountApplied: Float
+  paymentMethod: String
+}
+
+type OrderItem @table {
+  order: Order!
+  menuItem: MenuItem!
+  quantity: Int!
+  priceAtTimeOfOrder: Float!
+  customizationNotes: String
+}
+
+type InventoryItem @table {
+  name: String!
+  currentStock: Int!
+  unitOfMeasure: String!
+  createdAt: Timestamp!
+  updatedAt: Timestamp!
+  lowStockThreshold: Int
+  supplier: String
+}

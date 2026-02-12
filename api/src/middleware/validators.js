@@ -408,9 +408,16 @@ const superadminPaymentConfigSchema = z.object({
     bankDetails: z.any().optional(),
     chapa: gatewayConfigSchema.optional(),
     telebirr: gatewayConfigSchema.optional(),
-    cbeBirr: gatewayConfigSchema.optional(),
     sms: z.any().optional(),
     settings: z.any().optional(),
+    fcm: z.object({
+        enabled: z.boolean().optional(),
+    }).optional(),
+});
+
+const superadminSmsTestSchema = z.object({
+    to: z.string().min(3).max(50),
+    message: z.string().min(1).max(480),
 });
 
 const superadminOfflineAccountCreateSchema = z.object({
@@ -639,11 +646,12 @@ const superadminFeatureFlagsQuerySchema = z.object({
 // Payment submission schema
 const paymentSubmissionSchema = z.object({
     method: z
-        .enum(['bank_transfer', 'chapa', 'telebirr', 'cbe_birr'], {
+        .enum(['bank_transfer', 'chapa', 'telebirr'], {
             errorMap: () => ({ message: 'Invalid payment method' }),
         }),
     reference: z
         .string()
+        .min(3)
         .max(255, 'Reference too long')
         .optional(),
 });
@@ -1135,6 +1143,7 @@ module.exports = {
     validateSuperadminFeatureFlagCreate: validateBody(superadminFeatureFlagCreateSchema),
     validateSuperadminFeatureFlagUpdate: validateBody(superadminFeatureFlagUpdateSchema),
     validateSuperadminPaymentConfig: validateBody(superadminPaymentConfigSchema),
+    validateSuperadminSmsTest: validateBody(superadminSmsTestSchema),
     validateSuperadminOfflineAccountCreate: validateBody(superadminOfflineAccountCreateSchema),
     validateSuperadminOfflineAccountUpdate: validateBody(superadminOfflineAccountUpdateSchema),
     validateSuperadminTaxCodeParam: validateParams(superadminTaxCodeParamSchema),

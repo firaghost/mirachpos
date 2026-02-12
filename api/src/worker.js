@@ -1,11 +1,12 @@
 const { validateEnv } = require('./validateEnv');
 const { logger } = require('./utils/logger');
 const { sendCriticalAlert } = require('./utils/alerting');
-const { startScheduler } = require('./services/schedulerService');
-const { startJobWorker } = require('./services/jobService');
+const { startScheduler, stopScheduler } = require('./services/schedulerService');
+const { startJobWorker, stopJobWorker } = require('./services/jobService');
 const { initInvoiceJobs } = require('./jobs/invoiceJobs');
 const { initTelebirrStandingOrderJobs } = require('./jobs/telebirrStandingOrderJobs');
-const { db, initDb } = require('./db');
+const { db, initDb, closeDb } = require('./db');
+const { closeRedisClient } = require('./utils/redisClient');
 
 process.on('unhandledRejection', (reason) => {
   logger.error({ reason }, 'Unhandled promise rejection');
@@ -59,8 +60,23 @@ const boot = async () => {
     } catch {
       // ignore
     }
-    setTimeout(() => process.exit(0), 250).unref();
     setTimeout(() => process.exit(1), 10000).unref();
+
+    try {
+      stopScheduler();
+    } catch {
+      // ignore
+    }
+
+    try {
+      stopJobWorker();
+    } catch {
+      // ignore
+    }
+
+    await closeRedisClient();
+    await closeDb();
+    process.exit(0);
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));

@@ -7,6 +7,7 @@ const { makeId, uid } = require('../utils/ids');
 const { publish } = require('../services/realtimeHub');
 const { resolveBranchId, requireBranchId } = require('../middleware/branchScope');
 const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { logAudit } = require('../utils/logger');
 const {
   validateIdParam,
   validateManagerMenuProductCreate,
@@ -184,16 +185,15 @@ const makeManagerMenuRouter = () => {
       });
 
       try {
-        await db().from('audit_log').insert({
-          id: makeId('aud'),
-          tenant_id: req.tenant.id,
-          branch_id: branchId,
-          actor_staff_id: req.auth?.staffId ? String(req.auth.staffId) : null,
-          actor_role: req.auth?.role ? String(req.auth.role) : null,
+        await logAudit({
+          tenantId: req.tenant.id,
+          branchId,
+          actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+          actorRole: req.auth?.role ? String(req.auth.role) : null,
           type: 'menu_product.created',
           summary: `Created menu item: ${name}`,
-          payload_json: JSON.stringify({ id, name, category, price, status, code }),
-          created_at: nowIso,
+          payload: { id, name, category, price, status, code },
+          requestId: req.requestId,
         });
       } catch {
         // ignore audit failures
@@ -250,15 +250,14 @@ const makeManagerMenuRouter = () => {
 
       try {
         const prevJson2 = safeJsonParse(existing.product_json, {});
-        await db().from('audit_log').insert({
-          id: makeId('aud'),
-          tenant_id: req.tenant.id,
-          branch_id: branchId,
-          actor_staff_id: req.auth?.staffId ? String(req.auth.staffId) : null,
-          actor_role: req.auth?.role ? String(req.auth.role) : null,
+        await logAudit({
+          tenantId: req.tenant.id,
+          branchId,
+          actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+          actorRole: req.auth?.role ? String(req.auth.role) : null,
           type: 'menu_product.updated',
           summary: `Updated menu item: ${String(patch.name || existing.name || productId)}`,
-          payload_json: JSON.stringify({
+          payload: {
             id: productId,
             before: {
               name: String(existing.name || ''),
@@ -274,8 +273,8 @@ const makeManagerMenuRouter = () => {
               status: String(patch.status ?? existing.status ?? ''),
               code: String(nextJson?.code || prevJson2?.code || ''),
             },
-          }),
-          created_at: patch.updated_at,
+          },
+          requestId: req.requestId,
         });
       } catch {
         // ignore audit failures
@@ -313,16 +312,15 @@ const makeManagerMenuRouter = () => {
       await db().from('menu_recipes').where({ tenant_id: req.tenant.id, branch_id: branchId, product_id: productId }).del();
 
       try {
-        await db().from('audit_log').insert({
-          id: makeId('aud'),
-          tenant_id: req.tenant.id,
-          branch_id: branchId,
-          actor_staff_id: req.auth?.staffId ? String(req.auth.staffId) : null,
-          actor_role: req.auth?.role ? String(req.auth.role) : null,
+        await logAudit({
+          tenantId: req.tenant.id,
+          branchId,
+          actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+          actorRole: req.auth?.role ? String(req.auth.role) : null,
           type: 'menu_product.deleted',
           summary: `Deleted menu item: ${existing?.name ? String(existing.name) : productId}`,
-          payload_json: JSON.stringify({ id: productId, name: existing?.name ? String(existing.name) : '' }),
-          created_at: new Date().toISOString(),
+          payload: { id: productId, name: existing?.name ? String(existing.name) : '' },
+          requestId: req.requestId,
         });
       } catch {
         // ignore audit failures
@@ -435,16 +433,15 @@ const makeManagerMenuRouter = () => {
         .merge({ recipe_json: JSON.stringify(normalized), updated_at: nowIso });
 
       try {
-        await db().from('audit_log').insert({
-          id: makeId('aud'),
-          tenant_id: req.tenant.id,
-          branch_id: branchId,
-          actor_staff_id: req.auth?.staffId ? String(req.auth.staffId) : null,
-          actor_role: req.auth?.role ? String(req.auth.role) : null,
+        await logAudit({
+          tenantId: req.tenant.id,
+          branchId,
+          actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+          actorRole: req.auth?.role ? String(req.auth.role) : null,
           type: 'menu_recipe.upserted',
           summary: `Updated recipe for product: ${productId}`,
-          payload_json: JSON.stringify({ productId, recipe: normalized }),
-          created_at: nowIso,
+          payload: { productId, recipe: normalized },
+          requestId: req.requestId,
         });
       } catch {
         // ignore audit failures
@@ -476,16 +473,15 @@ const makeManagerMenuRouter = () => {
       if (!deleted) return res.status(404).json({ error: 'not_found' });
 
       try {
-        await db().from('audit_log').insert({
-          id: makeId('aud'),
-          tenant_id: req.tenant.id,
-          branch_id: branchId,
-          actor_staff_id: req.auth?.staffId ? String(req.auth.staffId) : null,
-          actor_role: req.auth?.role ? String(req.auth.role) : null,
+        await logAudit({
+          tenantId: req.tenant.id,
+          branchId,
+          actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+          actorRole: req.auth?.role ? String(req.auth.role) : null,
           type: 'menu_recipe.deleted',
           summary: `Deleted recipe for product: ${productId}`,
-          payload_json: JSON.stringify({ productId }),
-          created_at: new Date().toISOString(),
+          payload: { productId },
+          requestId: req.requestId,
         });
       } catch {
         // ignore audit failures

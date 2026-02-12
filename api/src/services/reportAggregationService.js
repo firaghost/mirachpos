@@ -7,6 +7,7 @@
 
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
+const { invalidateOwnerReports } = require('../utils/cache');
 
 const safeJsonParse = (raw, fallback) => {
     try {
@@ -265,7 +266,14 @@ const ensureAggregatedForRange = async ({ tenantId, branchId, fromDate, toDate }
                 errors += 1;
             }
 
-            if (okAny) processed += 1;
+            if (okAny) {
+                processed += 1;
+                try {
+                    await invalidateOwnerReports({ tenantId, branchId: bid });
+                } catch {
+                    // ignore cache invalidation errors
+                }
+            }
         }
 
         const next = addDaysUtc(day, 1);

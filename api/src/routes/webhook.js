@@ -30,6 +30,47 @@ const safeJsonParse = (raw, fallback) => {
     }
 };
 
+const normalizeHeaderValue = (v) => {
+    if (typeof v === 'string') return v.trim();
+    if (Array.isArray(v)) return String(v[0] || '').trim();
+    return '';
+};
+
+const timingSafeEqualHex = (a, b) => {
+    const aa = String(a || '').trim();
+    const bb = String(b || '').trim();
+    if (!aa || !bb) return false;
+    if (aa.length !== bb.length) return false;
+    if ((aa.length % 2) !== 0) return false;
+    if (!/^[0-9a-fA-F]+$/.test(aa) || !/^[0-9a-fA-F]+$/.test(bb)) return false;
+    try {
+        const ba = Buffer.from(aa, 'hex');
+        const bb2 = Buffer.from(bb, 'hex');
+        if (ba.length !== bb2.length) return false;
+        return crypto.timingSafeEqual(ba, bb2);
+    } catch {
+        return false;
+    }
+};
+
+const recordWebhookEvent = async ({ gateway, eventKey }) => {
+    const g = String(gateway || '').trim().toLowerCase();
+    const k = String(eventKey || '').trim();
+    if (!g || !k) return { ok: true, duplicate: false };
+
+    try {
+        const nowIso = new Date().toISOString();
+        await db().from('webhook_events').insert({ gateway: g, event_key: k, created_at: nowIso });
+        return { ok: true, duplicate: false };
+    } catch (e) {
+        const msg = String(e && e.message ? e.message : e);
+        const code = String(e && e.code ? e.code : '');
+        const isDup = code === 'ER_DUP_ENTRY' || code === 'SQLITE_CONSTRAINT' || msg.toLowerCase().includes('duplicate');
+        if (isDup) return { ok: true, duplicate: true };
+        return { ok: false, duplicate: false };
+    }
+};
+
 const mapTableStatusFromOrderStatus = (orderStatus) => {
     const st = String(orderStatus || '').trim();
     if (!st) return 'Occupied';
@@ -261,7 +302,6 @@ const makeWebhookRouter = () => {
 
     r.post('/telebirr', async (_req, res) => res.status(200).send('OK'));
     r.post('/santimpay', async (_req, res) => res.status(200).send('OK'));
-    r.post('/cbe-birr', async (_req, res) => res.status(200).send('OK'));
 
     // =========================================================================
     // TELEBIRR STANDING ORDER WEBHOOK
@@ -272,6 +312,11 @@ const makeWebhookRouter = () => {
 
         const requestId = req.requestId || makeId('whk');
         try {
+            const raw = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body || {});
+            const key = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 48);
+            const seen = await recordWebhookEvent({ gateway: 'telebirr_standing_order', eventKey: key });
+            if (seen.ok && seen.duplicate) return;
+
             await handleStandingOrderWebhook({
                 body: req.body,
                 rawBody: req.rawBody ? req.rawBody.toString('utf8') : null,
@@ -293,7 +338,7 @@ const makeWebhookRouter = () => {
         log.info({ requestId, gateway: 'chapa', event: 'webhook_received' }, 'Chapa webhook received');
 
         try {
-            const signature = req.headers['x-chapa-signature'] || req.headers['chapa-signature'];
+            const signature = normalizeHeaderValue(req.headers['x-chapa-signature'] || req.headers['chapa-signature']);
 
             // Resolve webhook secret by scope:
             // - POS payments: tenant-owned secret from tenant_pos_payment_gateways
@@ -325,7 +370,7 @@ const makeWebhookRouter = () => {
             const bodyStr = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body);
             const hash = crypto.createHmac('sha256', secret).update(bodyStr).digest('hex');
 
-            if (hash !== signature) {
+            if (!timingSafeEqualHex(hash, signature)) {
                 log.warn({
                     requestId,
                     received: signature?.substring(0, 20) + '...',
@@ -334,6 +379,11 @@ const makeWebhookRouter = () => {
                 }, 'Chapa webhook signature mismatch');
                 return res.status(400).send('Invalid Signature');
             }
+
+            const statusRaw = String(req.body?.status || '').trim();
+            const txRefKey = txRef0 ? `tx_ref:${txRef0}|status:${statusRaw || '-'}` : `body:${hash.slice(0, 48)}`;
+            const seen = await recordWebhookEvent({ gateway: 'chapa', eventKey: txRefKey });
+            if (seen.ok && seen.duplicate) return res.status(200).send('OK');
 
             const { tx_ref, status, amount, currency, reference } = req.body;
             log.info({ requestId, tx_ref, status, amount, currency }, 'Chapa webhook payload');
@@ -538,6 +588,14 @@ const makeWebhookRouter = () => {
 
             const status = String(req.body?.Status || req.body?.status || '').trim().toUpperCase();
 
+            const dedupeKey = txnId
+                ? `txn:${txnId}|status:${status || '-'}`
+                : merchantRef
+                    ? `ref:${merchantRef}|status:${status || '-'}`
+                    : '';
+            const seen = await recordWebhookEvent({ gateway: 'santimpay', eventKey: dedupeKey });
+            if (seen.ok && seen.duplicate) return res.status(200).send('OK');
+
             const posTx = merchantRef
                 ? await db().select(['*']).from('pos_payment_gateway_transactions').where({ tx_ref: merchantRef, gateway: 'santimpay' }).first()
                 : null;
@@ -692,6 +750,9 @@ const makeWebhookRouter = () => {
 
             if (!reference) return res.status(400).send('Missing outTradeNo');
 
+            const seen = await recordWebhookEvent({ gateway: 'telebirr', eventKey: `ref:${reference}|status:${statusRaw || '-'}` });
+            if (seen.ok && seen.duplicate) return res.status(200).send('OK');
+
             const [invoiceId] = reference.split('_');
             if (!invoiceId) return res.status(400).send('Invalid outTradeNo');
 
@@ -754,27 +815,6 @@ const makeWebhookRouter = () => {
             return res.status(200).send('OK');
         } catch (e) {
             log.error({ requestId, error: e.message, stack: e.stack }, 'Telebirr webhook error');
-            return res.status(500).send('Internal Server Error');
-        }
-    });
-
-    // =========================================================================
-    // CBE BIRR WEBHOOK (Placeholder - requires bank agreement)
-    // =========================================================================
-    r.post('/payment/cbe_birr', async (req, res) => {
-        const requestId = req.requestId || makeId('whk');
-        log.info({ requestId, gateway: 'cbe_birr', body: req.body }, 'CBE Birr webhook received');
-
-        try {
-            // TODO: Implement CBE Birr webhook verification
-            // This requires:
-            // 1. Verify signature/HMAC
-            // 2. Extract transaction details
-            // 3. Process payment
-
-            return res.status(200).json({ ok: true, message: 'Received' });
-        } catch (e) {
-            log.error({ requestId, error: e.message }, 'CBE Birr webhook error');
             return res.status(500).send('Internal Server Error');
         }
     });

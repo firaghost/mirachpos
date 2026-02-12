@@ -1,0 +1,187 @@
+# Docker Compose for MirachPOS Local Development
+# Provides: API backend + MySQL + Redis
+#
+# Usage:
+#   docker-compose up -d          # Start all services
+#   docker-compose up -d api        # Start only API
+#   docker-compose down             # Stop all services
+#   docker-compose down -v          # Stop and remove volumes (clears data)
+#   docker-compose logs -f api      # Follow API logs
+
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # MySQL Database
+  # ---------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: mirachpos-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: mirachpos_root
+      MYSQL_DATABASE: mirachpos
+      MYSQL_USER: mirachpos
+      MYSQL_PASSWORD: mirachpos_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./api/migrations:/docker-entrypoint-initdb.d/migrations:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - mirachpos-network
+
+  # ---------------------------------------------------------------------------
+  # Redis Cache
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: mirachpos-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - mirachpos-network
+
+  # ---------------------------------------------------------------------------
+  # API Backend (Development)
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ./api
+      target: development
+    container_name: mirachpos-api
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      # Database
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: mirachpos
+      DB_USER: mirachpos
+      DB_PASSWORD: mirachpos_pass
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # JWT (use a development secret)
+      JWT_SECRET: dev_jwt_secret_change_in_production_32chars_min
+      # Other settings
+      CACHE_DEFAULT_TTL_SECONDS: 60
+      CACHE_REPORT_TTL_SECONDS: 120
+    volumes:
+      - ./api/src:/app/src:ro
+      - ./api/migrations:/app/migrations:ro
+      - api_uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mirachpos-network
+    command: npm run dev
+
+  # ---------------------------------------------------------------------------
+  # API Backend (Production build - optional, for testing)
+  # ---------------------------------------------------------------------------
+  api-prod:
+    build:
+      context: ./api
+      target: production
+    container_name: mirachpos-api-prod
+    restart: unless-stopped
+    ports:
+      - "3002:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: mirachpos
+      DB_USER: mirachpos
+      DB_PASSWORD: mirachpos_pass
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - mirachpos-network
+    profiles:
+      - prod
+
+  # ---------------------------------------------------------------------------
+  # phpMyAdmin (Database management UI)
+  # ---------------------------------------------------------------------------
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: mirachpos-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: mirachpos_root
+      PMA_ARBITRARY: 0
+    depends_on:
+      - mysql
+    networks:
+      - mirachpos-network
+    profiles:
+      - tools
+
+  # ---------------------------------------------------------------------------
+  # Redis Commander (Redis management UI)
+  # ---------------------------------------------------------------------------
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: mirachpos-redis-commander
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    depends_on:
+      - redis
+    networks:
+      - mirachpos-network
+    profiles:
+      - tools
+
+# -----------------------------------------------------------------------------
+# Volumes
+# -----------------------------------------------------------------------------
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  api_uploads:
+    driver: local
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+networks:
+  mirachpos-network:
+    driver: bridge

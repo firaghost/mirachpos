@@ -14,10 +14,21 @@ const { checkDueInvoices } = require('./invoiceService');
 const { runDailyAggregation, cleanupOldReports } = require('./reportAggregationService');
 const { createMailTransporter } = require('../utils/mail');
 const { paymentReminderTemplate, overdueTemplate, suspendedTemplate } = require('./emailTemplates');
+const smsService = require('./smsService');
 
 let schedulerStarted = false;
 let schedulerIntervals = {};
 let schedulerTimeouts = {};
+
+const isTestEnv = () =>
+    process.env.NODE_ENV === 'test' ||
+    String(process.env.JEST_WORKER_ID || '').trim() !== '' ||
+    String(process.env.JEST || '').trim() !== '';
+
+const maybeUnref = (t) => {
+    if (!isTestEnv()) return;
+    if (t && typeof t.unref === 'function') t.unref();
+};
 
 const safeJsonParse = (raw, fallback) => {
     try {
@@ -106,8 +117,7 @@ const sendNotification = async ({ tenantId, invoiceId, type, channel, recipient,
                 status = 'failed';
                 errorMessage = 'SMS not configured';
             } else {
-                // In production, integrate with SMS service (Africa's Talking, Twilio, etc.)
-                console.log(`[Scheduler] SMS notification to ${recipient}: ${message}`);
+                await smsService.sendSMS({ to: recipient, message, config: config.sms });
                 status = 'sent';
             }
         }
@@ -433,6 +443,14 @@ const runReportAggregationJob = async () => {
         const cleanup = await cleanupOldReports();
         console.log(`[Scheduler] Cleanup completed: ${cleanup.deleted} old records removed`);
 
+        try {
+            const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+            const deleted = await db().from('webhook_events').where('created_at', '<', cutoff).del();
+            console.log(`[Scheduler] Webhook events cleanup completed: ${Number(deleted || 0)} old records removed`);
+        } catch (e) {
+            console.error('[Scheduler] Webhook events cleanup error:', e);
+        }
+
         jobStatus.lastRun.reportAggregation = new Date().toISOString();
     } catch (e) {
         console.error('[Scheduler] Report aggregation job error:', e);
@@ -588,12 +606,15 @@ const startScheduler = () => {
 
     // Payment reminders - every 6 hours
     schedulerIntervals.paymentReminders = setInterval(runPaymentReminderJob, SCHEDULE.paymentReminders);
+    maybeUnref(schedulerIntervals.paymentReminders);
 
     // Grace period check - every hour
     schedulerIntervals.gracePeriod = setInterval(runGracePeriodExpirationJob, SCHEDULE.gracePeriod);
+    maybeUnref(schedulerIntervals.gracePeriod);
 
     // Report aggregation - every 24 hours
     schedulerIntervals.reportAggregation = setInterval(runReportAggregationJob, SCHEDULE.reportAggregation);
+    maybeUnref(schedulerIntervals.reportAggregation);
 
     // Scheduled report emails - every 24 hours at 8 AM
     const scheduleReportEmails = () => {
@@ -610,6 +631,7 @@ const startScheduler = () => {
             runScheduledReportEmailsJob();
             scheduleReportEmails(); // Schedule next run
         }, delay);
+        maybeUnref(schedulerTimeouts.reportEmails);
 
         console.log(`[Scheduler] Report emails scheduled for ${nextRun.toISOString()}`);
     };
@@ -617,10 +639,11 @@ const startScheduler = () => {
     scheduleReportEmails();
 
     // Run initial jobs after a short delay
-    setTimeout(() => {
+    schedulerTimeouts.initialKickoff = setTimeout(() => {
         runPaymentReminderJob();
         runGracePeriodExpirationJob();
     }, 30 * 1000); // 30 seconds after startup
+    maybeUnref(schedulerTimeouts.initialKickoff);
 
     // Run report aggregation at a specific time (e.g., 2 AM)
     const scheduleReportAggregation = () => {
@@ -637,6 +660,7 @@ const startScheduler = () => {
             runReportAggregationJob();
             scheduleReportAggregation(); // Schedule next run
         }, delay);
+        maybeUnref(schedulerTimeouts.reportAggregation);
 
         console.log(`[Scheduler] Report aggregation scheduled for ${nextRun.toISOString()}`);
     };

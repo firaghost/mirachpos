@@ -135,7 +135,7 @@ const makeEnhancedReportsRouter = () => {
             const agg = await ensureAggregatedForRange({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to });
             if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
 
-            const cacheKey = `reports:owner:hourly:${req.tenant.id}:${branchId || 'all'}:${from}:${to}`;
+            const cacheKey = `reports:owner:hourly:v1:${req.tenant.id}:${branchId || 'all'}:${from}:${to}`;
             const heatmap = await withCache(cacheKey, config.cacheReportTtlSeconds, () =>
                 getHourlySalesHeatmap({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to })
             );
@@ -285,7 +285,7 @@ const makeEnhancedReportsRouter = () => {
                 return res.status(400).json({ error: 'invalid_range' });
             }
 
-            const cacheKey = `reports:owner:shifts:${req.tenant.id}:${branchId || 'all'}:${from}:${to}:${limit}:${offset}`;
+            const cacheKey = `reports:owner:shifts:v1:${req.tenant.id}:${branchId || 'all'}:${from}:${to}:${limit}:${offset}`;
             const { shifts, total } = await withCache(cacheKey, config.cacheReportTtlSeconds, async () => {
                 const totalRow = await query.clone().count({ c: 's.id' }).first();
                 const total = Number(totalRow?.c || 0);
@@ -333,7 +333,7 @@ const makeEnhancedReportsRouter = () => {
             const shiftId = String(req.params?.id || '').trim();
             if (!shiftId) return res.status(400).json({ error: 'shift_id_required' });
 
-            const cacheKey = `reports:owner:shift:${req.tenant.id}:${shiftId}`;
+            const cacheKey = `reports:owner:shift:v1:${req.tenant.id}:${shiftId}`;
             const payload = await withCache(cacheKey, config.cacheReportTtlSeconds, async () => {
                 const shift = await db()
                     .select(['*'])
@@ -432,7 +432,7 @@ const makeEnhancedReportsRouter = () => {
                 return res.status(400).json({ error: 'invalid_range' });
             }
 
-            const cacheKey = `reports:owner:voids:${req.tenant.id}:${branchId || 'all'}:${from}:${to}`;
+            const cacheKey = `reports:owner:voids:v1:${req.tenant.id}:${branchId || 'all'}:${from}:${to}`;
             const logs = await withCache(cacheKey, config.cacheReportTtlSeconds, () =>
                 query.orderBy('v.occurred_at', 'desc').limit(200)
             );

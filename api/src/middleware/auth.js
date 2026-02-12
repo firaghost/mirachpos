@@ -34,7 +34,7 @@ const requireAuth = (req, res, next) => {
     return;
   }
   try {
-    const payload = jwt.verify(token, secret);
+    const payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
     req.auth = payload;
     return next();
   } catch {

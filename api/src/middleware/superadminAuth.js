@@ -12,7 +12,7 @@ const requireSuperadmin = async (req, res, next) => {
   if (!config.jwtSecret) return res.status(500).json({ error: 'server_misconfigured' });
 
   try {
-    const payload = jwt.verify(token, config.jwtSecret);
+    const payload = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] });
     if (!payload || payload.kind !== 'superadmin') return res.status(403).json({ error: 'forbidden' });
 
     const superadminId = String(payload.superadminId || '').trim();

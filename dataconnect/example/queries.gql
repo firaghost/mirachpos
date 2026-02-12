@@ -1,0 +1,38 @@
+mutation CreateInventoryItem($name: String!, $unitOfMeasure: String!, $currentStock: Int!) @auth(level: USER) {
+  inventoryItem_insert(data: {
+    name: $name,
+    unitOfMeasure: $unitOfMeasure,
+    currentStock: $currentStock,
+    createdAt_expr: "request.time",
+    updatedAt_expr: "request.time"
+  })
+}
+
+query ListMenuItems @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  menuItems {
+    id
+    name
+    description
+    price
+    imageUrl
+    category
+    inStock
+  }
+}
+
+mutation UpdateMenuItemInStock($id: UUID!, $inStock: Boolean!) @auth(level: USER) {
+  menuItem_update(key: {id: $id}, data: {inStock: $inStock})
+}
+
+query ListOrdersForUser($userId: UUID!) @auth(level: USER) {
+  orders(where: {userId: {eq: $userId}}) {
+    id
+    orderDate
+    totalAmount
+    status
+    paymentMethod
+    discountApplied
+    createdAt
+    userId
+  }
+}

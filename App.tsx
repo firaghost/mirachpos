@@ -1,9 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Login } from './screens/Login';
-import { Dashboard } from './screens/Dashboard';
-import { Orders } from './screens/Orders';
-import { OwnerFinance } from './screens/owner/OwnerFinance';
 import { ThemeProvider } from './ThemeContext';
 import { PosProvider } from './PosContext';
 import { apiFetch, logoutAndReload } from './api';
@@ -11,75 +8,82 @@ import { apiFetch, logoutAndReload } from './api';
 import { AppIcon } from '@/components/ui/app-icon';
 import { TrialBanner } from './components/TrialBanner';
 // Import Cafe Owner Screens
-import { OwnerDashboard } from './screens/owner/OwnerDashboard';
-import { OwnerInventory } from './screens/owner/OwnerInventory';
-import { GlobalReports } from './screens/owner/GlobalReports';
-import { OwnerBranches } from './screens/owner/OwnerBranches';
-import { OwnerStaffManagement } from './screens/owner/OwnerStaffManagement';
 import { OwnerOnboarding } from './screens/owner/OwnerOnboarding';
-import { OwnerAudit } from './screens/owner/OwnerAudit';
-import { OwnerBilling } from './screens/owner/OwnerBilling';
 
 // Import Branch Manager Screens
-import { BranchDashboard } from './screens/manager/BranchDashboard';
-import { BranchOrders } from './screens/manager/BranchOrders';
-import { BranchOrderDetails } from './screens/manager/BranchOrderDetails';
-import { ManagerFloorMap } from './screens/manager/ManagerFloorMap';
-import { ManagerTableDetails } from './screens/manager/ManagerTableDetails';
-import { BranchSettings } from './screens/manager/BranchSettings';
-import { BranchReports } from './screens/manager/BranchReports';
-import { RecipeBuilder } from './screens/manager/RecipeBuilder';
-import { MenuBuilder } from './screens/manager/MenuBuilder';
-import { ManagerCustomers } from './screens/manager/ManagerCustomers';
 
 // Import Waiter Screens
-import { WaiterDashboard } from './screens/waiter/WaiterDashboard';
-import { WaiterMenu } from './screens/waiter/WaiterMenu';
-import { WaiterOrderReview } from './screens/waiter/WaiterOrderReview';
-import { WaiterPayment } from './screens/waiter/WaiterPayment';
-import { WaiterReceipt } from './screens/waiter/WaiterReceipt';
-import { WaiterActiveOrders } from './screens/waiter/WaiterActiveOrders';
-import { WaiterOrderStatus } from './screens/waiter/WaiterOrderStatus';
-import { WaiterKDS } from './screens/waiter/WaiterKDS';
-import { WaiterHistory } from './screens/waiter/WaiterHistory';
-import { WaiterNotifications } from './screens/waiter/WaiterNotifications';
-import { WaiterSystemStatus } from './screens/waiter/WaiterSystemStatus';
-import { WaiterSettings } from './screens/waiter/WaiterSettings';
-import { WaiterShiftReport } from './screens/waiter/WaiterShiftReport';
 
 // Import Shared / Placeholder Screens
-import { Inventory } from './screens/Inventory';
-import { Staff } from './screens/Staff';
-import { Finance } from './screens/Finance';
-import { Reports } from './screens/Reports';
-import { Settings } from './screens/Settings';
-import { ManagerTeam } from './screens/manager/ManagerTeam';
-import { MenuManagement } from './screens/MenuManagement';
-import { Guests } from './screens/Guests';
 import { ShiftSchedule } from './screens/ShiftSchedule';
-import { TableAssignment } from './screens/TableAssignment';
-import { BranchSelect } from './screens/BranchSelect';
 
 import { SupportRequest } from './screens/support/SupportRequest';
 
 import { DraftInbox } from './screens/desktop/DraftInbox';
 
 // Super Admin Imports
-import { SA_Overview } from './screens/superadmin/Overview';
-import { SA_Tenants } from './screens/superadmin/Tenants';
-import { SA_TenantDetails } from './screens/superadmin/TenantDetails';
-import { SA_OnboardingDesign } from './screens/superadmin/OnboardingDesign';
-import { SA_Billing } from './screens/superadmin/Billing';
-import { SA_SystemHealth } from './screens/superadmin/SystemHealth';
-import { SA_Support } from './screens/superadmin/Support';
-import { SA_Audit } from './screens/superadmin/Audit';
-import { SA_FeatureFlags } from './screens/superadmin/FeatureFlags';
-import { SA_Settings } from './screens/superadmin/Settings';
-import { SA_DemoRequests } from './screens/superadmin/DemoRequests';
-import { PaymentConfig } from './screens/superadmin/PaymentConfig';
 import { SuperAdminLogin } from './screens/superadmin/SuperAdminLogin';
-import { SA_Integrations } from './screens/superadmin/Integrations';
-import { SA_Addons } from './screens/superadmin/Addons';
+
+const Dashboard = React.lazy(() => import('./screens/Dashboard').then((m) => ({ default: m.Dashboard })));
+const Orders = React.lazy(() => import('./screens/Orders').then((m) => ({ default: m.Orders })));
+const OwnerFinance = React.lazy(() => import('./screens/owner/OwnerFinance').then((m) => ({ default: m.OwnerFinance })));
+
+const OwnerDashboard = React.lazy(() => import('./screens/owner/OwnerDashboard').then((m) => ({ default: m.OwnerDashboard })));
+const OwnerInventory = React.lazy(() => import('./screens/owner/OwnerInventory').then((m) => ({ default: m.OwnerInventory })));
+const GlobalReports = React.lazy(() => import('./screens/owner/GlobalReports').then((m) => ({ default: m.GlobalReports })));
+const OwnerBranches = React.lazy(() => import('./screens/owner/OwnerBranches').then((m) => ({ default: m.OwnerBranches })));
+const OwnerStaffManagement = React.lazy(() => import('./screens/owner/OwnerStaffManagement').then((m) => ({ default: m.OwnerStaffManagement })));
+const OwnerAudit = React.lazy(() => import('./screens/owner/OwnerAudit').then((m) => ({ default: m.OwnerAudit })));
+const OwnerBilling = React.lazy(() => import('./screens/owner/OwnerBilling').then((m) => ({ default: m.OwnerBilling })));
+
+const BranchDashboard = React.lazy(() => import('./screens/manager/BranchDashboard').then((m) => ({ default: m.BranchDashboard })));
+const BranchOrders = React.lazy(() => import('./screens/manager/BranchOrders').then((m) => ({ default: m.BranchOrders })));
+const BranchOrderDetails = React.lazy(() => import('./screens/manager/BranchOrderDetails').then((m) => ({ default: m.BranchOrderDetails })));
+const ManagerFloorMap = React.lazy(() => import('./screens/manager/ManagerFloorMap').then((m) => ({ default: m.ManagerFloorMap })));
+const ManagerTableDetails = React.lazy(() => import('./screens/manager/ManagerTableDetails').then((m) => ({ default: m.ManagerTableDetails })));
+const BranchSettings = React.lazy(() => import('./screens/manager/BranchSettings').then((m) => ({ default: m.BranchSettings })));
+const BranchReports = React.lazy(() => import('./screens/manager/BranchReports').then((m) => ({ default: m.BranchReports })));
+const RecipeBuilder = React.lazy(() => import('./screens/manager/RecipeBuilder').then((m) => ({ default: m.RecipeBuilder })));
+const MenuBuilder = React.lazy(() => import('./screens/manager/MenuBuilder').then((m) => ({ default: m.MenuBuilder })));
+const ManagerCustomers = React.lazy(() => import('./screens/manager/ManagerCustomers').then((m) => ({ default: m.ManagerCustomers })));
+
+const WaiterDashboard = React.lazy(() => import('./screens/waiter/WaiterDashboard').then((m) => ({ default: m.WaiterDashboard })));
+const WaiterMenu = React.lazy(() => import('./screens/waiter/WaiterMenu').then((m) => ({ default: m.WaiterMenu })));
+const WaiterOrderReview = React.lazy(() => import('./screens/waiter/WaiterOrderReview').then((m) => ({ default: m.WaiterOrderReview })));
+const WaiterPayment = React.lazy(() => import('./screens/waiter/WaiterPayment').then((m) => ({ default: m.WaiterPayment })));
+const WaiterReceipt = React.lazy(() => import('./screens/waiter/WaiterReceipt').then((m) => ({ default: m.WaiterReceipt })));
+const WaiterActiveOrders = React.lazy(() => import('./screens/waiter/WaiterActiveOrders').then((m) => ({ default: m.WaiterActiveOrders })));
+const WaiterOrderStatus = React.lazy(() => import('./screens/waiter/WaiterOrderStatus').then((m) => ({ default: m.WaiterOrderStatus })));
+const WaiterKDS = React.lazy(() => import('./screens/waiter/WaiterKDS').then((m) => ({ default: m.WaiterKDS })));
+const WaiterHistory = React.lazy(() => import('./screens/waiter/WaiterHistory').then((m) => ({ default: m.WaiterHistory })));
+const WaiterNotifications = React.lazy(() => import('./screens/waiter/WaiterNotifications').then((m) => ({ default: m.WaiterNotifications })));
+const WaiterSystemStatus = React.lazy(() => import('./screens/waiter/WaiterSystemStatus').then((m) => ({ default: m.WaiterSystemStatus })));
+const WaiterSettings = React.lazy(() => import('./screens/waiter/WaiterSettings').then((m) => ({ default: m.WaiterSettings })));
+const WaiterShiftReport = React.lazy(() => import('./screens/waiter/WaiterShiftReport').then((m) => ({ default: m.WaiterShiftReport })));
+
+const Inventory = React.lazy(() => import('./screens/Inventory').then((m) => ({ default: m.Inventory })));
+const Finance = React.lazy(() => import('./screens/Finance').then((m) => ({ default: m.Finance })));
+const Settings = React.lazy(() => import('./screens/Settings').then((m) => ({ default: m.Settings })));
+const ManagerTeam = React.lazy(() => import('./screens/manager/ManagerTeam').then((m) => ({ default: m.ManagerTeam })));
+const MenuManagement = React.lazy(() => import('./screens/MenuManagement').then((m) => ({ default: m.MenuManagement })));
+const Guests = React.lazy(() => import('./screens/Guests').then((m) => ({ default: m.Guests })));
+const TableAssignment = React.lazy(() => import('./screens/TableAssignment').then((m) => ({ default: m.TableAssignment })));
+const BranchSelect = React.lazy(() => import('./screens/BranchSelect').then((m) => ({ default: m.BranchSelect })));
+
+const SA_Overview = React.lazy(() => import('./screens/superadmin/Overview').then((m) => ({ default: m.SA_Overview })));
+const SA_Tenants = React.lazy(() => import('./screens/superadmin/Tenants').then((m) => ({ default: m.SA_Tenants })));
+const SA_TenantDetails = React.lazy(() => import('./screens/superadmin/TenantDetails').then((m) => ({ default: m.SA_TenantDetails })));
+const SA_OnboardingDesign = React.lazy(() => import('./screens/superadmin/OnboardingDesign').then((m) => ({ default: m.SA_OnboardingDesign })));
+const SA_Billing = React.lazy(() => import('./screens/superadmin/Billing').then((m) => ({ default: m.SA_Billing })));
+const SA_SystemHealth = React.lazy(() => import('./screens/superadmin/SystemHealth').then((m) => ({ default: m.SA_SystemHealth })));
+const SA_Support = React.lazy(() => import('./screens/superadmin/Support').then((m) => ({ default: m.SA_Support })));
+const SA_Audit = React.lazy(() => import('./screens/superadmin/Audit').then((m) => ({ default: m.SA_Audit })));
+const SA_FeatureFlags = React.lazy(() => import('./screens/superadmin/FeatureFlags').then((m) => ({ default: m.SA_FeatureFlags })));
+const SA_Settings = React.lazy(() => import('./screens/superadmin/Settings').then((m) => ({ default: m.SA_Settings })));
+const SA_DemoRequests = React.lazy(() => import('./screens/superadmin/DemoRequests').then((m) => ({ default: m.SA_DemoRequests })));
+const PaymentConfig = React.lazy(() => import('./screens/superadmin/PaymentConfig').then((m) => ({ default: m.PaymentConfig })));
+const SA_Integrations = React.lazy(() => import('./screens/superadmin/Integrations').then((m) => ({ default: m.SA_Integrations })));
+const SA_Addons = React.lazy(() => import('./screens/superadmin/Addons').then((m) => ({ default: m.SA_Addons })));
 
 import { Screen, UserRole } from './types';
 
@@ -93,6 +97,10 @@ import { useSessionEventWiring } from '@/hooks/useSessionEventWiring';
 
 const LAST_SCREEN_KEY = 'mirachpos.lastScreen.v1';
 
+const ScreenFallback: React.FC = () => (
+  <div className="p-6 text-muted-foreground text-sm">Loading...</div>
+);
+
 const isPosRole = (role: string | null) => role === UserRole.WAITER || role === UserRole.WAITER_MANAGER || role === UserRole.BRANCH_MANAGER;
 
 const parseScreen = (raw: unknown): Screen | null => {
@@ -100,6 +108,36 @@ const parseScreen = (raw: unknown): Screen | null => {
   if (!s) return null;
   const values = Object.values(Screen) as string[];
   return values.includes(s) ? (s as Screen) : null;
+};
+
+const screenToPath = (screen: Screen): string => {
+  const s = String(screen);
+  if (s.startsWith('WAITER_')) return `/waiter/${s.slice('WAITER_'.length).toLowerCase()}`;
+  if (s.startsWith('MANAGER_')) return `/manager/${s.slice('MANAGER_'.length).toLowerCase()}`;
+  if (s.startsWith('OWNER_')) return `/owner/${s.slice('OWNER_'.length).toLowerCase()}`;
+  if (s.startsWith('SA_')) return `/superadmin/${s.slice('SA_'.length).toLowerCase()}`;
+  return `/${s.toLowerCase()}`;
+};
+
+const pathToScreen = (pathname: unknown): Screen | null => {
+  const p = String(pathname || '').trim();
+  if (!p || p === '/') return null;
+  const parts = p.replace(/\/+$/, '').split('/').filter(Boolean);
+  if (!parts.length) return null;
+
+  const [root, second] = parts;
+  const rootKey = String(root || '').toLowerCase();
+  const leaf = String(second || '').trim();
+  if (!leaf) return null;
+
+  const tryScreen = (prefix: string) => parseScreen(`${prefix}${leaf.toUpperCase()}`);
+
+  if (rootKey === 'waiter') return tryScreen('WAITER_');
+  if (rootKey === 'manager') return tryScreen('MANAGER_');
+  if (rootKey === 'owner') return tryScreen('OWNER_');
+  if (rootKey === 'superadmin') return tryScreen('SA_');
+
+  return parseScreen(root.toUpperCase());
 };
 
 const readSessionPermissions = () => {
@@ -121,10 +159,27 @@ const readHashScreen = (): Screen | null => {
   }
 };
 
-const writeHashScreen = (screen: Screen) => {
+const readPathScreen = (): Screen | null => {
   try {
-    const next = `#${String(screen)}`;
-    if (window.location.hash !== next) window.location.hash = next;
+    return pathToScreen(window.location?.pathname);
+  } catch {
+    return null;
+  }
+};
+
+const writePathScreen = (screen: Screen, { replace = false } = {}) => {
+  try {
+    const nextPath = screenToPath(screen);
+    const search = String(window.location?.search || '');
+    const hash = String(window.location?.hash || '');
+    const nextUrl = `${nextPath}${search}${hash && !parseScreen(hash.slice(1)) ? hash : ''}`;
+    const currentUrl = `${String(window.location?.pathname || '')}${search}${hash}`;
+    if (currentUrl === nextUrl) return;
+    if (replace) {
+      window.history.replaceState({}, '', nextUrl);
+      return;
+    }
+    window.history.pushState({}, '', nextUrl);
   } catch {
     // ignore
   }
@@ -280,10 +335,20 @@ const AppContent: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>(() => {
     try {
       const parsed = readSession<any>();
+      const fromPath = readPathScreen();
       const fromHash = readHashScreen();
       const fromLast = readLastScreen();
       const fromSession = parseScreen(parsed?.screen) ?? Screen.LOGIN;
-      const restored = fromHash || fromLast || fromSession;
+
+      if (!fromPath && fromHash) {
+        writePathScreen(fromHash, { replace: true });
+        try {
+          if (window.location.hash) window.location.hash = '';
+        } catch {
+        }
+      }
+
+      const restored = fromPath || fromHash || fromLast || fromSession;
       return restored;
     } catch {
       return Screen.LOGIN;
@@ -333,7 +398,7 @@ const AppContent: React.FC = () => {
       // Persist for reload restoration.
       if (currentScreen !== Screen.LOGIN) {
         writeLastScreen(currentScreen);
-        writeHashScreen(currentScreen);
+        writePathScreen(currentScreen, { replace: true });
       }
     } catch {
       // ignore
@@ -344,7 +409,7 @@ const AppContent: React.FC = () => {
     setCurrentScreen(screen);
     try {
       writeLastScreen(screen);
-      writeHashScreen(screen);
+      writePathScreen(screen);
     } catch {
       // ignore
     }
@@ -360,10 +425,20 @@ const AppContent: React.FC = () => {
         const nextRole = (parsed?.role as UserRole) ?? null;
         const nextScreen = parseScreen(parsed?.screen) ?? Screen.LOGIN;
         setUserRole(nextRole);
-        // Prefer URL hash / last screen on refresh, but allow explicit session changes (impersonation).
+        // Prefer URL path / last screen on refresh, but allow explicit session changes (impersonation).
+        const fromPath = readPathScreen();
         const fromHash = readHashScreen();
         const fromLast = readLastScreen();
-        setCurrentScreen(fromHash || fromLast || nextScreen);
+
+        if (fromHash) {
+          writePathScreen(fromHash, { replace: true });
+          try {
+            if (window.location.hash) window.location.hash = '';
+          } catch {
+          }
+        }
+
+        setCurrentScreen(fromPath || fromHash || fromLast || nextScreen);
       } catch {
         // ignore
       }
@@ -526,12 +601,12 @@ const AppContent: React.FC = () => {
   })();
 
   useEffect(() => {
-    const onHash = () => {
-      const s = readHashScreen();
+    const onPop = () => {
+      const s = readPathScreen();
       if (s) setCurrentScreen(s);
     };
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   useEffect(() => {
@@ -708,7 +783,11 @@ const AppContent: React.FC = () => {
   }
 
   if (currentScreen === Screen.BRANCH_SELECT) {
-    return <BranchSelect />;
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        <BranchSelect />
+      </Suspense>
+    );
   }
 
   if (currentScreen === Screen.OWNER_ONBOARDING) {
@@ -977,78 +1056,80 @@ const AppContent: React.FC = () => {
             </div>
           </div>
         ) : null}
-        {/* SHARED / OLDER SCREENS */}
-        {currentScreen === Screen.DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Dashboard role={userRole!} />}
-        {currentScreen === Screen.POS_FLOOR && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDashboard onNavigate={navigate} />}
-        {currentScreen === Screen.ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Orders />}
-        {currentScreen === Screen.TABLE_ASSIGNMENT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <TableAssignment onNavigate={navigate} />}
-        {currentScreen === Screen.GUESTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Guests />}
+        <Suspense fallback={<ScreenFallback />}>
+          {/* SHARED / OLDER SCREENS */}
+          {currentScreen === Screen.DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Dashboard role={userRole!} />}
+          {currentScreen === Screen.POS_FLOOR && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDashboard onNavigate={navigate} />}
+          {currentScreen === Screen.ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Orders />}
+          {currentScreen === Screen.TABLE_ASSIGNMENT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <TableAssignment onNavigate={navigate} />}
+          {currentScreen === Screen.GUESTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Guests />}
 
-        {/* WAITER SPECIFIC SCREENS */}
-        {currentScreen === Screen.WAITER_DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDashboard onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_MENU && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterMenu onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_REVIEW && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterOrderReview onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_PAYMENT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterPayment onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_RECEIPT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterReceipt onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_ACTIVE_ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterActiveOrders onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_STATUS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterOrderStatus onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_KDS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterKDS onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_HISTORY && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterHistory onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_NOTIFICATIONS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterNotifications onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_SYSTEM && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterSystemStatus onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_SETTINGS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterSettings onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_SHIFT_REPORT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterShiftReport onNavigate={navigate} />}
-        {currentScreen === Screen.WAITER_SCHEDULE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ShiftSchedule readOnly />}
+          {/* WAITER SPECIFIC SCREENS */}
+          {currentScreen === Screen.WAITER_DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDashboard onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_MENU && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterMenu onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_REVIEW && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterOrderReview onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_PAYMENT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterPayment onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_RECEIPT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterReceipt onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_ACTIVE_ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterActiveOrders onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_STATUS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterOrderStatus onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_KDS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterKDS onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_HISTORY && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterHistory onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_NOTIFICATIONS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterNotifications onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_SYSTEM && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterSystemStatus onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_SETTINGS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterSettings onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_SHIFT_REPORT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterShiftReport onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_SCHEDULE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ShiftSchedule readOnly />}
 
-        {/* CAFE OWNER (GLOBAL) SCREENS */}
-        {currentScreen === Screen.OWNER_DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerDashboard />}
-        {currentScreen === Screen.OWNER_FINANCE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerFinance />}
-        {currentScreen === Screen.OWNER_INVENTORY && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerInventory />}
-        {currentScreen === Screen.OWNER_REPORTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <GlobalReports />}
-        {currentScreen === Screen.OWNER_BRANCHES && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerBranches />}
-        {currentScreen === Screen.OWNER_STAFF && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerStaffManagement />}
-        {currentScreen === Screen.OWNER_AUDIT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerAudit />}
-        {currentScreen === Screen.OWNER_MENU && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <MenuManagement />}
-        {currentScreen === Screen.OWNER_SETTINGS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Settings />}
-        {currentScreen === Screen.OWNER_BILLING && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerBilling />}
-        {currentScreen === Screen.SUPPORT_REQUEST && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SupportRequest />}
+          {/* CAFE OWNER (GLOBAL) SCREENS */}
+          {currentScreen === Screen.OWNER_DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerDashboard />}
+          {currentScreen === Screen.OWNER_FINANCE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerFinance />}
+          {currentScreen === Screen.OWNER_INVENTORY && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerInventory />}
+          {currentScreen === Screen.OWNER_REPORTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <GlobalReports />}
+          {currentScreen === Screen.OWNER_BRANCHES && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerBranches />}
+          {currentScreen === Screen.OWNER_STAFF && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerStaffManagement />}
+          {currentScreen === Screen.OWNER_AUDIT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerAudit />}
+          {currentScreen === Screen.OWNER_MENU && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <MenuManagement />}
+          {currentScreen === Screen.OWNER_SETTINGS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Settings />}
+          {currentScreen === Screen.OWNER_BILLING && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <OwnerBilling />}
+          {currentScreen === Screen.SUPPORT_REQUEST && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SupportRequest />}
 
-        {currentScreen === Screen.STAFF_SCHEDULE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ShiftSchedule />}
+          {currentScreen === Screen.STAFF_SCHEDULE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ShiftSchedule />}
 
-        {/* BRANCH MANAGER (LOCAL) SCREENS */}
-        {currentScreen === Screen.MANAGER_DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchDashboard onNavigate={navigate} />}
-        {currentScreen === Screen.DESKTOP_DRAFT_INBOX && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <DraftInbox />}
-        {currentScreen === Screen.MANAGER_ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchOrders onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_ORDER_DETAILS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchOrderDetails onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_FLOOR_MAP && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ManagerFloorMap onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_TABLE_DETAILS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ManagerTableDetails onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_CUSTOMERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ManagerCustomers />}
-        {currentScreen === Screen.MANAGER_INVENTORY && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Inventory onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_RECIPE_BUILDER && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <RecipeBuilder onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_MENU_BUILDER && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <MenuBuilder onNavigate={navigate} />}
-        {currentScreen === Screen.MANAGER_STAFF && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ManagerTeam />}
-        {currentScreen === Screen.MANAGER_FINANCE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Finance />}
-        {currentScreen === Screen.MANAGER_REPORTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchReports />}
-        {currentScreen === Screen.MANAGER_SETTINGS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchSettings />}
-        {currentScreen === Screen.SUPPORT_REQUEST && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SupportRequest />}
+          {/* BRANCH MANAGER (LOCAL) SCREENS */}
+          {currentScreen === Screen.MANAGER_DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchDashboard onNavigate={navigate} />}
+          {currentScreen === Screen.DESKTOP_DRAFT_INBOX && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <DraftInbox />}
+          {currentScreen === Screen.MANAGER_ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchOrders onNavigate={navigate} />}
+          {currentScreen === Screen.MANAGER_ORDER_DETAILS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchOrderDetails onNavigate={navigate} />}
+          {currentScreen === Screen.MANAGER_FLOOR_MAP && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ManagerFloorMap onNavigate={navigate} />}
+          {currentScreen === Screen.MANAGER_TABLE_DETAILS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ManagerTableDetails onNavigate={navigate} />}
+          {currentScreen === Screen.MANAGER_CUSTOMERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ManagerCustomers />}
+          {currentScreen === Screen.MANAGER_INVENTORY && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Inventory onNavigate={navigate} />}
+          {currentScreen === Screen.MANAGER_RECIPE_BUILDER && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <RecipeBuilder onNavigate={navigate} />}
+          {currentScreen === Screen.MANAGER_MENU_BUILDER && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <MenuBuilder onNavigate={navigate} />}
+          {currentScreen === Screen.MANAGER_STAFF && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ManagerTeam />}
+          {currentScreen === Screen.MANAGER_FINANCE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Finance />}
+          {currentScreen === Screen.MANAGER_REPORTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchReports />}
+          {currentScreen === Screen.MANAGER_SETTINGS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <BranchSettings />}
+          {currentScreen === Screen.SUPPORT_REQUEST && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SupportRequest />}
 
-        {/* SUPER ADMIN SCREENS */}
-        {currentScreen === Screen.SA_OVERVIEW && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SA_Overview onNavigate={navigate} />}
-        {currentScreen === Screen.SA_TENANTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SA_Tenants onNavigate={navigate} />}
-        {currentScreen === Screen.SA_TENANT_DETAILS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && (
-          <SA_TenantDetails onBack={navigateBackToTenants} onNavigate={navigate} />
-        )}
-        {currentScreen === Screen.SA_DEMO_REQUESTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SA_DemoRequests />}
-        {currentScreen === Screen.SA_ONBOARDING && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SA_OnboardingDesign onNavigate={navigate} />}
-        {currentScreen === Screen.SA_BILLING && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Billing />}
-        {currentScreen === Screen.SA_PAYMENT_CONFIG && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <PaymentConfig />}
-        {currentScreen === Screen.SA_SYSTEM_HEALTH && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_SystemHealth />}
-        {currentScreen === Screen.SA_SUPPORT && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Support />}
-        {currentScreen === Screen.SA_AUDIT && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Audit />}
-        {currentScreen === Screen.SA_FEATURE_FLAGS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_FeatureFlags />}
-        {currentScreen === Screen.SA_INTEGRATIONS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Integrations />}
-        {currentScreen === Screen.SA_ADDONS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Addons />}
-        {currentScreen === Screen.SA_SETTINGS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Settings />}
+          {/* SUPER ADMIN SCREENS */}
+          {currentScreen === Screen.SA_OVERVIEW && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SA_Overview onNavigate={navigate} />}
+          {currentScreen === Screen.SA_TENANTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SA_Tenants onNavigate={navigate} />}
+          {currentScreen === Screen.SA_TENANT_DETAILS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && (
+            <SA_TenantDetails onBack={navigateBackToTenants} onNavigate={navigate} />
+          )}
+          {currentScreen === Screen.SA_DEMO_REQUESTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SA_DemoRequests />}
+          {currentScreen === Screen.SA_ONBOARDING && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <SA_OnboardingDesign onNavigate={navigate} />}
+          {currentScreen === Screen.SA_BILLING && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Billing />}
+          {currentScreen === Screen.SA_PAYMENT_CONFIG && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <PaymentConfig />}
+          {currentScreen === Screen.SA_SYSTEM_HEALTH && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_SystemHealth />}
+          {currentScreen === Screen.SA_SUPPORT && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Support />}
+          {currentScreen === Screen.SA_AUDIT && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Audit />}
+          {currentScreen === Screen.SA_FEATURE_FLAGS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_FeatureFlags />}
+          {currentScreen === Screen.SA_INTEGRATIONS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Integrations />}
+          {currentScreen === Screen.SA_ADDONS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Addons />}
+          {currentScreen === Screen.SA_SETTINGS && canAccessScreenWithSubscription(userRole!, currentScreen, subscription) && <SA_Settings />}
+        </Suspense>
         {userRole ? (
           <div className="fixed bottom-0 left-64 right-0 h-8 border-t border-border bg-card text-muted-foreground text-xs flex items-center justify-center z-40">
             Powered by <span className="text-foreground font-bold ml-1">MirachPos</span>

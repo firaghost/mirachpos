@@ -85,4 +85,11 @@ const db = () => {
   return knex;
 };
 
-module.exports = { db, initDb };
+const closeDb = async () => {
+  if (!knex) return;
+  const k = knex;
+  knex = undefined;
+  await k.destroy();
+};
+
+module.exports = { db, initDb, closeDb };

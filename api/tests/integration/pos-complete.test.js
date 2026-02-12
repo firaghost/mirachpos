@@ -433,18 +433,77 @@ describe('POS Routes - Complete Coverage', () => {
   describe('Loyalty', () => {
     describe('GET /api/pos/loyalty/customers/:id/points', () => {
       it('should get customer loyalty points', async () => {
+        try {
+          global.__MIRACHPOS_DB_MOCK__?.reset?.();
+        } catch {
+          // ignore
+        }
+        const state = global.__MIRACHPOS_DB_MOCK__?.state;
+        if (state?.tables) {
+          state.tables.customers = [
+            {
+              tenant_id: 't_test',
+              branch_id: branchId,
+              id: 'cust-123',
+              loyalty_points: 250,
+              loyalty_balance: 0,
+              status: 'Active',
+              updated_at: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+            },
+          ];
+        }
+
         const res = await request(app)
           .get('/api/pos/loyalty/customers/cust-123/points')
           .set(getAuthHeaders('cafe_owner'))
           .set('X-Tenant', tenantId)
           .query({ branchId });
         
-        expect([200, 401, 403, 404]).toContain(res.status);
+        expect([200, 403]).toContain(res.status);
+        if (res.status === 200) {
+          expect(res.body?.ok).toBe(true);
+          expect(res.body?.customerId).toBe('cust-123');
+          expect(res.body?.points).toBe(250);
+        }
       });
     });
     
     describe('POST /api/pos/orders/:id/redeem-loyalty', () => {
       it('should redeem loyalty points', async () => {
+        try {
+          global.__MIRACHPOS_DB_MOCK__?.reset?.();
+        } catch {
+          // ignore
+        }
+        const state = global.__MIRACHPOS_DB_MOCK__?.state;
+        if (state?.tables) {
+          state.tables.customers = [
+            {
+              tenant_id: 't_test',
+              branch_id: branchId,
+              id: 'cust-123',
+              loyalty_points: 250,
+              loyalty_balance: 0,
+              status: 'Active',
+              updated_at: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+            },
+          ];
+          state.tables.orders = [
+            {
+              tenant_id: 't_test',
+              branch_id: branchId,
+              id: orderId || 'test-order',
+              status: 'Pending',
+              total: 100,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              payload: JSON.stringify({}),
+            },
+          ];
+        }
+
         const redemption = {
           customerId: 'cust-123',
           pointsToRedeem: 100
@@ -457,12 +516,40 @@ describe('POS Routes - Complete Coverage', () => {
           .query({ branchId })
           .send(redemption);
         
-        expect([200, 400, 401, 403, 404]).toContain(res.status);
+        expect([200, 403]).toContain(res.status);
+        if (res.status === 200) {
+          expect(res.body?.ok).toBe(true);
+          expect(res.body?.pointsToConvert).toBe(100);
+          expect(res.body?.etbToAdd).toBe(10);
+          expect(res.body?.nextPoints).toBe(150);
+          expect(res.body?.nextBalance).toBe(10);
+        }
       });
     });
     
     describe('POST /api/pos/loyalty/customers/:id/award', () => {
       it('should award loyalty points', async () => {
+        try {
+          global.__MIRACHPOS_DB_MOCK__?.reset?.();
+        } catch {
+          // ignore
+        }
+        const state = global.__MIRACHPOS_DB_MOCK__?.state;
+        if (state?.tables) {
+          state.tables.customers = [
+            {
+              tenant_id: 't_test',
+              branch_id: branchId,
+              id: 'cust-123',
+              loyalty_points: 0,
+              loyalty_balance: 0,
+              status: 'Active',
+              updated_at: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+            },
+          ];
+        }
+
         const award = {
           points: 50,
           reason: 'Purchase bonus'
@@ -475,7 +562,10 @@ describe('POS Routes - Complete Coverage', () => {
           .query({ branchId })
           .send(award);
         
-        expect([200, 400, 401, 403, 404]).toContain(res.status);
+        expect([200, 403]).toContain(res.status);
+        if (res.status === 200) {
+          expect(res.body?.ok).toBe(true);
+        }
       });
     });
   });

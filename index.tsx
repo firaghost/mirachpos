@@ -4,6 +4,7 @@ import App from './App';
 import './index.css';
 import { initializeFaro, getWebInstrumentations } from '@grafana/faro-web-sdk';
 import { TracingInstrumentation } from '@grafana/faro-web-tracing';
+ import { registerFcmServiceWorker } from './lib/firebase';
 
 const getFaroConfig = () => {
   const env = (import.meta as any)?.env || {};
@@ -59,6 +60,8 @@ const onRejection = (ev: any) => {
 
 window.addEventListener('error', onError as any);
 window.addEventListener('unhandledrejection', onRejection as any);
+
+registerFcmServiceWorker();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

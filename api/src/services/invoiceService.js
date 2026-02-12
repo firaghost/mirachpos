@@ -2,7 +2,7 @@
  * Invoice Service
  * 
  * Handles invoice generation, payment processing, and subscription billing.
- * Supports Chapa, Telebirr, CBE Birr, and bank transfer payments.
+ * Supports Chapa, Telebirr, and bank transfer payments.
  */
 
 const { db } = require('../db');
@@ -28,7 +28,7 @@ const normalizeBillingFrequency = (v) => {
 
 // Get platform payment configuration
 const getPlatformPaymentConfig = async () => withCache(
-    'platform_payment_config_v1',
+    'platform:payment_config:v1',
     config.cacheDefaultTtlSeconds,
     async () => {
         const row = await db()
@@ -43,8 +43,8 @@ const getPlatformPaymentConfig = async () => withCache(
             bankDetails: safeJsonParse(row.bank_details_json, {}),
             chapa: safeJsonParse(row.chapa_config_json, { enabled: false }),
             telebirr: safeJsonParse(row.telebirr_config_json, { enabled: false }),
-            cbeBirr: safeJsonParse(row.cbe_birr_config_json, { enabled: false }),
             sms: safeJsonParse(row.sms_config_json, { enabled: false }),
+            fcm: safeJsonParse(row.fcm_config_json, { enabled: false }),
             defaultGraceDays: Number(row.default_grace_days || 3) || 3,
             reportRetentionDays: Number(row.report_retention_days || 365) || 365,
         };

@@ -11,9 +11,15 @@
     "migrate": "knex migrate:latest",
     "migrate:make": "knex migrate:make",
     "migrate:rollback": "knex migrate:rollback",
-    "test": "jest"
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:coverage:text": "jest --coverage --coverageReporters=text-summary",
+    "lint": "eslint src tests --ext .js",
+    "lint:fix": "eslint src tests --ext .js --fix",
+    "lint:all": "eslint . --ext .js"
   },
   "dependencies": {
+    "@dataconnect/admin-generated": "file:src/dataconnect-admin-generated",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.5",
     "cors": "^2.8.5",
@@ -21,6 +27,7 @@
     "exceljs": "^4.4.0",
     "express": "^4.19.2",
     "express-rate-limit": "^8.2.1",
+    "firebase-admin": "^13.6.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "knex": "^3.1.0",
@@ -38,6 +45,8 @@
     "zod": "^4.3.4"
   },
   "devDependencies": {
+    "eslint": "^8.57.1",
+    "eslint-plugin-import": "^2.31.0",
     "jest": "^30.2.0",
     "supertest": "^7.1.4"
   }

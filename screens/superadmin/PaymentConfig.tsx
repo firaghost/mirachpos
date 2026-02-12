@@ -64,8 +64,8 @@ type PaymentConfigState = {
   };
   chapa: GatewayConfig;
   telebirr: GatewayConfig;
-  cbeBirr: GatewayConfig;
-  sms: { enabled: boolean; provider: string; apiKey: string; senderId: string };
+  sms: { enabled: boolean; provider: string; username: string; apiKey: string; senderId: string };
+  fcm: { enabled: boolean };
   settings: {
     environment: 'production' | 'sandbox';
     gracePeriodDays: number;
@@ -99,8 +99,8 @@ const defaultState: PaymentConfigState = {
   },
   chapa: { enabled: false, enabledForPos: false, publicKey: '', secretKey: '', webhookSecret: '', encryptionKey: '' },
   telebirr: { enabled: false, enabledForPos: false, appId: '', appKey: '', shortCode: '', baseUrl: '', fabricAppId: '', appSecret: '', merchantAppId: '', merchantCode: '', privateKey: '' },
-  cbeBirr: { enabled: false, merchantId: '', apiKey: '' },
-  sms: { enabled: false, provider: 'africas_talking', apiKey: '', senderId: '' },
+  sms: { enabled: false, provider: 'africas_talking', username: '', apiKey: '', senderId: '' },
+  fcm: { enabled: false },
   settings: { environment: 'production', gracePeriodDays: 3, reportRetentionDays: 365, vatEnabled: true, starterPriceEtb: 500, growthPriceEtb: 1500 },
 };
 
@@ -194,7 +194,7 @@ export const PaymentConfig: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<PaymentTab>('gateways');
 
-  const [configureOpen, setConfigureOpen] = useState<null | 'telebirr' | 'chapa' | 'cbeBirr'>(null);
+  const [configureOpen, setConfigureOpen] = useState<null | 'telebirr' | 'chapa'>(null);
   const [configureDraft, setConfigureDraft] = useState<any | null>(null);
 
   const [pricingMonthlyEnabled, setPricingMonthlyEnabled] = useState(true);
@@ -548,7 +548,6 @@ export const PaymentConfig: React.FC = () => {
         bankDetails: { ...defaultState.bankDetails, ...(cfg.bankDetails || {}) },
         chapa: { ...defaultState.chapa, ...(cfg.chapa || {}) },
         telebirr: { ...defaultState.telebirr, ...(cfg.telebirr || {}) },
-        cbeBirr: { ...defaultState.cbeBirr, ...(cfg.cbeBirr || {}) },
         sms: { ...defaultState.sms, ...(cfg.sms || {}) },
         settings: { ...defaultState.settings, ...(cfg.settings || {}) },
       };
@@ -609,7 +608,7 @@ export const PaymentConfig: React.FC = () => {
     setError(null);
   };
 
-  const openConfigure = (kind: 'telebirr' | 'chapa' | 'cbeBirr') => {
+  const openConfigure = (kind: 'telebirr' | 'chapa') => {
     setConfigureOpen(kind);
     setConfigureDraft({ ...(draft as any)[kind] });
   };
@@ -1117,7 +1116,7 @@ export const PaymentConfig: React.FC = () => {
   };
 
   const envIsProd = draft.settings.environment === 'production';
-  const activeCount = Number(Boolean(draft.telebirr.enabled)) + Number(Boolean(draft.chapa.enabled)) + Number(Boolean(draft.cbeBirr.enabled));
+  const activeCount = Number(Boolean(draft.telebirr.enabled)) + Number(Boolean(draft.chapa.enabled));
   const vatPct = draft.settings.vatEnabled ? 0.15 : 0;
   const starterBaseEtb = Number(plans.find((p) => String(p.tier) === 'Starter')?.pricing?.monthlyEtb || 0);
   const growthBaseEtb = Number(plans.find((p) => String(p.tier) === 'Growth')?.pricing?.monthlyEtb || 0);
@@ -2900,6 +2899,24 @@ export const PaymentConfig: React.FC = () => {
               <h1 className="text-3xl font-black text-foreground tracking-tight">Gateway Integrations</h1>
               <p className="text-muted-foreground text-base max-w-2xl">Configure and manage payment providers for the Ethiopian market.</p>
             </div>
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <AppIcon name="notifications" className="text-primary" />
+                  Push Notifications (FCM)
+                </h3>
+              </div>
+              <div className="p-5 rounded-xl bg-card border border-border hover:border-primary/50 transition-all shadow-lg flex items-center justify-between gap-6">
+                <div>
+                  <div className="text-foreground font-bold">Enable FCM Globally</div>
+                  <div className="text-xs text-muted-foreground mt-1">Master switch. If disabled, the API will not send push notifications.</div>
+                </div>
+                <Toggle
+                  checked={!!draft.fcm?.enabled}
+                  onChange={(v) => setDraft((p) => ({ ...p, fcm: { ...(p as any).fcm, enabled: v } }))}
+                />
+              </div>
+            </section>
             <>
               <section>
                 <div className="flex items-center justify-between mb-4">
@@ -3011,30 +3028,51 @@ export const PaymentConfig: React.FC = () => {
                   <div className="p-5 rounded-xl bg-card border border-border hover:border-primary/50 transition-all shadow-lg relative md:col-span-2">
                     <div className="flex items-start gap-4">
                       <div className="size-12 rounded-lg bg-white p-2 flex items-center justify-center flex-none opacity-90">
-                        <div className="w-full h-full bg-purple-700 rounded-md" />
+                        <div className="w-full h-full bg-amber-600 rounded-md" />
                       </div>
                       <div className="flex flex-col flex-1">
                         <div className="flex items-center justify-between gap-4">
                           <div>
-                            <h4 className="text-foreground font-bold text-lg">CBE Birr</h4>
-                            <p className="text-muted-foreground text-sm">Commercial Bank of Ethiopia Wallet.</p>
+                            <h4 className="text-foreground font-bold text-lg">SMS Notifications</h4>
+                            <p className="text-muted-foreground text-sm">Africa's Talking credentials for billing reminders.</p>
                           </div>
-                          <Toggle checked={draft.cbeBirr.enabled} onChange={(v) => setDraft((p) => ({ ...p, cbeBirr: { ...p.cbeBirr, enabled: v } }))} />
+                          <Toggle checked={draft.sms.enabled} onChange={(v) => setDraft((p) => ({ ...p, sms: { ...p.sms, enabled: v } }))} />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                          <div>
-                            <div className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Merchant ID</div>
-                            <div className="font-mono text-sm text-foreground bg-muted/40 px-2 py-1 rounded border border-border truncate">{maskish(String(draft.cbeBirr.merchantId || ''))}</div>
-                          </div>
-                          <div>
-                            <div className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">API Key</div>
-                            <div className="font-mono text-sm text-foreground bg-muted/40 px-2 py-1 rounded border border-border truncate">{maskish(String(draft.cbeBirr.apiKey || ''))}</div>
-                          </div>
-                          <div className="flex items-end">
-                            <button onClick={() => openConfigure('cbeBirr')} className="w-full h-9 rounded-lg bg-border hover:bg-accent text-foreground text-sm font-bold transition-colors" type="button">
-                              Configure
-                            </button>
-                          </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                          <Field label="Provider">
+                            <select
+                              value={String(draft.sms.provider || 'africas_talking')}
+                              onChange={(e) => setDraft((p) => ({ ...p, sms: { ...p.sms, provider: e.target.value } }))}
+                              className="w-full h-10 px-3 rounded-lg bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            >
+                              <option value="africas_talking">Africa's Talking</option>
+                            </select>
+                          </Field>
+
+                          <Field label="Username" hint="Africa's Talking username. Prefer env AT_USERNAME for production; this is a fallback.">
+                            <Input
+                              value={String(draft.sms.username || '')}
+                              onChange={(e) => setDraft((p) => ({ ...p, sms: { ...p.sms, username: e.target.value } }))}
+                              placeholder="your_at_username"
+                            />
+                          </Field>
+
+                          <Field label="Sender ID" hint="Optional. If empty, server default will be used.">
+                            <Input
+                              value={String(draft.sms.senderId || '')}
+                              onChange={(e) => setDraft((p) => ({ ...p, sms: { ...p.sms, senderId: e.target.value } }))}
+                              placeholder="MIRACH"
+                            />
+                          </Field>
+
+                          <Field label="API Key" hint="If masked, leave as-is to keep current value.">
+                            <Input
+                              value={String(draft.sms.apiKey || '')}
+                              onChange={(e) => setDraft((p) => ({ ...p, sms: { ...p.sms, apiKey: e.target.value } }))}
+                              placeholder="******"
+                            />
+                          </Field>
                         </div>
                       </div>
                     </div>
@@ -3157,7 +3195,7 @@ export const PaymentConfig: React.FC = () => {
 
       <Modal
         open={!!configureOpen}
-        title={configureOpen === 'telebirr' ? 'Configure Telebirr' : configureOpen === 'chapa' ? 'Configure Chapa' : 'Configure CBE Birr'}
+        title={configureOpen === 'telebirr' ? 'Configure Telebirr' : 'Configure Chapa'}
         onClose={() => {
           setConfigureOpen(null);
           setConfigureDraft(null);
@@ -3229,17 +3267,6 @@ export const PaymentConfig: React.FC = () => {
             </Field>
             <Field label="Encryption Key" hint="Saved to server env if provided.">
               <Input value={String(configureDraft?.encryptionKey || '')} onChange={(e) => setConfigureDraft((p: any) => ({ ...(p || {}), encryptionKey: e.target.value }))} placeholder="******" />
-            </Field>
-          </div>
-        ) : null}
-
-        {configureOpen === 'cbeBirr' ? (
-          <div className="grid grid-cols-1 gap-4">
-            <Field label="Merchant ID">
-              <Input value={String(configureDraft?.merchantId || '')} onChange={(e) => setConfigureDraft((p: any) => ({ ...(p || {}), merchantId: e.target.value }))} placeholder="merchant_id" />
-            </Field>
-            <Field label="API Key" hint="If masked, leave as-is to keep current value.">
-              <Input value={String(configureDraft?.apiKey || '')} onChange={(e) => setConfigureDraft((p: any) => ({ ...(p || {}), apiKey: e.target.value }))} placeholder="******" />
             </Field>
           </div>
         ) : null}

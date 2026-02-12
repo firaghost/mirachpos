@@ -1,13 +1,15 @@
 const { config } = require('./config');
 const { validateEnv } = require('./validateEnv');
+const { validateJwtSecret, validateTenantGatewaySecretsKey, validateCorsOrigins, validateMetricsKey } = require('./utils/validateConfig');
 const { createApp } = require('./app');
 const { logger } = require('./utils/logger');
 const { sendCriticalAlert } = require('./utils/alerting');
 const { startScheduler } = require('./services/schedulerService');
-const { startJobWorker } = require('./services/jobService');
+const { startJobWorker, stopJobWorker } = require('./services/jobService');
 const { initInvoiceJobs } = require('./jobs/invoiceJobs');
 const { initTelebirrStandingOrderJobs } = require('./jobs/telebirrStandingOrderJobs');
-const { db, initDb } = require('./db');
+const { db, initDb, closeDb } = require('./db');
+const { closeRedisClient } = require('./utils/redisClient');
 const cluster = require('cluster');
 const os = require('os');
 
@@ -29,7 +31,26 @@ process.on('uncaughtException', (err) => {
   });
 });
 
-validateEnv();
+const fatalStartup = (err) => {
+  try {
+    const code = err?.code ? String(err.code) : '';
+    const message = err?.message ? String(err.message) : String(err || 'startup_error');
+    // eslint-disable-next-line no-console
+    console.error(`[BOOT] fatal${code ? ` (${code})` : ''}: ${message}`);
+  } catch {
+  }
+  process.exit(1);
+};
+
+try {
+  validateEnv();
+  validateJwtSecret();
+  validateTenantGatewaySecretsKey();
+  validateCorsOrigins();
+  validateMetricsKey();
+} catch (err) {
+  fatalStartup(err);
+}
 
 const app = createApp();
 
@@ -83,6 +104,31 @@ const startBackgroundServices = () => {
   startJobWorker();
 };
 
+const stopBackgroundServices = async () => {
+  try {
+    // eslint-disable-next-line global-require
+    const { stopScheduler } = require('./services/schedulerService');
+    stopScheduler();
+  } catch {
+    // ignore
+  }
+
+  try {
+    stopJobWorker();
+  } catch {
+    // ignore
+  }
+};
+
+const closeServer = (server) =>
+  new Promise((resolve) => {
+    try {
+      server.close(() => resolve());
+    } catch {
+      resolve();
+    }
+  });
+
 const startHttpServer = async () => {
   const skipDbInitOnBoot = String(process.env.SKIP_DB_INIT_ON_BOOT || '').trim() === '1';
 
@@ -100,8 +146,13 @@ const startHttpServer = async () => {
     } catch {
       // ignore
     }
-    server.close(() => process.exit(0));
+
     setTimeout(() => process.exit(1), 10000).unref();
+    await stopBackgroundServices();
+    await closeServer(server);
+    await closeRedisClient();
+    await closeDb();
+    process.exit(0);
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -129,6 +180,8 @@ const boot = async () => {
       // ignore
     }
 
+    setTimeout(() => process.exit(1), 10000).unref();
+
     const ids = Object.keys(cluster.workers || {});
     for (const id of ids) {
       try {
@@ -138,7 +191,10 @@ const boot = async () => {
       }
     }
 
-    setTimeout(() => process.exit(0), 10000).unref();
+    await stopBackgroundServices();
+    await closeRedisClient();
+    await closeDb();
+    process.exit(0);
   };
 
   process.on('SIGTERM', () => shutdownPrimary('SIGTERM'));

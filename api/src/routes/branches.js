@@ -7,27 +7,10 @@ const { loadEntitlements, requireModule, enforceBranchLimit } = require('../midd
 const { makeId } = require('../utils/ids');
 const { requireRole, requirePermission } = require('../middleware/permissions');
 const { validateBranchCreate, validateBranchUpdate, validateBranchEvent, validateIdParam } = require('../middleware/validators');
+const { logAudit } = require('../utils/logger');
 
 const makeBranchesRouter = () => {
   const r = express.Router();
-
-  const logAudit = async ({ tenantId, branchId, actorStaffId, actorRole, type, summary, payload }) => {
-    try {
-      await db().from('audit_log').insert({
-        id: makeId('aud'),
-        tenant_id: tenantId,
-        branch_id: branchId || null,
-        actor_staff_id: actorStaffId || null,
-        actor_role: actorRole || null,
-        type,
-        summary: summary || null,
-        payload_json: payload != null ? JSON.stringify(payload) : null,
-        created_at: new Date().toISOString(),
-      });
-    } catch {
-      // ignore
-    }
-  };
 
   r.get(
     '/branches',
@@ -132,6 +115,7 @@ const makeBranchesRouter = () => {
         type: 'owner.branch.created',
         summary: `Created branch ${name}`,
         payload: { id, name, status },
+        requestId: req.requestId,
       });
 
       return res.status(201).json({ ok: true, branch: { id, name, status, rating: safeRating } });
@@ -187,6 +171,7 @@ const makeBranchesRouter = () => {
         type: 'owner.branch.updated',
         summary: `Updated branch ${String(existing?.name || branchId)}`,
         payload: { id: branchId, patch },
+        requestId: req.requestId,
       });
 
       return res.json({ ok: true });
@@ -225,6 +210,7 @@ const makeBranchesRouter = () => {
         type: 'owner.branch.deleted',
         summary: `Closed branch ${String(existing?.name || branchId)}`,
         payload: { id: branchId, status: 'Closed', prevStatus: String(existing?.status || '') },
+        requestId: req.requestId,
       });
 
       return res.json({ ok: true });
@@ -278,6 +264,7 @@ const makeBranchesRouter = () => {
         type: `inventory.${type}`,
         summary,
         payload: { ...payload, branchId },
+        requestId: req.requestId,
       });
 
       const nowIso = new Date().toISOString();

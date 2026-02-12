@@ -6,6 +6,8 @@ import { formatDeviceDateTime } from '../datetime';
 import { Screen } from '../types';
 import OwnerBilling from './owner/OwnerBilling';
 
+import { PushNotificationSettings } from '@/components/settings/PushNotificationSettings';
+
 import { AppIcon } from '@/components/ui/app-icon';
 type OwnerSettings = {
   business: {
@@ -1643,6 +1645,7 @@ export const Settings: React.FC = () => {
 
                     {s && activeTab === 'notifications' ? (
                       <div className="flex flex-col gap-6">
+                        <PushNotificationSettings />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="p-4 border border-border rounded-lg flex items-center justify-between gap-4">
                             <div>

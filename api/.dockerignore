@@ -1,0 +1,58 @@
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Uploads
+uploads/
+
+# Tests
+tests/
+
+# Jest
+cache/
+
+# Environment variables
+.env
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug files
+debug_*.cjs
+test_*.cjs
+jest-open-handles*.log
+
+# Docs
+docs.html
+
+# Migration logs
+migration_log.txt
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore

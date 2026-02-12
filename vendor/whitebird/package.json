@@ -2,5 +2,8 @@
   "name": "whitebird",
   "version": "3.4.7",
   "main": "index.js",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@dataconnect/generated": "file:src/dataconnect-generated"
+  }
 }

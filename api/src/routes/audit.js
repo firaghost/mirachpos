@@ -3,7 +3,7 @@ const express = require('express');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
-const { makeId } = require('../utils/ids');
+const { logAudit } = require('../utils/logger');
 const { requireRole } = require('../middleware/permissions');
 
 const safeJsonParse = (raw, fallback) => {
@@ -29,19 +29,15 @@ const makeAuditRouter = () => {
 
       if (!type) return res.status(200).json({ ok: true, ignored: true });
 
-      const id = makeId('aud');
-      const nowIso = new Date().toISOString();
-
-      await db().from('audit_log').insert({
-        id,
-        tenant_id: req.tenant.id,
-        branch_id: branchId || (req.auth?.branchId ? String(req.auth.branchId) : null) || null,
-        actor_staff_id: req.auth?.staffId ? String(req.auth.staffId) : null,
-        actor_role: req.auth?.role ? String(req.auth.role) : null,
+      await logAudit({
+        tenantId: req.tenant.id,
+        branchId: branchId || (req.auth?.branchId ? String(req.auth.branchId) : null) || null,
+        actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+        actorRole: req.auth?.role ? String(req.auth.role) : null,
         type,
         summary: summary || null,
-        payload_json: payload != null ? JSON.stringify(payload) : null,
-        created_at: nowIso,
+        payload,
+        requestId: req.requestId,
       });
 
       return res.status(201).json({ ok: true });

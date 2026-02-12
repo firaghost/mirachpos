@@ -22,12 +22,24 @@ describe('Helper Utilities', () => {
     it('should handle decimals', () => {
       expect(formatCurrency(99.999)).toBe('ETB 100.00');
     });
+
+    it('should handle non-finite values', () => {
+      expect(formatCurrency(NaN)).toBe('');
+      expect(formatCurrency(Infinity)).toBe('');
+      expect(formatCurrency(-Infinity)).toBe('');
+    });
+
+    it('should handle other currencies', () => {
+      expect(formatCurrency(100, 'USD')).toBe('USD 100.00');
+      expect(formatCurrency(50, 'EUR')).toBe('EUR 50.00');
+    });
   });
   
   describe('formatDate', () => {
     it('should format date correctly', () => {
       const date = new Date('2024-01-15');
       expect(formatDate(date)).toMatch(/2024/);
+      expect(formatDate(date)).toMatch(/01-15/);
     });
     
     it('should format datetime correctly', () => {
@@ -38,6 +50,12 @@ describe('Helper Utilities', () => {
     it('should handle invalid dates', () => {
       expect(formatDate(null)).toBe('');
       expect(formatDate('invalid')).toBe('');
+      expect(formatDate('')).toBe('');
+    });
+
+    it('should handle date string input', () => {
+      expect(formatDate('2024-03-25')).toMatch(/2024/);
+      expect(formatDate('2024-03-25T10:00:00Z')).toMatch(/2024/);
     });
   });
   

@@ -1,0 +1,108 @@
+mutation CreateDemoData @transaction @auth(level: USER, insecureReason: "This operation is for seeding data and will be removed in production") {
+  user_insertMany(data: [
+    {
+      id: "c9c7e0c4-9c02-4b2a-8d1a-3a0c7e0c49c0",
+      username: "demoUser1",
+      email: "demouser1@example.com",
+      passwordHash: "hashedPassword1",
+      role: "customer",
+      createdAt: "2024-01-01T10:00:00Z",
+      displayName: "Demo User One"
+    },
+    {
+      id: "c9c7e0c4-9c02-4b2a-8d1a-3a0c7e0c49c1",
+      username: "demoUser2",
+      email: "demouser2@example.com",
+      passwordHash: "hashedPassword2",
+      role: "admin",
+      createdAt: "2024-01-01T10:05:00Z",
+      displayName: "Demo User Two"
+    }
+  ])
+  menuItem_insertMany(data: [
+    {
+      id: "a1a1a1a1-b2b2-c3c3-d4d4-e5e5e5e5e5e5",
+      name: "Classic Burger",
+      description: "A delicious beef burger with lettuce, tomato, and cheese.",
+      price: 12.50,
+      category: "Main Course",
+      inStock: true,
+      createdAt: "2024-01-01T11:00:00Z"
+    },
+    {
+      id: "a1a1aa1a-b2b2-c3c3-d4d4-e5e5e5e5e5e6",
+      name: "Fries",
+      description: "Crispy golden fries.",
+      price: 4.00,
+      category: "Side Dish",
+      inStock: true,
+      createdAt: "2024-01-01T11:05:00Z"
+    },
+    {
+      id: "a1a1a1a1-b2b2-c3c3-d4d4-e5e5e5e5e5e7",
+      name: "Cola",
+      description: "Refreshing carbonated drink.",
+      price: 3.00,
+      category: "Beverage",
+      inStock: true,
+      createdAt: "2024-01-01T11:10:00Z"
+    }
+  ])
+  inventoryItem_insertMany(data: [
+    {
+      id: "b2b2b2b2-c3c3-d4d4-e5e5-f6f6f6f6f6f6",
+      name: "Beef Patties",
+      currentStock: 100,
+      unitOfMeasure: "unit",
+      supplier: "Meat Co.",
+      lowStockThreshold: 20,
+      createdAt: "2024-01-01T09:00:00Z",
+      updatedAt: "2024-01-01T09:00:00Z"
+    },
+    {
+      id: "b2b2b2b2-c3c3-d4d4-e5e5-f6f6f6f6f6f7",
+      name: "Potatoes",
+      currentStock: 200,
+      unitOfMeasure: "kg",
+      supplier: "Farm Fresh",
+      lowStockThreshold: 50,
+      createdAt: "2024-01-01T09:10:00Z",
+      updatedAt: "2024-01-01T09:10:00Z"
+    }
+  ])
+  order_insertMany(data: [
+    {
+      id: "d3d3d3d3-e4e4-f5f5-a6a6-b7b7b7b7b7b7",
+      userId: "c9c7e0c4-9c02-4b2a-8d1a-3a0c7e0c49c0",
+      orderDate: "2024-01-01",
+      totalAmount: 19.50,
+      discountApplied: 0.00,
+      paymentMethod: "Credit Card",
+      status: "completed",
+      createdAt: "2024-01-01T12:00:00Z"
+    }
+  ])
+  orderItem_insertMany(data: [
+    {
+      orderId: "d3d3d3d3-e4e4-f5f5-a6a6-b7b7b7b7b7b7",
+      menuItemId: "a1a1a1a1-b2b2-c3c3-d4d4-e5e5e5e5e5e5",
+      quantity: 1,
+      priceAtTimeOfOrder: 12.50,
+      customizationNotes: null
+    },
+    {
+      orderId: "d3d3d3d3-e4e4-f5f5-a6a6-b7b7b7b7b7b7",
+      menuItemId: "a1a1a1a1-b2b2-c3c3-d4d4-e5e5e5e5e5e6",
+      quantity: 1,
+      priceAtTimeOfOrder: 4.00,
+      customizationNotes: null
+    },
+    {
+      orderId: "d3d3d3d3-e4e4-f5f5-a6a6-b7b7b7b7b7b7",
+      menuItemId: "a1a1a1a1-b2b2-c3c3-d4d4-e5e5e5e5e5e7",
+      quantity: 1,
+      priceAtTimeOfOrder: 3.00,
+      customizationNotes: null
+    }
+  ])
+}

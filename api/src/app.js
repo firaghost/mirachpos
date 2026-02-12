@@ -49,8 +49,10 @@ const { makeIntegrationRouter } = require('./routes/integrations');
 const { makeManagerPrintRouter } = require('./routes/managerPrint');
 const { makeTelebirrStandingOrderRouter } = require('./routes/telebirrStandingOrder');
 const { makeRealtimeRouter } = require('./routes/realtime');
+const { makeFCMRouter } = require('./routes/fcm');
 
 const { handleCheckoutPage, handleReceiptPage, handleDisplayPage } = require('./pages/posPublicPages');
+const { setupSwagger } = require('./swagger');
 
 const probeUrl = async (url, timeoutMs) => {
   if (!url) return false;
@@ -121,6 +123,28 @@ const createApp = () => {
 
   // Gzip compression
   app.use(compression({ threshold: 1024 }));
+
+  const webhookBodyParser = (req, res, next) => {
+    try {
+      if (req.body && Buffer.isBuffer(req.body)) {
+        req.rawBody = req.body;
+        const ct = String(req.header('content-type') || '').toLowerCase();
+        if (ct.includes('application/json')) {
+          try {
+            req.body = JSON.parse(req.body.toString('utf8'));
+          } catch {
+            req.body = {};
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return next();
+  };
+
+  const { makeWebhookRouter } = require('./routes/webhook');
+  app.use('/api/webhooks', express.raw({ type: '*/*', limit: '1mb' }), webhookBodyParser, makeWebhookRouter());
 
   // Request body parsing with size limit
   app.use(express.json({
@@ -257,12 +281,13 @@ const createApp = () => {
   app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
   app.use('/api/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-  // ==========================================================================
-  // WEBHOOKS (No auth, special handling)
-  // ==========================================================================
-
-  const { makeWebhookRouter } = require('./routes/webhook');
-  app.use('/api/webhooks', makeWebhookRouter());
+  const swaggerEnabled = (() => {
+    if (config.env !== 'production') return true;
+    return String(process.env.SWAGGER_ENABLED || '').trim() === '1';
+  })();
+  if (swaggerEnabled) {
+    setupSwagger(app);
+  }
 
   // ==========================================================================
   // AUTH ROUTES (With auth rate limiting)
@@ -327,6 +352,7 @@ const createApp = () => {
   app.use('/api', makeManagerPrintRouter());
   app.use('/api', makeTelebirrStandingOrderRouter());
   app.use('/api', makeRealtimeRouter());
+  app.use('/api', makeFCMRouter());
 
   
   // ERROR HANDLING

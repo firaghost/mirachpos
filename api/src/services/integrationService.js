@@ -11,6 +11,111 @@ const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 const { logger } = require('../utils/logger');
 
+const OUTBOUND_TIMEOUT_MS = 8000;
+
+const isPrivateIpv4 = (host) => {
+    const m = String(host || '').trim().match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (!m) return false;
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    const c = Number(m[3]);
+    const d = Number(m[4]);
+    const parts = [a, b, c, d];
+    if (parts.some((x) => !Number.isFinite(x) || x < 0 || x > 255)) return false;
+    if (a === 10) return true;
+    if (a === 127) return true;
+    if (a === 0) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a >= 224) return true;
+    return false;
+};
+
+const validateOutboundUrl = (rawUrl, { allowHttp = false, allowHosts = null } = {}) => {
+    const s = String(rawUrl || '').trim();
+    if (!s) {
+        const err = new Error('Webhook URL not configured');
+        err.code = 'INTEGRATION_URL_MISSING';
+        throw err;
+    }
+
+    let u;
+    try {
+        u = new URL(s);
+    } catch {
+        const err = new Error('Webhook URL is invalid');
+        err.code = 'INTEGRATION_URL_INVALID';
+        throw err;
+    }
+
+    const protocol = String(u.protocol || '').toLowerCase();
+    if (protocol !== 'https:' && !(allowHttp && protocol === 'http:')) {
+        const err = new Error('Webhook URL must be https');
+        err.code = 'INTEGRATION_URL_INSECURE';
+        throw err;
+    }
+
+    const host = String(u.hostname || '').trim().toLowerCase();
+    if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) {
+        const err = new Error('Webhook host is not allowed');
+        err.code = 'INTEGRATION_HOST_BLOCKED';
+        throw err;
+    }
+    if (isPrivateIpv4(host)) {
+        const err = new Error('Webhook host is not allowed');
+        err.code = 'INTEGRATION_HOST_BLOCKED';
+        throw err;
+    }
+
+    if (Array.isArray(allowHosts) && allowHosts.length) {
+        const ok = allowHosts.some((h) => host === String(h).toLowerCase() || host.endsWith(`.${String(h).toLowerCase()}`));
+        if (!ok) {
+            const err = new Error('Webhook host is not allowed');
+            err.code = 'INTEGRATION_HOST_BLOCKED';
+            throw err;
+        }
+    }
+
+    if (u.username || u.password) {
+        const err = new Error('Webhook URL must not include credentials');
+        err.code = 'INTEGRATION_URL_CREDENTIALS';
+        throw err;
+    }
+
+    return u;
+};
+
+const pickSafeHeaders = (headers) => {
+    if (!headers || typeof headers !== 'object') return {};
+    const out = {};
+    const entries = Object.entries(headers);
+    for (let i = 0; i < entries.length && i < 20; i++) {
+        const [k0, v0] = entries[i];
+        const key = String(k0 || '').trim();
+        if (!key) continue;
+        const lower = key.toLowerCase();
+        if (lower === 'host' || lower === 'connection' || lower === 'transfer-encoding' || lower === 'content-length') continue;
+        if (key.length > 64) continue;
+        const val = typeof v0 === 'string' ? v0 : (v0 == null ? '' : String(v0));
+        const v = val.trim();
+        if (!v) continue;
+        if (v.length > 512) continue;
+        out[key] = v;
+    }
+    return out;
+};
+
+const fetchJsonWithTimeout = async (url, options) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), OUTBOUND_TIMEOUT_MS);
+    try {
+        return await fetch(url, { ...options, signal: controller.signal, redirect: 'error' });
+    } finally {
+        clearTimeout(timeout);
+    }
+};
+
 const safeJsonParse = (raw, fallback) => {
     try {
         if (!raw) return fallback;
@@ -23,7 +128,7 @@ const safeJsonParse = (raw, fallback) => {
 // Send Slack notification
 const sendSlackNotification = async ({ webhookUrl, message, channel, username = 'MirachPOS' }) => {
     try {
-        if (!webhookUrl) throw new Error('Slack webhook URL not configured');
+        validateOutboundUrl(webhookUrl, { allowHosts: ['hooks.slack.com'] });
 
         const payload = {
             text: message,
@@ -33,7 +138,7 @@ const sendSlackNotification = async ({ webhookUrl, message, channel, username = 
 
         if (channel) payload.channel = channel;
 
-        const response = await fetch(webhookUrl, {
+        const response = await fetchJsonWithTimeout(webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -58,7 +163,7 @@ const sendTelegramNotification = async ({ botToken, chatId, message, parseMode =
 
         const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
         
-        const response = await fetch(url, {
+        const response = await fetchJsonWithTimeout(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -84,11 +189,14 @@ const sendTelegramNotification = async ({ botToken, chatId, message, parseMode =
 // Forward webhook to external URL
 const forwardWebhook = async ({ url, payload, headers = {} }) => {
     try {
-        const response = await fetch(url, {
+        validateOutboundUrl(url);
+        const safeHeaders = pickSafeHeaders(headers);
+
+        const response = await fetchJsonWithTimeout(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...headers,
+                ...safeHeaders,
             },
             body: JSON.stringify(payload),
         });

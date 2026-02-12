@@ -7,9 +7,12 @@
 const express = require('express');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
-const { requireRole } = require('../middleware/permissions');
+const { requireRole, requirePermission } = require('../middleware/permissions');
+const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { strictLimiter } = require('../middleware/rateLimiter');
 const { db } = require('../db');
 const { testIntegration, sendOrderNotification } = require('../services/integrationService');
+const { logAudit } = require('../utils/logger');
 
 const safeJsonParse = (raw, fallback) => {
     try {
@@ -29,6 +32,10 @@ const makeIntegrationRouter = () => {
         tenantMiddleware,
         requireAuth,
         requireRole('Cafe Owner'),
+        loadEntitlements,
+        requireModule('settings'),
+        requirePermission('settings.manage'),
+        strictLimiter,
         async (req, res, next) => {
             try {
                 const integrationId = String(req.params?.id || '').trim();
@@ -52,6 +59,17 @@ const makeIntegrationRouter = () => {
                 const result = await testIntegration({
                     integrationCode: integration.code,
                     config,
+                });
+
+                await logAudit({
+                    tenantId: req.tenant.id,
+                    branchId: null,
+                    actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+                    actorRole: req.auth?.role ? String(req.auth.role) : null,
+                    type: 'owner.integrations.test',
+                    summary: 'Tested integration',
+                    payload: { integrationId, code: integration.code, ok: Boolean(result.ok) },
+                    requestId: req.requestId,
                 });
 
                 // Log the test
@@ -81,6 +99,10 @@ const makeIntegrationRouter = () => {
         tenantMiddleware,
         requireAuth,
         requireRole('Cafe Owner'),
+        loadEntitlements,
+        requireModule('settings'),
+        requirePermission('settings.manage'),
+        strictLimiter,
         async (req, res, next) => {
             try {
                 const integrationId = String(req.params?.id || '').trim();
@@ -114,6 +136,17 @@ const makeIntegrationRouter = () => {
                         updated_at: new Date().toISOString(),
                     });
 
+                await logAudit({
+                    tenantId: req.tenant.id,
+                    branchId: null,
+                    actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+                    actorRole: req.auth?.role ? String(req.auth.role) : null,
+                    type: 'owner.integrations.config_update',
+                    summary: 'Updated integration config (legacy route)',
+                    payload: { integrationId, keys: Object.keys(config || {}) },
+                    requestId: req.requestId,
+                });
+
                 return res.json({ ok: true, message: 'Configuration updated' });
             } catch (e) {
                 return next(e);
@@ -127,6 +160,9 @@ const makeIntegrationRouter = () => {
         tenantMiddleware,
         requireAuth,
         requireRole('Cafe Owner'),
+        loadEntitlements,
+        requireModule('settings'),
+        requirePermission('settings.manage'),
         async (req, res, next) => {
             try {
                 const integrationId = String(req.params?.id || '').trim();
@@ -161,6 +197,10 @@ const makeIntegrationRouter = () => {
         tenantMiddleware,
         requireAuth,
         requireRole('Cafe Owner'),
+        loadEntitlements,
+        requireModule('settings'),
+        requirePermission('settings.manage'),
+        strictLimiter,
         async (req, res, next) => {
             try {
                 const { orderId, eventType = 'created' } = req.body || {};
@@ -182,6 +222,17 @@ const makeIntegrationRouter = () => {
                     branchId: order.branch_id,
                     order,
                     eventType,
+                });
+
+                await logAudit({
+                    tenantId: req.tenant.id,
+                    branchId: order.branch_id ? String(order.branch_id) : null,
+                    actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+                    actorRole: req.auth?.role ? String(req.auth.role) : null,
+                    type: 'owner.integrations.trigger_order_notification',
+                    summary: 'Triggered manual order notification',
+                    payload: { orderId: String(orderId), eventType: String(eventType), ok: Boolean(result?.ok) },
+                    requestId: req.requestId,
                 });
 
                 return res.json(result);

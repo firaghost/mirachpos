@@ -1,0 +1,15 @@
+node_modules/
+dist/
+release/
+coverage/
+**/*.min.*
+api/node_modules/
+api/coverage/
+api/dist/
+functions/lib/
+functions/node_modules/
+mobile/node_modules/
+vendor/
+mirachpos/
+src/dataconnect-generated/
+src/dataconnect-generated/**

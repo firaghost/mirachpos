@@ -1,7 +1,15 @@
 const client = require('prom-client');
 
 const register = new client.Registry();
-client.collectDefaultMetrics({ register });
+
+const isTestEnv = () =>
+    process.env.NODE_ENV === 'test' ||
+    String(process.env.JEST_WORKER_ID || '').trim() !== '' ||
+    String(process.env.JEST || '').trim() !== '';
+
+if (!isTestEnv()) {
+    client.collectDefaultMetrics({ register });
+}
 
 const httpRequestDurationMs = new client.Histogram({
     name: 'http_request_duration_ms',

@@ -2,13 +2,16 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
+const { validateFileUpload, ALLOWED_MIME_TYPES, MAX_FILE_SIZE } = require('../middleware/uploadSecurity');
 const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 const { sanitizeLikeInput, sanitizeText } = require('../utils/sanitize');
 const { requireRole, requirePermission } = require('../middleware/permissions');
+const { logAudit } = require('../utils/logger');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -44,43 +47,23 @@ if (!fs.existsSync(uploadsDir)) {
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const name = `proof_${req.tenant?.id || 'unknown'}_${Date.now()}${ext}`;
+    const ext = path.extname(String(file.originalname || '')).toLowerCase();
+    const name = `${crypto.randomBytes(16).toString('hex')}${ext}`;
     cb(null, name);
   },
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (req, file, cb) => {
-    const allowed = ['.jpg', '.jpeg', '.png', '.pdf', '.gif', '.webp'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Allowed: JPG, PNG, PDF, GIF, WEBP'));
-    }
+    const allowedExtensions = ALLOWED_MIME_TYPES[file.mimetype];
+    if (!allowedExtensions) return cb(new Error('Invalid file type. Allowed: JPG, PNG, PDF, GIF, WEBP'));
+    const ext = path.extname(String(file.originalname || '')).toLowerCase();
+    if (!allowedExtensions.includes(ext)) return cb(new Error('Invalid file type. Allowed: JPG, PNG, PDF, GIF, WEBP'));
+    return cb(null, true);
   },
 });
-
-const logAudit = async ({ tenantId, branchId, actorStaffId, actorRole, type, summary, payload }) => {
-  try {
-    await db().from('audit_log').insert({
-      id: makeId('aud'),
-      tenant_id: tenantId,
-      branch_id: branchId || null,
-      actor_staff_id: actorStaffId || null,
-      actor_role: actorRole || null,
-      type,
-      summary: summary || null,
-      payload_json: payload != null ? JSON.stringify(payload) : null,
-      created_at: new Date().toISOString(),
-    });
-  } catch {
-    // ignore
-  }
-};
 
 const makeSubscriptionRouter = () => {
   const r = express.Router();
@@ -223,6 +206,7 @@ const makeSubscriptionRouter = () => {
         type: 'owner.addon.subscribe.requested',
         summary: `Requested add-on subscription: ${addon.name}`,
         payload: { addonId, billingFrequency, invoiceId: invoice.invoiceId },
+        requestId: req.requestId,
       });
 
       const ent = await computeTenantEntitlements({ tenant: req.tenant });
@@ -368,6 +352,7 @@ const makeSubscriptionRouter = () => {
         type: 'owner.subscription.requested',
         summary: `Requested subscription change to ${nextTier} (${nextCycle})`,
         payload: { tier: nextTier, cycle: nextCycle, invoiceId: invoice.invoiceId },
+        requestId: req.requestId,
       });
 
       const ent = await computeTenantEntitlements({ tenant: req.tenant });
@@ -480,75 +465,77 @@ const makeSubscriptionRouter = () => {
     requireRole('Cafe Owner'),
     requirePermission('settings.manage'),
     upload.single('proof'),
+    validateFileUpload,
     async (req, res, next) => {
-    try {
-      const invoiceId = String(req.params?.id || '').trim();
-      if (!invoiceId) return res.status(400).json({ error: 'invoice_id_required' });
+      try {
+        const invoiceId = String(req.params?.id || '').trim();
+        if (!invoiceId) return res.status(400).json({ error: 'invoice_id_required' });
 
-      const invoice = await getInvoiceDetails(invoiceId);
+        const invoice = await getInvoiceDetails(invoiceId);
 
-      if (!invoice) {
-        return res.status(404).json({ error: 'invoice_not_found' });
+        if (!invoice) {
+          return res.status(404).json({ error: 'invoice_not_found' });
+        }
+
+        if (invoice.tenantId !== req.tenant.id) {
+          return res.status(403).json({ error: 'forbidden' });
+        }
+
+        if (invoice.status === 'paid') {
+          return res.status(409).json({ error: 'invoice_already_paid' });
+        }
+
+        const method = String(req.body?.method || 'bank_transfer').trim();
+        const reference = String(req.body?.reference || '').trim();
+        const notes = String(req.body?.notes || '').trim();
+
+        if (!req.file) {
+          return res.status(400).json({ error: 'proof_required', message: 'Payment proof attachment is required' });
+        }
+
+        let proofUrl = null;
+        let proofFilename = null;
+
+        proofUrl = `/uploads/payment_proofs/${req.file.filename}`;
+        proofFilename = req.file.originalname;
+
+        const { paymentId } = await recordPaymentSubmission({
+          invoiceId,
+          tenantId: req.tenant.id,
+          method,
+          amount: invoice.totalEtb,
+          reference,
+          proofUrl,
+          proofFilename,
+          notes,
+        });
+
+        await logAudit({
+          tenantId: req.tenant.id,
+          branchId: null,
+          actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+          actorRole: req.auth?.role ? String(req.auth.role) : null,
+          type: 'owner.payment.submitted',
+          summary: `Payment submitted for invoice ${invoice.invoiceNumber}`,
+          payload: { invoiceId, paymentId, method, reference },
+          requestId: req.requestId,
+        });
+
+        return res.status(201).json({
+          ok: true,
+          message: 'Payment submitted for verification.',
+          paymentId,
+        });
+      } catch (e) {
+        return next(e);
       }
+    });
 
-      if (invoice.tenantId !== req.tenant.id) {
-        return res.status(403).json({ error: 'forbidden' });
-      }
-
-      if (invoice.status === 'paid') {
-        return res.status(409).json({ error: 'invoice_already_paid' });
-      }
-
-      const method = String(req.body?.method || 'bank_transfer').trim();
-      const reference = String(req.body?.reference || '').trim();
-      const notes = String(req.body?.notes || '').trim();
-
-      if (!req.file) {
-        return res.status(400).json({ error: 'proof_required', message: 'Payment proof attachment is required' });
-      }
-
-      let proofUrl = null;
-      let proofFilename = null;
-
-      proofUrl = `/uploads/payment_proofs/${req.file.filename}`;
-      proofFilename = req.file.originalname;
-
-      const { paymentId } = await recordPaymentSubmission({
-        invoiceId,
-        tenantId: req.tenant.id,
-        method,
-        amount: invoice.totalEtb,
-        reference,
-        proofUrl,
-        proofFilename,
-        notes,
-      });
-
-      await logAudit({
-        tenantId: req.tenant.id,
-        branchId: null,
-        actorStaffId: req.auth?.staffId ? String(req.auth.staffId) : null,
-        actorRole: req.auth?.role ? String(req.auth.role) : null,
-        type: 'owner.payment.submitted',
-        summary: `Payment submitted for invoice ${invoice.invoiceNumber}`,
-        payload: { invoiceId, paymentId, method, reference },
-      });
-
-      return res.status(201).json({
-        ok: true,
-        message: 'Payment submitted for verification.',
-        paymentId,
-      });
-    } catch (e) {
-      return next(e);
-    }
-  });
-
-  // Initialize payment gateway (Chapa, Telebirr, CBE Birr)
+  // Initialize payment gateway (Chapa, Telebirr, SantimPay)
   r.post('/owner/invoices/:id/pay-online', tenantMiddleware, requireAuth, requireRole('Cafe Owner'), requirePermission('settings.manage'), async (req, res, next) => {
     try {
       const invoiceId = String(req.params?.id || '').trim();
-      const gateway = String(req.body?.gateway || '').trim(); // chapa, telebirr, cbe_birr
+      const gateway = String(req.body?.gateway || '').trim(); // chapa, telebirr, santimpay
 
       if (!invoiceId) return res.status(400).json({ error: 'invoice_id_required' });
       if (!gateway) return res.status(400).json({ error: 'gateway_required' });
@@ -606,6 +593,7 @@ const makeSubscriptionRouter = () => {
           type: 'owner.payment.gateway.init',
           summary: `Initialized ${gateway} payment for invoice ${invoice.invoiceNumber}`,
           payload: { invoiceId, gateway, txRef: result.txRef },
+          requestId: req.requestId,
         });
 
         return res.json({

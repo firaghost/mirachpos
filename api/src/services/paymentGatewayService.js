@@ -4,7 +4,6 @@
  * Integrates with Ethiopian payment gateways:
  * - Chapa (https://chapa.co)
  * - Telebirr (Ethio Telecom)
- * - CBE Birr (Commercial Bank of Ethiopia)
  */
 
 const { db } = require('../db');
@@ -126,14 +125,12 @@ const safeJsonParse = (raw, fallback) => {
 
 const normalizeGateway = (v) => {
     const s = String(v || '').trim().toLowerCase();
-    if (s === 'cbe' || s === 'cbebirr' || s === 'cbe-birr') return 'cbe_birr';
     return s;
 };
 
 const TENANT_POS_SECRET_FIELDS_BY_GATEWAY = {
     chapa: ['secretKey', 'webhookSecret', 'publicKey'],
     telebirr: ['fabricAppId', 'merchantAppId', 'merchantCode', 'privateKey'],
-    cbe_birr: ['merchantId', 'privateKey', 'publicKey'],
     santimpay: ['merchantId', 'privateKey', 'publicKey'],
 };
 
@@ -369,10 +366,10 @@ const santimpayVerifyPlatform = async ({ id }) => {
 // Get gateway configuration
 const getGatewayConfig = async (gateway) => {
     const row = await withCache(
-        'platform_gateway_config_v1',
+        'platform:gateway_config:v1',
         config.cacheDefaultTtlSeconds,
         async () => db()
-            .select(['chapa_config_json', 'telebirr_config_json', 'cbe_birr_config_json'])
+            .select(['chapa_config_json', 'telebirr_config_json'])
             .from('platform_payment_config')
             .where({ id: 1 })
             .first(),
@@ -382,7 +379,6 @@ const getGatewayConfig = async (gateway) => {
     const dbConfigs = {
         chapa: safeJsonParse(row?.chapa_config_json, { enabled: false }),
         telebirr: safeJsonParse(row?.telebirr_config_json, { enabled: false }),
-        cbe_birr: safeJsonParse(row?.cbe_birr_config_json, { enabled: false }),
     };
 
     // Overlay Environment Variables (Security Priority)
@@ -1007,51 +1003,12 @@ const telebirrVerify = async (outTradeNo) => {
     }
 };
 
-// ... rest of the code remains the same ...
-// Commercial Bank of Ethiopia mobile money
-// =============================================================================
-
-const cbeBirrInitialize = async ({
-    amount,
-    phoneNumber,
-    reference,
-    description,
-}) => {
-    const config = await getGatewayConfig('cbe_birr');
-    if (!config?.enabled || !config?.merchantId || !config?.apiKey) {
-        throw new Error('CBE Birr is not configured');
-    }
-
-    // CBE Birr API integration
-    // Note: Real implementation requires CBE merchant agreement
-
-    console.log('CBE Birr payment request:', { amount, phoneNumber, reference });
-
-    return {
-        success: true,
-        reference,
-        message: 'CBE Birr integration requires production credentials',
-    };
-};
-
-const cbeBirrVerify = async (reference) => {
-    const config = await getGatewayConfig('cbe_birr');
-    if (!config?.enabled) {
-        throw new Error('CBE Birr is not configured');
-    }
-
-    return {
-        success: false,
-        message: 'CBE Birr verification requires production integration',
-    };
-};
-
 // =============================================================================
 // UNIFIED PAYMENT INTERFACE
 // =============================================================================
 
 const initializePayment = async ({
-    gateway, // 'chapa', 'telebirr', 'cbe_birr'
+    gateway, // 'chapa', 'telebirr'
     invoiceId,
     tenantId,
     amount,
@@ -1096,14 +1053,6 @@ const initializePayment = async ({
                 returnUrl,
             });
 
-        case 'cbe_birr':
-            return cbeBirrInitialize({
-                amount,
-                phoneNumber: phone,
-                reference: baseTxRef,
-                description: `Invoice Payment - ${invoiceId}`,
-            });
-
         case 'santimpay':
             return santimpayInitializeForPlatform({
                 id: baseTxRef,
@@ -1126,8 +1075,6 @@ const verifyPaymentGateway = async (gateway, reference) => {
             return chapaVerify(reference);
         case 'telebirr':
             return telebirrVerify(reference);
-        case 'cbe_birr':
-            return cbeBirrVerify(reference);
         case 'santimpay':
             return santimpayVerifyPlatform({ id: reference });
         default:
@@ -1138,7 +1085,7 @@ const verifyPaymentGateway = async (gateway, reference) => {
 // Get available payment methods
 const getAvailablePaymentMethods = async () => {
     const row = await db()
-        .select(['chapa_config_json', 'telebirr_config_json', 'cbe_birr_config_json', 'bank_details_json'])
+        .select(['chapa_config_json', 'telebirr_config_json', 'bank_details_json'])
         .from('platform_payment_config')
         .where({ id: 1 })
         .first();
@@ -1148,7 +1095,6 @@ const getAvailablePaymentMethods = async () => {
             bankTransfer: { enabled: false },
             chapa: { enabled: false },
             telebirr: { enabled: false },
-            cbeBirr: { enabled: false },
         };
     }
 
@@ -1165,8 +1111,6 @@ const getAvailablePaymentMethods = async () => {
     if (process.env.TELEBIRR_MERCHANT_CODE) telebirr.merchantCode = process.env.TELEBIRR_MERCHANT_CODE;
     if (process.env.TELEBIRR_PRIVATE_KEY) telebirr.privateKey = process.env.TELEBIRR_PRIVATE_KEY;
     if (process.env.TELEBIRR_ENABLED) telebirr.enabled = process.env.TELEBIRR_ENABLED === 'true';
-
-    const cbeBirr = safeJsonParse(row.cbe_birr_config_json, { enabled: false });
 
     const santim = getSantimPayPlatformConfig();
 
@@ -1193,15 +1137,10 @@ const getAvailablePaymentMethods = async () => {
             name: 'Telebirr',
             description: 'Pay with Telebirr Mobile Money',
         },
-        cbeBirr: {
-            enabled: Boolean(cbeBirr.enabled && cbeBirr.merchantId),
-            name: 'CBE Birr',
-            description: 'Pay with CBE Birr Mobile Banking',
-        },
         santimpay: {
             enabled: Boolean(santim.enabled && santim.merchantId && santim.privateKey),
             name: 'SantimPay',
-            description: 'Pay with SantimPay (Telebirr, CBE Birr, Banks)',
+            description: 'Pay with SantimPay (Telebirr, Banks)',
         },
     };
 };
@@ -1219,8 +1158,6 @@ module.exports = {
     santimpayVerifyPlatform,
     telebirrInitialize,
     telebirrVerify,
-    cbeBirrInitialize,
-    cbeBirrVerify,
     initializePayment,
     verifyPaymentGateway,
     getAvailablePaymentMethods,

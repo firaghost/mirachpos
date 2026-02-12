@@ -67,7 +67,6 @@ const gatewayInfo: Record<string, { icon: string; gradient: string; name: string
     bank_transfer: { icon: 'account_balance', gradient: 'from-indigo-600 to-indigo-800', name: 'Bank Transfer' },
     chapa: { icon: 'credit_card', gradient: 'from-green-500 to-green-700', name: 'Chapa' },
     telebirr: { icon: 'phone_android', gradient: 'from-sky-500 to-sky-700', name: 'Telebirr' },
-    cbe_birr: { icon: 'account_balance_wallet', gradient: 'from-purple-500 to-purple-700', name: 'CBE Birr' }
 };
 
 export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
@@ -290,7 +289,6 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
     const enabledGateways = {
         chapa: Boolean(paymentMethods?.chapa?.enabled),
         telebirr: Boolean(paymentMethods?.telebirr?.enabled),
-        cbe_birr: Boolean(paymentMethods?.cbeBirr?.enabled),
         bank_transfer: Boolean(paymentMethods?.bankTransfer?.enabled),
     };
 
@@ -621,11 +619,9 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                                         ? enabledGateways.chapa
                                         : id === 'telebirr'
                                             ? enabledGateways.telebirr
-                                            : id === 'cbe_birr'
-                                                ? enabledGateways.cbe_birr
-                                                : id === 'bank_transfer'
-                                                    ? enabledGateways.bank_transfer
-                                                    : false;
+                                            : id === 'bank_transfer'
+                                                ? enabledGateways.bank_transfer
+                                                : false;
                                 return (
                                 <button
                                     key={id}

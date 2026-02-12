@@ -90,9 +90,18 @@ const getUnauthenticatedHeaders = () => ({
   'X-Tenant': TEST_TENANT.slug,
 });
 
+const getSuperadminHeaders = (superadminId = 'sa_1') => {
+  const token = generateTestToken({ kind: 'superadmin', superadminId, email: TEST_USER_SUPERADMIN.email });
+  return {
+    Authorization: `Bearer ${token}`,
+    'X-Tenant': TEST_TENANT.slug,
+  };
+};
+
 module.exports = {
   generateTestToken,
   getAuthHeaders,
+  getSuperadminHeaders,
   getUnauthenticatedHeaders,
   TEST_TENANT,
   TEST_USER_CAFE_OWNER,

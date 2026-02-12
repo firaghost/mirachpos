@@ -46,4 +46,22 @@ const getRedisClient = async () => {
   return connecting;
 };
 
-module.exports = { getRedisClient };
+const closeRedisClient = async () => {
+  if (!connecting) return;
+  try {
+    const c = await connecting;
+    if (!c) return;
+    await c.quit();
+  } catch (err) {
+    try {
+      logger.warn({ err }, 'Failed to close Redis');
+    } catch {
+      // ignore
+    }
+  } finally {
+    client = undefined;
+    connecting = undefined;
+  }
+};
+
+module.exports = { getRedisClient, closeRedisClient };

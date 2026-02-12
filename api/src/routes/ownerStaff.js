@@ -9,6 +9,7 @@ const { makeId } = require('../utils/ids');
 const { loadEntitlements, requireModule, enforceStaffLimit } = require('../middleware/entitlements');
 const { requireRole, requirePermission } = require('../middleware/permissions');
 const { sanitizeLikeInput, sanitizeText } = require('../utils/sanitize');
+const { logAudit } = require('../utils/logger');
 
 const roleKindFromName = (name) => {
   const n = String(name || '').toLowerCase();
@@ -31,24 +32,6 @@ const safeJsonParse = (raw, fallback) => {
 };
 
 const nowIso = () => new Date().toISOString();
-
-const logAudit = async ({ tenantId, branchId, actorStaffId, actorRole, type, summary, payload }) => {
-  try {
-    await db().from('audit_log').insert({
-      id: makeId('aud'),
-      tenant_id: tenantId,
-      branch_id: branchId || null,
-      actor_staff_id: actorStaffId || null,
-      actor_role: actorRole || null,
-      type,
-      summary: summary || null,
-      payload_json: payload != null ? JSON.stringify(payload) : null,
-      created_at: nowIso(),
-    });
-  } catch {
-    // ignore
-  }
-};
 
 const randomCode = (len) => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -325,6 +308,7 @@ const makeOwnerStaffRouter = () => {
         type: 'role_created',
         summary: `Created role ${name}`,
         payload: { roleId: id, name, scope },
+        requestId: req.requestId,
       });
 
       return res.status(201).json({ ok: true, role: { id, name, scope, permissions } });
@@ -367,6 +351,7 @@ const makeOwnerStaffRouter = () => {
         type: 'role_updated',
         summary: 'Updated role',
         payload: { roleId: id },
+        requestId: req.requestId,
       });
 
       return res.json({ ok: true });
@@ -402,6 +387,7 @@ const makeOwnerStaffRouter = () => {
         type: 'role_deleted',
         summary: 'Deleted role',
         payload: { roleId: id },
+        requestId: req.requestId,
       });
 
       return res.json({ ok: true });
@@ -505,6 +491,7 @@ const makeOwnerStaffRouter = () => {
         type: 'invite_created',
         summary: `Created invite ${code}`,
         payload: { inviteId: id, code, roleName, branchId: branchId || null, expiresAt: exp },
+        requestId: req.requestId,
       });
 
       return res.status(201).json({ ok: true, invite: { id, code, roleName, branchId, createdAt, expiresAt: exp } });
@@ -690,6 +677,7 @@ const makeOwnerStaffRouter = () => {
         type: 'staff_created',
         summary: `Created staff ${name}`,
         payload: { staffId: id, roleId, roleName: String(role.name) },
+        requestId: req.requestId,
       });
 
       return res.status(201).json({ ok: true, id, code: out.effectiveCode || '', tempPassword: tempPassword || undefined, tempPin: tempPin || undefined });
@@ -758,6 +746,7 @@ const makeOwnerStaffRouter = () => {
         type: 'staff_updated',
         summary: 'Updated staff',
         payload: { staffId: id },
+        requestId: req.requestId,
       });
 
       return res.json({ ok: true, tempPin: tempPin || undefined, tempPassword: tempPassword || undefined });
