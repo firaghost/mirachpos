@@ -10,6 +10,19 @@
 // TypeScript declarations for service worker scope
 declare const self: ServiceWorkerGlobalScope;
 
+declare global {
+  interface ServiceWorkerGlobalScope {
+    __FIREBASE_CONFIG__?: {
+      apiKey?: string;
+      authDomain?: string;
+      projectId?: string;
+      storageBucket?: string;
+      messagingSenderId?: string;
+      appId?: string;
+    };
+  }
+}
+
 import { initializeApp } from 'firebase/app';
 import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
 
@@ -31,7 +44,7 @@ onBackgroundMessage(messaging, (payload) => {
   console.log('[FCM SW] Background message received:', payload);
 
   const notificationTitle = payload.notification?.title || 'MirachPOS';
-  const notificationOptions: NotificationOptions = {
+  const notificationOptions = {
     body: payload.notification?.body || '',
     icon: '/icon-192x192.png',
     badge: '/badge-72x72.png',
@@ -48,7 +61,7 @@ onBackgroundMessage(messaging, (payload) => {
       },
     ],
     data: payload.data,
-  };
+  } as NotificationOptions & { actions?: Array<{ action: string; title: string }> };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
@@ -62,7 +75,7 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action === 'open' || !event.action) {
     event.waitUntil(
-      clients.matchAll({ type: 'window' }).then((clientList) => {
+      self.clients.matchAll({ type: 'window' }).then((clientList) => {
         // Focus existing window if open
         for (const client of clientList) {
           if (client.url && 'focus' in client) {
@@ -70,8 +83,8 @@ self.addEventListener('notificationclick', (event) => {
           }
         }
         // Open new window if not already open
-        if (clients.openWindow) {
-          return clients.openWindow(clickAction);
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(clickAction);
         }
       })
     );
