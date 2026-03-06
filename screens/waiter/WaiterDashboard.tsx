@@ -960,7 +960,7 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
               <AppIcon name="assessment" className="text-[18px]" size={18} />
               Shift Report
             </button>
-            <button onClick={() => onNavigate(Screen.WAITER_STATUS)} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-extrabold flex items-center gap-2">
+            <button onClick={() => onNavigate(Screen.WAITER_KITCHEN)} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-extrabold flex items-center gap-2">
               <AppIcon name="soup_kitchen" className="text-[18px]" size={18} />
               Kitchen Status
             </button>

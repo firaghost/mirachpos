@@ -5,6 +5,7 @@ import { Screen } from '../../types';
 import { usePos, useSelectedOrder } from '../../PosContext';
 import { Modal } from '../../components/Modal';
 import { apiFetch } from '../../api';
+import PaymentTimeline from '../../components/PaymentTimeline';
 
 interface Props {
     onNavigate: (screen: Screen) => void;
@@ -323,6 +324,8 @@ export const WaiterOrderReview: React.FC<Props> = ({ onNavigate }) => {
         <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Left Column: Order Items Table */}
           <div className="xl:col-span-2 flex flex-col gap-6">
+            <PaymentTimeline orderId={String(order.id)} defaultCollapsed={true} refreshInterval={0} />
+
             <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
               <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-secondary/30">
                 <h3 className="text-foreground font-semibold flex items-center gap-2">

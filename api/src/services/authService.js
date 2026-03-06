@@ -64,7 +64,7 @@ const loginWithEmailPassword = async ({ tenantId, email, password, jwtSecret }) 
   if (!tenantId || !em || !pw) return { ok: false, error: 'invalid_credentials' };
 
   const tenant = await db()
-    .select(['id', 'slug', 'name', 'status', 'trial_ends_at', 'plan', 'created_at'])
+    .select(['id', 'slug', 'name', 'status', 'trial_ends_at', 'plan', 'created_at', 'enabled_modules_json', 'features_json'])
     .from('tenants')
     .where({ id: tenantId })
     .first();
@@ -129,6 +129,7 @@ const loginWithEmailPassword = async ({ tenantId, email, password, jwtSecret }) 
     subscription: ent?.subscription || { tier: 'Trial', modules: [] },
     billing: ent?.billing || { cycle: 'Monthly', status: 'active', method: 'manual', nextBillAt: '', amountEtb: 0, graceEndsAt: '' },
     limits: ent?.limits || {},
+    features: Array.isArray(ent?.features) ? ent.features.map(String).filter(Boolean) : [],
   };
 };
 
@@ -138,7 +139,7 @@ const loginWithCodePin = async ({ tenantId, code, pin, jwtSecret }) => {
   if (!tenantId || !c || !p) return { ok: false, error: 'invalid_credentials' };
 
   const tenant = await db()
-    .select(['id', 'slug', 'name', 'status', 'trial_ends_at', 'plan', 'created_at'])
+    .select(['id', 'slug', 'name', 'status', 'trial_ends_at', 'plan', 'created_at', 'enabled_modules_json', 'features_json'])
     .from('tenants')
     .where({ id: tenantId })
     .first();
@@ -200,6 +201,7 @@ const loginWithCodePin = async ({ tenantId, code, pin, jwtSecret }) => {
     subscription: ent?.subscription || { tier: 'Trial', modules: [] },
     billing: ent?.billing || { cycle: 'Monthly', status: 'active', method: 'manual', nextBillAt: '', amountEtb: 0, graceEndsAt: '' },
     limits: ent?.limits || {},
+    features: Array.isArray(ent?.features) ? ent.features.map(String).filter(Boolean) : [],
   };
 };
 

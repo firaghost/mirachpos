@@ -74,16 +74,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
 
   const [permissions, setPermissions] = useState(() => readPermissions());
 
+  const readFeatures = () => {
+    try {
+      const parsed = readSession<any>();
+      const list = Array.isArray(parsed?.features) ? parsed.features : [];
+      return list.map(String).filter(Boolean);
+    } catch {
+      return [];
+    }
+  };
+
+  const [features, setFeatures] = useState<string[]>(() => readFeatures());
+
   const showItem = (screen: Screen) => canAccessScreenWithPermissions(role, screen, subscription, permissions);
 
   useEffect(() => {
     const onChanged = () => {
       setSubscription(readSubscription());
       setPermissions(readPermissions());
+      setFeatures(readFeatures());
     };
     window.addEventListener('mirachpos-session-changed', onChanged);
     return () => window.removeEventListener('mirachpos-session-changed', onChanged);
   }, []);
+
+  const expoEnabled = features.includes('kds_expo');
 
   useEffect(() => {
     let mounted = true;
@@ -397,8 +412,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
             </Section>
 
             <Section title="Kitchen">
-              <NavItem screen={Screen.WAITER_STATUS} icon="soup_kitchen" label="Kitchen Board" badge={readyBadge > 0 ? String(readyBadge) : undefined} />
-              <NavItem screen={Screen.WAITER_KDS} icon="skillet" label="Kitchen Display" />
+              <NavItem screen={Screen.WAITER_KITCHEN} icon="soup_kitchen" label="Kitchen Board" badge={readyBadge > 0 ? String(readyBadge) : undefined} />
+              {expoEnabled ? <NavItem screen={Screen.WAITER_EXPO} icon="restaurant" label="Expo" /> : null}
             </Section>
 
             <Section title="Me & My Shift">

@@ -1086,7 +1086,7 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
 
                     <div className="bg-muted/40 border border-border rounded-lg p-4">
                       <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Feature Flags</div>
-                      {[{ key: 'loyalty', icon: 'loyalty', label: 'Loyalty Program' }, { key: 'kds', icon: 'restaurant', label: 'Kitchen Display (KDS)' }, { key: 'public_api', icon: 'api', label: 'Public API' }].map((f) => {
+                      {[{ key: 'loyalty', icon: 'loyalty', label: 'Loyalty Program' }, { key: 'kds', icon: 'restaurant', label: 'Kitchen Display (KDS)' }, { key: 'kds_expo', icon: 'restaurant', label: 'KDS Expo Board' }, { key: 'public_api', icon: 'api', label: 'Public API' }].map((f) => {
                         const active = features.includes(f.key);
                         return (
                           <button

@@ -124,7 +124,7 @@ const makePosCustomerDisplayRouter = ({ resolveBranchId }) => {
           .orderBy('created_at', 'desc')
           .select(['id', 'meta_json'])
           .first();
-        if (!linkRow) return res.status(404).json({ error: 'display_link_not_found' });
+        if (!linkRow) return res.json({ ok: true, skipped: true });
 
         const meta = safeJsonParse(linkRow.meta_json, {});
         const nextMeta = {

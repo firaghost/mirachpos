@@ -2,11 +2,29 @@ const express = require('express');
 
 const { tenantMiddleware } = require('../../middleware/tenant');
 const { requireAuth } = require('../../middleware/auth');
-const { db } = require('../../db');
-const { uid } = require('../../utils/ids');
 const { loadEntitlements, requireModule } = require('../../middleware/entitlements');
+const { db } = require('../../db');
+const { safeJsonStringify } = require('../../utils/errors');
+const { sanitizeLikeInput, sanitizeText } = require('../../utils/sanitize');
+const { uid } = require('../../utils/ids');
+const {
+  readIdempotencyKey,
+  computeRequestHash,
+  findIdempotentEvent,
+  assertIdempotencyOrThrow,
+  appendPaymentEvent,
+} = require('../../services/paymentEventsService');
 const { requireRole, requirePermission } = require('../../middleware/permissions');
 const { logAudit } = require('../../utils/logger');
+const { createOrFireTicketForOrder, EVENT_TYPE } = require('../../services/kdsService');
+const { evaluateMenuCart } = require('../../services/menuEvaluationService');
+
+const isMissingTableError = (e) => {
+  const code = String(e?.code || '').trim().toUpperCase();
+  if (code === 'ER_NO_SUCH_TABLE') return true;
+  const msg = String(e?.message || '').toLowerCase();
+  return msg.includes("doesn't exist") || msg.includes('no such table');
+};
 
 const makePosOrdersRouter = ({
   resolveBranchId,
@@ -53,7 +71,7 @@ const makePosOrdersRouter = ({
     requireAuth,
     requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
-    requireModule('settings'),
+    requireModule('orders'),
     requirePermission('orders.read'),
     async (req, res, next) => {
       try {
@@ -67,11 +85,14 @@ const makePosOrdersRouter = ({
         if (!orderId) return res.status(400).json({ error: 'order_required' });
 
         const branchRaw = await loadBranchSettings({ tenantId: req.tenant.id, branchId });
-        const deviceId = String(req.body?.deviceId || branchRaw?.defaultReceiptPrinterId || '').trim();
-        if (!deviceId) return res.status(400).json({ error: 'device_required' });
-
         const devices = Array.isArray(branchRaw?.devices) ? branchRaw.devices : [];
-        const device = devices.find((d) => String(d?.id || '') === deviceId);
+
+        const preferredDeviceId = String(req.body?.deviceId || branchRaw?.defaultReceiptPrinterId || '').trim();
+        const fallbackLanDevice = devices.find((d) => String(d?.connection || '') === 'LAN' && String(d?.ip || '').trim());
+        const resolvedDeviceId = preferredDeviceId || (fallbackLanDevice ? String(fallbackLanDevice.id || '') : '');
+        if (!resolvedDeviceId) return res.status(400).json({ error: 'device_required' });
+
+        const device = devices.find((d) => String(d?.id || '') === resolvedDeviceId) || fallbackLanDevice;
         if (!device) return res.status(404).json({ error: 'device_not_found' });
 
         if (String(device?.connection || '') !== 'LAN') return res.status(400).json({ error: 'lan_only' });
@@ -158,7 +179,30 @@ const makePosOrdersRouter = ({
           await sendTcp({ host, port, data: payload, timeoutMs: 8000 });
         } catch (e) {
           const mapped = mapPrintError(e);
-          return res.status(mapped.status).json({ error: mapped.error });
+          const nowIso = new Date().toISOString();
+          try {
+            await db().from('print_queue').insert({
+              id: uid('prq'),
+              tenant_id: req.tenant.id,
+              branch_id: branchId,
+              order_id: orderId,
+              profile: 'Receipt',
+              device_id: String(resolvedDeviceId || ''),
+              fallback_device_id: null,
+              status: 'pending',
+              error: mapped.error,
+              last_error: mapped.error,
+              attempts: 0,
+              last_attempt_at: null,
+              next_attempt_at: new Date(Date.now() + 10000).toISOString(),
+              payload_json: JSON.stringify({ operatorName }),
+              created_at: nowIso,
+              updated_at: nowIso,
+            });
+            return res.status(202).json({ ok: false, queued: true, error: mapped.error });
+          } catch {
+            return res.status(mapped.status).json({ error: mapped.error });
+          }
         }
 
         return res.json({ ok: true });
@@ -225,16 +269,33 @@ const makePosOrdersRouter = ({
         const status = String(orderRow.status || '').trim();
         if (status !== 'Paid') return res.status(400).json({ error: 'only_paid_orders_can_refund' });
 
+        const idempotencyKey = readIdempotencyKey(req);
+        const requestHash = computeRequestHash({ method: req.method, path: req.path, body });
+        if (idempotencyKey) {
+          const existing = await findIdempotentEvent({ tenantId: req.tenant.id, operation: 'pos.refund', idempotencyKey });
+          assertIdempotencyOrThrow({ existing, requestHash });
+          if (existing) return res.json({ ok: true, idempotent: true });
+        }
+
         const nowIso = new Date().toISOString();
         const payload = safeJsonParse(orderRow.payload, {});
         const paymentMethod = String(payload?.paymentMethod || '').trim();
         const paymentReference = String(payload?.paymentReference || '').trim();
 
+        const prevRefunded = Number(payload?.refundTotal ?? 0) || 0;
+        const orderTotal = Number(orderRow.total || 0) || 0;
+        const nextRefunded = prevRefunded + Math.abs(amount);
+        const isFullRefund = nextRefunded + 1e-9 >= orderTotal;
+
         await db().transaction(async (trx) => {
           await trx
             .from('orders')
             .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
-            .update({ status: 'Refunded' });
+            .update({ status: isFullRefund ? 'Refunded' : 'Paid', payload: JSON.stringify({
+              ...(payload && typeof payload === 'object' ? payload : {}),
+              refundTotal: nextRefunded,
+              refunds: Array.isArray(payload?.refunds) ? [...payload.refunds, { at: nowIso, amount: Math.abs(amount), reason, performedBy: staffId, authorizedBy: authorizedByStaffId }] : [{ at: nowIso, amount: Math.abs(amount), reason, performedBy: staffId, authorizedBy: authorizedByStaffId }],
+            }) });
 
           await trx.from('finance_ledger').insert({
             id: uid('fin'),
@@ -277,6 +338,32 @@ const makePosOrdersRouter = ({
             payload: { action: 'payment.refunded', meta: { orderId: id, amount, reason, paymentMethod, paymentReference, authorizedBy: authorizedByStaffId, performedBy: staffId } },
             requestId: req.requestId,
           });
+
+          await appendPaymentEvent({
+            trx,
+            tenantId: req.tenant.id,
+            branchId,
+            domain: 'pos',
+            paymentRef: `pos:order:${String(id)}`,
+            orderId: String(id),
+            invoiceId: null,
+            operation: 'pos.refund',
+            eventType: 'payment.refund.succeeded',
+            fromState: 'captured',
+            toState: isFullRefund ? 'refunded_full' : 'refunded_partial',
+            amount: Math.abs(amount),
+            currency: 'ETB',
+            paymentMethod: paymentMethod || null,
+            gateway: null,
+            providerPaymentId: null,
+            providerEventId: null,
+            idempotencyKey: idempotencyKey || null,
+            requestHash,
+            actorType: 'staff',
+            actorId: staffId,
+            payload: { reason, authorizedBy: authorizedByStaffId, paymentReference },
+            nowIso,
+          });
         });
 
         return res.json({ ok: true });
@@ -292,7 +379,7 @@ const makePosOrdersRouter = ({
     requireAuth,
     requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
-    requireModule('settings'),
+    requireModule('orders'),
     requirePermission('orders.read'),
     async (req, res, next) => {
       try {
@@ -303,11 +390,14 @@ const makePosOrdersRouter = ({
         if (!orderId) return res.status(400).json({ error: 'order_required' });
 
         const branchRaw = await loadBranchSettings({ tenantId: req.tenant.id, branchId });
-        const deviceId = String(req.body?.deviceId || branchRaw?.defaultKitchenPrinterId || '').trim();
-        if (!deviceId) return res.status(400).json({ error: 'device_required' });
-
         const devices = Array.isArray(branchRaw?.devices) ? branchRaw.devices : [];
-        const device = devices.find((d) => String(d?.id || '') === deviceId);
+
+        const preferredDeviceId = String(req.body?.deviceId || branchRaw?.defaultKitchenPrinterId || '').trim();
+        const fallbackLanDevice = devices.find((d) => String(d?.connection || '') === 'LAN' && String(d?.ip || '').trim());
+        const resolvedDeviceId = preferredDeviceId || (fallbackLanDevice ? String(fallbackLanDevice.id || '') : '');
+        if (!resolvedDeviceId) return res.status(400).json({ error: 'device_required' });
+
+        const device = devices.find((d) => String(d?.id || '') === resolvedDeviceId) || fallbackLanDevice;
         if (!device) return res.status(404).json({ error: 'device_not_found' });
         if (String(device?.connection || '') !== 'LAN') return res.status(400).json({ error: 'lan_only' });
 
@@ -426,7 +516,7 @@ const makePosOrdersRouter = ({
     requireAuth,
     requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
     loadEntitlements,
-    requireModule('settings'),
+    requireModule('orders'),
     requirePermission('orders.read'),
     async (req, res, next) => {
       try {
@@ -437,11 +527,14 @@ const makePosOrdersRouter = ({
         if (!orderId) return res.status(400).json({ error: 'order_required' });
 
         const branchRaw = await loadBranchSettings({ tenantId: req.tenant.id, branchId });
-        const deviceId = String(req.body?.deviceId || branchRaw?.defaultBarPrinterId || '').trim();
-        if (!deviceId) return res.status(400).json({ error: 'device_required' });
-
         const devices = Array.isArray(branchRaw?.devices) ? branchRaw.devices : [];
-        const device = devices.find((d) => String(d?.id || '') === deviceId);
+
+        const preferredDeviceId = String(req.body?.deviceId || branchRaw?.defaultBarPrinterId || '').trim();
+        const fallbackLanDevice = devices.find((d) => String(d?.connection || '') === 'LAN' && String(d?.ip || '').trim());
+        const resolvedDeviceId = preferredDeviceId || (fallbackLanDevice ? String(fallbackLanDevice.id || '') : '');
+        if (!resolvedDeviceId) return res.status(400).json({ error: 'device_required' });
+
+        const device = devices.find((d) => String(d?.id || '') === resolvedDeviceId) || fallbackLanDevice;
         if (!device) return res.status(404).json({ error: 'device_not_found' });
         if (String(device?.connection || '') !== 'LAN') return res.status(400).json({ error: 'lan_only' });
 
@@ -931,6 +1024,20 @@ const makePosOrdersRouter = ({
           total: computed.total,
         };
 
+        const modules = Array.isArray(req.entitlements?.subscription?.modules) ? req.entitlements.subscription.modules : [];
+        const menuEnabled = modules.map((m) => String(m || '').trim().toLowerCase()).includes('menu');
+        if (menuEnabled) {
+          const out = await evaluateMenuCart({
+            db: db(),
+            tenantId: req.tenant.id,
+            branchId,
+            at: new Date(),
+            orderType: String(nextPayload?.orderType || nextPayload?.order_type || ''),
+            items: nextPayload?.items,
+          });
+          if (out.violations.length) return res.status(400).json({ error: 'cart_invalid', violations: out.violations });
+        }
+
         // Deduct inventory when creating a paid order (idempotent via payload.inventoryDeductedAt).
         if (status === 'Paid' && !nextPayload.inventoryDeductedAt) {
           try {
@@ -1092,6 +1199,49 @@ const makePosOrdersRouter = ({
           // ignore
         }
 
+        try {
+          const actor = {
+            staffId: req.auth?.staffId ? String(req.auth.staffId) : null,
+            role: req.auth?.role ? String(req.auth.role) : null,
+          };
+
+          const actionId = `kds:auto_fire:${String(id)}`;
+          const out = await createOrFireTicketForOrder({
+            tenantId: String(req.tenant.id),
+            branchId: String(branchId),
+            orderId: String(id),
+            station: 'kitchen',
+            courseNo: 1,
+            priority: 0,
+            slaMs: null,
+            actionId,
+            actor,
+            nowIso,
+            reqLog: req.log,
+          });
+
+          if (out?.ticket?.id) {
+            try {
+              publish({
+                tenantId: String(req.tenant.id),
+                branchId: String(branchId),
+                type: 'pos.kds.ticket',
+                data: { ticketId: String(out.ticket.id), eventType: EVENT_TYPE.TICKET_FIRED, orderId: String(id) },
+              });
+            } catch {
+              // ignore
+            }
+          }
+        } catch (e) {
+          if (!isMissingTableError(e)) {
+            try {
+              req.log?.warn({ type: 'kds_auto_fire_failed', orderId: String(id), err: String(e?.message || e) }, 'KDS auto-fire failed');
+            } catch {
+              // ignore
+            }
+          }
+        }
+
         return res.json({ ok: true, id, createdAt: nowIso });
       } catch (e) {
         return next(e);
@@ -1187,6 +1337,43 @@ const makePosOrdersRouter = ({
         }
 
         if (incomingPayload) {
+          const modules = Array.isArray(req.entitlements?.subscription?.modules) ? req.entitlements.subscription.modules : [];
+          const menuEnabled = modules.map((m) => String(m || '').trim().toLowerCase()).includes('menu');
+          if (menuEnabled) {
+            let removedUnavailableProductIds = [];
+            const evalOnce = async () => {
+              return evaluateMenuCart({
+                db: db(),
+                tenantId: req.tenant.id,
+                branchId,
+                at: new Date(),
+                orderType: String(incomingPayload?.orderType || incomingPayload?.order_type || ''),
+                items: incomingPayload?.items,
+              });
+            };
+
+            let out = await evalOnce();
+            if (out.violations.length) {
+              const unavailableIds = out.violations
+                .filter((v) => v && typeof v === 'object' && String(v.type || '').trim() === 'unavailable')
+                .map((v) => String(v.productId || '').trim())
+                .filter(Boolean);
+
+              const hasOnlyUnavailable = unavailableIds.length > 0 && out.violations.every((v) => String(v?.type || '').trim() === 'unavailable');
+
+              if (hasOnlyUnavailable) {
+                const prevItems = Array.isArray(incomingPayload?.items) ? incomingPayload.items : [];
+                incomingPayload.items = prevItems.filter((it) => !unavailableIds.includes(String(it?.productId || it?.product_id || '').trim()));
+                removedUnavailableProductIds = unavailableIds;
+                out = await evalOnce();
+              }
+
+              if (out.violations.length) return res.status(400).json({ error: 'cart_invalid', violations: out.violations });
+            }
+
+            req._removedUnavailableProductIds = removedUnavailableProductIds;
+          }
+
           if (role === 'Waiter') {
             const nextTableId = typeof incomingPayload?.tableId === 'string' ? incomingPayload.tableId.trim() : typeof incomingPayload?.table_id === 'string' ? incomingPayload.table_id.trim() : '';
             const existingTableId = typeof existingPayload?.tableId === 'string' ? String(existingPayload.tableId).trim() : '';
@@ -1389,7 +1576,8 @@ const makePosOrdersRouter = ({
           // ignore
         }
 
-        return res.json({ ok: true });
+        const removedUnavailableProductIds = Array.isArray(req._removedUnavailableProductIds) ? req._removedUnavailableProductIds : [];
+        return res.json({ ok: true, removedUnavailableProductIds });
       } catch (e) {
         return next(e);
       }
@@ -1431,6 +1619,17 @@ const makePosOrdersRouter = ({
           if (!createdBy || createdBy !== staffId) return res.status(403).json({ error: 'forbidden' });
         }
 
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const idempotencyKey = readIdempotencyKey(req);
+        const requestHash = computeRequestHash({ method: req.method, path: req.path, body });
+        if (idempotencyKey) {
+          const existing = await findIdempotentEvent({ tenantId: req.tenant.id, operation: 'pos.telebirr.init', idempotencyKey });
+          assertIdempotencyOrThrow({ existing, requestHash });
+          if (existing?.payload?.checkoutUrl && existing?.payload?.txRef) {
+            return res.json({ ok: true, checkoutUrl: existing.payload.checkoutUrl, txRef: existing.payload.txRef, idempotent: true });
+          }
+        }
+
         const baseUrl = req.protocol + '://' + req.get('host');
         const notifyUrl = `${baseUrl}/api/webhooks/payment/telebirr`;
         const returnUrl = `${baseUrl}/waiter/pos?orderId=${id}&telebirr=success`;
@@ -1443,11 +1642,71 @@ const makePosOrdersRouter = ({
           returnUrl,
         });
 
-        return res.json({
-          ok: true,
-          checkoutUrl: result.checkoutUrl,
-          outTradeNo: result.outTradeNo,
+        const shortOrder = String(id).replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || String(id).slice(0, 12);
+        const rand = Math.random().toString(16).slice(2, 10);
+        const txRef = `pos_tel_${shortOrder}_${rand}`;
+
+        const nowIso = new Date().toISOString();
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+        const pgtId = uid('pgt');
+
+        await db().transaction(async (trx) => {
+          await trx.from('pos_payment_gateway_transactions').insert({
+            id: pgtId,
+            tenant_id: req.tenant.id,
+            branch_id: branchId,
+            order_id: id,
+            gateway: 'telebirr',
+            method: 'mobile_money',
+            tx_ref: txRef,
+            gateway_tx_id: null,
+            checkout_url: result.checkoutUrl,
+            amount: orderRow.total,
+            currency: 'ETB',
+            status: 'pending',
+            state: 'pending_authorization',
+            idempotency_key: idempotencyKey || null,
+            request_hash: requestHash,
+            captured_at: null,
+            refunded_amount: 0,
+            voided_at: null,
+            expires_at: expiresAt,
+            paid_at: null,
+            init_response_json: JSON.stringify({ outTradeNo: result.outTradeNo || id, checkoutUrl: result.checkoutUrl }),
+            verify_response_json: null,
+            webhook_payload_json: null,
+            created_at: nowIso,
+            updated_at: nowIso,
+          });
+
+          await appendPaymentEvent({
+            trx,
+            tenantId: req.tenant.id,
+            branchId,
+            domain: 'pos',
+            paymentRef: `pos:pgt:${String(pgtId)}`,
+            orderId: id,
+            invoiceId: null,
+            operation: 'pos.telebirr.init',
+            eventType: 'payment.gateway.initiated',
+            fromState: 'initialized',
+            toState: 'pending_authorization',
+            amount: Number(orderRow.total || 0) || 0,
+            currency: 'ETB',
+            paymentMethod: 'Telebirr',
+            gateway: 'telebirr',
+            providerPaymentId: String(result.outTradeNo || id),
+            providerEventId: null,
+            idempotencyKey: idempotencyKey || null,
+            requestHash,
+            actorType: 'staff',
+            actorId: staffId || null,
+            payload: { checkoutUrl: result.checkoutUrl, txRef, outTradeNo: result.outTradeNo || id },
+            nowIso,
+          });
         });
+
+        return res.json({ ok: true, checkoutUrl: result.checkoutUrl, outTradeNo: result.outTradeNo, txRef });
       } catch (e) {
         console.error('POS Telebirr pay error:', e);
         return res.status(400).json({ error: 'gateway_error', message: e.message });
@@ -1520,6 +1779,17 @@ const makePosOrdersRouter = ({
         // Keep it deterministic enough to associate to the order, but compact.
         const shortOrder = String(id).replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || String(id).slice(0, 12);
         const rand = Math.random().toString(16).slice(2, 10);
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const idempotencyKey = readIdempotencyKey(req);
+        const requestHash = computeRequestHash({ method: req.method, path: req.path, body });
+        if (idempotencyKey) {
+          const existing = await findIdempotentEvent({ tenantId: req.tenant.id, operation: 'pos.chapa.init', idempotencyKey });
+          assertIdempotencyOrThrow({ existing, requestHash });
+          if (existing?.payload?.checkoutUrl && existing?.payload?.txRef) {
+            return res.json({ ok: true, checkoutUrl: existing.payload.checkoutUrl, txRef: existing.payload.txRef, idempotent: true });
+          }
+        }
+
         const txRef = `pos_${shortOrder}_${rand}`;
         const init = await paymentGatewayService.chapaInitializeForTenantPos({
           tenantId: req.tenant.id,
@@ -1543,26 +1813,61 @@ const makePosOrdersRouter = ({
         const expiryMs = 5 * 60 * 1000;
         const expiresAt = new Date(Date.now() + expiryMs).toISOString();
 
-        await db().from('pos_payment_gateway_transactions').insert({
-          id: uid('pgt'),
-          tenant_id: req.tenant.id,
-          branch_id: branchId,
-          order_id: id,
-          gateway: 'chapa',
-          method: 'mobile_money',
-          tx_ref: txRef,
-          gateway_tx_id: null,
-          checkout_url: init.checkoutUrl,
-          amount: orderRow.total,
-          currency: 'ETB',
-          status: 'pending',
-          expires_at: expiresAt,
-          paid_at: null,
-          init_response_json: JSON.stringify(init),
-          verify_response_json: null,
-          webhook_payload_json: null,
-          created_at: nowIso,
-          updated_at: nowIso,
+        const pgtId = uid('pgt');
+        await db().transaction(async (trx) => {
+          await trx.from('pos_payment_gateway_transactions').insert({
+            id: pgtId,
+            tenant_id: req.tenant.id,
+            branch_id: branchId,
+            order_id: id,
+            gateway: 'chapa',
+            method: 'mobile_money',
+            tx_ref: txRef,
+            gateway_tx_id: null,
+            checkout_url: init.checkoutUrl,
+            amount: orderRow.total,
+            currency: 'ETB',
+            status: 'pending',
+            state: 'pending_authorization',
+            idempotency_key: idempotencyKey || null,
+            request_hash: requestHash,
+            captured_at: null,
+            refunded_amount: 0,
+            voided_at: null,
+            expires_at: expiresAt,
+            paid_at: null,
+            init_response_json: JSON.stringify(init),
+            verify_response_json: null,
+            webhook_payload_json: null,
+            created_at: nowIso,
+            updated_at: nowIso,
+          });
+
+          await appendPaymentEvent({
+            trx,
+            tenantId: req.tenant.id,
+            branchId,
+            domain: 'pos',
+            paymentRef: `pos:pgt:${String(pgtId)}`,
+            orderId: id,
+            invoiceId: null,
+            operation: 'pos.chapa.init',
+            eventType: 'payment.gateway.initiated',
+            fromState: 'initialized',
+            toState: 'pending_authorization',
+            amount: Number(orderRow.total || 0) || 0,
+            currency: 'ETB',
+            paymentMethod: 'Mobile Money',
+            gateway: 'chapa',
+            providerPaymentId: null,
+            providerEventId: null,
+            idempotencyKey: idempotencyKey || null,
+            requestHash,
+            actorType: 'staff',
+            actorId: staffId || null,
+            payload: { checkoutUrl: init.checkoutUrl, txRef },
+            nowIso,
+          });
         });
 
         return res.json({ ok: true, checkoutUrl: init.checkoutUrl, txRef });
@@ -1637,6 +1942,17 @@ const makePosOrdersRouter = ({
 
         const shortOrder = String(id).replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || String(id).slice(0, 12);
         const rand = Math.random().toString(16).slice(2, 10);
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const idempotencyKey = readIdempotencyKey(req);
+        const requestHash = computeRequestHash({ method: req.method, path: req.path, body });
+        if (idempotencyKey) {
+          const existing = await findIdempotentEvent({ tenantId: req.tenant.id, operation: 'pos.santimpay.init', idempotencyKey });
+          assertIdempotencyOrThrow({ existing, requestHash });
+          if (existing?.payload?.checkoutUrl && existing?.payload?.txRef) {
+            return res.json({ ok: true, checkoutUrl: existing.payload.checkoutUrl, txRef: existing.payload.txRef, idempotent: true });
+          }
+        }
+
         const txRef = `pos_${shortOrder}_${rand}`;
 
         const init = await paymentGatewayService.santimpayInitializeForTenantPos({
@@ -1653,26 +1969,61 @@ const makePosOrdersRouter = ({
         const nowIso = new Date().toISOString();
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-        await db().from('pos_payment_gateway_transactions').insert({
-          id: uid('pgt'),
-          tenant_id: req.tenant.id,
-          branch_id: branchId,
-          order_id: id,
-          gateway: 'santimpay',
-          method: 'mobile_money',
-          tx_ref: txRef,
-          gateway_tx_id: null,
-          checkout_url: init.checkoutUrl,
-          amount: orderRow.total,
-          currency: 'ETB',
-          status: 'pending',
-          expires_at: expiresAt,
-          paid_at: null,
-          init_response_json: JSON.stringify(init),
-          verify_response_json: null,
-          webhook_payload_json: null,
-          created_at: nowIso,
-          updated_at: nowIso,
+        const pgtId = uid('pgt');
+        await db().transaction(async (trx) => {
+          await trx.from('pos_payment_gateway_transactions').insert({
+            id: pgtId,
+            tenant_id: req.tenant.id,
+            branch_id: branchId,
+            order_id: id,
+            gateway: 'santimpay',
+            method: 'mobile_money',
+            tx_ref: txRef,
+            gateway_tx_id: null,
+            checkout_url: init.checkoutUrl,
+            amount: orderRow.total,
+            currency: 'ETB',
+            status: 'pending',
+            state: 'pending_authorization',
+            idempotency_key: idempotencyKey || null,
+            request_hash: requestHash,
+            captured_at: null,
+            refunded_amount: 0,
+            voided_at: null,
+            expires_at: expiresAt,
+            paid_at: null,
+            init_response_json: JSON.stringify(init),
+            verify_response_json: null,
+            webhook_payload_json: null,
+            created_at: nowIso,
+            updated_at: nowIso,
+          });
+
+          await appendPaymentEvent({
+            trx,
+            tenantId: req.tenant.id,
+            branchId,
+            domain: 'pos',
+            paymentRef: `pos:pgt:${String(pgtId)}`,
+            orderId: id,
+            invoiceId: null,
+            operation: 'pos.santimpay.init',
+            eventType: 'payment.gateway.initiated',
+            fromState: 'initialized',
+            toState: 'pending_authorization',
+            amount: Number(orderRow.total || 0) || 0,
+            currency: 'ETB',
+            paymentMethod: 'SantimPay',
+            gateway: 'santimpay',
+            providerPaymentId: null,
+            providerEventId: null,
+            idempotencyKey: idempotencyKey || null,
+            requestHash,
+            actorType: 'staff',
+            actorId: staffId || null,
+            payload: { checkoutUrl: init.checkoutUrl, txRef },
+            nowIso,
+          });
         });
 
         return res.json({ ok: true, checkoutUrl: init.checkoutUrl, txRef });
@@ -2040,6 +2391,189 @@ const makePosOrdersRouter = ({
         }
 
         return res.json({ ok: true, paid: false });
+      } catch (e) {
+        return next(e);
+      }
+    },
+  );
+
+  r.get(
+    '/pos/orders/:id/payment-timeline',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('orders.read'),
+    async (req, res, next) => {
+      try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+        const role = String(req.auth?.role || '').trim();
+        const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
+
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: 'id_required' });
+
+        const orderRow = await db()
+          .from('orders')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, id })
+          .select(['id', 'status', 'payload'])
+          .first();
+
+        if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+
+        if (role === 'Waiter') {
+          if (!staffId) return res.status(401).json({ error: 'unauthorized' });
+          const payload = safeJsonParse(orderRow.payload, {});
+          const createdBy = typeof payload?.createdByStaffId === 'string' ? String(payload.createdByStaffId) : '';
+          if (!createdBy || createdBy !== staffId) return res.status(403).json({ error: 'forbidden' });
+        }
+
+        const paymentRef = `pos:order:${String(id)}`;
+        const events = await db()
+          .from('payment_events')
+          .where({ tenant_id: req.tenant.id, payment_ref: paymentRef })
+          .orWhere(function () {
+            this.where({ tenant_id: req.tenant.id, order_id: id });
+          })
+          .orderBy('created_at', 'asc')
+          .select([
+            'id',
+            'event_type',
+            'operation',
+            'from_state',
+            'to_state',
+            'amount',
+            'currency',
+            'payment_method',
+            'gateway',
+            'provider_payment_id',
+            'provider_event_id',
+            'actor_type',
+            'actor_id',
+            'payload_json',
+            'created_at',
+          ]);
+
+        const normalized = events.map((e) => ({
+          id: e.id,
+          eventType: e.event_type,
+          operation: e.operation,
+          fromState: e.from_state,
+          toState: e.to_state,
+          amount: e.amount,
+          currency: e.currency,
+          paymentMethod: e.payment_method,
+          gateway: e.gateway,
+          providerPaymentId: e.provider_payment_id,
+          providerEventId: e.provider_event_id,
+          actorType: e.actor_type,
+          actorId: e.actor_id,
+          payload: (() => {
+            try {
+              return e.payload_json ? JSON.parse(String(e.payload_json)) : null;
+            } catch {
+              return null;
+            }
+          })(),
+          createdAt: e.created_at,
+        }));
+
+        return res.json({ ok: true, events: normalized });
+      } catch (e) {
+        return next(e);
+      }
+    },
+  );
+
+  r.get(
+    '/pos/reports/reconciliation/payments',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager'),
+    loadEntitlements,
+    requireModule('finance'),
+    requirePermission('reports.read'),
+    async (req, res, next) => {
+      try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) return res.status(400).json({ error: 'branch_required' });
+
+        const day = String(req.query.day || '').trim();
+        const method = String(req.query.method || '').trim();
+
+        const startOfDay = day ? `${day}T00:00:00.000Z` : null;
+        const endOfDay = day ? `${day}T23:59:59.999Z` : null;
+
+        const query = db()
+          .from('payment_events')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId })
+          .whereIn('event_type', ['payment.capture.succeeded', 'payment.refund.succeeded']);
+
+        if (startOfDay && endOfDay) {
+          query.whereBetween('created_at', [startOfDay, endOfDay]);
+        }
+
+        if (method) {
+          query.where({ payment_method: method });
+        }
+
+        const rows = await query.select([
+          'event_type',
+          'payment_method',
+          'gateway',
+          'amount',
+          'currency',
+          'created_at',
+        ]);
+
+        const totals = {
+          captures: { count: 0, amount: 0 },
+          refunds: { count: 0, amount: 0 },
+          byMethod: {},
+        };
+
+        for (const r of rows) {
+          const isCapture = r.event_type === 'payment.capture.succeeded';
+          const isRefund = r.event_type === 'payment.refund.succeeded';
+          const amt = Number(r.amount || 0) || 0;
+          const key = String(r.payment_method || r.gateway || 'unknown');
+
+          if (isCapture) {
+            totals.captures.count += 1;
+            totals.captures.amount += amt;
+          } else if (isRefund) {
+            totals.refunds.count += 1;
+            totals.refunds.amount += amt;
+          }
+
+          if (!totals.byMethod[key]) {
+            totals.byMethod[key] = { captures: { count: 0, amount: 0 }, refunds: { count: 0, amount: 0 } };
+          }
+          if (isCapture) {
+            totals.byMethod[key].captures.count += 1;
+            totals.byMethod[key].captures.amount += amt;
+          } else if (isRefund) {
+            totals.byMethod[key].refunds.count += 1;
+            totals.byMethod[key].refunds.amount += amt;
+          }
+        }
+
+        const net = totals.captures.amount - totals.refunds.amount;
+
+        return res.json({
+          ok: true,
+          day: day || null,
+          method: method || null,
+          totals: {
+            grossCaptures: totals.captures,
+            grossRefunds: totals.refunds,
+            net: { amount: net, currency: rows[0]?.currency || 'ETB' },
+            byMethod: totals.byMethod,
+          },
+        });
       } catch (e) {
         return next(e);
       }

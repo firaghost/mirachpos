@@ -6,6 +6,7 @@ import { apiFetch, resolveAssetUrl } from '../../api';
 import { readSession } from '../../session';
 import { Modal } from '../../components/Modal';
 import { usePersistedState } from '../../usePersistedState';
+import PaymentTimeline from '../../components/PaymentTimeline';
 
 import { AppIcon } from '@/components/ui/app-icon';
 
@@ -849,16 +850,48 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       const url = withBranchQuery(`/api/pos/orders/${encodeURIComponent(String(order.id))}`);
       const body = { tip: nextTip, payload };
       if (await enqueueIfOffline({ url, method: 'PUT', headers: { 'Content-Type': 'application/json' }, body })) return;
-      const res = await apiFetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
 
+      const tryPut = async (b: any) => {
+        return apiFetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(b),
+        });
+      };
+
+      const res = await tryPut(body);
       if (!res.ok) {
         const j = await res.json().catch(() => null);
-        const msg = String(j?.message || j?.error || '').trim();
-        throw new Error(msg || 'Failed to apply tip');
+        const err = String(j?.error || '').trim();
+
+        if (err === 'cart_invalid' && Array.isArray(j?.violations)) {
+          const unavailableIds = j.violations
+            .filter((v: any) => String(v?.type || '').trim() === 'unavailable')
+            .map((v: any) => String(v?.productId || '').trim())
+            .filter(Boolean);
+
+          if (unavailableIds.length) {
+            const nextItems = (Array.isArray(payload.items) ? payload.items : []).filter(
+              (it: any) => !unavailableIds.includes(String(it?.productId || it?.product_id || '').trim()),
+            );
+            const fixedBody = { ...body, payload: { ...payload, items: nextItems } };
+            const res2 = await tryPut(fixedBody);
+            if (!res2.ok) {
+              const j2 = await res2.json().catch(() => null);
+              const msg2 = String(j2?.message || j2?.error || '').trim();
+              throw new Error(msg2 || 'Failed to apply tip');
+            }
+
+            const first = unavailableIds[0];
+            const name = (Array.isArray(products) ? products : []).find((p: any) => String(p?.id || '') === first)?.name;
+            setActionErr(`${String(name || first)} is 86'd / unavailable and was removed from the order.`);
+          } else {
+            throw new Error('Cart is invalid. Please review the order.');
+          }
+        } else {
+          const msg = String(j?.message || j?.error || '').trim();
+          throw new Error(msg || 'Failed to apply tip');
+        }
       }
 
       try {
@@ -1418,6 +1451,10 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                       </div>
                     )}
 
+                    {order?.id ? (
+                      <PaymentTimeline orderId={String(order.id)} defaultCollapsed={true} refreshInterval={15000} />
+                    ) : null}
+
                     {requireReference ? (
                       <div className="bg-card p-4 rounded-xl border border-border">
                         <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">PAYMENT REFERENCE</div>
@@ -1544,16 +1581,47 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                     paymentReference: paymentReference.trim(),
                   };
                   if (await enqueueIfOffline({ url, method: 'PUT', headers: { 'Content-Type': 'application/json' }, body })) return;
-                  const res = await apiFetch(url, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                  });
+                  const tryPut = async (b: any) => {
+                    return apiFetch(url, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(b),
+                    });
+                  };
 
+                  const res = await tryPut(body);
                   const json = await res.json().catch(() => null);
                   if (!res.ok) {
                     const err = String(json?.error || json?.message || 'discount_failed');
-                    if (err === 'pin_required') setDiscountErr('PIN required or incorrect.');
+
+                    if (err === 'cart_invalid' && Array.isArray(json?.violations)) {
+                      const unavailableIds = json.violations
+                        .filter((v: any) => String(v?.type || '').trim() === 'unavailable')
+                        .map((v: any) => String(v?.productId || '').trim())
+                        .filter(Boolean);
+
+                      if (unavailableIds.length) {
+                        const nextItems = (Array.isArray(payload.items) ? payload.items : []).filter(
+                          (it: any) => !unavailableIds.includes(String(it?.productId || it?.product_id || '').trim()),
+                        );
+                        const fixedBody = { ...body, payload: { ...payload, items: nextItems } };
+                        const res2 = await tryPut(fixedBody);
+                        const json2 = await res2.json().catch(() => null);
+                        if (!res2.ok) {
+                          const err2 = String(json2?.error || json2?.message || 'discount_failed');
+                          if (err2 === 'pin_required') setDiscountErr('PIN required or incorrect.');
+                          else setDiscountErr('Failed to apply discount.');
+                          return;
+                        }
+
+                        const first = unavailableIds[0];
+                        const name = (Array.isArray(products) ? products : []).find((p: any) => String(p?.id || '') === first)?.name;
+                        setActionErr(`${String(name || first)} is 86'd / unavailable and was removed from the order.`);
+                      } else {
+                        setDiscountErr('Cart is invalid. Please review the order.');
+                        return;
+                      }
+                    } else if (err === 'pin_required') setDiscountErr('PIN required or incorrect.');
                     else setDiscountErr('Failed to apply discount.');
                     return;
                   }

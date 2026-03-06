@@ -21,6 +21,43 @@ type InstalledIntegration = {
   updatedAt: string;
 };
 
+type FleetDevice = {
+  id: string;
+  type: string;
+  name: string;
+  transport: string;
+  host: string | null;
+  port: number | null;
+  healthState: string;
+  statusOverride: string | null;
+  lastSeenAt: string | null;
+  updatedAt: string;
+};
+
+type DevicePolicy = {
+  jobType: string;
+  primaryDeviceId: string;
+  fallbackDeviceId: string | null;
+  updatedAt: string;
+};
+
+type PrintQueueItem = {
+  id: string;
+  orderId: string;
+  profile: string;
+  jobType: string | null;
+  deviceId: string | null;
+  fallbackDeviceId: string | null;
+  status: string;
+  error: string | null;
+  lastError: string | null;
+  attempts: number;
+  nextAttemptAt: string | null;
+  deadLetteredAt: string | null;
+  deadLetterReason: string | null;
+  createdAt: string;
+};
+
 type AddonSubscription = {
   id: string;
   addonId: string;
@@ -627,8 +664,26 @@ export const BranchSettings: React.FC = () => {
   }, []);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('hardware');
+  const [hardwareView, setHardwareView] = useState<'legacy' | 'fleet' | 'policies' | 'queue'>('legacy');
   const [saved, setSaved] = useState<BranchSettingsState>(() => defaultState);
   const [draft, setDraft] = useState<BranchSettingsState>(() => defaultState);
+
+  const [fleetDevices, setFleetDevices] = useState<FleetDevice[]>([]);
+  const [fleetLoading, setFleetLoading] = useState(false);
+  const [fleetError, setFleetError] = useState<string>('');
+
+  const [policies, setPolicies] = useState<DevicePolicy[]>([]);
+  const [policiesLoading, setPoliciesLoading] = useState(false);
+  const [policiesError, setPoliciesError] = useState<string>('');
+
+  const [queueItems, setQueueItems] = useState<PrintQueueItem[]>([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [queueError, setQueueError] = useState<string>('');
+
+  const [fleetCreateOpen, setFleetCreateOpen] = useState(false);
+  const [fleetCreateDraft, setFleetCreateDraft] = useState<{ type: 'printer' | 'kds' | 'display' | 'other'; name: string; host: string; port: string }>(
+    { type: 'printer', name: '', host: '', port: '9100' },
+  );
 
   useEffect(() => {
     if (activeTab === 'integrations') void loadInstalledIntegrations();
@@ -636,7 +691,7 @@ export const BranchSettings: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  const resolveBranchId = () => {
+  const resolveBranchId = useCallback(() => {
     try {
       const s = readSession<any>();
       const bid = String(s?.branchId || '').trim();
@@ -655,13 +710,111 @@ export const BranchSettings: React.FC = () => {
       // ignore
     }
     return '';
-  };
+  }, []);
 
-  const withBranchQuery = (url: string) => {
-    const branchId = resolveBranchId();
-    if (!branchId) return url;
-    return url.includes('?') ? `${url}&branchId=${encodeURIComponent(branchId)}` : `${url}?branchId=${encodeURIComponent(branchId)}`;
-  };
+  const withBranchQuery = useCallback(
+    (url: string) => {
+      const branchId = resolveBranchId();
+      if (!branchId) return url;
+      return url.includes('?') ? `${url}&branchId=${encodeURIComponent(branchId)}` : `${url}?branchId=${encodeURIComponent(branchId)}`;
+    },
+    [resolveBranchId],
+  );
+
+  const loadFleetDevices = useCallback(async () => {
+    setFleetLoading(true);
+    setFleetError('');
+    try {
+      const res = await apiFetch(withBranchQuery('/api/pos/devices'));
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(String(json?.error || json?.message || `HTTP ${res.status}`));
+      const rows = Array.isArray(json?.devices) ? (json.devices as any[]) : [];
+      setFleetDevices(
+        rows.map((d) => ({
+          id: String(d?.id || ''),
+          type: String(d?.type || ''),
+          name: String(d?.name || ''),
+          transport: String(d?.transport || ''),
+          host: d?.host != null ? String(d.host) : null,
+          port: d?.port != null ? Number(d.port) : null,
+          healthState: String(d?.healthState || ''),
+          statusOverride: d?.statusOverride != null ? String(d.statusOverride) : null,
+          lastSeenAt: d?.lastSeenAt != null ? String(d.lastSeenAt) : null,
+          updatedAt: String(d?.updatedAt || ''),
+        })),
+      );
+    } catch (e) {
+      setFleetDevices([]);
+      setFleetError(e instanceof Error ? e.message : 'Failed to load devices');
+    } finally {
+      setFleetLoading(false);
+    }
+  }, [withBranchQuery]);
+
+  const loadDevicePolicies = useCallback(async () => {
+    setPoliciesLoading(true);
+    setPoliciesError('');
+    try {
+      const res = await apiFetch(withBranchQuery('/api/pos/device-policies'));
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(String(json?.error || json?.message || `HTTP ${res.status}`));
+      const rows = Array.isArray(json?.policies) ? (json.policies as any[]) : [];
+      setPolicies(
+        rows.map((p) => ({
+          jobType: String(p?.jobType || ''),
+          primaryDeviceId: String(p?.primaryDeviceId || ''),
+          fallbackDeviceId: p?.fallbackDeviceId != null ? String(p.fallbackDeviceId) : null,
+          updatedAt: String(p?.updatedAt || ''),
+        })),
+      );
+    } catch (e) {
+      setPolicies([]);
+      setPoliciesError(e instanceof Error ? e.message : 'Failed to load policies');
+    } finally {
+      setPoliciesLoading(false);
+    }
+  }, [withBranchQuery]);
+
+  const loadPrintQueue = useCallback(async () => {
+    setQueueLoading(true);
+    setQueueError('');
+    try {
+      const res = await apiFetch(withBranchQuery('/api/pos/print/queue?status=pending,failed'));
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(String(json?.error || json?.message || `HTTP ${res.status}`));
+      const rows = Array.isArray(json?.items) ? (json.items as any[]) : [];
+      setQueueItems(
+        rows.map((x) => ({
+          id: String(x?.id || ''),
+          orderId: String(x?.orderId || ''),
+          profile: String(x?.profile || ''),
+          jobType: x?.jobType != null ? String(x.jobType) : null,
+          deviceId: x?.deviceId != null ? String(x.deviceId) : null,
+          fallbackDeviceId: x?.fallbackDeviceId != null ? String(x.fallbackDeviceId) : null,
+          status: String(x?.status || ''),
+          error: x?.error != null ? String(x.error) : null,
+          lastError: x?.lastError != null ? String(x.lastError) : null,
+          attempts: Number(x?.attempts || 0) || 0,
+          nextAttemptAt: x?.nextAttemptAt != null ? String(x.nextAttemptAt) : null,
+          deadLetteredAt: x?.deadLetteredAt != null ? String(x.deadLetteredAt) : null,
+          deadLetterReason: x?.deadLetterReason != null ? String(x.deadLetterReason) : null,
+          createdAt: String(x?.createdAt || ''),
+        })),
+      );
+    } catch (e) {
+      setQueueItems([]);
+      setQueueError(e instanceof Error ? e.message : 'Failed to load queue');
+    } finally {
+      setQueueLoading(false);
+    }
+  }, [withBranchQuery]);
+
+  useEffect(() => {
+    if (activeTab !== 'hardware') return;
+    if (hardwareView === 'fleet') void loadFleetDevices();
+    if (hardwareView === 'policies') void loadDevicePolicies();
+    if (hardwareView === 'queue') void loadPrintQueue();
+  }, [activeTab, hardwareView, loadDevicePolicies, loadFleetDevices, loadPrintQueue]);
 
   const readFileAsDataUrl = (file: File) =>
     new Promise<string>((resolve, reject) => {
@@ -1256,6 +1409,376 @@ export const BranchSettings: React.FC = () => {
         <div className="p-6 md:p-10 space-y-10 bg-background">
           {activeTab === 'hardware' && (
             <>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm font-black uppercase tracking-widest text-muted-foreground">Hardware</div>
+                  <div className="text-foreground text-2xl font-extrabold tracking-tight">Devices & Printing</div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { key: 'legacy', label: 'Legacy', icon: 'settings' },
+                    { key: 'fleet', label: 'Fleet', icon: 'devices' },
+                    { key: 'policies', label: 'Policies', icon: 'tune' },
+                    { key: 'queue', label: 'Queue', icon: 'print' },
+                  ] as const).map((x) => (
+                    <button
+                      key={x.key}
+                      type="button"
+                      onClick={() => setHardwareView(x.key)}
+                      className={`h-10 px-4 rounded-lg border flex items-center gap-2 text-sm font-extrabold transition-colors ${hardwareView === x.key
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-transparent border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+                        }`}
+                    >
+                      <AppIcon name={x.icon} className="text-lg" size={18} />
+                      {x.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {hardwareView === 'fleet' ? (
+                <section className="max-w-6xl">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                    <div>
+                      <h2 className="text-foreground text-xl font-bold leading-tight">Device Fleet</h2>
+                      <p className="text-muted-foreground text-sm">Central registry used by print routing and failover.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setFleetError('');
+                          try {
+                            const res = await apiFetch(withBranchQuery('/api/pos/devices/import-legacy'), { method: 'POST' });
+                            const json = await res.json().catch(() => null);
+                            if (!res.ok) throw new Error(String(json?.error || json?.message || `HTTP ${res.status}`));
+                            await loadFleetDevices();
+                            await loadDevicePolicies();
+                          } catch (e) {
+                            setFleetError(e instanceof Error ? e.message : 'Import failed');
+                          }
+                        }}
+                        className="h-10 px-4 rounded-lg border border-border bg-card hover:bg-secondary text-foreground text-sm font-extrabold"
+                      >
+                        Import legacy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFleetCreateOpen(true)}
+                        className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-extrabold"
+                      >
+                        Add device
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void loadFleetDevices()}
+                        className="h-10 px-4 rounded-lg border border-border bg-card hover:bg-secondary text-foreground text-sm font-bold"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                  </div>
+
+                  {fleetError ? <div className="text-sm text-destructive font-bold">{fleetError}</div> : null}
+                  {fleetLoading ? <div className="text-sm text-muted-foreground">Loading…</div> : null}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {fleetDevices.map((d) => {
+                      const online = String(d.healthState).toLowerCase() === 'online';
+                      return (
+                        <div key={d.id} className="bg-card rounded-xl border border-border p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-foreground font-extrabold">{d.name}</div>
+                              <div className="text-xs text-muted-foreground mt-1">{d.type.toUpperCase()} • {d.transport.toUpperCase()}</div>
+                            </div>
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset ${online
+                                ? 'bg-green-500/10 text-green-500 ring-green-500/20'
+                                : 'bg-red-500/10 text-red-400 ring-red-500/20'
+                                }`}
+                            >
+                              <span className={`size-1.5 rounded-full ${online ? 'bg-green-500' : 'bg-red-400'}`}></span>
+                              {d.healthState || 'offline'}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 text-xs text-muted-foreground space-y-1">
+                            {d.host ? <div>Host: <span className="text-foreground font-mono">{d.host}</span></div> : null}
+                            {d.port != null ? <div>Port: <span className="text-foreground font-mono">{d.port}</span></div> : null}
+                            {d.lastSeenAt ? <div>Last seen: <span className="text-foreground">{formatDeviceTime(new Date(d.lastSeenAt))}</span></div> : null}
+                          </div>
+
+                          <div className="mt-4 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await apiFetch(withBranchQuery(`/api/pos/devices/${encodeURIComponent(d.id)}`), { method: 'DELETE' });
+                                  await loadFleetDevices();
+                                } catch {
+                                }
+                              }}
+                              className="h-9 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 text-red-400 text-xs font-extrabold"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null}
+
+              {hardwareView === 'policies' ? (
+                <section className="max-w-4xl">
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                      <h2 className="text-foreground text-xl font-bold leading-tight">Device Policies</h2>
+                      <p className="text-muted-foreground text-sm">Primary/fallback routing by print job type.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void loadDevicePolicies()}
+                      className="h-10 px-4 rounded-lg border border-border bg-card hover:bg-secondary text-foreground text-sm font-bold"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+
+                  {policiesError ? <div className="text-sm text-destructive font-bold">{policiesError}</div> : null}
+                  {policiesLoading ? <div className="text-sm text-muted-foreground">Loading…</div> : null}
+
+                  <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+                    {['receipt', 'kitchen', 'kds', 'label', 'report', 'other'].map((jobType) => {
+                      const row = policies.find((p) => p.jobType === jobType) || null;
+                      const primary = row?.primaryDeviceId || '';
+                      const fallback = row?.fallbackDeviceId || '';
+                      const printers = fleetDevices.filter((d) => d.type === 'printer');
+
+                      return (
+                        <div key={jobType} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                          <div>
+                            <div className="text-xs font-black uppercase tracking-widest text-muted-foreground">{jobType}</div>
+                            <div className="text-sm font-extrabold text-foreground">Routing</div>
+                          </div>
+                          <div>
+                            <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Primary</label>
+                            <Select
+                              value={primary}
+                              onChange={async (e) => {
+                                setPoliciesError('');
+                                try {
+                                  const nextPrimary = String(e.target.value || '').trim();
+                                  await apiFetch(withBranchQuery(`/api/pos/device-policies/${encodeURIComponent(jobType)}`), {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ primaryDeviceId: nextPrimary, fallbackDeviceId: fallback || null }),
+                                  });
+                                  await loadDevicePolicies();
+                                } catch (err) {
+                                  setPoliciesError(err instanceof Error ? err.message : 'Failed to save policy');
+                                }
+                              }}
+                              className="mt-2"
+                            >
+                              <option value="">None</option>
+                              {printers.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+                          <div>
+                            <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Fallback</label>
+                            <Select
+                              value={fallback}
+                              onChange={async (e) => {
+                                setPoliciesError('');
+                                try {
+                                  const nextFallback = String(e.target.value || '').trim();
+                                  await apiFetch(withBranchQuery(`/api/pos/device-policies/${encodeURIComponent(jobType)}`), {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ primaryDeviceId: primary, fallbackDeviceId: nextFallback || null }),
+                                  });
+                                  await loadDevicePolicies();
+                                } catch (err) {
+                                  setPoliciesError(err instanceof Error ? err.message : 'Failed to save policy');
+                                }
+                              }}
+                              className="mt-2"
+                            >
+                              <option value="">None</option>
+                              {printers.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null}
+
+              {hardwareView === 'queue' ? (
+                <section className="max-w-6xl">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                    <div>
+                      <h2 className="text-foreground text-xl font-bold leading-tight">Print Queue Monitor</h2>
+                      <p className="text-muted-foreground text-sm">Pending/failed jobs, retries, and dead-letter control.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setQueueError('');
+                          try {
+                            await apiFetch(withBranchQuery('/api/pos/print/dispatch/next'), { method: 'POST' });
+                            await loadPrintQueue();
+                          } catch (e) {
+                            setQueueError(e instanceof Error ? e.message : 'Dispatch failed');
+                          }
+                        }}
+                        className="h-10 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-extrabold"
+                      >
+                        Dispatch next
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void loadPrintQueue()}
+                        className="h-10 px-4 rounded-lg border border-border bg-card hover:bg-secondary text-foreground text-sm font-bold"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                  </div>
+
+                  {queueError ? <div className="text-sm text-destructive font-bold">{queueError}</div> : null}
+                  {queueLoading ? <div className="text-sm text-muted-foreground">Loading…</div> : null}
+
+                  <div className="rounded-xl border border-border bg-card overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-secondary text-muted-foreground text-xs uppercase tracking-wider font-black">
+                            <th className="px-4 py-3">Job</th>
+                            <th className="px-4 py-3">Order</th>
+                            <th className="px-4 py-3">Status</th>
+                            <th className="px-4 py-3">Attempts</th>
+                            <th className="px-4 py-3">Error</th>
+                            <th className="px-4 py-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {queueItems.map((x) => (
+                            <tr key={x.id} className="hover:bg-secondary/40">
+                              <td className="px-4 py-3">
+                                <div className="text-sm font-extrabold text-foreground">{x.jobType || x.profile || 'print'}</div>
+                                <div className="text-xs text-muted-foreground font-mono">{x.id.slice(0, 10)}…</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="text-sm text-foreground font-mono">{String(x.orderId || '').slice(0, 8)}…</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-1 rounded text-xs font-black ${x.status === 'pending' ? 'bg-amber-500/10 text-amber-600' : x.status === 'failed' ? 'bg-red-500/10 text-red-400' : 'bg-secondary text-muted-foreground'}`}>{x.status}</span>
+                                {x.deadLetteredAt ? <div className="text-[11px] text-muted-foreground mt-1">DL: {x.deadLetterReason || 'yes'}</div> : null}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="text-sm font-extrabold text-foreground">{x.attempts}</div>
+                                {x.nextAttemptAt ? <div className="text-[11px] text-muted-foreground">Next: {formatDeviceTime(new Date(x.nextAttemptAt))}</div> : null}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="text-xs text-muted-foreground">{x.lastError || x.error || '—'}</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      setQueueError('');
+                                      try {
+                                        if (x.deadLetteredAt) {
+                                          setQueueError('This job is dead-lettered. Clear dead-letter status before retrying.');
+                                          return;
+                                        }
+                                        const res = await apiFetch(withBranchQuery('/api/pos/print/queue/retry'), {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ queueId: x.id }),
+                                        });
+                                        const json = await res.json().catch(() => null);
+                                        if (!res.ok) throw new Error(String(json?.error || json?.message || `HTTP ${res.status}`));
+                                        await loadPrintQueue();
+                                      } catch (e) {
+                                        setQueueError(e instanceof Error ? e.message : 'Retry failed');
+                                      }
+                                    }}
+                                    disabled={Boolean(x.deadLetteredAt)}
+                                    className="h-8 px-3 rounded-lg border border-border bg-background hover:bg-secondary text-foreground text-xs font-extrabold"
+                                  >
+                                    Retry
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      setQueueError('');
+                                      try {
+                                        const res = await apiFetch(withBranchQuery(`/api/pos/print/queue/${encodeURIComponent(x.id)}/cancel`), {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                        });
+                                        const json = await res.json().catch(() => null);
+                                        if (!res.ok) throw new Error(String(json?.error || json?.message || `HTTP ${res.status}`));
+                                        await loadPrintQueue();
+                                      } catch (e) {
+                                        setQueueError(e instanceof Error ? e.message : 'Cancel failed');
+                                      }
+                                    }}
+                                    className="h-8 px-3 rounded-lg bg-slate-500/10 hover:bg-slate-500/15 border border-slate-500/20 text-slate-400 text-xs font-extrabold"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      setQueueError('');
+                                      try {
+                                        const res = await apiFetch(withBranchQuery(`/api/pos/print/queue/${encodeURIComponent(x.id)}/dead-letter`), {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ reason: 'operator_dead_letter' }),
+                                        });
+                                        const json = await res.json().catch(() => null);
+                                        if (!res.ok) throw new Error(String(json?.error || json?.message || `HTTP ${res.status}`));
+                                        await loadPrintQueue();
+                                      } catch (e) {
+                                        setQueueError(e instanceof Error ? e.message : 'Dead-letter failed');
+                                      }
+                                    }}
+                                    className="h-8 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 text-red-400 text-xs font-extrabold"
+                                  >
+                                    Dead-letter
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </section>
+              ) : null}
+
+              {hardwareView !== 'legacy' ? null : (
+              <>
               {/* Connected Printers Section */}
               <section>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -1371,6 +1894,111 @@ export const BranchSettings: React.FC = () => {
                   })}
                 </div>
               </section>
+              </>
+              )}
+
+              <Modal
+                open={fleetCreateOpen}
+                title="Add Device (Fleet)"
+                onClose={() => {
+                  setFleetCreateOpen(false);
+                  setFleetCreateDraft({ type: 'printer', name: '', host: '', port: '9100' });
+                }}
+                footer={
+                  <div className="flex gap-3">
+                    <div className="flex-1" />
+                    <button
+                      onClick={() => {
+                        setFleetCreateOpen(false);
+                        setFleetCreateDraft({ type: 'printer', name: '', host: '', port: '9100' });
+                      }}
+                      className="h-11 px-4 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      disabled={!fleetCreateDraft.name.trim() || !fleetCreateDraft.host.trim()}
+                      onClick={async () => {
+                        setFleetError('');
+                        try {
+                          const port = Number(fleetCreateDraft.port);
+                          const res = await apiFetch(withBranchQuery('/api/pos/devices'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              type: fleetCreateDraft.type,
+                              name: fleetCreateDraft.name,
+                              transport: 'tcp',
+                              host: fleetCreateDraft.host,
+                              port: Number.isFinite(port) && port > 0 ? port : 9100,
+                              capabilities: { source: 'branch_settings_fleet' },
+                            }),
+                          });
+                          const json = await res.json().catch(() => null);
+                          if (!res.ok) throw new Error(String(json?.error || json?.message || `HTTP ${res.status}`));
+                          setFleetCreateOpen(false);
+                          setFleetCreateDraft({ type: 'printer', name: '', host: '', port: '9100' });
+                          await loadFleetDevices();
+                        } catch (e) {
+                          setFleetError(e instanceof Error ? e.message : 'Create failed');
+                        }
+                      }}
+                      className="h-11 px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      type="button"
+                    >
+                      Create
+                    </button>
+                  </div>
+                }
+              >
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-bold text-muted-foreground">Type</label>
+                      <Select
+                        value={fleetCreateDraft.type}
+                        onChange={(e) => setFleetCreateDraft((p) => ({ ...p, type: e.target.value as any }))}
+                        className="mt-2"
+                      >
+                        <option value="printer">Printer</option>
+                        <option value="kds">KDS</option>
+                        <option value="display">Display</option>
+                        <option value="other">Other</option>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-bold text-muted-foreground">Name</label>
+                      <Input
+                        value={fleetCreateDraft.name}
+                        onChange={(e) => setFleetCreateDraft((p) => ({ ...p, name: e.target.value }))}
+                        className="mt-2"
+                        placeholder="e.g. Main Counter Printer"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-bold text-muted-foreground">Host (IP)</label>
+                      <Input
+                        value={fleetCreateDraft.host}
+                        onChange={(e) => setFleetCreateDraft((p) => ({ ...p, host: e.target.value }))}
+                        className="mt-2"
+                        placeholder="192.168.1.120"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-bold text-muted-foreground">Port</label>
+                      <Input
+                        value={fleetCreateDraft.port}
+                        onChange={(e) => setFleetCreateDraft((p) => ({ ...p, port: e.target.value.replace(/[^0-9]/g, '') }))}
+                        className="mt-2"
+                        placeholder="9100"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </Modal>
 
               <section className="max-w-4xl">
                 <h2 className="text-foreground text-xl font-bold leading-tight mb-6">Printer Routing</h2>
@@ -2905,6 +3533,6 @@ export const BranchSettings: React.FC = () => {
           </div>
         </Modal>
       </div>
-    </div >
+    </div>
   );
 };

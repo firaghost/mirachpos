@@ -266,7 +266,7 @@ const makeManagerRouter = () => {
     requireAuth,
     requireRole('Branch Manager', 'Cafe Owner', 'Waiter Manager'),
     loadEntitlements,
-    requireModule('settings'),
+    requireModule('orders'),
     requirePermission('manager.settings.read'),
     requireBranchId(),
     async (req, res, next) => {
@@ -295,7 +295,7 @@ const makeManagerRouter = () => {
     requireAuth,
     requireRole('Branch Manager', 'Cafe Owner', 'Waiter Manager'),
     loadEntitlements,
-    requireModule('settings'),
+    requireModule('orders'),
     requirePermission('manager.settings.write'),
     requireBranchId(),
     async (req, res, next) => {

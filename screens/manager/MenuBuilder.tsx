@@ -9,11 +9,49 @@ import { usePersistedNullableString } from '../../usePersistedState';
 import { formatDeviceDateTime } from '../../datetime';
 
 import { AppIcon } from '@/components/ui/app-icon';
+
 interface Props {
   onNavigate: (screen: Screen) => void;
 }
 
 const STORAGE_SELECTED_PRODUCT = 'mirachpos.inventory.selectedProductId';
+
+type MenuView = 'items' | 'rules' | 'availability' | 'bundles';
+
+type RuleSetRow = {
+  id: string;
+  name: string;
+  status: 'active' | 'inactive';
+  priority: number;
+  updatedAt?: string;
+};
+
+type RuleRow = {
+  id: string;
+  kind: string;
+  match: any;
+  effect: any;
+  updatedAt?: string;
+};
+
+type AvailabilityRow = {
+  id: string;
+  targetType: string;
+  targetId: string;
+  state: 'available' | 'unavailable';
+  reason?: string;
+  expiresAt?: string | null;
+  updatedAt?: string;
+};
+
+type BundleRow = {
+  id: string;
+  name: string;
+  status: 'active' | 'inactive';
+  priority: number;
+  bundle: any;
+  updatedAt?: string;
+};
 
 const mapInventoryItems = (rows: any[]): InventoryItem[] => {
   return rows
@@ -36,12 +74,27 @@ const mapInventoryItems = (rows: any[]): InventoryItem[] => {
 };
 
 export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
+  const [view, setView] = useState<MenuView>('items');
+
   const [products, setProducts] = useState<Product[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState('ETB');
   const [flash, setFlash] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
+
+  const [ruleSets, setRuleSets] = useState<RuleSetRow[]>([]);
+  const [ruleSetsLoading, setRuleSetsLoading] = useState(false);
+  const [selectedRuleSetId, setSelectedRuleSetId] = useState<string | null>(null);
+
+  const [rules, setRules] = useState<RuleRow[]>([]);
+  const [rulesLoading, setRulesLoading] = useState(false);
+
+  const [availability, setAvailability] = useState<AvailabilityRow[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+
+  const [bundles, setBundles] = useState<BundleRow[]>([]);
+  const [bundlesLoading, setBundlesLoading] = useState(false);
 
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyErr, setHistoryErr] = useState<string>('');
@@ -68,6 +121,32 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
     return '';
   };
 
+  const loadModifierGroups = async () => {
+    setModifierGroupsLoading(true);
+    try {
+      const bid = resolveBranchId();
+      const qs = new URLSearchParams();
+      if (bid) qs.set('branchId', bid);
+      const res = await apiFetch(`/api/manager/menu/modifier-groups?${qs.toString()}`);
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(String(json?.error || json?.message || res.status));
+      const rows = Array.isArray(json?.groups) ? (json.groups as any[]) : [];
+      const next = rows
+        .map((g) => ({
+          id: String(g?.id || ''),
+          name: String(g?.name || ''),
+          min: Number(g?.min ?? 0) || 0,
+          max: Number(g?.max ?? 0) || 0,
+        }))
+        .filter((g) => g.id && g.name);
+      setModifierGroups(next);
+    } catch {
+      setModifierGroups([]);
+    } finally {
+      setModifierGroupsLoading(false);
+    }
+  };
+
   const [query, setQuery] = useState('');
   const [chip, setChip] = useState<string>('All');
   const [newOpen, setNewOpen] = useState(false);
@@ -75,6 +154,32 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [stockCheckOpen, setStockCheckOpen] = useState(false);
+
+  const [ruleSetCreateOpen, setRuleSetCreateOpen] = useState(false);
+  const [ruleSetDraftName, setRuleSetDraftName] = useState('');
+  const [ruleSetDraftPriority, setRuleSetDraftPriority] = useState('100');
+
+  const [ruleCreateOpen, setRuleCreateOpen] = useState(false);
+  const [ruleDraftKind, setRuleDraftKind] = useState<'price_override' | 'modifier_constraint'>('price_override');
+  const [ruleDraftProductId, setRuleDraftProductId] = useState('');
+  const [ruleDraftPrice, setRuleDraftPrice] = useState('0');
+  const [ruleDraftGroupsJson, setRuleDraftGroupsJson] = useState('{\n  "grp_size": { "min": 1, "max": 1 }\n}');
+
+  const [modifierGroups, setModifierGroups] = useState<Array<{ id: string; name: string; min: number; max: number }>>([]);
+  const [modifierGroupsLoading, setModifierGroupsLoading] = useState(false);
+  const [ruleDraftGroupId, setRuleDraftGroupId] = useState('');
+  const [ruleDraftGroupMin, setRuleDraftGroupMin] = useState('1');
+  const [ruleDraftGroupMax, setRuleDraftGroupMax] = useState('1');
+  const [ruleDraftConstraints, setRuleDraftConstraints] = useState<Array<{ groupId: string; min: number; max: number }>>([]);
+
+  const [availabilityCreateOpen, setAvailabilityCreateOpen] = useState(false);
+  const [availabilityDraftTargetId, setAvailabilityDraftTargetId] = useState('');
+  const [availabilityDraftReason, setAvailabilityDraftReason] = useState('86');
+
+  const [bundleCreateOpen, setBundleCreateOpen] = useState(false);
+  const [bundleDraftName, setBundleDraftName] = useState('');
+  const [bundleDraftPriority, setBundleDraftPriority] = useState('50');
+  const [bundleDraftJson, setBundleDraftJson] = useState('{\n  "type": "fixed",\n  "items": []\n}');
 
   const [draftName, setDraftName] = useState('');
   const [draftCategory, setDraftCategory] = useState('Coffee');
@@ -266,6 +371,126 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
     }
   };
 
+  const loadRuleSets = async () => {
+    setRuleSetsLoading(true);
+    try {
+      const bid = resolveBranchId();
+      const qs = new URLSearchParams();
+      if (bid) qs.set('branchId', bid);
+      const res = await apiFetch(`/api/manager/menu/rule-sets?${qs.toString()}`);
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(String(json?.error || json?.message || res.status));
+      const rows = Array.isArray(json?.ruleSets) ? json.ruleSets : [];
+      const mapped = rows
+        .map((x: any) => ({
+          id: String(x?.id || ''),
+          name: String(x?.name || ''),
+          status: String(x?.status || 'active') === 'inactive' ? 'inactive' : 'active',
+          priority: Number(x?.priority ?? 0) || 0,
+          updatedAt: typeof x?.updatedAt === 'string' ? x.updatedAt : '',
+        }))
+        .filter((x: RuleSetRow) => x.id && x.name);
+      setRuleSets(mapped);
+      setSelectedRuleSetId((prev) => {
+        if (prev && mapped.some((r) => r.id === prev)) return prev;
+        return mapped[0]?.id ?? null;
+      });
+    } catch (e) {
+      setRuleSets([]);
+      setSelectedRuleSetId(null);
+      setFlash({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to load rule sets.' });
+    } finally {
+      setRuleSetsLoading(false);
+    }
+  };
+
+  const loadRulesForSelected = async (ruleSetId: string) => {
+    setRulesLoading(true);
+    try {
+      const bid = resolveBranchId();
+      const qs = new URLSearchParams();
+      if (bid) qs.set('branchId', bid);
+      const res = await apiFetch(`/api/manager/menu/rule-sets/${encodeURIComponent(ruleSetId)}/rules?${qs.toString()}`);
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(String(json?.error || json?.message || res.status));
+      const rows = Array.isArray(json?.rules) ? json.rules : [];
+      const mapped = rows
+        .map((x: any) => ({
+          id: String(x?.id || ''),
+          kind: String(x?.kind || ''),
+          match: x?.match,
+          effect: x?.effect,
+          updatedAt: typeof x?.updatedAt === 'string' ? x.updatedAt : '',
+        }))
+        .filter((x: RuleRow) => x.id && x.kind);
+      setRules(mapped);
+    } catch (e) {
+      setRules([]);
+      setFlash({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to load rules.' });
+    } finally {
+      setRulesLoading(false);
+    }
+  };
+
+  const loadAvailability = async () => {
+    setAvailabilityLoading(true);
+    try {
+      const bid = resolveBranchId();
+      const qs = new URLSearchParams();
+      if (bid) qs.set('branchId', bid);
+      const res = await apiFetch(`/api/manager/menu/availability?${qs.toString()}`);
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(String(json?.error || json?.message || res.status));
+      const rows = Array.isArray(json?.items) ? json.items : [];
+      const mapped = rows
+        .map((x: any) => ({
+          id: String(x?.id || ''),
+          targetType: String(x?.targetType || ''),
+          targetId: String(x?.targetId || ''),
+          state: String(x?.state || 'unavailable') === 'available' ? 'available' : 'unavailable',
+          reason: typeof x?.reason === 'string' ? x.reason : '',
+          expiresAt: x?.expiresAt ? String(x.expiresAt) : null,
+          updatedAt: typeof x?.updatedAt === 'string' ? x.updatedAt : '',
+        }))
+        .filter((x: AvailabilityRow) => x.id && x.targetType && x.targetId);
+      setAvailability(mapped);
+    } catch (e) {
+      setAvailability([]);
+      setFlash({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to load availability.' });
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  };
+
+  const loadBundles = async () => {
+    setBundlesLoading(true);
+    try {
+      const bid = resolveBranchId();
+      const qs = new URLSearchParams();
+      if (bid) qs.set('branchId', bid);
+      const res = await apiFetch(`/api/manager/menu/bundles?${qs.toString()}`);
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(String(json?.error || json?.message || res.status));
+      const rows = Array.isArray(json?.bundles) ? json.bundles : [];
+      const mapped = rows
+        .map((x: any) => ({
+          id: String(x?.id || ''),
+          name: String(x?.name || ''),
+          status: String(x?.status || 'active') === 'inactive' ? 'inactive' : 'active',
+          priority: Number(x?.priority ?? 0) || 0,
+          bundle: x?.bundle,
+          updatedAt: typeof x?.updatedAt === 'string' ? x.updatedAt : '',
+        }))
+        .filter((x: BundleRow) => x.id && x.name);
+      setBundles(mapped);
+    } catch (e) {
+      setBundles([]);
+      setFlash({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to load bundles.' });
+    } finally {
+      setBundlesLoading(false);
+    }
+  };
+
   useEffect(() => {
     void loadProductsAndRecipes();
     const loadCurrency = async () => {
@@ -284,6 +509,23 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
     void loadCurrency();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (view === 'rules') void loadRuleSets();
+    if (view === 'availability') void loadAvailability();
+    if (view === 'bundles') void loadBundles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
+
+  useEffect(() => {
+    if (view !== 'rules') return;
+    if (!selectedRuleSetId) {
+      setRules([]);
+      return;
+    }
+    void loadRulesForSelected(selectedRuleSetId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, selectedRuleSetId]);
 
   // selectedProductId is persisted via usePersistedState
 
@@ -498,6 +740,39 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
       </div>
 
       <div className="flex-none px-4 pt-3">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setView('items')}
+            className={`h-9 px-3 rounded-lg text-xs font-extrabold border transition-colors ${view === 'items' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground hover:text-foreground'}`}
+          >
+            Items
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('rules')}
+            className={`h-9 px-3 rounded-lg text-xs font-extrabold border transition-colors ${view === 'rules' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground hover:text-foreground'}`}
+          >
+            Rules
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('availability')}
+            className={`h-9 px-3 rounded-lg text-xs font-extrabold border transition-colors ${view === 'availability' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground hover:text-foreground'}`}
+          >
+            Availability (86)
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('bundles')}
+            className={`h-9 px-3 rounded-lg text-xs font-extrabold border transition-colors ${view === 'bundles' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground hover:text-foreground'}`}
+          >
+            Bundles
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-none px-4 pt-3">
         {flash ? (
           <div
             className={`rounded-xl border px-4 py-3 text-xs font-bold ${flash.kind === 'success'
@@ -516,7 +791,223 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
       </div>
 
       <div className="flex-1 overflow-hidden flex overflow-x-hidden min-w-0">
-        <aside className="w-full max-w-[380px] flex flex-col border-r border-border bg-card/30">
+        {view !== 'items' ? (
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-background relative overflow-x-hidden min-w-0">
+            <div className="max-w-5xl w-full mx-auto flex flex-col gap-4">
+              {view === 'rules' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="rounded-xl border border-border bg-card/50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                      <div className="font-extrabold text-sm">Rule Sets</div>
+                      <button
+                        type="button"
+                        onClick={() => setRuleSetCreateOpen(true)}
+                        className="h-8 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-xs font-extrabold"
+                      >
+                        New
+                      </button>
+                    </div>
+                    <div className="p-2">
+                      {ruleSetsLoading ? <div className="p-3 text-xs text-muted-foreground font-bold">Loading...</div> : null}
+                      {ruleSets.map((rs) => (
+                        <button
+                          key={rs.id}
+                          type="button"
+                          onClick={() => setSelectedRuleSetId(rs.id)}
+                          className={`w-full text-left px-3 py-2 rounded-lg border mb-2 ${selectedRuleSetId === rs.id ? 'border-primary/40 bg-primary/10' : 'border-border bg-background hover:bg-accent'}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-bold truncate">{rs.name}</div>
+                            <div className="text-[10px] font-mono text-muted-foreground">p{rs.priority}</div>
+                          </div>
+                          <div className="mt-1 text-[10px] text-muted-foreground font-mono truncate">{rs.id}</div>
+                        </button>
+                      ))}
+                      {!ruleSetsLoading && ruleSets.length === 0 ? (
+                        <div className="p-3 text-xs text-muted-foreground font-bold">No rule sets yet.</div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-2 rounded-xl border border-border bg-card/50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                      <div className="font-extrabold text-sm">Rules</div>
+                      <button
+                        type="button"
+                        onClick={() => setRuleCreateOpen(true)}
+                        disabled={!selectedRuleSetId}
+                        className="h-8 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-xs font-extrabold disabled:opacity-50"
+                      >
+                        Add Rule
+                      </button>
+                    </div>
+                    <div className="p-4">
+                      {!selectedRuleSetId ? <div className="text-xs text-muted-foreground font-bold">Select a rule set.</div> : null}
+                      {rulesLoading ? <div className="text-xs text-muted-foreground font-bold">Loading...</div> : null}
+                      {selectedRuleSetId && !rulesLoading ? (
+                        <div className="space-y-3">
+                          {rules.map((r) => (
+                            <div key={r.id} className="rounded-xl border border-border bg-background p-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-sm font-extrabold">{r.kind}</div>
+                                  <div className="mt-1 text-[10px] text-muted-foreground font-mono break-all">{r.id}</div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      const bid = resolveBranchId();
+                                      const qs = new URLSearchParams();
+                                      if (bid) qs.set('branchId', bid);
+                                      const res = await apiFetch(`/api/manager/menu/rules/${encodeURIComponent(r.id)}?${qs.toString()}`, { method: 'DELETE' });
+                                      const json = await res.json().catch(() => null);
+                                      if (!res.ok) throw new Error(String((json as any)?.error || (json as any)?.message || res.status));
+                                      setFlash({ kind: 'success', message: 'Rule deleted.' });
+                                      if (selectedRuleSetId) await loadRulesForSelected(selectedRuleSetId);
+                                    } catch (e) {
+                                      setFlash({ kind: 'error', message: e instanceof Error ? e.message : 'Delete failed.' });
+                                    }
+                                  }}
+                                  className="h-8 px-3 rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/15 text-red-200 text-xs font-extrabold"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                              <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <div className="rounded-lg border border-border bg-card/50 p-2">
+                                  <div className="text-[10px] text-muted-foreground font-bold uppercase">Match</div>
+                                  <pre className="mt-1 text-[11px] whitespace-pre-wrap break-words text-muted-foreground">{JSON.stringify(r.match ?? {}, null, 2)}</pre>
+                                </div>
+                                <div className="rounded-lg border border-border bg-card/50 p-2">
+                                  <div className="text-[10px] text-muted-foreground font-bold uppercase">Effect</div>
+                                  <pre className="mt-1 text-[11px] whitespace-pre-wrap break-words text-muted-foreground">{JSON.stringify(r.effect ?? {}, null, 2)}</pre>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          {rules.length === 0 ? <div className="text-xs text-muted-foreground font-bold">No rules yet.</div> : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {view === 'availability' ? (
+                <div className="rounded-xl border border-border bg-card/50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                    <div className="font-extrabold text-sm">Availability (86ing)</div>
+                    <button
+                      type="button"
+                      onClick={() => setAvailabilityCreateOpen(true)}
+                      className="h-8 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-xs font-extrabold"
+                    >
+                      86 Product
+                    </button>
+                  </div>
+                  <div className="p-4">
+                    {availabilityLoading ? <div className="text-xs text-muted-foreground font-bold">Loading...</div> : null}
+                    {!availabilityLoading ? (
+                      <div className="space-y-2">
+                        {availability.map((x) => (
+                          <div key={x.id} className="rounded-xl border border-border bg-background p-3 flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-sm font-extrabold truncate">{x.targetType}: {x.targetId}</div>
+                              <div className="mt-1 text-xs text-muted-foreground">{x.state}{x.reason ? ` • ${x.reason}` : ''}</div>
+                              <div className="mt-1 text-[10px] text-muted-foreground font-mono break-all">{x.id}</div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const bid = resolveBranchId();
+                                  const qs = new URLSearchParams();
+                                  if (bid) qs.set('branchId', bid);
+                                  const res = await apiFetch(`/api/manager/menu/availability/${encodeURIComponent(x.id)}?${qs.toString()}`, { method: 'DELETE' });
+                                  const json = await res.json().catch(() => null);
+                                  if (!res.ok) throw new Error(String((json as any)?.error || (json as any)?.message || res.status));
+                                  setFlash({ kind: 'success', message: 'Availability cleared.' });
+                                  await loadAvailability();
+                                } catch (e) {
+                                  setFlash({ kind: 'error', message: e instanceof Error ? e.message : 'Clear failed.' });
+                                }
+                              }}
+                              className="h-8 px-3 rounded-lg border border-border bg-card hover:bg-accent text-xs font-extrabold"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        ))}
+                        {availability.length === 0 ? <div className="text-xs text-muted-foreground font-bold">No 86 rules currently.</div> : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {view === 'bundles' ? (
+                <div className="rounded-xl border border-border bg-card/50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                    <div className="font-extrabold text-sm">Bundles</div>
+                    <button
+                      type="button"
+                      onClick={() => setBundleCreateOpen(true)}
+                      className="h-8 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-xs font-extrabold"
+                    >
+                      New Bundle
+                    </button>
+                  </div>
+                  <div className="p-4">
+                    {bundlesLoading ? <div className="text-xs text-muted-foreground font-bold">Loading...</div> : null}
+                    {!bundlesLoading ? (
+                      <div className="space-y-3">
+                        {bundles.map((b) => (
+                          <div key={b.id} className="rounded-xl border border-border bg-background p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-sm font-extrabold truncate">{b.name}</div>
+                                <div className="mt-1 text-xs text-muted-foreground">{b.status} • p{b.priority}</div>
+                                <div className="mt-1 text-[10px] text-muted-foreground font-mono break-all">{b.id}</div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    const bid = resolveBranchId();
+                                    const qs = new URLSearchParams();
+                                    if (bid) qs.set('branchId', bid);
+                                    const res = await apiFetch(`/api/manager/menu/bundles/${encodeURIComponent(b.id)}?${qs.toString()}`, { method: 'DELETE' });
+                                    const json = await res.json().catch(() => null);
+                                    if (!res.ok) throw new Error(String((json as any)?.error || (json as any)?.message || res.status));
+                                    setFlash({ kind: 'success', message: 'Bundle deleted.' });
+                                    await loadBundles();
+                                  } catch (e) {
+                                    setFlash({ kind: 'error', message: e instanceof Error ? e.message : 'Delete failed.' });
+                                  }
+                                }}
+                                className="h-8 px-3 rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/15 text-red-200 text-xs font-extrabold"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                            <div className="mt-2 rounded-lg border border-border bg-card/50 p-2">
+                              <div className="text-[10px] text-muted-foreground font-bold uppercase">Bundle JSON</div>
+                              <pre className="mt-1 text-[11px] whitespace-pre-wrap break-words text-muted-foreground">{JSON.stringify(b.bundle ?? {}, null, 2)}</pre>
+                            </div>
+                          </div>
+                        ))}
+                        {bundles.length === 0 ? <div className="text-xs text-muted-foreground font-bold">No bundles yet.</div> : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </main>
+        ) : (
+          <>
+            <aside className="w-full max-w-[380px] flex flex-col border-r border-border bg-card/30">
           <div className="p-5 pb-2 flex flex-col gap-4">
             <div className="flex flex-wrap gap-2 text-sm">
               <span className="text-primary/80 font-medium">Inventory</span>
@@ -952,6 +1443,8 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
             </div>
           )}
         </main>
+      </>
+      )}
       </div>
 
       <Modal
@@ -1235,6 +1728,326 @@ export const MenuBuilder: React.FC<Props> = ({ onNavigate }) => {
             </div>
           );
         })()}
+      </Modal>
+
+      <Modal
+        open={ruleSetCreateOpen}
+        title="New Rule Set"
+        onClose={() => setRuleSetCreateOpen(false)}
+        footer={
+          <div className="flex gap-3">
+            <button onClick={() => setRuleSetCreateOpen(false)} className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors">
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const bid = resolveBranchId();
+                  const qs = new URLSearchParams();
+                  if (bid) qs.set('branchId', bid);
+                  const res = await apiFetch(`/api/manager/menu/rule-sets?${qs.toString()}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: ruleSetDraftName, priority: Number(ruleSetDraftPriority || 0) || 0, status: 'active' }),
+                  });
+                  const json = (await res.json().catch(() => null)) as any;
+                  if (!res.ok) throw new Error(String(json?.error || json?.message || res.status));
+                  setRuleSetCreateOpen(false);
+                  setRuleSetDraftName('');
+                  setRuleSetDraftPriority('100');
+                  setFlash({ kind: 'success', message: 'Rule set created.' });
+                  await loadRuleSets();
+                } catch (e) {
+                  setFlash({ kind: 'error', message: e instanceof Error ? e.message : 'Create failed.' });
+                }
+              }}
+              className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors"
+            >
+              Create
+            </button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <label className="text-sm font-bold text-muted-foreground">Name</label>
+          <input value={ruleSetDraftName} onChange={(e) => setRuleSetDraftName(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+
+          <label className="text-sm font-bold text-muted-foreground">Priority</label>
+          <input value={ruleSetDraftPriority} onChange={(e) => setRuleSetDraftPriority(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+        </div>
+      </Modal>
+
+      <Modal
+        open={ruleCreateOpen}
+        title="Add Rule"
+        onClose={() => setRuleCreateOpen(false)}
+        footer={
+          <div className="flex gap-3">
+            <button onClick={() => setRuleCreateOpen(false)} className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors">
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  if (!selectedRuleSetId) throw new Error('Select a rule set');
+                  const bid = resolveBranchId();
+                  const qs = new URLSearchParams();
+                  if (bid) qs.set('branchId', bid);
+
+                  const match = { productIds: [String(ruleDraftProductId || '').trim()] };
+                  if (!match.productIds[0]) throw new Error('product_id_required');
+
+                  const effect = (() => {
+                    if (ruleDraftKind === 'price_override') return { price: Number(ruleDraftPrice || 0) || 0 };
+
+                    const groups: Record<string, { min?: number; max?: number }> = {};
+                    for (const c of ruleDraftConstraints) {
+                      if (!c.groupId) continue;
+                      groups[String(c.groupId)] = { min: Math.max(0, Number(c.min || 0) || 0), max: Math.max(0, Number(c.max || 0) || 0) };
+                    }
+                    if (!Object.keys(groups).length) {
+                      const parsed = JSON.parse(String(ruleDraftGroupsJson || '{}'));
+                      return { groups: parsed };
+                    }
+                    return { groups };
+                  })();
+
+                  const res = await apiFetch(`/api/manager/menu/rule-sets/${encodeURIComponent(selectedRuleSetId)}/rules?${qs.toString()}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ kind: ruleDraftKind, match, effect }),
+                  });
+                  const json = (await res.json().catch(() => null)) as any;
+                  if (!res.ok) throw new Error(String(json?.error || json?.message || res.status));
+                  setRuleCreateOpen(false);
+                  setRuleDraftProductId('');
+                  setRuleDraftPrice('0');
+                  setRuleDraftGroupId('');
+                  setRuleDraftGroupMin('1');
+                  setRuleDraftGroupMax('1');
+                  setRuleDraftConstraints([]);
+                  setFlash({ kind: 'success', message: 'Rule added.' });
+                  await loadRulesForSelected(selectedRuleSetId);
+                } catch (e) {
+                  setFlash({ kind: 'error', message: e instanceof Error ? e.message : 'Create failed.' });
+                }
+              }}
+              className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors"
+            >
+              Create
+            </button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <label className="text-sm font-bold text-muted-foreground">Kind</label>
+          <select
+            value={ruleDraftKind}
+            onChange={(e) => setRuleDraftKind(e.target.value as any)}
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+          >
+            <option value="price_override">price_override</option>
+            <option value="modifier_constraint">modifier_constraint</option>
+          </select>
+
+          <label className="text-sm font-bold text-muted-foreground">Product</label>
+          <input
+            value={ruleDraftProductId}
+            onChange={(e) => setRuleDraftProductId(e.target.value)}
+            placeholder="Start typing product name..."
+            list="menu-builder-products"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+          />
+          <datalist id="menu-builder-products">
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </datalist>
+
+          {ruleDraftKind === 'price_override' ? (
+            <>
+              <label className="text-sm font-bold text-muted-foreground">Price</label>
+              <input value={ruleDraftPrice} onChange={(e) => setRuleDraftPrice(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+            </>
+          ) : (
+            <>
+              <label className="text-sm font-bold text-muted-foreground">Modifier Constraints</label>
+
+              <div className="rounded-lg border border-border bg-card p-3">
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <label className="text-xs font-bold text-muted-foreground">Group</label>
+                    <select
+                      value={ruleDraftGroupId}
+                      onFocus={() => {
+                        if (!modifierGroups.length && !modifierGroupsLoading) void loadModifierGroups();
+                      }}
+                      onChange={(e) => setRuleDraftGroupId(e.target.value)}
+                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+                    >
+                      <option value="">Select group...</option>
+                      {modifierGroups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-24">
+                    <label className="text-xs font-bold text-muted-foreground">Min</label>
+                    <input value={ruleDraftGroupMin} onChange={(e) => setRuleDraftGroupMin(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+                  </div>
+                  <div className="w-24">
+                    <label className="text-xs font-bold text-muted-foreground">Max</label>
+                    <input value={ruleDraftGroupMax} onChange={(e) => setRuleDraftGroupMax(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const gid = String(ruleDraftGroupId || '').trim();
+                      if (!gid) return;
+                      const min = Math.max(0, Number(ruleDraftGroupMin || 0) || 0);
+                      const max = Math.max(0, Number(ruleDraftGroupMax || 0) || 0);
+                      setRuleDraftConstraints((prev) => {
+                        const rest = prev.filter((x) => x.groupId !== gid);
+                        return [...rest, { groupId: gid, min, max }];
+                      });
+                    }}
+                    className="h-10 px-3 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-bold"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {ruleDraftConstraints.length ? (
+                  <div className="mt-3 space-y-2">
+                    {ruleDraftConstraints.map((c) => {
+                      const name = modifierGroups.find((g) => g.id === c.groupId)?.name || c.groupId;
+                      return (
+                        <div key={c.groupId} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                          <div className="text-sm font-bold">{name}</div>
+                          <div className="text-xs text-muted-foreground">min {c.min}, max {c.max}</div>
+                          <button
+                            type="button"
+                            onClick={() => setRuleDraftConstraints((prev) => prev.filter((x) => x.groupId !== c.groupId))}
+                            className="h-8 px-2 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-xs font-bold"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-3 text-xs text-muted-foreground">Add at least one group constraint (min/max).</div>
+                )}
+              </div>
+
+              <div className="text-xs text-muted-foreground">Advanced (optional): you can still paste JSON below.</div>
+              <textarea value={ruleDraftGroupsJson} onChange={(e) => setRuleDraftGroupsJson(e.target.value)} className="min-h-[100px] w-full bg-background border border-border rounded-lg px-3 py-2 text-xs text-foreground font-mono" />
+            </>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        open={availabilityCreateOpen}
+        title="86 Product"
+        onClose={() => setAvailabilityCreateOpen(false)}
+        footer={
+          <div className="flex gap-3">
+            <button onClick={() => setAvailabilityCreateOpen(false)} className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors">
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const bid = resolveBranchId();
+                  const qs = new URLSearchParams();
+                  if (bid) qs.set('branchId', bid);
+                  const targetId = String(availabilityDraftTargetId || '').trim();
+                  if (!targetId) throw new Error('target_id_required');
+                  const res = await apiFetch(`/api/manager/menu/availability?${qs.toString()}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ targetType: 'product', targetId, state: 'unavailable', reason: availabilityDraftReason }),
+                  });
+                  const json = (await res.json().catch(() => null)) as any;
+                  if (!res.ok) throw new Error(String(json?.error || json?.message || res.status));
+                  setAvailabilityCreateOpen(false);
+                  setAvailabilityDraftTargetId('');
+                  setAvailabilityDraftReason('86');
+                  setFlash({ kind: 'success', message: 'Product marked unavailable.' });
+                  await loadAvailability();
+                } catch (e) {
+                  setFlash({ kind: 'error', message: e instanceof Error ? e.message : '86 failed.' });
+                }
+              }}
+              className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors"
+            >
+              Apply
+            </button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <label className="text-sm font-bold text-muted-foreground">Product ID</label>
+          <input value={availabilityDraftTargetId} onChange={(e) => setAvailabilityDraftTargetId(e.target.value)} placeholder="prd_..." className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+          <label className="text-sm font-bold text-muted-foreground">Reason</label>
+          <input value={availabilityDraftReason} onChange={(e) => setAvailabilityDraftReason(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+        </div>
+      </Modal>
+
+      <Modal
+        open={bundleCreateOpen}
+        title="New Bundle"
+        onClose={() => setBundleCreateOpen(false)}
+        footer={
+          <div className="flex gap-3">
+            <button onClick={() => setBundleCreateOpen(false)} className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors">
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const bid = resolveBranchId();
+                  const qs = new URLSearchParams();
+                  if (bid) qs.set('branchId', bid);
+                  const name = String(bundleDraftName || '').trim();
+                  if (!name) throw new Error('name_required');
+                  const bundleObj = JSON.parse(String(bundleDraftJson || '{}'));
+                  const res = await apiFetch(`/api/manager/menu/bundles?${qs.toString()}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, priority: Number(bundleDraftPriority || 0) || 0, status: 'active', bundle: bundleObj }),
+                  });
+                  const json = (await res.json().catch(() => null)) as any;
+                  if (!res.ok) throw new Error(String(json?.error || json?.message || res.status));
+                  setBundleCreateOpen(false);
+                  setBundleDraftName('');
+                  setBundleDraftPriority('50');
+                  setBundleDraftJson('{\n  "type": "fixed",\n  "items": []\n}');
+                  setFlash({ kind: 'success', message: 'Bundle created.' });
+                  await loadBundles();
+                } catch (e) {
+                  setFlash({ kind: 'error', message: e instanceof Error ? e.message : 'Create failed.' });
+                }
+              }}
+              className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors"
+            >
+              Create
+            </button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <label className="text-sm font-bold text-muted-foreground">Name</label>
+          <input value={bundleDraftName} onChange={(e) => setBundleDraftName(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+          <label className="text-sm font-bold text-muted-foreground">Priority</label>
+          <input value={bundleDraftPriority} onChange={(e) => setBundleDraftPriority(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+          <label className="text-sm font-bold text-muted-foreground">Bundle JSON</label>
+          <textarea value={bundleDraftJson} onChange={(e) => setBundleDraftJson(e.target.value)} className="min-h-[140px] w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground font-mono" />
+        </div>
       </Modal>
     </div>
   );

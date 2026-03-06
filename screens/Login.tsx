@@ -295,6 +295,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       const subscription = json?.subscription ?? null;
       const billing = json?.billing ?? null;
+      const features = Array.isArray(json?.features) ? (json.features as any[]).map(String).filter(Boolean) : [];
 
       writeSession({
         token,
@@ -308,6 +309,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         permissions,
         subscription,
         billing,
+        features,
         screen: initialScreen,
       });
 

@@ -91,6 +91,8 @@ export const canAccessScreen = (role: UserRole, screen: Screen): boolean => {
       screen === Screen.WAITER_ACTIVE_ORDERS ||
       screen === Screen.WAITER_STATUS ||
       screen === Screen.WAITER_KDS ||
+      screen === Screen.WAITER_KITCHEN ||
+      screen === Screen.WAITER_EXPO ||
       screen === Screen.WAITER_HISTORY ||
       screen === Screen.WAITER_NOTIFICATIONS ||
       screen === Screen.WAITER_SYSTEM ||
@@ -198,6 +200,8 @@ const screenRequiredModule = (screen: Screen): string | null => {
     case Screen.WAITER_ACTIVE_ORDERS:
     case Screen.WAITER_STATUS:
     case Screen.WAITER_KDS:
+    case Screen.WAITER_KITCHEN:
+    case Screen.WAITER_EXPO:
     case Screen.WAITER_HISTORY:
     case Screen.WAITER_NOTIFICATIONS:
     case Screen.WAITER_SYSTEM:
@@ -292,6 +296,8 @@ const screenRequiredPermission = (screen: Screen): string | null => {
     case Screen.WAITER_ACTIVE_ORDERS:
     case Screen.WAITER_STATUS:
     case Screen.WAITER_KDS:
+    case Screen.WAITER_KITCHEN:
+    case Screen.WAITER_EXPO:
     case Screen.WAITER_HISTORY:
     case Screen.WAITER_NOTIFICATIONS:
     case Screen.WAITER_SYSTEM:

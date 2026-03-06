@@ -49,17 +49,22 @@ const ManagerCustomers = React.lazy(() => import('./screens/manager/ManagerCusto
 
 const WaiterDashboard = React.lazy(() => import('./screens/waiter/WaiterDashboard').then((m) => ({ default: m.WaiterDashboard })));
 const WaiterMenu = React.lazy(() => import('./screens/waiter/WaiterMenu').then((m) => ({ default: m.WaiterMenu })));
+const WaiterOrderV2 = React.lazy(() => import('./screens/waiter2/WaiterOrderV2').then((m) => ({ default: m.WaiterOrderV2 })));
 const WaiterOrderReview = React.lazy(() => import('./screens/waiter/WaiterOrderReview').then((m) => ({ default: m.WaiterOrderReview })));
 const WaiterPayment = React.lazy(() => import('./screens/waiter/WaiterPayment').then((m) => ({ default: m.WaiterPayment })));
 const WaiterReceipt = React.lazy(() => import('./screens/waiter/WaiterReceipt').then((m) => ({ default: m.WaiterReceipt })));
 const WaiterActiveOrders = React.lazy(() => import('./screens/waiter/WaiterActiveOrders').then((m) => ({ default: m.WaiterActiveOrders })));
 const WaiterOrderStatus = React.lazy(() => import('./screens/waiter/WaiterOrderStatus').then((m) => ({ default: m.WaiterOrderStatus })));
 const WaiterKDS = React.lazy(() => import('./screens/waiter/WaiterKDS').then((m) => ({ default: m.WaiterKDS })));
+const KitchenBoard = React.lazy(() => import('./screens/waiter/KitchenBoard').then((m) => ({ default: m.KitchenBoard })));
+const ExpoBoard = React.lazy(() => import('./screens/waiter/ExpoBoard').then((m) => ({ default: m.ExpoBoard })));
 const WaiterHistory = React.lazy(() => import('./screens/waiter/WaiterHistory').then((m) => ({ default: m.WaiterHistory })));
 const WaiterNotifications = React.lazy(() => import('./screens/waiter/WaiterNotifications').then((m) => ({ default: m.WaiterNotifications })));
 const WaiterSystemStatus = React.lazy(() => import('./screens/waiter/WaiterSystemStatus').then((m) => ({ default: m.WaiterSystemStatus })));
 const WaiterSettings = React.lazy(() => import('./screens/waiter/WaiterSettings').then((m) => ({ default: m.WaiterSettings })));
 const WaiterShiftReport = React.lazy(() => import('./screens/waiter/WaiterShiftReport').then((m) => ({ default: m.WaiterShiftReport })));
+
+const ServiceWorkspace = React.lazy(() => import('./screens/waiter/ServiceWorkspace').then((m) => ({ default: m.ServiceWorkspace })));
 
 const Inventory = React.lazy(() => import('./screens/Inventory').then((m) => ({ default: m.Inventory })));
 const Finance = React.lazy(() => import('./screens/Finance').then((m) => ({ default: m.Finance })));
@@ -87,8 +92,7 @@ const SA_Addons = React.lazy(() => import('./screens/superadmin/Addons').then((m
 
 import { Screen, UserRole } from './types';
 
-import { clearSession, initTabSession, readSession, updateSession } from './session';
-import { writeSession } from './session';
+import { clearSession, initTabSession, readSession, updateSession, writeSession } from './session';
 
 import { canAccessScreenWithPermissions, canAccessScreenWithSubscription, homeForRoleWithSubscription } from './rbac';
 
@@ -328,9 +332,20 @@ const AppContent: React.FC = () => {
     }
   };
 
+  const readSessionFeatures = () => {
+    try {
+      const parsed = readSession<any>();
+      const list = Array.isArray(parsed?.features) ? parsed.features : [];
+      return list.map(String).filter(Boolean);
+    } catch {
+      return [] as string[];
+    }
+  };
+
   const [subscription, setSubscription] = useState(() => readSessionSubscription());
   const [billing, setBilling] = useState(() => readSessionBilling());
   const [permissions, setPermissions] = useState(() => readSessionPermissions());
+  const [features, setFeatures] = useState<string[]>(() => readSessionFeatures());
 
   const [currentScreen, setCurrentScreen] = useState<Screen>(() => {
     try {
@@ -420,6 +435,7 @@ const AppContent: React.FC = () => {
       setSubscription(readSessionSubscription());
       setBilling(readSessionBilling());
       setPermissions(readSessionPermissions());
+      setFeatures(readSessionFeatures());
       try {
         const parsed = readSession<any>();
         const nextRole = (parsed?.role as UserRole) ?? null;
@@ -447,6 +463,152 @@ const AppContent: React.FC = () => {
     return () => window.removeEventListener('mirachpos-session-changed', onChanged);
   }, []);
 
+  const expoEnabled = features.includes('kds_expo');
+
+  const posUiV2Enabled = (() => {
+    if (features.includes('pos_ui_v2')) return true;
+    try {
+      const raw = String(localStorage.getItem('mirachpos.posUi.v1') || '').trim();
+      if (raw === '2') return true;
+    } catch {
+      // ignore
+    }
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      return String(qs.get('posUi') || '').trim() === '2';
+    } catch {
+      return false;
+    }
+  })();
+
+  const serviceInlineSecurityEnabled = (() => {
+    if (features.includes('service_inline_security_v1')) return true;
+    try {
+      const raw = String(localStorage.getItem('mirachpos.serviceInlineSecurity.v1') || '').trim();
+      if (raw === '1') return true;
+    } catch {
+      // ignore
+    }
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      return String(qs.get('inlineSecurity') || '').trim() === '1';
+    } catch {
+      return false;
+    }
+  })();
+
+  const serviceInlineSystemEnabled = (() => {
+    if (features.includes('service_inline_system_v1')) return true;
+    try {
+      const raw = String(localStorage.getItem('mirachpos.serviceInlineSystem.v1') || '').trim();
+      if (raw === '1') return true;
+    } catch {
+      // ignore
+    }
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      return String(qs.get('inlineSystem') || '').trim() === '1';
+    } catch {
+      return false;
+    }
+  })();
+
+  const serviceInlineNotificationsEnabled = (() => {
+    if (features.includes('service_inline_notifications_v1')) return true;
+    try {
+      const raw = String(localStorage.getItem('mirachpos.serviceInlineNotifications.v1') || '').trim();
+      if (raw === '1') return true;
+    } catch {
+      // ignore
+    }
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      return String(qs.get('inlineAlerts') || '').trim() === '1';
+    } catch {
+      return false;
+    }
+  })();
+
+  const serviceInlineExpoEnabled = (() => {
+    if (features.includes('service_inline_expo_v1')) return true;
+    try {
+      const raw = String(localStorage.getItem('mirachpos.serviceInlineExpo.v1') || '').trim();
+      if (raw === '1') return true;
+    } catch {
+      // ignore
+    }
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      return String(qs.get('inlineExpo') || '').trim() === '1';
+    } catch {
+      return false;
+    }
+  })();
+
+  const serviceInlineKitchenEnabled = (() => {
+    if (features.includes('service_inline_kitchen_v1')) return true;
+    try {
+      const raw = String(localStorage.getItem('mirachpos.serviceInlineKitchen.v1') || '').trim();
+      if (raw === '1') return true;
+    } catch {
+      // ignore
+    }
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      return String(qs.get('inlineKitchen') || '').trim() === '1';
+    } catch {
+      return false;
+    }
+  })();
+
+  const serviceInlineActiveEnabled = (() => {
+    if (features.includes('service_inline_active_v1')) return true;
+    try {
+      const raw = String(localStorage.getItem('mirachpos.serviceInlineActive.v1') || '').trim();
+      if (raw === '1') return true;
+    } catch {
+      // ignore
+    }
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      return String(qs.get('inlineActive') || '').trim() === '1';
+    } catch {
+      return false;
+    }
+  })();
+
+  const serviceInlineReviewEnabled = (() => {
+    if (features.includes('service_inline_review_v1')) return true;
+    try {
+      const raw = String(localStorage.getItem('mirachpos.serviceInlineReview.v1') || '').trim();
+      if (raw === '1') return true;
+    } catch {
+      // ignore
+    }
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      return String(qs.get('inlineReview') || '').trim() === '1';
+    } catch {
+      return false;
+    }
+  })();
+
+  const serviceWorkspaceEnabled = (() => {
+    if (features.includes('service_workspace_v1')) return true;
+    try {
+      const raw = String(localStorage.getItem('mirachpos.serviceWorkspace.v1') || '').trim();
+      if (raw === '1') return true;
+    } catch {
+      // ignore
+    }
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      return String(qs.get('serviceUi') || '').trim() === '1';
+    } catch {
+      return false;
+    }
+  })();
+
   const [upgradeModalDismissed, setUpgradeModalDismissed] = useState(false);
   const [moduleBlocked, setModuleBlocked] = useState<{ error: string; module: string; path: string } | null>(null);
   const [accessDenied, setAccessDenied] = useState<{ error: string; path: string } | null>(null);
@@ -460,6 +622,22 @@ const AppContent: React.FC = () => {
     Array<{ tier: string; modules: string[]; limits: any; pricing: { monthlyEtb: number; yearlyEtb: number } }>
   >([]);
   const [paywallPlansError, setPaywallPlansError] = useState<string | null>(null);
+
+  const isServiceWorkspaceRoute = (() => {
+    if (currentScreen === Screen.POS_FLOOR) return true;
+    if (currentScreen === Screen.POS_MENU) return true;
+    if (currentScreen === Screen.WAITER_DASHBOARD) return true;
+    if (currentScreen === Screen.WAITER_MENU) return true;
+    if (currentScreen === Screen.WAITER_REVIEW) return true;
+    if (currentScreen === Screen.WAITER_PAYMENT) return true;
+    if (currentScreen === Screen.WAITER_RECEIPT) return true;
+    if (currentScreen === Screen.WAITER_ACTIVE_ORDERS) return true;
+    if (currentScreen === Screen.WAITER_STATUS) return true;
+    if (currentScreen === Screen.WAITER_KDS) return true;
+    if (currentScreen === Screen.WAITER_KITCHEN) return true;
+    if (currentScreen === Screen.WAITER_EXPO) return true;
+    return false;
+  })();
 
   const upgradeModalKey = (() => {
     if (userRole !== UserRole.CAFE_OWNER) return '';
@@ -1059,20 +1237,44 @@ const AppContent: React.FC = () => {
         <Suspense fallback={<ScreenFallback />}>
           {/* SHARED / OLDER SCREENS */}
           {currentScreen === Screen.DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Dashboard role={userRole!} />}
-          {currentScreen === Screen.POS_FLOOR && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDashboard onNavigate={navigate} />}
+          {currentScreen === Screen.POS_FLOOR && (!serviceWorkspaceEnabled || !(userRole === UserRole.WAITER || userRole === UserRole.WAITER_MANAGER)) &&
+            canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDashboard onNavigate={navigate} />}
           {currentScreen === Screen.ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Orders />}
           {currentScreen === Screen.TABLE_ASSIGNMENT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <TableAssignment onNavigate={navigate} />}
           {currentScreen === Screen.GUESTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Guests />}
 
           {/* WAITER SPECIFIC SCREENS */}
-          {currentScreen === Screen.WAITER_DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDashboard onNavigate={navigate} />}
-          {currentScreen === Screen.WAITER_MENU && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterMenu onNavigate={navigate} />}
-          {currentScreen === Screen.WAITER_REVIEW && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterOrderReview onNavigate={navigate} />}
-          {currentScreen === Screen.WAITER_PAYMENT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterPayment onNavigate={navigate} />}
-          {currentScreen === Screen.WAITER_RECEIPT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterReceipt onNavigate={navigate} />}
-          {currentScreen === Screen.WAITER_ACTIVE_ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterActiveOrders onNavigate={navigate} />}
-          {currentScreen === Screen.WAITER_STATUS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterOrderStatus onNavigate={navigate} />}
-          {currentScreen === Screen.WAITER_KDS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterKDS onNavigate={navigate} />}
+          {serviceWorkspaceEnabled && (userRole === UserRole.WAITER || userRole === UserRole.WAITER_MANAGER) && isServiceWorkspaceRoute &&
+            canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && (
+              <ServiceWorkspace
+                currentScreen={currentScreen}
+                onNavigate={navigate}
+                posUiV2Enabled={posUiV2Enabled}
+                expoEnabled={expoEnabled}
+                inlineReviewEnabled={serviceInlineReviewEnabled}
+                inlineActiveEnabled={serviceInlineActiveEnabled}
+                inlineKitchenEnabled={serviceInlineKitchenEnabled}
+                inlineExpoEnabled={serviceInlineExpoEnabled}
+                inlineNotificationsEnabled={serviceInlineNotificationsEnabled}
+                inlineSystemEnabled={serviceInlineSystemEnabled}
+                inlineSecurityEnabled={serviceInlineSecurityEnabled}
+              />
+            )}
+
+          {(!serviceWorkspaceEnabled || !isServiceWorkspaceRoute) && (
+            <>
+              {currentScreen === Screen.WAITER_DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDashboard onNavigate={navigate} />}
+              {currentScreen === Screen.WAITER_MENU && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) &&
+                (posUiV2Enabled ? <WaiterOrderV2 onNavigate={navigate} /> : <WaiterMenu onNavigate={navigate} />)}
+              {currentScreen === Screen.WAITER_REVIEW && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterOrderReview onNavigate={navigate} />}
+              {currentScreen === Screen.WAITER_PAYMENT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterPayment onNavigate={navigate} />}
+              {currentScreen === Screen.WAITER_RECEIPT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterReceipt onNavigate={navigate} />}
+              {currentScreen === Screen.WAITER_ACTIVE_ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterActiveOrders onNavigate={navigate} />}
+              {(currentScreen === Screen.WAITER_STATUS || currentScreen === Screen.WAITER_KDS) && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <KitchenBoard onNavigate={navigate} />}
+              {currentScreen === Screen.WAITER_KITCHEN && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <KitchenBoard onNavigate={navigate} />}
+              {currentScreen === Screen.WAITER_EXPO && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && (expoEnabled ? <ExpoBoard onNavigate={navigate} /> : <KitchenBoard onNavigate={navigate} />)}
+            </>
+          )}
           {currentScreen === Screen.WAITER_HISTORY && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterHistory onNavigate={navigate} />}
           {currentScreen === Screen.WAITER_NOTIFICATIONS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterNotifications onNavigate={navigate} />}
           {currentScreen === Screen.WAITER_SYSTEM && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterSystemStatus onNavigate={navigate} />}

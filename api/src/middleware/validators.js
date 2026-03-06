@@ -891,6 +891,26 @@ const idParamSchema = z.object({
     id: z.string().min(1, 'ID is required'),
 });
 
+const kdsFireSchema = z.object({
+    actionId: z.string({ required_error: 'actionId is required' }).min(1).max(96),
+    orderId: z.string({ required_error: 'orderId is required' }).min(1).max(64),
+    station: z.string({ required_error: 'station is required' }).min(1).max(64),
+    courseNo: z.number().int().min(1).max(50).optional(),
+    priority: z.number().int().min(0).max(100).optional(),
+    slaMs: z.number().int().min(0).max(24 * 60 * 60 * 1000).optional(),
+});
+
+const kdsTicketActionSchema = z.object({
+    actionId: z.string({ required_error: 'actionId is required' }).min(1).max(96),
+});
+
+const kdsBoardQuerySchema = z.object({
+    station: z.string().max(64).optional(),
+    status: z.string().max(32).optional(),
+    limit: z.coerce.number().int().min(1).max(400).optional(),
+    branchId: z.string().max(64).optional(),
+});
+
 // =============================================================================
 // VALIDATION MIDDLEWARE FACTORY
 // =============================================================================
@@ -1057,6 +1077,10 @@ module.exports = {
     createTenantSchema,
     createStaffSchema,
     idParamSchema,
+
+    kdsFireSchema,
+    kdsTicketActionSchema,
+    kdsBoardQuerySchema,
 
     // Admin routes schemas
     adminProvisionSchema,

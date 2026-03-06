@@ -298,6 +298,7 @@ type PosContextType = {
   removeFromCart: (tableId: string, productId: string) => void;
   setCartQty: (tableId: string, productId: string, qty: number) => void;
   setCartItemNote: (tableId: string, productId: string, note: string) => void;
+  setCartItemModifiers: (tableId: string, productId: string, modifiers: string[]) => void;
   clearCart: (tableId: string) => void;
   getDraftOrderMeta: (tableId: string) => { orderType?: 'dine_in' | 'takeaway'; takeawayFee?: number };
   setDraftOrderMeta: (tableId: string, meta: { orderType?: 'dine_in' | 'takeaway'; takeawayFee?: number }) => void;
@@ -1656,9 +1657,36 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               category: String(p?.category || ''),
               image: String(p?.image || ''),
               stock: Number(p?.stock ?? 0) || 0,
+              available: p?.available !== false,
+              unavailableReason: typeof p?.unavailableReason === 'string' ? p.unavailableReason : '',
             }))
             .filter((p) => p.id && p.name);
-          if (nextProducts.length) setState((prev) => ({ ...prev, products: nextProducts }));
+          if (nextProducts.length) {
+            setState((prev) => {
+              const byId = new Map(nextProducts.map((p) => [p.id, p]));
+              const nextCartByTableId: Record<string, PosOrderItem[]> = {};
+              for (const [tableId, items] of Object.entries(prev.cartByTableId || {})) {
+                const nextItems = (Array.isArray(items) ? items : [])
+                  .map((it) => {
+                    const pid = String(it?.productId || '').trim();
+                    if (!pid) return null;
+                    const prod = byId.get(pid);
+                    if (!prod) return null;
+                    if (prod.available === false) return null;
+                    return {
+                      ...it,
+                      name: prod.name,
+                      unitPrice: Number(prod.price ?? it.unitPrice ?? 0) || 0,
+                    };
+                  })
+                  .filter(Boolean) as PosOrderItem[];
+                if (nextItems.length) nextCartByTableId[tableId] = nextItems;
+              }
+
+              const tables = updateTableComputed(prev.tables, nextCartByTableId, prev.draftMetaByTableId);
+              return { ...prev, products: nextProducts, cartByTableId: nextCartByTableId, tables };
+            });
+          }
 
           try {
             const scopeKey = getBranchScopeKey();
@@ -2186,6 +2214,26 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       if (!remoteReady) return false;
 
+      const shouldCreate = order.syncedToServer === false;
+      if (shouldCreate) {
+        try {
+          const postRes = await apiFetch(withBranchQuery('/api/pos/orders'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          return postRes.ok;
+        } catch {
+          void enqueueOutboxHttp({
+            url: withBranchQuery('/api/pos/orders'),
+            method: 'POST',
+            body: payload,
+            headers: { 'Content-Type': 'application/json' },
+          });
+          return false;
+        }
+      }
+
       try {
         const putRes = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`), {
           method: 'PUT',
@@ -2663,14 +2711,24 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((s) => {
       const product = s.products.find((p) => p.id === productId);
       if (!product || product.stock <= 0) return s;
+      if ((product as any)?.available === false) return s;
 
       const existing = s.cartByTableId[tableId] ?? [];
       const idx = existing.findIndex((i) => i.productId === productId);
       let nextItems: PosOrderItem[];
       if (idx >= 0) {
-        nextItems = existing.map((i) => (i.productId === productId ? { ...i, qty: i.qty + 1 } : i));
+        nextItems = existing.map((i) =>
+          i.productId === productId
+            ? {
+                ...i,
+                qty: i.qty + 1,
+                unitPrice: Number(product.price ?? i.unitPrice ?? 0) || 0,
+                name: product.name,
+              }
+            : i,
+        );
       } else {
-        nextItems = [...existing, { productId, name: product.name, unitPrice: product.price, qty: 1 }];
+        nextItems = [...existing, { productId, name: product.name, unitPrice: Number(product.price ?? 0) || 0, qty: 1, modifiers: [] }];
       }
 
       const nextCartByTableId = { ...s.cartByTableId, [tableId]: nextItems };
@@ -2684,6 +2742,17 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((s) => {
       const existing = s.cartByTableId[tableId] ?? [];
       const nextItems = existing.map((i) => (i.productId === productId ? { ...i, note } : i));
+      const nextCartByTableId = { ...s.cartByTableId, [tableId]: nextItems };
+      const nextTables = updateTableComputed(s.tables, nextCartByTableId, s.draftMetaByTableId);
+      return { ...s, cartByTableId: nextCartByTableId, tables: nextTables };
+    });
+  };
+
+  const setCartItemModifiers: PosContextType['setCartItemModifiers'] = (tableId, productId, modifiers) => {
+    setState((s) => {
+      const existing = s.cartByTableId[tableId] ?? [];
+      const nextMods = (Array.isArray(modifiers) ? modifiers : []).map((x) => String(x || '').trim()).filter(Boolean).slice(0, 200);
+      const nextItems = existing.map((i) => (i.productId === productId ? { ...i, modifiers: nextMods } : i));
       const nextCartByTableId = { ...s.cartByTableId, [tableId]: nextItems };
       const nextTables = updateTableComputed(s.tables, nextCartByTableId, s.draftMetaByTableId);
       return { ...s, cartByTableId: nextCartByTableId, tables: nextTables };
@@ -2712,8 +2781,23 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const product = s.products.find((p) => p.id === productId);
       if (!product) return s;
+      if ((product as any)?.available === false) {
+        const nextItems = existing.filter((i) => i.productId !== productId);
+        const nextCartByTableId = { ...s.cartByTableId, [tableId]: nextItems };
+        const nextTables = updateTableComputed(s.tables, nextCartByTableId, s.draftMetaByTableId);
+        return { ...s, cartByTableId: nextCartByTableId, tables: nextTables };
+      }
 
-      const nextItems = existing.map((i) => (i.productId === productId ? { ...i, qty } : i));
+      const nextItems = existing.map((i) =>
+        i.productId === productId
+          ? {
+              ...i,
+              qty,
+              unitPrice: Number(product.price ?? i.unitPrice ?? 0) || 0,
+              name: product.name,
+            }
+          : i,
+      );
       const nextCartByTableId = { ...s.cartByTableId, [tableId]: nextItems };
       const nextTables = updateTableComputed(s.tables, nextCartByTableId, s.draftMetaByTableId);
 
@@ -3157,11 +3241,33 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const drinks = allLines.filter((l) => isDrinkLine(l.name));
           const food = allLines.filter((l) => !isDrinkLine(l.name));
 
+          const kitchenDeviceId = (() => {
+            try {
+              const raw = readBranchSettingsRaw();
+              if (!raw) return '';
+              const settings = JSON.parse(raw) as BranchSettingsForPrinting;
+              return typeof settings?.defaultKitchenPrinterId === 'string' ? settings.defaultKitchenPrinterId : '';
+            } catch {
+              return '';
+            }
+          })();
+
+          const barDeviceId = (() => {
+            try {
+              const raw = readBranchSettingsRaw();
+              if (!raw) return '';
+              const settings = JSON.parse(raw) as BranchSettingsForPrinting;
+              return typeof settings?.defaultBarPrinterId === 'string' ? settings.defaultBarPrinterId : '';
+            } catch {
+              return '';
+            }
+          })();
+
           if (food.length > 0) {
             void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ lines: food, beep }),
+              body: JSON.stringify({ deviceId: kitchenDeviceId || undefined, title: 'Kitchen Ticket', lines: food, beep }),
             }).catch(() => {
               const ok = openPrintWindow(kitchenTicketHtml('Kitchen Ticket', order, food));
               if (!ok) {
@@ -3188,7 +3294,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             void apiFetch(withBranchQuery(`/api/pos/print/bar/${encodeURIComponent(String(orderId))}`), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ lines: drinks, beep }),
+              body: JSON.stringify({ deviceId: barDeviceId || undefined, title: 'Bar Ticket', lines: drinks, beep }),
             }).catch(() => {
               const ok = openPrintWindow(kitchenTicketHtml('Bar Ticket', order, drinks));
               if (!ok) {
@@ -3211,10 +3317,21 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
           }
         } else {
+          const kitchenDeviceId = (() => {
+            try {
+              const raw = readBranchSettingsRaw();
+              if (!raw) return '';
+              const settings = JSON.parse(raw) as BranchSettingsForPrinting;
+              return typeof settings?.defaultKitchenPrinterId === 'string' ? settings.defaultKitchenPrinterId : '';
+            } catch {
+              return '';
+            }
+          })();
+
           void apiFetch(withBranchQuery(`/api/pos/print/kitchen/${encodeURIComponent(String(orderId))}`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lines: allLines, beep }),
+            body: JSON.stringify({ deviceId: kitchenDeviceId || undefined, title: 'Kitchen Ticket', lines: allLines, beep }),
           }).catch(() => {
             const ok = openPrintWindow(kitchenTicketHtml('Kitchen Ticket', order, allLines));
             if (!ok) {
@@ -3858,6 +3975,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     removeFromCart,
     setCartQty,
     setCartItemNote,
+    setCartItemModifiers,
     clearCart,
     getDraftOrderMeta,
     setDraftOrderMeta,

@@ -23,6 +23,8 @@ const { makePosLoyaltyRouter } = require('./pos/loyalty');
 const { makePosTablesRouter } = require('./pos/tables');
 const { makePosNotificationsRouter } = require('./pos/notifications');
 const { makePosOrdersRouter } = require('./pos/orders');
+const { makePosKdsRouter } = require('./pos/kds');
+const { makePosHardwareRouter } = require('./pos/hardware');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -1283,7 +1285,6 @@ const applyTenantGatewayTogglesToPaymentMethods = (methods, gatewayRows, platfor
   const gw = Array.isArray(gatewayRows) ? gatewayRows : [];
   const platform = platformFlags && typeof platformFlags === 'object' ? platformFlags : null;
 
-
   const byGateway = new Map();
   for (const r of gw) {
     const g = String(r?.gateway || '').trim().toLowerCase();
@@ -1385,6 +1386,7 @@ const applyTenantGatewayTogglesToPaymentMethods = (methods, gatewayRows, platfor
   }
   return list;
 };
+
 const normalizeSettingsForPos = (raw) => {
   const s = raw && typeof raw === 'object' ? raw : {};
   const taxes = s.taxes && typeof s.taxes === 'object' ? s.taxes : {};
@@ -1682,10 +1684,12 @@ const makePosRouter = () => {
   r.use(makePosShiftsRouter());
   r.use(makePosCustomerDisplayRouter({ resolveBranchId }));
   r.use(makePosPrintQueueRouter({ resolveBranchId, loadBranchSettings, hydratePayloadFromNormalized, makeKitchenTicketPayload, sendTcp, mapPrintError }));
+  r.use(makePosHardwareRouter({ resolveBranchId, sendTcp }));
   r.use(makePosMenuRouter({ resolveBranchId }));
   r.use(makePosLoyaltyRouter({ resolveBranchId, toIso, computeLoyaltyExpiry, LOYALTY_CONVERSION, computeBalanceFromPoints, resolveEffectivePosSettings }));
   r.use(makePosTablesRouter({ resolveBranchId, setNoStore, backfillRestaurantTablesFromLegacyState, mapTableStatusFromOrderStatus, mapRestaurantTableRow, loadRestaurantTable, publish }));
   r.use(makePosNotificationsRouter({ resolveBranchId, mapAuditToNotification }));
+  r.use(makePosKdsRouter({ resolveBranchId }));
 
   const sanitizeChapaText = (v) => {
     const s = String(v || '').trim();

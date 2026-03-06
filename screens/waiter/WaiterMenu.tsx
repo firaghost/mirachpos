@@ -1,17 +1,41 @@
 import { AppIcon } from '@/components/ui/app-icon';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Screen } from '../../types';
 import { usePos, useSelectedTable } from '../../PosContext';
 import { Modal } from '../../components/Modal';
+import { apiFetch } from '../../api';
 
 interface Props {
     onNavigate: (screen: Screen) => void;
 }
 
+type EvaluatedItem = {
+  productId: string;
+  available: boolean;
+  reason?: string;
+  priceOverride?: number;
+  modifierConstraints?: any;
+};
+
+type EvaluationResult = {
+  violations: Array<any>;
+  availabilityByProductId: Record<string, { available: boolean; reason?: string }>;
+};
+
+type ModifierGroup = {
+  id: string;
+  name: string;
+  min: number;
+  max: number;
+  options: Array<{ id: string; name: string; priceDelta: number }>;
+};
+
 export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
-  const { products, selectedTableId, getCartItems, addToCart, setCartQty, setCartItemNote, sendOrderToKitchen, selectOrder, getDraftOrderMeta, setDraftOrderMeta } = usePos();
+  const { products, selectedTableId, getCartItems, addToCart, setCartQty, setCartItemNote, setCartItemModifiers, sendOrderToKitchen, selectOrder, getDraftOrderMeta, setDraftOrderMeta } = usePos();
   const selectedTable = useSelectedTable();
+
+  const modifierGroupNameByProductIdRef = useRef<Map<string, Map<string, string>>>(new Map());
 
   const FALLBACK_IMAGE =
     'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&q=80&w=800';
@@ -38,12 +62,40 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
   };
 
   const [actionErr, setActionErr] = useState('');
+  const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
+  const [evaluating, setEvaluating] = useState(false);
 
   const [menuQuery, setMenuQuery] = useState('');
   const [menuCategory, setMenuCategory] = useState<string>('All');
 
   const [editItemId, setEditItemId] = useState<string | null>(null);
   const [editNote, setEditNote] = useState('');
+  const [editModifiers, setEditModifiers] = useState<string[]>([]);
+  const [editModifierGroups, setEditModifierGroups] = useState<ModifierGroup[]>([]);
+  const [editModifiersLoading, setEditModifiersLoading] = useState(false);
+
+  const countsByGroupId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const t of editModifiers) {
+      const gid = String(t.split(':')[0] || '').trim();
+      if (!gid) continue;
+      map.set(gid, (map.get(gid) || 0) + 1);
+    }
+    return map;
+  }, [editModifiers]);
+
+  const modifierValidity = useMemo(() => {
+    return editModifierGroups.map((g) => {
+      const c = countsByGroupId.get(g.id) || 0;
+      const min = Number(g.min ?? 0) || 0;
+      const max = Number(g.max ?? 0) || 0;
+      const meetsMin = c >= min;
+      const withinMax = max === 0 ? true : c <= max;
+      return { id: g.id, ok: meetsMin && withinMax, count: c, min, max };
+    });
+  }, [editModifierGroups, countsByGroupId]);
+
+  const canSaveModifiers = useMemo(() => modifierValidity.every((v) => v.ok), [modifierValidity]);
 
   const tableId = selectedTableId ?? selectedTable?.id ?? '';
   const cartItems = getCartItems(tableId);
@@ -51,6 +103,134 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
   const draftMeta = useMemo(() => (tableId ? getDraftOrderMeta(tableId) : {}), [tableId, getDraftOrderMeta]);
   const draftOrderType = draftMeta?.orderType === 'takeaway' ? 'takeaway' : 'dine_in';
   const takeawayFee = draftOrderType === 'takeaway' ? Math.max(0, Number(draftMeta?.takeawayFee ?? 0) || 0) : 0;
+
+  // Evaluate cart against menu rules whenever cart changes
+  useEffect(() => {
+    const run = async () => {
+      if (!tableId || cartItems.length === 0) {
+        setEvaluation(null);
+        return;
+      }
+      setEvaluating(true);
+      try {
+        const items = cartItems.map((i) => ({
+          productId: i.productId,
+          qty: i.qty,
+          modifiers: Array.isArray((i as any)?.modifiers) ? (i as any).modifiers : [],
+        }));
+        const res = await apiFetch('/api/pos/menu/evaluate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderType: draftOrderType,
+            cart: { items },
+          }),
+        });
+        const json = (await res.json().catch(() => null)) as any;
+        if (res.ok && json?.ok) {
+          const availability = json?.availability && typeof json.availability === 'object' ? json.availability : {};
+          const availabilityByProductId = Object.fromEntries(
+            Object.entries(availability).map(([pid, v]) => {
+              const vv: any = v && typeof v === 'object' ? v : {};
+              const reason = typeof vv?.reason === 'string' ? String(vv.reason) : '';
+              return [String(pid), { available: false, ...(reason ? { reason } : {}) }];
+            }),
+          );
+          const violations = Array.isArray(json?.violations) ? json.violations : [];
+          setEvaluation({ violations, availabilityByProductId });
+
+          const unavailableIds = violations
+            .filter((v: any) => String(v?.type || '').trim() === 'unavailable')
+            .map((v: any) => String(v?.productId || '').trim())
+            .filter(Boolean);
+          if (unavailableIds.length) {
+            for (const pid of unavailableIds) {
+              if (cartItems.some((ci) => ci.productId === pid)) {
+                setCartQty(tableId, pid, 0);
+              }
+            }
+            const first = unavailableIds[0];
+            const name = products.find((p) => p.id === first)?.name;
+            setActionErr(`${name || first} is 86'd / unavailable and was removed from the cart.`);
+          }
+          return;
+        }
+
+        if (json && typeof json === 'object' && json.error === 'cart_invalid' && Array.isArray(json.violations)) {
+          const violations = json.violations;
+          setEvaluation({ violations, availabilityByProductId: {} });
+
+          const unavailableIds = violations
+            .filter((v: any) => String(v?.type || '').trim() === 'unavailable')
+            .map((v: any) => String(v?.productId || '').trim())
+            .filter(Boolean);
+          if (unavailableIds.length) {
+            for (const pid of unavailableIds) {
+              if (cartItems.some((ci) => ci.productId === pid)) {
+                setCartQty(tableId, pid, 0);
+              }
+            }
+            const first = unavailableIds[0];
+            const name = products.find((p) => p.id === first)?.name;
+            setActionErr(`${name || first} is 86'd / unavailable and was removed from the cart.`);
+          }
+          return;
+        }
+
+        setEvaluation(null);
+      } catch {
+        setEvaluation(null);
+      } finally {
+        setEvaluating(false);
+      }
+    };
+    void run();
+  }, [cartItems, draftOrderType, tableId]);
+
+  const isProductAvailable = (productId: string) => {
+    if (!evaluation) return true;
+    return evaluation.availabilityByProductId[String(productId)]?.available !== false;
+  };
+
+  const getUnavailableReason = (productId: string) => {
+    if (!evaluation) return undefined;
+    return evaluation.availabilityByProductId[String(productId)]?.reason;
+  };
+
+  const formatViolation = (v: any) => {
+    const type = String(v?.type || '').trim();
+    if (type === 'unavailable') {
+      const pid = String(v?.productId || '').trim();
+      const name = products.find((p) => p.id === pid)?.name;
+      const reason = String(v?.reason || 'unavailable').trim();
+      return `${name || pid || 'Item'} is unavailable (${reason}).`;
+    }
+    if (type === 'modifier_min') {
+      const pid = String(v?.productId || '').trim();
+      const name = products.find((p) => p.id === pid)?.name;
+      const groupId = String(v?.groupId || '').trim();
+      const min = Number(v?.min ?? 0) || 0;
+      const groupName = modifierGroupNameByProductIdRef.current.get(pid)?.get(groupId);
+      return `${name || pid || 'Item'}: select at least ${min} from ${groupName || groupId || 'required group'}.`;
+    }
+    if (type === 'modifier_max') {
+      const pid = String(v?.productId || '').trim();
+      const name = products.find((p) => p.id === pid)?.name;
+      const groupId = String(v?.groupId || '').trim();
+      const max = Number(v?.max ?? 0) || 0;
+      const groupName = modifierGroupNameByProductIdRef.current.get(pid)?.get(groupId);
+      return `${name || pid || 'Item'}: select at most ${max} from ${groupName || groupId || 'a group'}.`;
+    }
+    if (type === 'product_not_found') {
+      const ids = Array.isArray(v?.productIds) ? v.productIds.map((x: any) => String(x || '').trim()).filter(Boolean) : [];
+      return ids.length ? `Unknown item(s): ${ids.join(', ')}` : 'Unknown item in cart.';
+    }
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return 'Cart rule violation.';
+    }
+  };
 
   const subtotal = useMemo(() => cartItems.reduce((sum, i) => sum + i.unitPrice * i.qty, 0), [cartItems]);
   const total = useMemo(() => {
@@ -100,73 +280,171 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
       return;
     }
 
+    // Check for rule violations before sending
+    if (evaluation && evaluation.violations.length > 0) {
+      const first = evaluation.violations[0];
+      setActionErr(`Cart blocked: ${formatViolation(first)}`);
+      return;
+    }
     const orderId = sendOrderToKitchen(tableId);
     if (!orderId) {
       setActionErr('Failed to send order.');
       return;
     }
     selectOrder(orderId);
-    onNavigate(Screen.WAITER_STATUS);
+    onNavigate(Screen.WAITER_KITCHEN);
   };
 
-  if (!tableId || !selectedTable) {
-    return (
-      <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
-        <header className="flex-none flex items-center justify-between whitespace-nowrap bg-card px-6 py-4 z-20 shadow-sm border-b border-border/50">
-          <div className="flex items-center gap-3 text-foreground">
-            <div className="w-10 h-10 flex items-center justify-center bg-primary text-primary-foreground rounded-xl shadow-md">
-              <AppIcon name="menu_book" className="text-2xl" size={24} />
+if (!tableId || !selectedTable) {
+  return (
+    <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
+      <header className="flex-none flex items-center justify-between whitespace-nowrap bg-card px-6 py-4 z-20 shadow-sm border-b border-border/50">
+        <div className="flex items-center gap-3 text-foreground">
+          <div className="w-10 h-10 flex items-center justify-center bg-primary text-primary-foreground rounded-xl shadow-md">
+            <AppIcon name="menu_book" className="text-2xl" size={24} />
+          </div>
+          <h2 className="text-foreground text-2xl font-bold tracking-tight">Order<span className="font-light text-primary">Builder</span></h2>
+        </div>
+      </header>
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="max-w-md w-full rounded-xl border border-border bg-card p-6">
+          <div className="text-lg font-bold">No table selected</div>
+          <div className="mt-2 text-sm text-muted-foreground">Go back to the floor and choose a table to start an order.</div>
+          <button
+            onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}
+            className="mt-5 h-11 px-4 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-extrabold"
+          >
+            Back to Floor
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const openEdit = (productId: string) => {
+  const it = cartItems.find((x) => x.productId === productId);
+
+  // If it's already in cart, open the modal immediately (note + optional modifiers).
+  if (it) {
+    setEditItemId(productId);
+    setEditNote(String(it.note || ''));
+    setEditModifiers(Array.isArray((it as any).modifiers) ? ((it as any).modifiers as string[]) : []);
+  } else {
+    // Not in cart yet: don't open modal until we know modifiers exist (prevents "flash").
+    setEditNote('');
+    setEditModifiers([]);
+  }
+
+  setEditModifierGroups([]);
+  void (async () => {
+    try {
+      setEditModifiersLoading(true);
+      const res = await apiFetch(`/api/pos/menu/products/${encodeURIComponent(productId)}/modifier-groups`);
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok) {
+        setEditModifierGroups([]);
+        return;
+      }
+      const groups = Array.isArray(json?.groups) ? (json.groups as any[]) : [];
+      const mappedGroups = groups
+        .map((g) => ({
+          id: String(g?.id || ''),
+          name: String(g?.name || ''),
+          min: Number(g?.min ?? 0) || 0,
+          max: Number(g?.max ?? 0) || 0,
+          options: Array.isArray(g?.options)
+            ? (g.options as any[])
+                .map((o) => ({ id: String(o?.id || ''), name: String(o?.name || ''), priceDelta: Number(o?.priceDelta ?? 0) || 0 }))
+                .filter((o) => o.id && o.name)
+            : [],
+        }))
+        .filter((g) => g.id && g.name);
+
+      try {
+        const byGroupId = new Map<string, string>();
+        for (const g of mappedGroups) byGroupId.set(g.id, g.name);
+        modifierGroupNameByProductIdRef.current.set(productId, byGroupId);
+      } catch {
+        // ignore
+      }
+
+      if (mappedGroups.length === 0) {
+        const exists = cartItems.some((x) => x.productId === productId);
+        if (!exists) addToCart(tableId, productId);
+        // If it's an existing cart item edit flow, keep modal open (note-only).
+        if (!it) {
+          setEditItemId(null);
+          setEditNote('');
+          setEditModifiers([]);
+          setEditModifierGroups([]);
+        }
+        return;
+      }
+
+      // If it's a new add flow, open modal now that we know modifiers exist.
+      if (!it) setEditItemId(productId);
+      setEditModifierGroups(mappedGroups);
+    } catch {
+      setEditModifierGroups([]);
+    } finally {
+      setEditModifiersLoading(false);
+    }
+  })();
+};
+
+const toggleModifier = (groupId: string, optionId: string) => {
+  const token = `${groupId}:${optionId}`;
+  setEditModifiers((prev) => {
+    const group = editModifierGroups.find((g) => g.id === groupId) || null;
+    const max = group ? Number(group.max ?? 0) || 0 : 0;
+
+    if (prev.includes(token)) return prev.filter((x) => x !== token);
+
+    const withoutGroup = prev.filter((x) => !x.startsWith(`${groupId}:`));
+    const groupSelectedCount = prev.filter((x) => x.startsWith(`${groupId}:`)).length;
+
+    if (max === 1) {
+      return [...withoutGroup, token];
+    }
+    if (max > 0 && groupSelectedCount >= max) {
+      return prev;
+    }
+    return [...prev, token];
+  });
+};
+
+return (
+  <div className="flex flex-col md:flex-row h-full overflow-hidden bg-background text-foreground">
+    <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      {/* Top Header */}
+      <header className="flex-none flex items-center justify-between whitespace-nowrap bg-card px-6 py-4 z-20 shadow-sm border-b border-border/50">
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-3 text-foreground group cursor-pointer" onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}>
+            <div className="w-10 h-10 flex items-center justify-center bg-primary text-primary-foreground rounded-xl shadow-md group-hover:bg-primary/80 transition-colors">
+              <AppIcon name="arrow_back" className="text-2xl" size={24} />
             </div>
             <h2 className="text-foreground text-2xl font-bold tracking-tight">Order<span className="font-light text-primary">Builder</span></h2>
           </div>
-        </header>
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="max-w-md w-full rounded-xl border border-border bg-card p-6">
-            <div className="text-lg font-bold">No table selected</div>
-            <div className="mt-2 text-sm text-muted-foreground">Go back to the floor and choose a table to start an order.</div>
-            <button
-              onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}
-              className="mt-5 h-11 px-4 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-extrabold"
-            >
-              Back to Floor
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col md:flex-row h-full overflow-hidden bg-background text-foreground">
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {/* Top Header */}
-        <header className="flex-none flex items-center justify-between whitespace-nowrap bg-card px-6 py-4 z-20 shadow-sm border-b border-border/50">
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-3 text-foreground group cursor-pointer" onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}>
-              <div className="w-10 h-10 flex items-center justify-center bg-primary text-primary-foreground rounded-xl shadow-md group-hover:bg-primary/80 transition-colors">
-                <AppIcon name="arrow_back" className="text-2xl" size={24} />
+          <label className="flex flex-col min-w-80 h-11 hidden md:flex">
+            <div className="flex w-full flex-1 items-center rounded-2xl h-full bg-secondary border border-transparent focus-within:border-primary/50 focus-within:shadow-sm transition-all duration-300">
+              <div className="text-muted-foreground flex items-center justify-center pl-4">
+                <AppIcon name="search" className="text-[22px]" size={22} />
               </div>
-              <h2 className="text-foreground text-2xl font-bold tracking-tight">Order<span className="font-light text-primary">Builder</span></h2>
+              <input
+                value={menuQuery}
+                onChange={(e) => setMenuQuery(e.target.value)}
+                className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-2xl bg-transparent border-none focus:ring-0 placeholder:text-muted-foreground/70 px-3 text-base font-medium text-foreground"
+                placeholder="Search menu..."
+              />
             </div>
-            <label className="flex flex-col min-w-80 h-11 hidden md:flex">
-              <div className="flex w-full flex-1 items-center rounded-2xl h-full bg-secondary border border-transparent focus-within:border-primary/50 focus-within:shadow-sm transition-all duration-300">
-                <div className="text-muted-foreground flex items-center justify-center pl-4">
-                  <AppIcon name="search" className="text-[22px]" size={22} />
-                </div>
-                <input
-                  value={menuQuery}
-                  onChange={(e) => setMenuQuery(e.target.value)}
-                  className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-2xl bg-transparent border-none focus:ring-0 placeholder:text-muted-foreground/70 px-3 text-base font-medium text-foreground"
-                  placeholder="Search menu..."
-                />
-              </div>
-            </label>
-          </div>
-        </header>
+          </label>
+        </div>
+      </header>
 
-        <main className="flex flex-1 overflow-hidden relative">
-          <section className="flex-1 flex overflow-hidden relative bg-secondary">
-            <div className="flex-1 flex flex-col min-w-0 bg-secondary overflow-hidden">
+      <main className="flex flex-1 overflow-hidden relative">
+        <section className="flex-1 flex overflow-hidden relative bg-secondary">
+          <div className="flex-1 flex flex-col min-w-0 bg-secondary overflow-hidden">
             <div className="px-6 pt-5 pb-4 shrink-0">
               <div className="min-w-0">
               </div>
@@ -197,8 +475,14 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                 {filteredProducts.map((p) => {
                   const isSoldOut = p.stock <= 0;
                   const isLowStock = !isSoldOut && p.stock <= 5;
-                  const statusLabel = isSoldOut ? 'Sold Out' : isLowStock ? 'Low Stock' : 'In Stock';
-                  const statusClass = isSoldOut
+                  const apiUnavailable = (p as any)?.available === false;
+                  const apiUnavailableReason = typeof (p as any)?.unavailableReason === 'string' ? String((p as any).unavailableReason).trim() : '';
+
+                  const ruleUnavailable = apiUnavailable || !isProductAvailable(p.id);
+                  const unavailableReason = apiUnavailableReason || getUnavailableReason(p.id);
+                  const isDisabled = isSoldOut || ruleUnavailable;
+                  const statusLabel = ruleUnavailable ? (unavailableReason || "86'd") : isSoldOut ? 'Sold Out' : isLowStock ? 'Low Stock' : 'In Stock';
+                  const statusClass = ruleUnavailable || isSoldOut
                     ? 'bg-red-500/20 text-red-400 border-red-500/30'
                     : isLowStock
                       ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
@@ -208,13 +492,13 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                     <button
                       key={p.id}
                       type="button"
-                      disabled={isSoldOut}
+                      disabled={isDisabled}
                       className={`group bg-card rounded-xl overflow-hidden border border-border hover:border-primary transition-all duration-200 text-left flex flex-col relative ${
-                        isSoldOut ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                        isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
                       }`}
                       onClick={() => {
-                        if (isSoldOut) return;
-                        addToCart(tableId, p.id);
+                        if (isDisabled) return;
+                        openEdit(p.id);
                       }}
                     >
                       <div className="absolute top-2 right-2 z-10">
@@ -238,7 +522,7 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
                         <h3 className="font-bold text-foreground text-base leading-snug mb-1 line-clamp-1">{p.name}</h3>
                         <p className="text-muted-foreground text-xs line-clamp-2 mb-3">{(p.description || p.category || '').trim() || ' '}</p>
                         <div className="mt-auto flex items-center justify-between">
-                          <span className="text-lg font-bold text-primary">ETB {p.price.toFixed(2)}</span>
+                          <span className="text-lg font-bold text-primary">ETB {Number(p.price || 0).toFixed(2)}</span>
                           <div
                             className={`size-8 rounded-lg flex items-center justify-center shadow-lg transition-transform ${
                               isSoldOut ? 'bg-secondary text-muted-foreground' : 'bg-primary text-primary-foreground shadow-primary/20 group-hover:scale-105'
@@ -284,6 +568,24 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
 
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
             {actionErr ? <div className="text-sm text-red-300 font-semibold">{actionErr}</div> : null}
+            {evaluation && evaluation.violations.length > 0 ? (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                <div className="text-xs font-bold text-red-300 uppercase tracking-wide mb-1">Cart Issues</div>
+                <ul className="text-sm text-red-200 space-y-1">
+                  {evaluation.violations.map((v, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <AppIcon name="error" className="text-red-300 shrink-0" size={16} />
+                      <span>{formatViolation(v)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {evaluating ? (
+              <div className="text-xs text-muted-foreground flex items-center gap-2">
+                <AppIcon name="sync" className="animate-spin" size={14} /> Checking rules...
+              </div>
+            ) : null}
 
             {!selectedTable?.openOrderId ? (
               <div className="bg-secondary p-4 rounded-2xl border border-border">
@@ -427,11 +729,13 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
       </aside>
 
       <Modal
-        open={editItemId != null}
-        title={editingItem ? `Edit: ${editingItem.name}` : 'Edit Item'}
+        open={Boolean(editItemId)}
+        title="Edit Item"
         onClose={() => {
           setEditItemId(null);
           setEditNote('');
+          setEditModifiers([]);
+          setEditModifierGroups([]);
         }}
         footer={
           <div className="flex gap-3">
@@ -445,25 +749,76 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
               Cancel
             </button>
             <button
+              type="button"
+              disabled={!canSaveModifiers}
               onClick={() => {
-                if (!editingItem) return;
-                setCartItemNote(tableId, editingItem.productId, editNote);
+                if (!editItemId) return;
+                const exists = cartItems.some((x) => x.productId === editItemId);
+                if (!exists) addToCart(tableId, editItemId);
+                setCartItemNote(tableId, editItemId, editNote);
+                setCartItemModifiers(tableId, editItemId, editModifiers);
                 setEditItemId(null);
                 setEditNote('');
+                setEditModifiers([]);
+                setEditModifierGroups([]);
               }}
-              className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-bold transition-colors"
+              className="h-11 px-4 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground font-extrabold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Save
             </button>
           </div>
         }
       >
-        <label className="block text-sm font-semibold text-muted-foreground mb-2">Item modifier / note</label>
+        <label className="block text-sm font-semibold text-muted-foreground mb-2">Modifiers</label>
+        {editModifiersLoading ? (
+          <div className="text-sm text-muted-foreground">Loading modifiers...</div>
+        ) : editModifierGroups.length ? (
+          <div className="space-y-3">
+            {editModifierGroups.map((g) => (
+              <div key={g.id} className="rounded-lg border border-border bg-background/40 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-bold text-foreground text-sm">{g.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {g.min || g.max ? `Required: ${g.min}${g.max ? `-${g.max}` : '+'}` : ''}
+                  </div>
+                </div>
+                {(() => {
+                  const v = modifierValidity.find((x) => x.id === g.id);
+                  if (!v) return null;
+                  if (v.ok) return null;
+                  const rangeLabel = v.max ? `${v.min}-${v.max}` : `${v.min}+`;
+                  return <div className="mt-1 text-xs text-destructive">Select {rangeLabel} (selected {v.count}).</div>;
+                })()}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {g.options.map((o) => {
+                    const token = `${g.id}:${o.id}`;
+                    const active = editModifiers.includes(token);
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => toggleModifier(g.id, o.id)}
+                        className={`h-9 px-3 rounded-lg border text-sm font-semibold transition-colors ${
+                          active ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border text-foreground hover:bg-secondary'
+                        }`}
+                      >
+                        {o.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">No modifiers for this item.</div>
+        )}
+
+        <label className="block text-sm font-semibold text-muted-foreground mt-5 mb-2">Note</label>
         <textarea
           value={editNote}
           onChange={(e) => setEditNote(e.target.value)}
-          className="w-full bg-secondary border border-border rounded-lg p-3 text-sm text-foreground placeholder-muted-foreground focus:ring-1 focus:ring-primary focus:border-primary transition-all resize-none h-28"
-          placeholder="e.g. No sugar, extra spicy, well-done, allergy notes..."
+          className="min-h-[110px] w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
         />
       </Modal>
     </div>

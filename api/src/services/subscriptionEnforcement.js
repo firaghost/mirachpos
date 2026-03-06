@@ -5,6 +5,29 @@
 
 const { db } = require('../db');
 
+const isMissingTableError = (e) => {
+  const code = String(e?.code || '').trim().toUpperCase();
+  if (code === 'ER_NO_SUCH_TABLE') return true;
+  const msg = String(e?.message || '').toLowerCase();
+  return msg.includes("doesn't exist") || msg.includes('no such table');
+};
+
+let hasSubscriptionsTablePromise = null;
+
+const hasSubscriptionsTable = async () => {
+  try {
+    if (!hasSubscriptionsTablePromise) {
+      hasSubscriptionsTablePromise = (async () => {
+        const has = await db().schema.hasTable('subscriptions');
+        return !!has;
+      })();
+    }
+    return await hasSubscriptionsTablePromise;
+  } catch {
+    return false;
+  }
+};
+
 // Plan configuration with limits
 const PLAN_LIMITS = {
   starter: {
@@ -61,27 +84,31 @@ const PLAN_LIMITS = {
  * Get current subscription for a tenant
  */
 async function getTenantSubscription(tenantId) {
-  const subscription = await db('subscriptions')
-    .where({ tenant_id: tenantId, status: 'active' })
-    .where('current_period_end', '>', new Date())
-    .orderBy('created_at', 'desc')
-    .first();
-  
-  if (!subscription) {
-    // Check if they have a trial
-    const trial = await db('subscriptions')
-      .where({ tenant_id: tenantId, status: 'trialing' })
-      .where('trial_end', '>', new Date())
+  if (!(await hasSubscriptionsTable())) return null;
+  try {
+    const subscription = await db()
+      .from('subscriptions')
+      .where({ tenant_id: tenantId, status: 'active' })
+      .where('current_period_end', '>', new Date())
+      .orderBy('created_at', 'desc')
       .first();
-    
-    if (trial) {
-      return { ...trial, isTrial: true };
+
+    if (!subscription) {
+      const trial = await db()
+        .from('subscriptions')
+        .where({ tenant_id: tenantId, status: 'trialing' })
+        .where('trial_end', '>', new Date())
+        .first();
+
+      if (trial) return { ...trial, isTrial: true };
+      return null;
     }
-    
-    return null; // No active subscription
+
+    return subscription;
+  } catch (e) {
+    if (isMissingTableError(e)) return null;
+    throw e;
   }
-  
-  return subscription;
 }
 
 /**
@@ -90,26 +117,30 @@ async function getTenantSubscription(tenantId) {
 async function getTenantUsage(tenantId, branchId = null) {
   const [devices, staff, tables, branches] = await Promise.all([
     // Count active devices/sessions
-    db('device_sessions')
+    db()
+      .from('device_sessions')
       .where({ tenant_id: tenantId })
-      .where('last_seen', '>', db.raw('datetime("now", "-1 hour")'))
+      .where('last_seen', '>', db().raw('datetime("now", "-1 hour")'))
       .count('id as count')
       .first(),
     
     // Count staff members
-    db('staff')
+    db()
+      .from('staff')
       .where({ tenant_id: tenantId, status: 'active' })
       .count('id as count')
       .first(),
     
     // Count tables
-    db('tables')
+    db()
+      .from('tables')
       .where({ tenant_id: tenantId, ...(branchId && { branch_id: branchId }) })
       .count('id as count')
       .first(),
     
     // Count branches
-    db('branches')
+    db()
+      .from('branches')
       .where({ tenant_id: tenantId, status: 'active' })
       .count('id as count')
       .first()
@@ -127,14 +158,36 @@ async function getTenantUsage(tenantId, branchId = null) {
  * Check if tenant is within plan limits
  */
 async function checkPlanLimits(tenantId, resourceType, branchId = null) {
-  const subscription = await getTenantSubscription(tenantId);
+  if (!(await hasSubscriptionsTable())) {
+    return {
+      allowed: true,
+      plan: 'pro',
+      isTrial: false,
+      limits: PLAN_LIMITS.pro,
+      usage: await getTenantUsage(tenantId, branchId),
+      checks: null,
+      bypassed: true,
+    };
+  }
+
+  let subscription;
+  try {
+    subscription = await getTenantSubscription(tenantId);
+  } catch (e) {
+    if (isMissingTableError(e)) {
+      return { allowed: true, plan: 'pro', isTrial: false, limits: PLAN_LIMITS.pro, usage: await getTenantUsage(tenantId, branchId), checks: null, bypassed: true };
+    }
+    throw e;
+  }
   
   if (!subscription) {
+    // Local/dev safety: if subscriptions table is missing we already bypassed above.
+    // If table exists but tenant has no subscription, block as before.
     return {
       allowed: false,
       error: 'NO_SUBSCRIPTION',
       message: 'No active subscription. Please subscribe to continue.',
-      upgradeUrl: '/billing'
+      upgradeUrl: '/billing',
     };
   }
   
@@ -196,14 +249,26 @@ async function checkPlanLimits(tenantId, resourceType, branchId = null) {
  * Check if feature is available in current plan
  */
 async function checkFeatureAccess(tenantId, featureName) {
-  const subscription = await getTenantSubscription(tenantId);
-  
+  if (!(await hasSubscriptionsTable())) {
+    return { allowed: true, plan: 'pro', feature: featureName, bypassed: true };
+  }
+
+  let subscription;
+  try {
+    subscription = await getTenantSubscription(tenantId);
+  } catch (e) {
+    if (isMissingTableError(e)) {
+      return { allowed: true, plan: 'pro', feature: featureName, bypassed: true };
+    }
+    throw e;
+  }
+
   if (!subscription) {
     return {
       allowed: false,
       error: 'NO_SUBSCRIPTION',
       message: 'Subscribe to access this feature.',
-      upgradeUrl: '/billing'
+      upgradeUrl: '/billing',
     };
   }
   

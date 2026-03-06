@@ -4,6 +4,7 @@ import { Screen } from '../../types';
 import { apiFetch } from '../../api';
 import { readSession } from '../../session';
 import { formatDeviceDate, formatDeviceTime } from '../../datetime';
+import PaymentTimeline from '../../components/PaymentTimeline';
 
 import { AppIcon } from '@/components/ui/app-icon';
 type PosSettingsResponse = {
@@ -969,6 +970,10 @@ export const WaiterReceipt: React.FC<Props> = ({ onNavigate }) => {
                 style={{ height: receiptFrameHeight, background: 'transparent' }}
               />
             </div>
+          </div>
+
+          <div className="mt-6">
+            <PaymentTimeline orderId={String(effectiveOrderTyped.id)} defaultCollapsed={true} refreshInterval={0} />
           </div>
         </div>
       </main>

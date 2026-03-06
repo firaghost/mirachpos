@@ -32,7 +32,7 @@ const makePosPrintQueueRouter = ({
     requireAuth,
     requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
     loadEntitlements,
-    requireModule('settings'),
+    requireModule('orders'),
     requirePermission('orders.read'),
     async (req, res, next) => {
       try {
@@ -48,9 +48,16 @@ const makePosPrintQueueRouter = ({
         const row = await db()
           .from('print_queue')
           .where({ tenant_id: req.tenant.id, branch_id: branchId, id: queueId })
-          .select(['id', 'order_id', 'device_id', 'fallback_device_id', 'status', 'payload_json', 'attempts'])
+          .select(['id', 'order_id', 'device_id', 'fallback_device_id', 'status', 'payload_json', 'attempts', 'dead_lettered_at', 'dead_letter_reason'])
           .first();
         if (!row) return res.status(404).json({ error: 'queue_item_not_found' });
+
+        if (row.dead_lettered_at) {
+          return res.status(409).json({
+            error: 'dead_lettered',
+            reason: row.dead_letter_reason ? String(row.dead_letter_reason) : null,
+          });
+        }
 
         const status = String(row.status || '').trim().toLowerCase();
         if (status === 'printed') return res.json({ ok: true, status: 'printed' });

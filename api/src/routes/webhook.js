@@ -16,6 +16,7 @@ const { verifyPayment } = require('../services/invoiceService');
 const { makeId } = require('../utils/ids');
 const { getGatewayConfig, verifyPaymentGateway, getTenantPosGatewayConfig } = require('../services/paymentGatewayService');
 const { handleStandingOrderWebhook } = require('../services/telebirrStandingOrderService');
+const { appendPaymentEvent } = require('../services/paymentEventsService');
 const { logger } = require('../utils/logger');
 
 const log = logger.child({ service: 'webhooks' });
@@ -27,6 +28,14 @@ const safeJsonParse = (raw, fallback) => {
         return parsed ?? fallback;
     } catch {
         return fallback;
+    }
+};
+
+const safeAppendPaymentEvent = async (args) => {
+    try {
+        await appendPaymentEvent(args);
+    } catch {
+        // ignore (allows code deploy before migrations)
     }
 };
 
@@ -385,6 +394,31 @@ const makeWebhookRouter = () => {
             const seen = await recordWebhookEvent({ gateway: 'chapa', eventKey: txRefKey });
             if (seen.ok && seen.duplicate) return res.status(200).send('OK');
 
+            await safeAppendPaymentEvent({
+                tenantId: txRef0 ? (await db().select(['tenant_id']).from('pos_payment_gateway_transactions').where({ tx_ref: txRef0, gateway: 'chapa' }).first())?.tenant_id || null : null,
+                branchId: null,
+                domain: 'webhook',
+                paymentRef: txRef0 ? `webhook:chapa:${txRef0}` : `webhook:chapa:${hash.slice(0, 16)}`,
+                orderId: null,
+                invoiceId: null,
+                operation: 'webhook.chapa',
+                eventType: 'webhook.received',
+                fromState: null,
+                toState: null,
+                amount: req.body?.amount != null ? Number(req.body.amount) : null,
+                currency: req.body?.currency || null,
+                paymentMethod: null,
+                gateway: 'chapa',
+                providerPaymentId: txRef0 || null,
+                providerEventId: String(req.body?.reference || '').trim() || null,
+                idempotencyKey: null,
+                requestHash: hash,
+                actorType: 'webhook',
+                actorId: null,
+                payload: req.body || null,
+                nowIso: new Date().toISOString(),
+            });
+
             const { tx_ref, status, amount, currency, reference } = req.body;
             log.info({ requestId, tx_ref, status, amount, currency }, 'Chapa webhook payload');
 
@@ -424,7 +458,14 @@ const makeWebhookRouter = () => {
                         await db()
                             .from('pos_payment_gateway_transactions')
                             .where({ id: posTx.id })
-                            .update({ status: 'completed', paid_at: orderRow.paid_at || new Date().toISOString(), webhook_payload_json: JSON.stringify(req.body), updated_at: new Date().toISOString() });
+                            .update({
+                                status: 'completed',
+                                state: 'captured',
+                                paid_at: orderRow.paid_at || new Date().toISOString(),
+                                captured_at: orderRow.paid_at || new Date().toISOString(),
+                                webhook_payload_json: JSON.stringify(req.body),
+                                updated_at: new Date().toISOString(),
+                            });
 
                         log.info({ requestId, tenantId, branchId, orderId, txRef }, 'Order already paid (idempotent)');
                         return res.status(200).send('Already Paid');
@@ -454,9 +495,36 @@ const makeWebhookRouter = () => {
 
                     await db().from('pos_payment_gateway_transactions').where({ id: posTx.id }).update({
                         status: 'completed',
+                        state: 'captured',
                         paid_at: nowIso,
+                        captured_at: nowIso,
                         webhook_payload_json: JSON.stringify(req.body),
                         updated_at: nowIso,
+                    });
+
+                    await safeAppendPaymentEvent({
+                        tenantId,
+                        branchId,
+                        domain: 'pos',
+                        paymentRef: `pos:pgt:${String(posTx.id)}`,
+                        orderId,
+                        invoiceId: null,
+                        operation: 'pos.capture',
+                        eventType: 'payment.capture.succeeded',
+                        fromState: String(posTx.state || 'pending_authorization'),
+                        toState: 'captured',
+                        amount: Number(orderRow.total || 0) || 0,
+                        currency: 'ETB',
+                        paymentMethod: 'Mobile Money',
+                        gateway: 'chapa',
+                        providerPaymentId: String(txRef),
+                        providerEventId: String(reference || '').trim() || null,
+                        idempotencyKey: null,
+                        requestHash: hash,
+                        actorType: 'webhook',
+                        actorId: null,
+                        payload: req.body || null,
+                        nowIso,
                     });
 
                     try {
@@ -532,15 +600,47 @@ const makeWebhookRouter = () => {
                     tenant_id: invoice.tenant_id,
                     method: 'chapa',
                     status: 'verified',
+                    state: 'captured',
                     amount_etb: amount,
                     currency: currency || 'ETB',
                     reference: reference || txRef,
                     gateway_response_json: JSON.stringify(req.body),
                     gateway_tx_id: reference,
+                    provider: 'chapa',
+                    provider_payment_id: reference || txRef,
+                    authorized_amount: 0,
+                    captured_amount: Number(amount || 0) || 0,
+                    refunded_amount: 0,
+                    last_idempotency_key: null,
                     verified_by: 'system',
                     verified_at: nowIso,
                     created_at: nowIso,
                     updated_at: nowIso
+                });
+
+                await safeAppendPaymentEvent({
+                    tenantId: invoice.tenant_id,
+                    branchId: null,
+                    domain: 'billing',
+                    paymentRef: `billing:payment:${String(paymentId)}`,
+                    orderId: null,
+                    invoiceId,
+                    operation: 'billing.capture',
+                    eventType: 'payment.capture.succeeded',
+                    fromState: 'pending_authorization',
+                    toState: 'captured',
+                    amount: Number(amount || 0) || 0,
+                    currency: currency || 'ETB',
+                    paymentMethod: 'chapa',
+                    gateway: 'chapa',
+                    providerPaymentId: String(reference || txRef || ''),
+                    providerEventId: String(reference || '').trim() || null,
+                    idempotencyKey: null,
+                    requestHash: hash,
+                    actorType: 'webhook',
+                    actorId: null,
+                    payload: req.body || null,
+                    nowIso,
                 });
 
                 // Trigger Verification Logic (Activates Subscription)
@@ -605,6 +705,31 @@ const makeWebhookRouter = () => {
             const tenantId = isPos ? String(posTx.tenant_id || '').trim() : '';
             const branchId = isPos ? String(posTx.branch_id || '').trim() : '';
             const orderId = isPos ? String(posTx.order_id || '').trim() : '';
+
+            await safeAppendPaymentEvent({
+                tenantId: tenantId || null,
+                branchId: branchId || null,
+                domain: isPos ? 'pos' : 'billing',
+                paymentRef: merchantRef ? `webhook:santimpay:${merchantRef}` : `webhook:santimpay:${txnId}`,
+                orderId: isPos ? orderId : null,
+                invoiceId: null,
+                operation: 'webhook.santimpay',
+                eventType: 'webhook.received',
+                fromState: null,
+                toState: null,
+                amount: req.body?.totalAmount != null ? Number(req.body.totalAmount) : null,
+                currency: 'ETB',
+                paymentMethod: null,
+                gateway: 'santimpay',
+                providerPaymentId: merchantRef || null,
+                providerEventId: txnId || null,
+                idempotencyKey: null,
+                requestHash: merchantRef ? crypto.createHash('sha256').update(merchantRef).digest('hex') : null,
+                actorType: 'webhook',
+                actorId: null,
+                payload: req.body || null,
+                nowIso: new Date().toISOString(),
+            });
 
             const publicKey = (() => {
                 if (isPos && tenantId) {
@@ -672,9 +797,36 @@ const makeWebhookRouter = () => {
 
                 await db().from('pos_payment_gateway_transactions').where({ id: posTx.id }).update({
                     status: 'completed',
+                    state: 'captured',
                     paid_at: orderRow.paid_at || nowIso,
+                    captured_at: orderRow.paid_at || nowIso,
                     webhook_payload_json: JSON.stringify(req.body),
                     updated_at: nowIso,
+                });
+
+                await safeAppendPaymentEvent({
+                    tenantId,
+                    branchId,
+                    domain: 'pos',
+                    paymentRef: `pos:pgt:${String(posTx.id)}`,
+                    orderId,
+                    invoiceId: null,
+                    operation: 'pos.capture',
+                    eventType: 'payment.capture.succeeded',
+                    fromState: String(posTx.state || 'pending_authorization'),
+                    toState: 'captured',
+                    amount: Number(posTx.amount || 0) || 0,
+                    currency: String(posTx.currency || 'ETB'),
+                    paymentMethod: 'SantimPay',
+                    gateway: 'santimpay',
+                    providerPaymentId: merchantRef,
+                    providerEventId: txnId || null,
+                    idempotencyKey: null,
+                    requestHash: null,
+                    actorType: 'webhook',
+                    actorId: null,
+                    payload: req.body || null,
+                    nowIso,
                 });
 
                 return res.status(200).send('OK');
@@ -715,15 +867,47 @@ const makeWebhookRouter = () => {
                 tenant_id: invoice.tenant_id,
                 method: 'santimpay',
                 status: 'verified',
+                state: 'captured',
                 amount_etb: amt,
                 currency: 'ETB',
                 reference: merchantRef,
                 gateway_response_json: JSON.stringify(req.body),
                 gateway_tx_id: txnId || null,
+                provider: 'santimpay',
+                provider_payment_id: txnId || merchantRef,
+                authorized_amount: 0,
+                captured_amount: amt,
+                refunded_amount: 0,
+                last_idempotency_key: null,
                 verified_by: 'system',
                 verified_at: nowIso,
                 created_at: nowIso,
                 updated_at: nowIso,
+            });
+
+            await safeAppendPaymentEvent({
+                tenantId: invoice.tenant_id,
+                branchId: null,
+                domain: 'billing',
+                paymentRef: `billing:payment:${String(paymentId)}`,
+                orderId: null,
+                invoiceId,
+                operation: 'billing.capture',
+                eventType: 'payment.capture.succeeded',
+                fromState: 'pending_authorization',
+                toState: 'captured',
+                amount: amt,
+                currency: 'ETB',
+                paymentMethod: 'santimpay',
+                gateway: 'santimpay',
+                providerPaymentId: String(txnId || merchantRef || ''),
+                providerEventId: String(txnId || ''),
+                idempotencyKey: null,
+                requestHash: null,
+                actorType: 'webhook',
+                actorId: null,
+                payload: req.body || null,
+                nowIso,
             });
 
             await verifyPayment({ paymentId, verifiedBy: 'system' });

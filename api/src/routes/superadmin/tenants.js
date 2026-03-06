@@ -295,6 +295,8 @@ const makeSuperadminTenantsRouter = () => {
           status: mapTenantStatusToUi(String(tenant.status || '')),
           plan: String(ent?.subscription?.tier || tenant.plan || ''),
           createdAt: toIso(tenant.created_at),
+          enabledModules: safeJsonParse(tenant.enabled_modules_json, []),
+          features: safeJsonParse(tenant.features_json, []),
           profile,
           metrics,
           subscription: ent?.subscription || null,

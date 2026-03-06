@@ -28,6 +28,8 @@ export enum Screen {
   WAITER_ACTIVE_ORDERS = 'WAITER_ACTIVE_ORDERS', // Active Orders
   WAITER_STATUS = 'WAITER_STATUS',        // Kitchen Status (Simple)
   WAITER_KDS = 'WAITER_KDS',              // Full KDS View
+  WAITER_KITCHEN = 'WAITER_KITCHEN',      // KDS 2.0 Kitchen Board
+  WAITER_EXPO = 'WAITER_EXPO',            // KDS 2.0 Expo Board
   WAITER_HISTORY = 'WAITER_HISTORY',      // Order History
   WAITER_NOTIFICATIONS = 'WAITER_NOTIFICATIONS',
   WAITER_SYSTEM = 'WAITER_SYSTEM',        // Connectivity
@@ -141,6 +143,7 @@ export interface PosOrderItem {
   name: string;
   unitPrice: number;
   qty: number;
+  modifiers?: string[];
   voidedQty?: number;
   note?: string;
   voidReason?: string;
