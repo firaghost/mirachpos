@@ -1,7 +1,7 @@
 {
   "name": "mirachpos",
   "private": true,
-  "version": "0.2.6",
+  "version": "0.3.1",
   "description": "MirachPOS desktop point-of-sale application.",
   "author": "MirachPos",
   "repository": {
