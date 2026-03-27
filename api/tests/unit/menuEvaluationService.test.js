@@ -86,7 +86,7 @@ describe('services/menuEvaluationService', () => {
 
   it('returns empty evaluation for empty cart', async () => {
     const res = await evaluateMenuCart({
-      db: dbMock,
+      db: dbMock(),
       tenantId: 't_test',
       branchId: 'b_1',
       at: new Date(),
@@ -101,7 +101,7 @@ describe('services/menuEvaluationService', () => {
   it('returns product_not_found when cart contains unknown product', async () => {
     seedMenu({ products: [] });
     const res = await evaluateMenuCart({
-      db: dbMock,
+      db: dbMock(),
       tenantId: 't_test',
       branchId: 'b_1',
       at: new Date(),
@@ -124,7 +124,7 @@ describe('services/menuEvaluationService', () => {
       ],
     });
     const res = await evaluateMenuCart({
-      db: dbMock,
+      db: dbMock(),
       tenantId: 't_test',
       branchId: 'b_1',
       at: new Date(),
@@ -153,7 +153,7 @@ describe('services/menuEvaluationService', () => {
       ],
     });
     const res = await evaluateMenuCart({
-      db: dbMock,
+      db: dbMock(),
       tenantId: 't_test',
       branchId: 'b_1',
       at: now,
@@ -177,7 +177,7 @@ describe('services/menuEvaluationService', () => {
       ],
     });
     const dineRes = await evaluateMenuCart({
-      db: dbMock,
+      db: dbMock(),
       tenantId: 't_test',
       branchId: 'b_1',
       at: now,
@@ -187,7 +187,7 @@ describe('services/menuEvaluationService', () => {
     expect(dineRes.effectivePriceByProductId.get('p1')).toBe(95);
 
     const takeawayRes = await evaluateMenuCart({
-      db: dbMock,
+      db: dbMock(),
       tenantId: 't_test',
       branchId: 'b_1',
       at: now,
@@ -205,7 +205,7 @@ describe('services/menuEvaluationService', () => {
       ],
     });
     const res = await evaluateMenuCart({
-      db: dbMock,
+      db: dbMock(),
       tenantId: 't_test',
       branchId: 'b_1',
       at: new Date(),
@@ -226,7 +226,7 @@ describe('services/menuEvaluationService', () => {
       ],
     });
     const res = await evaluateMenuCart({
-      db: dbMock,
+      db: dbMock(),
       tenantId: 't_test',
       branchId: 'b_1',
       at: new Date(),
@@ -247,7 +247,7 @@ describe('services/menuEvaluationService', () => {
       ],
     });
     const res = await evaluateMenuCart({
-      db: dbMock,
+      db: dbMock(),
       tenantId: 't_test',
       branchId: 'b_1',
       at: new Date(),
@@ -283,7 +283,7 @@ describe('services/menuEvaluationService', () => {
       ],
     });
     const res = await evaluateMenuCart({
-      db: dbMock,
+      db: dbMock(),
       tenantId: 't_test',
       branchId: 'b_1',
       at: new Date(),

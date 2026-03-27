@@ -3,10 +3,12 @@ const {
   checkFeatureAccess,
   requireSubscription,
   requireFeature,
+  __resetForTest,
 } = require('../../src/services/subscriptionEnforcement');
 
 describe('services/subscriptionEnforcement', () => {
   beforeEach(() => {
+    __resetForTest();
     global.__MIRACHPOS_DB_MOCK__?.reset?.();
 
     const state = global.__MIRACHPOS_DB_MOCK__?.state;

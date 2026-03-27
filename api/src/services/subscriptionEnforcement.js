@@ -28,6 +28,11 @@ const hasSubscriptionsTable = async () => {
   }
 };
 
+/** @internal – only for use in tests */
+const __resetForTest = () => {
+  hasSubscriptionsTablePromise = null;
+};
+
 // Plan configuration with limits
 const PLAN_LIMITS = {
   starter: {
@@ -116,28 +121,28 @@ async function getTenantSubscription(tenantId) {
  */
 async function getTenantUsage(tenantId, branchId = null) {
   const [devices, staff, tables, branches] = await Promise.all([
-    // Count active devices/sessions
+    // Count active devices/sessions (seen in last hour)
     db()
       .from('device_sessions')
       .where({ tenant_id: tenantId })
-      .where('last_seen', '>', db().raw('datetime("now", "-1 hour")'))
+      .where('last_seen', '>', new Date(Date.now() - 60 * 60 * 1000).toISOString())
       .count('id as count')
       .first(),
-    
+
     // Count staff members
     db()
       .from('staff')
       .where({ tenant_id: tenantId, status: 'active' })
       .count('id as count')
       .first(),
-    
+
     // Count tables
     db()
       .from('tables')
       .where({ tenant_id: tenantId, ...(branchId && { branch_id: branchId }) })
       .count('id as count')
       .first(),
-    
+
     // Count branches
     db()
       .from('branches')
@@ -145,7 +150,7 @@ async function getTenantUsage(tenantId, branchId = null) {
       .count('id as count')
       .first()
   ]);
-  
+
   return {
     devices: parseInt(devices.count) || 0,
     staff: parseInt(staff.count) || 0,
@@ -179,7 +184,7 @@ async function checkPlanLimits(tenantId, resourceType, branchId = null) {
     }
     throw e;
   }
-  
+
   if (!subscription) {
     // Local/dev safety: if subscriptions table is missing we already bypassed above.
     // If table exists but tenant has no subscription, block as before.
@@ -190,11 +195,11 @@ async function checkPlanLimits(tenantId, resourceType, branchId = null) {
       upgradeUrl: '/billing',
     };
   }
-  
+
   const plan = subscription.plan_id || 'starter';
   const limits = PLAN_LIMITS[plan.toLowerCase()] || PLAN_LIMITS.starter;
   const usage = await getTenantUsage(tenantId, branchId);
-  
+
   const checks = {
     devices: {
       current: usage.devices,
@@ -217,7 +222,7 @@ async function checkPlanLimits(tenantId, resourceType, branchId = null) {
       allowed: usage.branches < limits.maxBranches
     }
   };
-  
+
   if (resourceType && checks[resourceType]) {
     const check = checks[resourceType];
     if (!check.allowed) {
@@ -234,7 +239,7 @@ async function checkPlanLimits(tenantId, resourceType, branchId = null) {
       };
     }
   }
-  
+
   return {
     allowed: true,
     plan,
@@ -271,10 +276,10 @@ async function checkFeatureAccess(tenantId, featureName) {
       upgradeUrl: '/billing',
     };
   }
-  
+
   const plan = subscription.plan_id || 'starter';
   const limits = PLAN_LIMITS[plan.toLowerCase()] || PLAN_LIMITS.starter;
-  
+
   if (!limits.features[featureName]) {
     const requiredPlan = featureName === 'inventory' || featureName === 'kds' ? 'Growth' : 'Pro';
     return {
@@ -287,7 +292,7 @@ async function checkFeatureAccess(tenantId, featureName) {
       requiredPlan
     };
   }
-  
+
   return {
     allowed: true,
     plan,
@@ -302,13 +307,13 @@ function requireSubscription(resourceType = null) {
   return async (req, res, next) => {
     try {
       const tenantId = req.tenant?.id || req.user?.tenant_id;
-      
+
       if (!tenantId) {
         return res.status(400).json({ error: 'Tenant not identified' });
       }
-      
+
       const result = await checkPlanLimits(tenantId, resourceType, req.branch?.id);
-      
+
       if (!result.allowed) {
         return res.status(403).json({
           error: result.error,
@@ -320,7 +325,7 @@ function requireSubscription(resourceType = null) {
           isTrial: result.isTrial
         });
       }
-      
+
       // Attach subscription info to request
       req.subscription = result;
       next();
@@ -338,13 +343,13 @@ function requireFeature(featureName) {
   return async (req, res, next) => {
     try {
       const tenantId = req.tenant?.id || req.user?.tenant_id;
-      
+
       if (!tenantId) {
         return res.status(400).json({ error: 'Tenant not identified' });
       }
-      
+
       const result = await checkFeatureAccess(tenantId, featureName);
-      
+
       if (!result.allowed) {
         return res.status(403).json({
           error: result.error,
@@ -354,7 +359,7 @@ function requireFeature(featureName) {
           requiredPlan: result.requiredPlan
         });
       }
-      
+
       next();
     } catch (err) {
       console.error('Feature check error:', err);
@@ -369,7 +374,7 @@ function requireFeature(featureName) {
 async function getSubscriptionStatus(tenantId) {
   const subscription = await getTenantSubscription(tenantId);
   const usage = await getTenantUsage(tenantId);
-  
+
   if (!subscription) {
     return {
       active: false,
@@ -378,10 +383,10 @@ async function getSubscriptionStatus(tenantId) {
       upgradeRequired: true
     };
   }
-  
+
   const plan = subscription.plan_id || 'starter';
   const limits = PLAN_LIMITS[plan.toLowerCase()] || PLAN_LIMITS.starter;
-  
+
   // Calculate usage percentages
   const usagePercentages = {
     devices: Math.round((usage.devices / limits.maxDevices) * 100),
@@ -389,7 +394,7 @@ async function getSubscriptionStatus(tenantId) {
     tables: Math.round((usage.tables / limits.maxTables) * 100),
     branches: Math.round((usage.branches / limits.maxBranches) * 100)
   };
-  
+
   return {
     active: true,
     status: subscription.status,
@@ -419,5 +424,6 @@ module.exports = {
   checkFeatureAccess,
   requireSubscription,
   requireFeature,
-  getSubscriptionStatus
+  getSubscriptionStatus,
+  __resetForTest,
 };
