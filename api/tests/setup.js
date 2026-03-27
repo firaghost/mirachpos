@@ -146,6 +146,7 @@ const buildQuery = () => {
         offset: 0,
         pendingInsertRow: null,
         pendingMergePatch: null,
+        orGroups: [], // Array of { type: 'null'|'value', col, value? }[] - each inner array is OR'd
     };
 
     const normalizeCol = (c) => {
@@ -198,16 +199,57 @@ const buildQuery = () => {
 
         const afterMulti = out.length;
 
-        // Apply fallback whereNull if not handled by multi
+        // Apply fallback whereNull if not handled by multi or OR groups
         if (ctx.whereNullSet.size) {
+            // Collect columns handled by OR groups
+            const orGroupCols = new Set();
+            for (const group of ctx.orGroups) {
+                for (const cond of group.conditions) {
+                    if (cond.type === 'null') orGroupCols.add(cond.col);
+                }
+            }
             out = out.filter((r) => {
                 for (const col of ctx.whereNullSet) {
                     if (ctx.whereMulti[col]) continue; // already handled
+                    if (orGroupCols.has(col)) continue; // handled by OR group
                     if (r?.[col] != null) return false;
                 }
                 return true;
             });
             fs.appendFileSync('debug.log', `FILTER [${ctx.table}] whereNullSet before=${afterMulti} after=${out.length}\n`);
+        }
+
+        // Apply OR groups (each group: row matches if ANY condition in group is true)
+        if (ctx.orGroups.length) {
+            out = out.filter((r) => {
+                return ctx.orGroups.every((group) => {
+                    if (!group.conditions.length) return true;
+                    return group.conditions.some((cond) => {
+                        if (cond.type === 'null') {
+                            return r?.[cond.col] == null;
+                        }
+                        if (cond.type === 'value') {
+                            const lhs = r?.[cond.col];
+                            const rhs = cond.value;
+                            const cmp = compare(lhs, rhs);
+                            switch (cond.op) {
+                                case '<':
+                                    return cmp < 0;
+                                case '<=':
+                                    return cmp <= 0;
+                                case '>':
+                                    return cmp > 0;
+                                case '>=':
+                                    return cmp >= 0;
+                                case '=':
+                                default:
+                                    return String(lhs ?? '') === String(rhs ?? '');
+                            }
+                        }
+                        return false;
+                    });
+                });
+            });
         }
 
         if (Array.isArray(ctx.whereOps) && ctx.whereOps.length) {
@@ -349,7 +391,11 @@ const buildQuery = () => {
         orWhere: jest.fn((arg1, arg2, arg3) => {
             if (typeof arg1 === 'string') {
                 if (typeof arg3 !== 'undefined') {
-                    ctx.whereOps.push({ col: normalizeCol(arg1), op: String(arg2 || '='), value: arg3 });
+                    // Start a new OR group if not continuing one
+                    if (!ctx.orGroups.length || ctx.orGroups[ctx.orGroups.length - 1].closed) {
+                        ctx.orGroups.push({ conditions: [], closed: false });
+                    }
+                    ctx.orGroups[ctx.orGroups.length - 1].conditions.push({ type: 'value', col: normalizeCol(arg1), op: String(arg2 || '='), value: arg3 });
                 } else {
                     addCriteria(arg1, arg2);
                 }
@@ -380,16 +426,32 @@ const buildQuery = () => {
         }),
         orWhereBetween: jest.fn(() => q),
         whereNull: jest.fn((col) => {
-            ctx.whereNullSet.add(normalizeCol(col));
+            const c = normalizeCol(col);
+            ctx.whereNullSet.add(c);
+            // Track as OR group for proper OR-with-value semantics
+            if (!ctx.orGroups.length || ctx.orGroups[ctx.orGroups.length - 1].closed) {
+                ctx.orGroups.push({ conditions: [], closed: false });
+            }
+            ctx.orGroups[ctx.orGroups.length - 1].conditions.push({ type: 'null', col: c });
             return q;
         }),
         orWhereNull: jest.fn((col) => {
-            ctx.whereNullSet.add(normalizeCol(col));
+            const c = normalizeCol(col);
+            ctx.whereNullSet.add(c);
+            // Add to existing OR group if available
+            if (ctx.orGroups.length && !ctx.orGroups[ctx.orGroups.length - 1].closed) {
+                ctx.orGroups[ctx.orGroups.length - 1].conditions.push({ type: 'null', col: c });
+            } else {
+                ctx.orGroups.push({ conditions: [{ type: 'null', col: c }], closed: false });
+            }
             return q;
         }),
         andWhere: jest.fn((arg1, arg2, arg3) => {
             if (typeof arg1 === 'function') {
+                // Start a new OR group for the callback
+                ctx.orGroups.push({ conditions: [], closed: false });
                 arg1.call(q, q);
+                ctx.orGroups[ctx.orGroups.length - 1].closed = true;
                 return q;
             }
             if (typeof arg1 === 'string' && typeof arg3 !== 'undefined') {
@@ -568,6 +630,18 @@ const buildQuery = () => {
             }
         },
     };
+
+    // Make the query object behave like a root Knex instance too
+    // This allows sequences like: await db.from('t1')...; await db.from('t2')...;
+    const originalFrom = q.from;
+    q.from = jest.fn((t) => {
+        // If this builder already has a table or where clauses, spawn a new one
+        if (ctx.table || Object.keys(ctx.whereMulti).length || ctx.whereOps.length) {
+            return buildQuery().from(t);
+        }
+        return originalFrom(t);
+    });
+
     return q;
 };
 
@@ -601,7 +675,6 @@ global.__MIRACHPOS_DB_MOCK__ = {
         state.tables.superadmins = [];
         state.tables.jobs = [];
         state.tables.tenant_pos_payment_gateways = [];
-        // menu tables
         state.tables.menu_products = [];
         state.tables.menu_rule_sets = [];
         state.tables.menu_rules = [];
@@ -610,7 +683,6 @@ global.__MIRACHPOS_DB_MOCK__ = {
         state.tables.menu_modifier_groups = [];
         state.tables.menu_modifier_options = [];
         state.tables.menu_product_modifier_groups = [];
-        // subscription / device tables
         state.tables.subscriptions = [];
         state.tables.device_sessions = [];
         state.tables.staff = [];
@@ -637,8 +709,6 @@ jest.mock('../src/db', () => ({
     db: (table) => global.__MIRACHPOS_DB_MOCK__.db(table),
     initDb: jest.fn(async () => global.__MIRACHPOS_DB_MOCK__.db()),
 }));
-
-
 
 jest.mock('../src/services/paymentGatewayService', () => ({
     getGatewayConfig: jest.fn(async () => ({ enabled: false })),

@@ -42,6 +42,7 @@ const seedMenu = ({ products = [], ruleSets = [], rules = [], availability = [],
     order_types_json: JSON.stringify(rs.orderTypes || null),
     updated_at: new Date().toISOString(),
   }));
+  console.log('[DEBUG] After seeding, menu_rule_sets length:', state.tables.menu_rule_sets.length);
   state.tables.menu_rules = rules.map((r) => ({
     id: String(r.id),
     tenant_id: r.tenantId || 't_test',
@@ -323,7 +324,7 @@ describe('services/menuEvaluationService', () => {
       ],
     });
     const res = await evaluateMenuCart({
-      db: dbMock,
+      db: dbMock(),
       tenantId: 't_test',
       branchId: 'b_1',
       at: new Date(),

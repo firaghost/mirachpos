@@ -95,7 +95,7 @@ const normalizeActiveRuleSets = ({ rows, at, orderType }) => {
       return true;
     })
     .sort((a, b) => {
-      if (b.priority !== a.priority) return b.priority - a.priority;
+      if (b.priority !== a.priority) return a.priority - b.priority;
       const aBranch = a.branchId ? 1 : 0;
       const bBranch = b.branchId ? 1 : 0;
       if (bBranch !== aBranch) return bBranch - aBranch;
