@@ -131,6 +131,7 @@ const state = {
 const buildQuery = () => {
     const ctx = {
         table: '',
+        where: {},
         whereMulti: {}, // col -> Set
         whereNullSet: new Set(),
         whereOps: [],
@@ -162,6 +163,7 @@ const buildQuery = () => {
     const normalizeWhereObject = (w) => {
         if (!w || typeof w !== 'object') return;
         for (const [k, v] of Object.entries(w)) addCriteria(k, v);
+        ctx.where = { ...(ctx.where || {}), ...w };
     };
 
     const toComparable = (v) => {
@@ -337,6 +339,7 @@ const buildQuery = () => {
                     ctx.whereOps.push({ col, op: String(arg2 || '='), value: arg3 });
                 } else if (typeof arg2 !== 'undefined') {
                     addCriteria(col, arg2);
+                    ctx.where[col] = arg2;
                 }
                 return q;
             }
@@ -395,6 +398,7 @@ const buildQuery = () => {
             }
             if (typeof arg1 === 'string' && typeof arg2 !== 'undefined') {
                 addCriteria(arg1, arg2);
+                ctx.where[normalizeCol(arg1)] = arg2;
                 return q;
             }
             normalizeWhereObject(arg1);

@@ -116,7 +116,6 @@ const projectTicketFromEvents = (events) => {
       state.bumpedAt = at;
     } else if (type === EVENT_TYPE.TICKET_RECALLED) {
       state.status = TICKET_STATUS.RECALLED;
-      state.bumpedAt = state.bumpedAt;
     }
   }
 

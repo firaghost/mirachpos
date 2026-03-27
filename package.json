@@ -16,7 +16,12 @@
   "overrides": {
     "whitebird": "file:vendor/whitebird",
     "@electron/rebuild": "^4.0.2",
-    "tar": "^7.5.6"
+    "tar": "^7.5.13",
+    "flatted": "^3.4.2",
+    "picomatch": "^4.0.4",
+    "yaml": "^2.8.3",
+    "brace-expansion": "^5.0.5",
+    "minimatch": "^10.0.3"
   },
   "scripts": {
     "postinstall": "node -e \"process.exit(process.env.VERCEL ? 0 : 1)\" || (patch-package && electron-builder install-app-deps) || exit 0",
@@ -55,7 +60,7 @@
     "electron-updater": "^6.6.2",
     "exceljs": "^4.4.0",
     "firebase": "^12.9.0",
-    "jspdf": "^4.0.0",
+    "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.542.0",
     "react": "^19.2.3",

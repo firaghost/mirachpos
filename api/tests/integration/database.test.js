@@ -92,7 +92,7 @@ describe('Database Tests', () => {
   
   describe('Indexes', () => {
     it('should have indexes on frequently queried columns', async () => {
-      const indexes = await db.db.raw(`
+      const indexes = await db.db().raw(`
         SELECT INDEX_NAME, COLUMN_NAME 
         FROM information_schema.STATISTICS 
         WHERE TABLE_SCHEMA = ? 
