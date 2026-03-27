@@ -18,6 +18,41 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
   const [usersError, setUsersError] = useState<string | null>(null);
   const [users, setUsers] = useState<any[]>([]);
 
+  const waiterFeaturePresets = useMemo(() => {
+    const core = ['waiter_workspace_v2', 'waiter_floor', 'waiter_menu', 'waiter_cart'];
+    const squareLike = [...core, 'waiter_quick_sale', 'waiter_tenders_basic', 'waiter_receipt'];
+    const toastLike = [
+      ...core,
+      'waiter_quick_sale',
+      'waiter_tenders_basic',
+      'waiter_receipt',
+      'waiter_kds',
+      'waiter_orders_active',
+      'waiter_history',
+      'waiter_voids',
+      'waiter_discounts',
+      'waiter_table_assignment',
+    ];
+    const full = [
+      ...toastLike,
+      'waiter_kds_expo',
+      'waiter_drafts',
+      'waiter_notifications',
+      'waiter_shift_report',
+      'waiter_system_status',
+      'waiter_takeaway',
+      'waiter_tips',
+      'waiter_payments',
+    ];
+
+    return {
+      minimal: { label: 'Minimal', keys: core },
+      square: { label: 'Square-like', keys: squareLike },
+      toast: { label: 'Toast-like', keys: toastLike },
+      full: { label: 'Full', keys: full },
+    };
+  }, []);
+
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [paySaving, setPaySaving] = useState(false);
@@ -163,6 +198,17 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
 
   const toggleFeature = (flag: string) => {
     setFeatures((prev) => (prev.includes(flag) ? prev.filter((f) => f !== flag) : [...prev, flag]));
+  };
+
+  const applyFeaturePreset = (keys: string[]) => {
+    const keep = new Set(
+      features
+        .map((f) => String(f || '').trim())
+        .filter(Boolean)
+        .filter((f) => !f.startsWith('waiter_')),
+    );
+    for (const k of keys) keep.add(String(k));
+    setFeatures(Array.from(keep));
   };
 
   const fetchUsers = async () => {
@@ -1082,11 +1128,61 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                           </button>
                         );
                       })}
+
+                      <div className="mt-3 text-xs">
+                        {hasUnsavedAccessChanges ? (
+                          <div className="text-primary font-semibold">Unsaved changes</div>
+                        ) : (
+                          <div className="text-muted-foreground">No pending changes</div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="bg-muted/40 border border-border rounded-lg p-4">
-                      <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Feature Flags</div>
-                      {[{ key: 'loyalty', icon: 'loyalty', label: 'Loyalty Program' }, { key: 'kds', icon: 'restaurant', label: 'Kitchen Display (KDS)' }, { key: 'kds_expo', icon: 'restaurant', label: 'KDS Expo Board' }, { key: 'public_api', icon: 'api', label: 'Public API' }].map((f) => {
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Feature Flags</div>
+                        <div className="flex items-center gap-2">
+                          {(Object.keys(waiterFeaturePresets) as Array<keyof typeof waiterFeaturePresets>).map((k) => (
+                            <button
+                              key={String(k)}
+                              type="button"
+                              onClick={() => applyFeaturePreset(waiterFeaturePresets[k].keys)}
+                              className="h-8 px-3 rounded-lg border border-border bg-card text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-accent"
+                            >
+                              {waiterFeaturePresets[k].label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Waiter Workspace presets update only keys starting with <span className="font-mono">waiter_</span>.
+                      </div>
+
+                      <div className="mt-4 text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Waiter Workspace</div>
+                      {[
+                        { key: 'waiter_workspace_v2', icon: 'dashboard', label: 'Unified Workspace (v2)' },
+                        { key: 'waiter_floor', icon: 'table_restaurant', label: 'Floor / Tables' },
+                        { key: 'waiter_menu', icon: 'restaurant_menu', label: 'Menu / Items' },
+                        { key: 'waiter_cart', icon: 'shopping_cart', label: 'Cart / Review' },
+                        { key: 'waiter_takeaway', icon: 'takeout_dining', label: 'Takeaway / Order Type' },
+                        { key: 'waiter_orders_active', icon: 'receipt_long', label: 'Active Orders' },
+                        { key: 'waiter_history', icon: 'history', label: 'History' },
+                        { key: 'waiter_drafts', icon: 'drafts', label: 'Draft Inbox' },
+                        { key: 'waiter_notifications', icon: 'notifications', label: 'Notifications' },
+                        { key: 'waiter_kds', icon: 'restaurant', label: 'Kitchen Display (KDS)' },
+                        { key: 'waiter_kds_expo', icon: 'soup_kitchen', label: 'Expo Board' },
+                        { key: 'waiter_payments', icon: 'payments', label: 'Payments Screen' },
+                        { key: 'waiter_tenders_basic', icon: 'payments', label: 'Basic Tenders (Cash / Transfer / Check)' },
+                        { key: 'waiter_tips', icon: 'favorite', label: 'Tips' },
+                        { key: 'waiter_receipt', icon: 'receipt', label: 'Receipt / Print' },
+                        { key: 'waiter_voids', icon: 'block', label: 'Void Items / Orders' },
+                        { key: 'waiter_discounts', icon: 'percent', label: 'Discounts' },
+                        { key: 'waiter_table_assignment', icon: 'badge', label: 'Table Assignment / Impersonation' },
+                        { key: 'waiter_quick_sale', icon: 'bolt', label: 'Quick Sale / Walk-in' },
+                        { key: 'waiter_shift_report', icon: 'summarize', label: 'Shift Report' },
+                        { key: 'waiter_system_status', icon: 'monitor_heart', label: 'System Status' },
+                      ].map((f) => {
                         const active = features.includes(f.key);
                         return (
                           <button
@@ -1104,13 +1200,24 @@ export const SA_TenantDetails: React.FC<{ onBack: () => void; onNavigate?: (scre
                         );
                       })}
 
-                      <div className="mt-3 text-xs">
-                        {hasUnsavedAccessChanges ? (
-                          <div className="text-primary font-semibold">Unsaved changes</div>
-                        ) : (
-                          <div className="text-muted-foreground">No pending changes</div>
-                        )}
-                      </div>
+                      <div className="mt-4 text-[11px] text-muted-foreground uppercase tracking-wider font-bold mb-2">Platform Features</div>
+                      {[{ key: 'loyalty', icon: 'loyalty', label: 'Loyalty Program' }, { key: 'kds', icon: 'restaurant', label: 'Kitchen Display (KDS)' }, { key: 'kds_expo', icon: 'restaurant', label: 'KDS Expo Board' }, { key: 'public_api', icon: 'api', label: 'Public API' }].map((f) => {
+                        const active = features.includes(f.key);
+                        return (
+                          <button
+                            key={f.key}
+                            type="button"
+                            onClick={() => toggleFeature(f.key)}
+                            className="w-full flex items-center justify-between p-3 hover:bg-accent rounded-md transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <AppIcon name={f.icon} className="text-muted-foreground" />
+                              <span className="text-foreground text-sm">{f.label}</span>
+                            </div>
+                            <AppIcon name={active ? 'toggle_on' : 'toggle_off'} className={`text-[20px] ${active ? 'text-primary' : 'text-muted-foreground opacity-50'}`} size={20} />
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

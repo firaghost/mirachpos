@@ -262,22 +262,27 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
     qs.set('from', isoDay);
     qs.set('to', isoDay);
 
-    const res = await apiFetch(`/api/waiter/history/export/pdf?${qs.toString()}`);
-    if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
+    try {
+      const res = await apiFetch(`/api/waiter/history/export/pdf?${qs.toString()}`);
+      if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
 
-    const blob = await res.blob();
-    const cd = res.headers.get('content-disposition') || '';
-    const m = /filename="?([^";]+)"?/i.exec(cd);
-    const filename = m?.[1] ? String(m[1]) : `daily_sales_${isoDay}.pdf`;
+      const blob = await res.blob();
+      const cd = res.headers.get('content-disposition') || '';
+      const m = /filename="?([^";]+)"?/i.exec(cd);
+      const filename = m?.[1] ? String(m[1]) : `daily_sales_${isoDay}.pdf`;
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Export failed';
+      setError(msg.includes('Failed to fetch') ? 'Export blocked by browser/extension. Disable adblock or allow this site.' : msg);
+    }
   };
 
   const pageCount = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [pageSize, total]);

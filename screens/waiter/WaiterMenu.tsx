@@ -177,6 +177,28 @@ export const WaiterMenu: React.FC<Props> = ({ onNavigate }) => {
           return;
         }
 
+        // Handle product_not_found errors - remove missing products from cart
+        if (json && typeof json === 'object' && json.error === 'product_not_found' && Array.isArray(json.productIds)) {
+          const missingIds = json.productIds.map((id: any) => String(id || '').trim()).filter(Boolean);
+          for (const pid of missingIds) {
+            if (cartItems.some((ci) => ci.productId === pid)) {
+              setCartQty(tableId, pid, 0);
+            }
+          }
+          if (missingIds.length) {
+            const first = missingIds[0];
+            const name = products.find((p) => p.id === first)?.name;
+            setActionErr(`Product ${name || missingIds[0]} not found and was removed from cart.`);
+          }
+          return;
+        }
+
+        // Handle branch_required error
+        if (json && typeof json === 'object' && json.error === 'branch_required') {
+          setActionErr('Branch context required. Please select a branch.');
+          return;
+        }
+
         setEvaluation(null);
       } catch {
         setEvaluation(null);

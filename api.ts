@@ -170,15 +170,25 @@ export const apiFetch = async (input: RequestInfo | URL, init: ApiFetchOptions =
     const isRelativeApi = input.startsWith('/api/');
     const isFileProtocol = typeof window !== 'undefined' && window.location?.protocol === 'file:';
 
-    // If an owner is using manager endpoints, many routes require branchId.
-    // Auto-append branchId from local selection when missing.
+    // Many POS routes require branch context. If the token lacks a concrete branchId,
+    // auto-append branchId from local selection when missing.
     let pathWithQuery = input;
     try {
-      if (input.startsWith('/api/manager/')) {
+      const isBranchScoped =
+        input.startsWith('/api/manager/') ||
+        input.startsWith('/api/pos/') ||
+        input.startsWith('/api/waiter/');
+
+      if (isBranchScoped) {
         const s = readSession<any>();
         const role = typeof s?.role === 'string' ? s.role : '';
         const tokenBranch = typeof s?.branchId === 'string' ? s.branchId : '';
-        if (role === 'Cafe Owner' && (!tokenBranch || tokenBranch === 'global')) {
+
+        const needsQueryBranch =
+          (role === 'Cafe Owner' || role === 'Branch Manager' || role === 'Waiter Manager' || role === 'Waiter') &&
+          (!tokenBranch || tokenBranch === 'global');
+
+        if (needsQueryBranch) {
           const hasBranchId = /[?&]branchId=/.test(input);
           if (!hasBranchId) {
             const selected =

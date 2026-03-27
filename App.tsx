@@ -65,6 +65,7 @@ const WaiterSettings = React.lazy(() => import('./screens/waiter/WaiterSettings'
 const WaiterShiftReport = React.lazy(() => import('./screens/waiter/WaiterShiftReport').then((m) => ({ default: m.WaiterShiftReport })));
 
 const ServiceWorkspace = React.lazy(() => import('./screens/waiter/ServiceWorkspace').then((m) => ({ default: m.ServiceWorkspace })));
+const Workspace = React.lazy(() => import('./screens/workspace/Workspace').then((m) => ({ default: m.Workspace })));
 
 const Inventory = React.lazy(() => import('./screens/Inventory').then((m) => ({ default: m.Inventory })));
 const Finance = React.lazy(() => import('./screens/Finance').then((m) => ({ default: m.Finance })));
@@ -212,6 +213,14 @@ const writeLastScreen = (screen: Screen) => {
   }
 };
 
+const normalizeBranchId = (raw: unknown) => {
+  const s = String(raw ?? '').trim();
+  if (!s) return 'global';
+  if (s === 'global') return 'global';
+  if (s.startsWith('b_') && !s.startsWith('br_')) return `br_${s.slice(2)}`;
+  return s;
+};
+
 const AppContent: React.FC = () => {
   useEffect(() => {
     try {
@@ -225,7 +234,7 @@ const AppContent: React.FC = () => {
       const staffId = String(qs.get('staffId') || '').trim();
       const staffName = String(qs.get('staffName') || '').trim();
       const roleRaw = String(qs.get('role') || '').trim();
-      const branchId = String(qs.get('branchId') || 'global').trim() || 'global';
+      const branchId = normalizeBranchId(String(qs.get('branchId') || 'global'));
       const permissionsRaw = String(qs.get('permissions') || '').trim();
 
       if (!token || !tenantSlug || !tenantId || !roleRaw) return;
@@ -595,19 +604,11 @@ const AppContent: React.FC = () => {
 
   const serviceWorkspaceEnabled = (() => {
     if (features.includes('service_workspace_v1')) return true;
-    try {
-      const raw = String(localStorage.getItem('mirachpos.serviceWorkspace.v1') || '').trim();
-      if (raw === '1') return true;
-    } catch {
-      // ignore
-    }
-    try {
-      const qs = new URLSearchParams(window.location.search || '');
-      return String(qs.get('serviceUi') || '').trim() === '1';
-    } catch {
-      return false;
-    }
+    if (features.includes('waiter_workspace_v2')) return true;
+    return false;
   })();
+
+  const waiterWorkspaceV2Enabled = features.includes('waiter_workspace_v2');
 
   const [upgradeModalDismissed, setUpgradeModalDismissed] = useState(false);
   const [moduleBlocked, setModuleBlocked] = useState<{ error: string; module: string; path: string } | null>(null);
@@ -1246,19 +1247,39 @@ const AppContent: React.FC = () => {
           {/* WAITER SPECIFIC SCREENS */}
           {serviceWorkspaceEnabled && (userRole === UserRole.WAITER || userRole === UserRole.WAITER_MANAGER) && isServiceWorkspaceRoute &&
             canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && (
-              <ServiceWorkspace
-                currentScreen={currentScreen}
-                onNavigate={navigate}
-                posUiV2Enabled={posUiV2Enabled}
-                expoEnabled={expoEnabled}
-                inlineReviewEnabled={serviceInlineReviewEnabled}
-                inlineActiveEnabled={serviceInlineActiveEnabled}
-                inlineKitchenEnabled={serviceInlineKitchenEnabled}
-                inlineExpoEnabled={serviceInlineExpoEnabled}
-                inlineNotificationsEnabled={serviceInlineNotificationsEnabled}
-                inlineSystemEnabled={serviceInlineSystemEnabled}
-                inlineSecurityEnabled={serviceInlineSecurityEnabled}
-              />
+              waiterWorkspaceV2Enabled ? (
+                currentScreen === Screen.WAITER_REVIEW ? (
+                  <WaiterOrderReview onNavigate={navigate} />
+                ) : currentScreen === Screen.WAITER_PAYMENT ? (
+                  <WaiterPayment onNavigate={navigate} />
+                ) : currentScreen === Screen.WAITER_RECEIPT ? (
+                  <WaiterReceipt onNavigate={navigate} />
+                ) : (currentScreen === Screen.WAITER_STATUS || currentScreen === Screen.WAITER_KDS || currentScreen === Screen.WAITER_KITCHEN) ? (
+                  <KitchenBoard onNavigate={navigate} />
+                ) : currentScreen === Screen.WAITER_EXPO ? (
+                  expoEnabled ? <ExpoBoard onNavigate={navigate} /> : <KitchenBoard onNavigate={navigate} />
+                ) : (
+                  <Workspace
+                    currentScreen={currentScreen}
+                    onNavigate={navigate}
+                    posUiV2Enabled={posUiV2Enabled}
+                  />
+                )
+              ) : (
+                <ServiceWorkspace
+                  currentScreen={currentScreen}
+                  onNavigate={navigate}
+                  posUiV2Enabled={posUiV2Enabled}
+                  expoEnabled={expoEnabled}
+                  inlineReviewEnabled={serviceInlineReviewEnabled}
+                  inlineActiveEnabled={serviceInlineActiveEnabled}
+                  inlineKitchenEnabled={serviceInlineKitchenEnabled}
+                  inlineExpoEnabled={serviceInlineExpoEnabled}
+                  inlineNotificationsEnabled={serviceInlineNotificationsEnabled}
+                  inlineSystemEnabled={serviceInlineSystemEnabled}
+                  inlineSecurityEnabled={serviceInlineSecurityEnabled}
+                />
+              )
             )}
 
           {(!serviceWorkspaceEnabled || !isServiceWorkspaceRoute) && (

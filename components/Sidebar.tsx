@@ -88,6 +88,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
 
   const showItem = (screen: Screen) => canAccessScreenWithPermissions(role, screen, subscription, permissions);
 
+  const waiterFeatureMode = useMemo(() => features.some((f) => String(f).startsWith('waiter_')), [features]);
+
+  const showWaiterFeature = useCallback(
+    (featureKey: string) => {
+      if (!waiterFeatureMode) return true;
+      return features.includes(featureKey);
+    },
+    [features, waiterFeatureMode]
+  );
+
   useEffect(() => {
     const onChanged = () => {
       setSubscription(readSubscription());
@@ -406,23 +416,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
         {(role === UserRole.WAITER || role === UserRole.WAITER_MANAGER) && (
           <>
             <Section title="Live Operations">
-              <NavItem screen={Screen.WAITER_DASHBOARD} icon="grid_view" label="Floor Map" />
-              <NavItem screen={Screen.WAITER_MENU} icon="restaurant_menu" label="Order Builder" />
-              <NavItem screen={Screen.WAITER_ACTIVE_ORDERS} icon="receipt_long" label="Active Orders" />
+              {showWaiterFeature('waiter_floor') ? <NavItem screen={Screen.WAITER_DASHBOARD} icon="grid_view" label="Floor Map" /> : null}
+              {showWaiterFeature('waiter_menu') ? <NavItem screen={Screen.WAITER_MENU} icon="restaurant_menu" label="Order Builder" /> : null}
+              {showWaiterFeature('waiter_orders_active') ? <NavItem screen={Screen.WAITER_ACTIVE_ORDERS} icon="receipt_long" label="Active Orders" /> : null}
             </Section>
 
             <Section title="Kitchen">
-              <NavItem screen={Screen.WAITER_KITCHEN} icon="soup_kitchen" label="Kitchen Board" badge={readyBadge > 0 ? String(readyBadge) : undefined} />
-              {expoEnabled ? <NavItem screen={Screen.WAITER_EXPO} icon="restaurant" label="Expo" /> : null}
+              {showWaiterFeature('waiter_kds') ? (
+                <NavItem screen={Screen.WAITER_KITCHEN} icon="soup_kitchen" label="Kitchen Board" badge={readyBadge > 0 ? String(readyBadge) : undefined} />
+              ) : null}
+              {expoEnabled && showWaiterFeature('waiter_kds_expo') ? <NavItem screen={Screen.WAITER_EXPO} icon="restaurant" label="Expo" /> : null}
             </Section>
 
             <Section title="Me & My Shift">
-              <NavItem screen={Screen.WAITER_HISTORY} icon="history" label="Order History" />
-              <NavItem screen={Screen.WAITER_SHIFT_REPORT} icon="assessment" label="Shift Report" />
-              <NavItem screen={Screen.WAITER_SCHEDULE} icon="schedule" label="Schedule" />
-              <NavItem screen={Screen.WAITER_NOTIFICATIONS} icon="notifications" label="Notifications" badge={unreadBadge > 0 ? String(unreadBadge) : undefined} />
-              <NavItem screen={Screen.WAITER_SYSTEM} icon="wifi" label="Network" />
-              <NavItem screen={Screen.WAITER_SETTINGS} icon="lock" label="Security" />
+              {showWaiterFeature('waiter_history') ? <NavItem screen={Screen.WAITER_HISTORY} icon="history" label="Order History" /> : null}
+              {showWaiterFeature('waiter_shift_report') ? <NavItem screen={Screen.WAITER_SHIFT_REPORT} icon="assessment" label="Shift Report" /> : null}
+              {showWaiterFeature('waiter_account') ? <NavItem screen={Screen.WAITER_SCHEDULE} icon="schedule" label="Schedule" /> : null}
+              {showWaiterFeature('waiter_notifications') ? <NavItem screen={Screen.WAITER_NOTIFICATIONS} icon="notifications" label="Notifications" badge={unreadBadge > 0 ? String(unreadBadge) : undefined} /> : null}
+              {showWaiterFeature('waiter_system_status') ? <NavItem screen={Screen.WAITER_SYSTEM} icon="wifi" label="Network" /> : null}
+              {showWaiterFeature('waiter_account') ? <NavItem screen={Screen.WAITER_SETTINGS} icon="lock" label="Security" /> : null}
             </Section>
           </>
         )}

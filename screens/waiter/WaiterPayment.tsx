@@ -116,8 +116,13 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
       // Branch-scoped tokens (Waiter/Manager or Owner already bound to a branch)
       if (tokenBranch && tokenBranch !== 'global') return url;
 
-      // Owner "global" token must provide branchId in query for branch-scoped endpoints
-      if (role !== 'Cafe Owner') return url;
+      // "Global" tokens must provide branchId in query for branch-scoped endpoints
+      const needsQueryBranch =
+        role === 'Cafe Owner' ||
+        role === 'Branch Manager' ||
+        role === 'Waiter Manager' ||
+        role === 'Waiter';
+      if (!needsQueryBranch) return url;
 
       const selected =
         (localStorage.getItem('mirachpos.owner.selectedBranchId.v1') ||

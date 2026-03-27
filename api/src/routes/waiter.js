@@ -5,43 +5,568 @@ const ExcelJS = require('exceljs');
 const { tenantMiddleware } = require('../middleware/tenant');
 const { requireAuth } = require('../middleware/auth');
 const { db } = require('../db');
-const { loadEntitlements, requireModule } = require('../middleware/entitlements');
+const { loadEntitlements, requireFeature, requireModule } = require('../middleware/entitlements');
 const { requireRole, requirePermission } = require('../middleware/permissions');
 const { validateWaiterAccount, validateWaiterHistoryQuery } = require('../middleware/validators');
 const { sanitizeLikeInput, sanitizeText } = require('../utils/sanitize');
+const { uid } = require('../utils/ids');
+const { createOrFireTicketForOrder, EVENT_TYPE } = require('../services/kdsService');
 
 const makeWaiterRouter = () => {
   const r = express.Router();
 
-  r.get('/waiter/floor', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (_req, res) => {
+  r.get('/waiter/floor', tenantMiddleware, requireAuth, loadEntitlements, requireRole('Waiter', 'Waiter Manager'), requireFeature('waiter_floor'), async (_req, res) => {
     return res.json({ ok: true, tables: [] });
   });
 
-  r.get('/waiter/menu', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (_req, res) => {
+  r.get('/waiter/menu', tenantMiddleware, requireAuth, loadEntitlements, requireRole('Waiter', 'Waiter Manager'), requireFeature('waiter_menu'), async (_req, res) => {
     return res.json({ ok: true, menu: [] });
   });
 
-  r.post('/waiter/orders', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (_req, res) => {
-    return res.status(201).json({ ok: true });
-  });
+  r.post(
+    '/waiter/orders',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireRole('Waiter', 'Waiter Manager'),
+    requireFeature('waiter_menu'),
+    async (req, res, next) => {
+    try {
+      if (!requireWaiter(req, res)) return;
 
-  r.get('/waiter/orders/active', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (_req, res) => {
-    return res.json({ ok: true, orders: [] });
-  });
+      const branchId = resolveBranchId(req);
+      const staffId = String(req.auth?.staffId || '');
+      if (!staffId) return res.status(401).json({ error: 'unauthorized' });
 
-  r.post('/waiter/payments', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (_req, res) => {
-    return res.json({ ok: true, change: 0 });
-  });
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const { items, tableId, tableName, customer, note, discountPct, tip } = body;
 
-  r.post('/waiter/orders/:id/void', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (req, res) => {
-    const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const reason = typeof body?.reason === 'string' ? body.reason.trim() : '';
-    if (!reason) return res.status(400).json({ error: 'reason_required' });
-    return res.json({ ok: true });
-  });
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'items_required' });
+      }
 
-  r.get('/waiter/kds', tenantMiddleware, requireAuth, requireRole('Waiter', 'Waiter Manager'), async (_req, res) => {
-    return res.json({ ok: true, items: [] });
+      // Calculate totals
+      const subtotal = items.reduce((sum, item) => {
+        return sum + (Number(item.qty) || 0) * (Number(item.price) || 0);
+      }, 0);
+      const discountAmount = discountPct ? subtotal * (Number(discountPct) / 100) : 0;
+      const taxRate = 0.15; // 15% tax rate
+      const taxableAmount = subtotal - discountAmount;
+      const tax = taxableAmount * taxRate;
+      const total = taxableAmount + tax + (Number(tip) || 0);
+
+      // Generate order ID and display number
+      const orderId = uid('ord');
+      const nowIso = new Date().toISOString();
+      
+      // Generate display number
+      const today = nowIso.slice(0, 10);
+      const countResult = await db()
+        .from('orders')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId })
+        .whereRaw("DATE(created_at) = ?", [today])
+        .count({ count: '*' })
+        .first();
+      const seq = (Number(countResult?.count || 0) || 0) + 1;
+      const displayNumber = `${String(seq).padStart(3, '0')}`;
+
+      // Get waiter name
+      const staffRow = await db()
+        .select(['name'])
+        .from('staff')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id: staffId })
+        .first();
+      const waiterName = staffRow?.name ? String(staffRow.name) : '';
+
+      // Build payload
+      const payload = {
+        items: items.map(item => ({
+          id: uid('itm'),
+          productId: String(item.productId || item.id || ''),
+          name: String(item.name || ''),
+          qty: Number(item.qty) || 1,
+          unitPrice: Number(item.price) || 0,
+          notes: String(item.note || item.notes || ''),
+          modifiers: Array.isArray(item.modifiers) ? item.modifiers : [],
+        })),
+        subtotal,
+        discount: discountAmount,
+        discountPct: Number(discountPct) || 0,
+        tax,
+        tip: Number(tip) || 0,
+        total,
+        tableId: String(tableId || ''),
+        tableName: String(tableName || ''),
+        customer,
+        note: String(note || ''),
+        createdByStaffId: staffId,
+        createdByName: waiterName,
+        timeLabel: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        number: displayNumber,
+      };
+
+      // Save order to database
+      await db().transaction(async (trx) => {
+        await trx
+          .from('orders')
+          .insert({
+            id: orderId,
+            tenant_id: req.tenant.id,
+            branch_id: branchId,
+            status: 'Pending',
+            total,
+            tax,
+            tip: Number(tip) || 0,
+            discount: discountAmount,
+            created_at: nowIso,
+            paid_at: null,
+            display_number: displayNumber,
+            table_id: String(tableId || ''),
+            table_name: String(tableName || ''),
+            created_by_staff_id: staffId,
+            created_by_name: waiterName,
+            notes: String(note || ''),
+            updated_at: nowIso,
+            payload: JSON.stringify(payload),
+          });
+
+        // Insert order items
+        const orderItems = payload.items.map(item => ({
+          id: uid('oi'),
+          tenant_id: req.tenant.id,
+          branch_id: branchId,
+          order_id: orderId,
+          product_id: String(item.productId || ''),
+          product_code: '',
+          name: item.name,
+          qty: item.qty,
+          unit_price: item.unitPrice,
+          voided_qty: 0,
+          notes: item.notes || '',
+          created_at: nowIso,
+        }));
+
+        if (orderItems.length > 0) {
+          await trx('order_items').insert(orderItems);
+        }
+
+        // Update table status if tableId provided
+        if (tableId) {
+          await trx('restaurant_tables')
+            .where({ tenant_id: req.tenant.id, branch_id: branchId, id: tableId })
+            .update({
+              status: 'Occupied',
+              open_order_id: orderId,
+              last_order_id: orderId,
+              updated_at: nowIso,
+            });
+        }
+      });
+
+      // Create KDS ticket for kitchen
+      try {
+        const actor = { staffId, role: req.auth?.role };
+        const actionId = `kds:auto_fire:${orderId}`;
+        const out = await createOrFireTicketForOrder({
+          tenantId: String(req.tenant.id),
+          branchId: String(branchId),
+          orderId: String(orderId),
+          station: 'kitchen',
+          courseNo: 1,
+          priority: 0,
+          slaMs: null,
+          actionId,
+          actor,
+          nowIso,
+          reqLog: req.log,
+        });
+
+        if (out?.ticket?.id) {
+          // Publish KDS event
+          try {
+            const { publish } = require('../services/realtimeHub');
+            if (publish) {
+              publish({
+                tenantId: String(req.tenant.id),
+                branchId: String(branchId),
+                type: 'pos.kds.ticket',
+                data: { ticketId: String(out.ticket.id), eventType: EVENT_TYPE.TICKET_FIRED, orderId: String(orderId) },
+              });
+            }
+          } catch {
+            // Ignore publish errors
+          }
+        }
+      } catch (kdsErr) {
+        // Log but don't fail order creation
+        console.error('KDS ticket creation failed:', kdsErr);
+      }
+
+      return res.status(201).json({
+        ok: true,
+        id: orderId,
+        displayNumber,
+        total,
+        createdAt: nowIso,
+      });
+    } catch (e) {
+      return next(e);
+    }
+    },
+  );
+
+  r.get(
+    '/waiter/orders/active',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireRole('Waiter', 'Waiter Manager'),
+    requireFeature('waiter_orders_active'),
+    async (req, res, next) => {
+    try {
+      if (!requireWaiter(req, res)) return;
+
+      const role = String(req.auth?.role || '').trim();
+      const branchId = resolveBranchId(req);
+      const staffId = String(req.auth?.staffId || '');
+
+      // Get active orders (not Paid, Voided, or Refunded)
+      const baseQuery = db()
+        .from('orders')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId })
+        .whereNotIn('status', ['Paid', 'Voided', 'Refunded']);
+
+      // Waiters can only see their own orders
+      if (role === 'Waiter' && staffId) {
+        baseQuery.andWhere({ created_by_staff_id: staffId });
+      }
+
+      const rows = await baseQuery
+        .select([
+          'id',
+          'status',
+          'total',
+          'tax',
+          'tip',
+          'discount',
+          'created_at',
+          'display_number',
+          'table_id',
+          'table_name',
+          'created_by_staff_id',
+          'created_by_name',
+          'payload',
+        ])
+        .orderBy('created_at', 'desc')
+        .limit(100);
+
+      const orders = rows.map((o) => {
+        const payload = o.payload
+          ? (() => {
+              try {
+                return JSON.parse(String(o.payload));
+              } catch {
+                return {};
+              }
+            })()
+          : {};
+
+        return {
+          id: String(o.id),
+          number: String(o.display_number || payload?.number || ''),
+          tableName: String(o.table_name || payload?.tableName || ''),
+          tableId: String(o.table_id || payload?.tableId || ''),
+          timeLabel: String(payload?.timeLabel || ''),
+          createdByName: String(o.created_by_name || payload?.createdByName || ''),
+          createdByStaffId: String(o.created_by_staff_id || payload?.createdByStaffId || ''),
+          items: Array.isArray(payload?.items) ? payload.items : [],
+          status: String(o.status || 'Pending'),
+          total: Number(o.total || 0),
+          tax: Number(o.tax || 0),
+          tip: Number(o.tip || 0),
+          discount: Number(o.discount || 0),
+          createdAt: o.created_at ? new Date(o.created_at).toISOString() : '',
+          payload,
+        };
+      });
+
+      return res.json({ ok: true, orders, branchId });
+    } catch (e) {
+      return next(e);
+    }
+    },
+  );
+
+  r.post(
+    '/waiter/payments',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireRole('Waiter', 'Waiter Manager'),
+    requireFeature('waiter_payments'),
+    async (req, res, next) => {
+    try {
+      if (!requireWaiter(req, res)) return;
+
+      const branchId = resolveBranchId(req);
+      const staffId = String(req.auth?.staffId || '');
+
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const { orderId, method, amount, reference } = body;
+
+      if (!orderId) return res.status(400).json({ error: 'order_id_required' });
+      if (!method) return res.status(400).json({ error: 'payment_method_required' });
+
+      const nowIso = new Date().toISOString();
+
+      // Get the order
+      const orderRow = await db()
+        .from('orders')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id: orderId })
+        .first();
+
+      if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+      if (orderRow.status === 'Paid') return res.status(400).json({ error: 'order_already_paid' });
+      if (orderRow.status === 'Voided') return res.status(400).json({ error: 'order_voided' });
+
+      const total = Number(orderRow.total || 0);
+      const tendered = Number(amount) || 0;
+      const change = Math.max(0, tendered - total);
+
+      // Get staff name
+      const staffRow = await db()
+        .select(['name'])
+        .from('staff')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id: staffId })
+        .first();
+      const staffName = staffRow?.name ? String(staffRow.name) : '';
+
+      // Process payment
+      await db().transaction(async (trx) => {
+        // Update order status
+        await trx('orders')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, id: orderId })
+          .update({
+            status: 'Paid',
+            paid_at: nowIso,
+            paid_by_staff_id: staffId,
+            paid_by_name: staffName,
+            payment_method: String(method || ''),
+            payment_reference: String(reference || ''),
+            tendered_amount: tendered,
+            updated_at: nowIso,
+          });
+
+        // Insert payment record
+        await trx('order_payments').insert({
+          id: uid('pmt'),
+          tenant_id: req.tenant.id,
+          branch_id: branchId,
+          order_id: orderId,
+          method: String(method || 'cash'),
+          amount: total,
+          tendered_amount: tendered,
+          change_amount: change,
+          reference: String(reference || ''),
+          created_at: nowIso,
+        });
+
+        // Bump KDS tickets
+        await trx('kds_tickets')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId })
+          .whereIn('status', ['pending', 'fired'])
+          .update({
+            status: 'ready',
+            updated_at: nowIso,
+          });
+
+        // Free up the table
+        if (orderRow.table_id) {
+          await trx('restaurant_tables')
+            .where({ tenant_id: req.tenant.id, branch_id: branchId, id: orderRow.table_id })
+            .update({
+              status: 'Free',
+              open_order_id: null,
+              last_order_id: orderId,
+              updated_at: nowIso,
+            });
+        }
+      });
+
+      return res.json({
+        ok: true,
+        orderId,
+        status: 'Paid',
+        paidAt: nowIso,
+        total,
+        tendered,
+        change,
+      });
+    } catch (e) {
+      return next(e);
+    }
+    },
+  );
+
+  r.post(
+    '/waiter/orders/:id/void',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireRole('Waiter', 'Waiter Manager'),
+    requireFeature('waiter_voids'),
+    async (req, res, next) => {
+    try {
+      if (!requireWaiter(req, res)) return;
+
+      const branchId = resolveBranchId(req);
+      const staffId = String(req.auth?.staffId || '');
+      const role = String(req.auth?.role || '').trim();
+      const orderId = String(req.params?.id || '').trim();
+
+      if (!orderId) return res.status(400).json({ error: 'order_id_required' });
+
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const reason = typeof body?.reason === 'string' ? body.reason.trim() : '';
+      if (!reason) return res.status(400).json({ error: 'reason_required' });
+
+      const nowIso = new Date().toISOString();
+
+      // Get the order
+      const orderRow = await db()
+        .from('orders')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId, id: orderId })
+        .first();
+
+      if (!orderRow) return res.status(404).json({ error: 'order_not_found' });
+
+      // Check permissions - waiter can only void their own orders
+      if (role === 'Waiter') {
+        const existingOwner = String(orderRow.created_by_staff_id || '');
+        if (existingOwner && existingOwner !== staffId) {
+          return res.status(403).json({ error: 'forbidden' });
+        }
+      }
+
+      // Void the order
+      await db().transaction(async (trx) => {
+        await trx('orders')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, id: orderId })
+          .update({
+            status: 'Voided',
+            updated_at: nowIso,
+          });
+
+        // Void associated KDS tickets
+        await trx('kds_tickets')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: orderId })
+          .whereIn('status', ['pending', 'fired'])
+          .update({
+            status: 'voided',
+            updated_at: nowIso,
+          });
+
+        // Free up the table if it was assigned
+        if (orderRow.table_id) {
+          await trx('restaurant_tables')
+            .where({ tenant_id: req.tenant.id, branch_id: branchId, id: orderRow.table_id })
+            .update({
+              status: 'Free',
+              open_order_id: null,
+              updated_at: nowIso,
+            });
+        }
+      });
+
+      return res.json({ ok: true, orderId, voidedAt: nowIso });
+    } catch (e) {
+      return next(e);
+    }
+    },
+  );
+
+  r.get(
+    '/waiter/kds',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireRole('Waiter', 'Waiter Manager'),
+    requireFeature('waiter_kds'),
+    async (req, res, next) => {
+    try {
+      if (!requireWaiter(req, res)) return;
+
+      const branchId = resolveBranchId(req);
+      const station = String(req.query?.station || 'kitchen').toLowerCase();
+
+      // Get active KDS tickets
+      const ticketRows = await db()
+        .from('kds_tickets')
+        .where({ tenant_id: req.tenant.id, branch_id: branchId })
+        .whereIn('status', ['pending', 'fired'])
+        .orderBy('priority', 'desc')
+        .orderBy('created_at', 'asc')
+        .limit(200);
+
+      const ticketIds = ticketRows.map(t => String(t.id));
+
+      // Get ticket items
+      let ticketItems = [];
+      if (ticketIds.length > 0) {
+        ticketItems = await db()
+          .from('kds_ticket_items')
+          .where({ tenant_id: req.tenant.id, branch_id: branchId })
+          .whereIn('ticket_id', ticketIds);
+      }
+
+      const itemsByTicket = {};
+      for (const item of ticketItems) {
+        const tid = String(item.ticket_id);
+        if (!itemsByTicket[tid]) itemsByTicket[tid] = [];
+        itemsByTicket[tid].push({
+          id: String(item.id),
+          productId: String(item.product_id || ''),
+          name: String(item.name || ''),
+          qty: Number(item.qty || 0),
+          notes: String(item.notes || ''),
+          courseNo: Number(item.course_no || 1),
+          status: String(item.status || 'pending'),
+        });
+      }
+
+      const tickets = ticketRows.map(t => {
+        const payload = t.payload_json
+          ? (() => {
+              try {
+                return JSON.parse(String(t.payload_json));
+              } catch {
+                return {};
+              }
+            })()
+          : {};
+
+        return {
+          id: String(t.id),
+          orderId: String(t.order_id || ''),
+          status: String(t.status || 'pending'),
+          priority: Number(t.priority || 0),
+          station: String(t.station || 'kitchen'),
+          courseNo: Number(t.course_no || 1),
+          displayNumber: String(t.display_number || payload?.displayNumber || ''),
+          tableName: String(t.table_name || payload?.tableName || ''),
+          tableId: String(t.table_id || payload?.tableId || ''),
+          waiterName: String(t.created_by_name || payload?.createdByName || ''),
+          createdAt: t.created_at ? new Date(t.created_at).toISOString() : '',
+          firedAt: t.fired_at ? new Date(t.fired_at).toISOString() : null,
+          items: itemsByTicket[String(t.id)] || [],
+          elapsedMs: t.fired_at ? Date.now() - new Date(t.fired_at).getTime() : Date.now() - new Date(t.created_at).getTime(),
+        };
+      });
+
+      return res.json({ ok: true, tickets, branchId, station });
+    } catch (e) {
+      return next(e);
+    }
   });
 
   const getTenantBusinessName = async (tenantId) => {
@@ -182,7 +707,9 @@ const makeWaiterRouter = () => {
     '/waiter/account',
     tenantMiddleware,
     requireAuth,
+    loadEntitlements,
     requireRole('Waiter', 'Waiter Manager'),
+    requireFeature('waiter_account'),
     validateWaiterAccount,
     async (req, res, next) => {
     try {
@@ -237,7 +764,9 @@ const makeWaiterRouter = () => {
     '/waiter/history',
     tenantMiddleware,
     requireAuth,
+    loadEntitlements,
     requireRole('Waiter', 'Waiter Manager'),
+    requireFeature('waiter_history'),
     validateWaiterHistoryQuery,
     async (req, res, next) => {
     try {
@@ -367,7 +896,9 @@ const makeWaiterRouter = () => {
     '/waiter/history/export/xlsx',
     tenantMiddleware,
     requireAuth,
+    loadEntitlements,
     requireRole('Waiter Manager'),
+    requireFeature('waiter_history'),
     async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
@@ -493,7 +1024,9 @@ const makeWaiterRouter = () => {
     '/waiter/history/export/pdf',
     tenantMiddleware,
     requireAuth,
+    loadEntitlements,
     requireRole('Waiter Manager'),
+    requireFeature('waiter_history'),
     async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
@@ -552,7 +1085,9 @@ const makeWaiterRouter = () => {
     '/waiter/order/:id',
     tenantMiddleware,
     requireAuth,
+    loadEntitlements,
     requireRole('Waiter', 'Waiter Manager'),
+    requireFeature('waiter_orders_active'),
     async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;
@@ -613,7 +1148,9 @@ const makeWaiterRouter = () => {
     '/waiter/shift-report',
     tenantMiddleware,
     requireAuth,
+    loadEntitlements,
     requireRole('Waiter', 'Waiter Manager'),
+    requireFeature('waiter_shift_report'),
     async (req, res, next) => {
     try {
       if (!requireWaiter(req, res)) return;

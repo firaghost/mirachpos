@@ -1658,9 +1658,17 @@ const computeOrderTotalsFromPayload = ({ payload, tip, discount, discountPct, se
   };
 };
 
+const normalizeBranchId = (v) => {
+  const s = String(v || '').trim();
+  if (!s) return '';
+  if (s === 'global') return '';
+  if (s.startsWith('b_') && !s.startsWith('br_')) return `br_${s.slice(2)}`;
+  return s;
+};
+
 const resolveBranchId = async (req) => {
-  const fromToken = String(req.auth?.branchId || '').trim();
-  const q = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
+  const fromToken = normalizeBranchId(req.auth?.branchId);
+  const q = typeof req.query?.branchId === 'string' ? normalizeBranchId(req.query.branchId) : '';
 
   const role = String(req.auth?.role || '');
   const isOwnerGlobal = role === 'Cafe Owner' && (!fromToken || fromToken === 'global');

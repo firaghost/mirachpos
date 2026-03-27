@@ -50,6 +50,64 @@ const readBranchSettingsRaw = (): string | null => {
   }
 };
 
+const printHtmlViaIframe = (html: string): boolean => {
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    iframe.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      return false;
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const w = iframe.contentWindow;
+    if (!w) {
+      document.body.removeChild(iframe);
+      return false;
+    }
+
+    const cleanup = () => {
+      try {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      } catch {
+        // ignore
+      }
+    };
+
+    const doPrint = () => {
+      try {
+        w.focus();
+        w.print();
+      } finally {
+        window.setTimeout(cleanup, 500);
+      }
+    };
+
+    try {
+      iframe.addEventListener('load', doPrint, { once: true } as any);
+    } catch {
+      // ignore
+    }
+    window.setTimeout(doPrint, 350);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const resolveStaffName = (staffId: string): string => {
   if (!staffId) return '';
   const cache = readStaffNameCache();
@@ -782,6 +840,14 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     lastError: '',
   });
 
+  const normalizeBranchId = (raw: unknown) => {
+    const s = String(raw ?? '').trim();
+    if (!s) return '';
+    if (s === 'global') return '';
+    if (s.startsWith('b_') && !s.startsWith('br_')) return `br_${s.slice(2)}`;
+    return s;
+  };
+
   const getBranchScopeKey = () => {
     try {
       const s = readSession<any>();
@@ -789,14 +855,15 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const tenantId = typeof s?.tenantId === 'string' ? s.tenantId : '';
       const branchId = (() => {
         const b = typeof s?.branchId === 'string' ? s.branchId : '';
-        if (b && b.trim()) return b.trim();
+        const norm = normalizeBranchId(b);
+        if (norm) return norm;
         try {
-          return (
+          const selected =
             localStorage.getItem('mirachpos.waiter.selectedBranchId.v1') ||
             localStorage.getItem('mirachpos.manager.selectedBranchId.v1') ||
             localStorage.getItem('mirachpos.owner.selectedBranchId.v1') ||
-            ''
-          );
+            '';
+          return normalizeBranchId(selected);
         } catch {
           return '';
         }
@@ -814,9 +881,9 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!s) return '';
       const role = typeof s?.role === 'string' ? s.role : '';
       const fromToken = typeof s?.branchId === 'string' ? s.branchId : '';
-      const tokenBranch = fromToken && fromToken.trim() ? fromToken.trim() : '';
+      const tokenBranch = normalizeBranchId(fromToken);
 
-      if (role === 'Cafe Owner' || role === 'Waiter Manager') {
+      if (role === 'Cafe Owner' || role === 'Waiter Manager' || role === 'Branch Manager') {
         if (tokenBranch && tokenBranch !== 'global') return tokenBranch;
         try {
           const selected =
@@ -824,7 +891,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             localStorage.getItem('mirachpos.manager.selectedBranchId.v1') ||
             localStorage.getItem('mirachpos.waiter.selectedBranchId.v1') ||
             '';
-          return selected ? selected.trim() : '';
+          return normalizeBranchId(selected);
         } catch {
           return '';
         }
@@ -842,7 +909,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const s = readSession<any>();
       const role = typeof s?.role === 'string' ? s.role : '';
       const tokenBranch = typeof s?.branchId === 'string' ? s.branchId : '';
-      const needsQueryBranch = (role === 'Cafe Owner' || role === 'Waiter Manager') && (!tokenBranch || !tokenBranch.trim() || tokenBranch.trim() === 'global');
+      const needsQueryBranch = (role === 'Cafe Owner' || role === 'Branch Manager' || role === 'Waiter Manager') && (!tokenBranch || !tokenBranch.trim() || tokenBranch.trim() === 'global');
       if (!needsQueryBranch) return url;
       const branchId = getEffectiveBranchIdForApi();
       if (!branchId || branchId === 'global') return url;
@@ -1298,15 +1365,17 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setUiPref = useCallback(
     (key: string, value: any) => {
       if (!key) return;
-      setUiPrefs((prev) => ({ ...(prev || {}), [key]: value }));
-      try {
-        if (!uiScopeKey) return;
-        writeUiState(uiScopeKey, { uiPrefs: { ...(uiPrefs || {}), [key]: value } as any });
-      } catch {
-        // ignore
-      }
+      setUiPrefs((prev) => {
+        const next = { ...(prev || {}), [key]: value };
+        try {
+          if (uiScopeKey) writeUiState(uiScopeKey, { uiPrefs: next as any });
+        } catch {
+          // ignore
+        }
+        return next;
+      });
     },
-    [uiScopeKey, uiPrefs],
+    [uiScopeKey],
   );
 
   useEffect(() => {
@@ -3051,7 +3120,12 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lines = order.items.map((i) => ({ name: i.name, qty: i.qty, note: i.note }));
 
     if (opts?.mode === 'dialog') {
-      openPrintWindow(kitchenTicketHtml('Kitchen Ticket', order, lines));
+      const html = kitchenTicketHtml('Kitchen Ticket', order, lines);
+      const ok = openPrintWindow(html);
+      if (!ok) {
+        const ok2 = printHtmlViaIframe(html);
+        if (!ok2) window.print();
+      }
       return;
     }
 

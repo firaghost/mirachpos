@@ -432,17 +432,29 @@ export const KitchenBoard: React.FC<Props> = ({ onNavigate }) => {
     };
   }, [columns.FIRED.length, columns.IN_PREP.length, columns.NEW.length, columns.READY.length]);
 
+  const prevStatusFilterRef = useRef<string>('');
+
   useEffect(() => {
-    if (statusFilter === 'active') return;
+    if (statusFilter === 'active') {
+      prevStatusFilterRef.current = statusFilter;
+      return;
+    }
     const count = (pillCounts as any)[statusFilter] as number;
-    if (Number(count) > 0) return;
-    setStatusFilter('active');
+    if (Number(count) > 0) {
+      prevStatusFilterRef.current = statusFilter;
+      return;
+    }
+    // Only reset if filter actually has items in other categories
+    const activeCount = pillCounts.active;
+    if (Number(activeCount) > 0) {
+      setStatusFilter('active');
+    }
+    prevStatusFilterRef.current = statusFilter;
   }, [pillCounts, statusFilter]);
 
   useEffect(() => {
     if (!expediterMode) return;
     if (statusFilter !== 'ready') setStatusFilter('ready');
-    if (quickFilter === 'all_day') return;
   }, [expediterMode, quickFilter, statusFilter]);
 
   const selectedIndex = useMemo(() => {

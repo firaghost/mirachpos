@@ -10,6 +10,14 @@ interface LoginProps {
 
 const cx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(' ');
 
+const normalizeBranchId = (raw: unknown) => {
+  const s = String(raw ?? '').trim();
+  if (!s) return 'global';
+  if (s === 'global') return 'global';
+  if (s.startsWith('b_') && !s.startsWith('br_')) return `br_${s.slice(2)}`;
+  return s;
+};
+
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [workspace, setWorkspace] = useState(() => {
     try {
@@ -268,7 +276,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const tenantId = typeof json?.tenantId === 'string' ? json.tenantId : '';
       const staffId = typeof json?.staffId === 'string' ? json.staffId : '';
       const staffName = typeof json?.staffName === 'string' ? json.staffName : '';
-      const branchId = typeof json?.branchId === 'string' ? json.branchId : 'global';
+      const branchId = normalizeBranchId(typeof json?.branchId === 'string' ? json.branchId : 'global');
       const permissions = Array.isArray(json?.permissions) ? (json.permissions as any[]).map(String).filter(Boolean) : [];
 
       if (!token || !role || !tenantId) throw new Error('login_failed');
