@@ -686,29 +686,45 @@ const makeWaiterRouter = () => {
       ])
       .first();
 
-    // Products performance - use order-level aggregation for consistency
-    const productRevenueFromOrders = await db()
-      .from({ o: 'orders' })
+    // Products performance - join with menu_products to get category
+    const productRowsRaw = await db()
+      .from({ oi: 'order_items' })
+      .innerJoin({ o: 'orders' }, function () {
+        this.on('o.id', '=', 'oi.order_id')
+          .andOn('o.tenant_id', '=', 'oi.tenant_id')
+          .andOn('o.branch_id', '=', 'oi.branch_id');
+      })
+      .leftJoin({ p: 'menu_products' }, function () {
+        this.on('p.id', '=', 'oi.product_id')
+          .andOn('p.tenant_id', '=', 'oi.tenant_id')
+          .andOn('p.branch_id', '=', 'oi.branch_id');
+      })
       .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
       .andWhere((qb) => {
         qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
       })
       .select([
-        db().raw("'coffee' as product_name"),
-        db().raw("'Coffee' as category"),
-        db().raw('COUNT(*) as qty_sold'),
-        db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as revenue_etb'),
+        db().raw('COALESCE(NULLIF(TRIM(oi.name), \'\'), \'Unknown\') as product_name'),
+        db().raw('COALESCE(NULLIF(TRIM(p.category), \'\'), \'Uncategorized\') as category'),
+        db().raw('SUM(COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) as qty_sold'),
+        db().raw('COALESCE(AVG(oi.unit_price), 0) as unit_price'),
+        db().raw('SUM((COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) * COALESCE(oi.unit_price, 0)) as revenue_etb'),
+        db().raw('COALESCE(oi.product_id, \'\') as product_id'),
+        db().raw('SUM(COALESCE(oi.voided_qty, 0)) as void_qty'),
       ])
-      .first();
+      .groupBy('product_name', 'category', 'oi.product_id');
 
-    const rows = [{
-      productId: 'coffee',
-      name: 'Coffee',
-      category: 'Coffee',
-      qtySold: Number(productRevenueFromOrders?.qty_sold || 0),
-      revenue: Number(productRevenueFromOrders?.revenue_etb || 0),
-      voidQty: 0,
-    }];
+    const rows = productRowsRaw
+      .map((r) => ({
+        productId: String(r.product_id || ''),
+        name: String(r.product_name || ''),
+        category: String(r.category || 'Uncategorized'),
+        qtySold: Number(r.qty_sold || 0),
+        revenue: Number(r.revenue_etb || 0),
+        voidQty: Number(r.void_qty || 0),
+      }))
+      .filter((r) => r.qtySold > 0)
+      .sort((a, b) => b.revenue - a.revenue);
 
     const orderCount = Number(orderAgg?.order_count || 0) || 0;
     const discounts = Number(orderAgg?.discounts_etb || 0) || 0;

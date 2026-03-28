@@ -29,7 +29,9 @@ interface Props {
 export const WaiterOrderV2: React.FC<Props> = ({ onNavigate }) => {
   const {
     products,
+    tables,
     selectedTableId,
+    selectTable,
     getCartItems,
     addToCart,
     clearCart,
@@ -445,6 +447,50 @@ export const WaiterOrderV2: React.FC<Props> = ({ onNavigate }) => {
       </header>
 
       <main className="pt-[56px] h-full flex">
+        {/* LEFT - TABLE SELECTION */}
+        <aside className="w-[280px] flex-none flex flex-col bg-muted/30 border-r border-border">
+          <div className="p-4 border-b border-border bg-card">
+            <div className="text-xs font-black uppercase tracking-widest text-foreground">Tables</div>
+            <div className="mt-2 text-[10px] text-muted-foreground">{tables.length} tables</div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {tables.map((t) => {
+              const active = selectedTableId === t.id;
+              const hasOrder = t.openOrderId || t.status !== 'Free';
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => selectTable(t.id)}
+                  className={`w-full text-left p-3 rounded-xl border transition-all ${
+                    active
+                      ? 'bg-primary/10 border-primary ring-1 ring-primary'
+                      : hasOrder
+                      ? 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20'
+                      : 'bg-background border-border hover:border-primary/40'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="font-bold text-sm text-foreground">{t.name}</div>
+                    <div className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                      hasOrder ? 'bg-amber-500/20 text-amber-600' : 'bg-green-500/20 text-green-600'
+                    }`}>
+                      {t.status}
+                    </div>
+                  </div>
+                  <div className="mt-1 flex justify-between items-center text-[11px] text-muted-foreground">
+                    <span>{t.seats} seats</span>
+                    {t.currentTotal > 0 && (
+                      <span className="font-bold text-foreground">ETB {t.currentTotal.toFixed(2)}</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        {/* CENTER - MENU */}
         <section className="flex-1 min-w-0 flex flex-col border-r border-border">
           <nav className="sticky top-0 z-40 bg-background px-6 py-4 flex gap-3 overflow-x-auto">
             {categories.map((c) => (

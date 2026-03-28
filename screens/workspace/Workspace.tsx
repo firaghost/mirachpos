@@ -129,11 +129,26 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     confirmPayment,
     getDraftOrderMeta,
     setDraftOrderMeta,
+    setPendingOrderItemQty,
+    setPendingOrderItemNote,
+    voidOrder,
   } = usePos();
 
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<string>('All');
   const [sending, setSending] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(false);
+  const [posSettings, setPosSettings] = useState<any>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of products) {
+      const c = String(p.category || '').trim();
+      if (c) set.add(c);
+    }
+    return ['All', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [products]);
 
   const actor = useMemo(() => {
     try {
@@ -177,23 +192,38 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     return products.filter((p) => {
       if ((p as any)?.available === false) return false;
       if (p.stock <= 0) return false;
+      if (category !== 'All' && String(p.category || '').trim() !== category) return false;
       if (!q) return true;
       return String(p.name || '').toLowerCase().includes(q) || String(p.code || '').toLowerCase().includes(q);
     });
-  }, [products, query]);
+  }, [products, query, category]);
+
+  // Tax and service configuration from POS settings (professional pattern: configurable, not hardcoded)
+  const taxConfig = useMemo(() => {
+    const rate = Number(posSettings?.taxRate ?? 0.15);
+    const enabled = posSettings?.taxEnabled !== false; // default true if not set
+    return { rate: enabled ? rate : 0, enabled };
+  }, [posSettings]);
+
+  const serviceConfig = useMemo(() => {
+    const rate = Number(posSettings?.serviceRate ?? 0.05);
+    const enabled = posSettings?.serviceEnabled !== false; // default true if not set
+    return { rate: enabled ? rate : 0, enabled };
+  }, [posSettings]);
 
   const subtotal = useMemo(
     () => cartItems.reduce((sum, i) => sum + (Number(i.unitPrice || 0) || 0) * (Number(i.qty || 0) || 0), 0),
     [cartItems]
   );
-  const tax = subtotal * 0.15;
-  const service = subtotal * 0.05;
+  // Professional pattern: only calculate if enabled, never hardcode rates
+  const tax = taxConfig.enabled ? subtotal * taxConfig.rate : 0;
+  const service = serviceConfig.enabled ? subtotal * serviceConfig.rate : 0;
   const total = subtotal + tax + service;
 
   const draftMeta = useMemo(() => (selectedTableId ? getDraftOrderMeta(selectedTableId) : {}), [selectedTableId, getDraftOrderMeta]);
   const draftOrderType = draftMeta?.orderType === 'takeaway' ? 'takeaway' : 'dine_in';
   const takeawayFee = draftOrderType === 'takeaway' ? Math.max(0, Number(draftMeta?.takeawayFee ?? 0) || 0) : 0;
-  const finalTotal = total + takeawayFee;
+  const finalTotal = subtotal + takeawayFee;
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -250,10 +280,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   const handleSendOrder = async () => {
     if (!selectedTableId || cartItems.length === 0 || sending) return;
     setSending(true);
-    console.log('DEBUG: handleSendOrder called, tableId:', selectedTableId);
     try {
       const id = sendOrderToKitchen(selectedTableId, '');
-      console.log('DEBUG: sendOrderToKitchen returned:', id);
       if (id) {
         // Print kitchen ticket immediately after sending
         try {
@@ -265,16 +293,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             number: `#${orderNumber}`,
             tableName: selectedTable?.name || 'Table',
             timeLabel: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            createdByName: actor.staffName || 'Staff',
+            createdByName: selectedTable?.assignedStaffName || actor.staffName || 'Staff',
             notes: '',
             items: cartItems,
           };
           const html = kitchenTicketHtml('Kitchen Ticket', mockOrder, lines);
-          console.log('DEBUG: opening print window with', lines.length, 'items');
           // Open as full page window - MUST specify dimensions for popup to work
           const printWindow = window.open('', 'kitchen_print', 'width=600,height=800,scrollbars=yes');
           if (printWindow) {
-            console.log('DEBUG: print window opened successfully');
             printWindow.document.write(html);
             printWindow.document.close();
             printWindow.focus();
@@ -287,11 +313,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               }
             }, 500);
           } else {
-            console.error('DEBUG: Popup blocked - kitchen ticket could not open');
             alert('Popup blocked! Please allow popups for this site to print kitchen tickets.');
           }
-        } catch (e) {
-          console.error('DEBUG: Print error:', e);
+        } catch {
+          // ignore print errors
         }
         // Refresh after a delay to sync with server
         setTimeout(() => {
@@ -306,12 +331,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   };
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Telebirr'>('Cash');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Telebirr' | 'Bank'>('Cash');
   const [tenderedAmount, setTenderedAmount] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [tipAmount, setTipAmount] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
-  const [posSettings, setPosSettings] = useState<any>(null);
 
   // Fetch POS settings for payment QR codes
   useEffect(() => {
@@ -364,15 +388,22 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   };
 
   const handlePay = () => {
-    console.log('DEBUG: handlePay called, openOrder:', openOrder?.id);
+    
+    // If there's an open order, pay for it
     if (openOrder) {
       setShowPaymentModal(true);
       setTenderedAmount(openOrder.total.toFixed(2));
-      console.log('DEBUG: payment modal should be visible now');
-    } else {
-      console.log('DEBUG: no openOrder found');
-      alert('No open order to pay for');
+      return;
     }
+    
+    // If there's a cart with items, show payment modal for cart
+    if (cartItems.length > 0) {
+      setShowPaymentModal(true);
+      setTenderedAmount(finalTotal.toFixed(2));
+      return;
+    }
+    
+    alert('No items to pay for');
   };
 
   const handleClosePayment = () => {
@@ -381,65 +412,98 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   };
 
   const handleConfirmPayment = async () => {
-    if (!openOrder) return;
+    // Prevent double submission - check if already processing
+    if (processingPayment) {
+      return;
+    }
+    
     setProcessingPayment(true);
+    
+    if (!selectedTableId) {
+      setProcessingPayment(false);
+      return;
+    }
+    
     try {
-      // First set order to Served status so confirmPayment will work
-      try {
-        setOrderStatus(openOrder.id, 'Served');
-      } catch {
-        // ignore
-      }
+      let orderId: string;
       
-      // Apply tip if entered (for Telebirr payments)
-      const tipValue = parseFloat(tipAmount) || 0;
-      if (tipValue > 0 && paymentMethod === 'Telebirr') {
+      // If there's already an open order, use it
+      if (openOrder) {
+        orderId = openOrder.id;
+      } else {
+        // Create new order from cart (send to kitchen)
+        orderId = sendOrderToKitchen(selectedTableId, '');
+        
+        if (!orderId) {
+          alert('Failed to create order');
+          setProcessingPayment(false);
+          return;
+        }
+        
+        // Print kitchen ticket immediately
         try {
-          const payload = {
-            number: openOrder.number,
-            tableId: openOrder.tableId,
-            tableName: openOrder.tableName,
-            orderType: (openOrder as any).orderType ?? (openOrder as any)?.payload?.orderType ?? null,
-            takeawayFee: Number((openOrder as any).takeawayFee ?? (openOrder as any)?.payload?.takeawayFee ?? 0) || 0,
-            items: openOrder.items || [],
-            subtotal: Number(openOrder.subtotal ?? 0) || 0,
-            tax: Number(openOrder.tax ?? 0) || 0,
-            serviceCharge: Number((openOrder as any).serviceCharge ?? 0) || 0,
-            total: Number(openOrder.total ?? 0) || 0,
-            createdAt: openOrder.createdAt,
-            paidAt: (openOrder as any).paidAt ?? null,
-            createdByStaffId: (openOrder as any).createdByStaffId ?? null,
-            createdByName: (openOrder as any).createdByName ?? null,
-            paidByStaffId: (openOrder as any).paidByStaffId ?? null,
-            paidByName: (openOrder as any).paidByName ?? null,
-            paymentMethod: (openOrder as any).paymentMethod ?? null,
-            tenderedAmount: (openOrder as any).tenderedAmount ?? null,
-            paymentReference: (openOrder as any).paymentReference ?? null,
-            splits: (openOrder as any).splits ?? null,
-            notes: (openOrder as any).notes ?? null,
-            tip: tipValue,
-            tipAmount: tipValue,
-            tipPct: 0,
-            tipPctAmount: 0,
+          const lines = cartItems.map((i) => ({ name: i.name, qty: i.qty, note: i.note || '' }));
+          const orderNumber = orderId.slice(-6).toUpperCase();
+          const mockOrder = {
+            id: orderId,
+            number: `#${orderNumber}`,
+            tableName: selectedTable?.name || 'Table',
+            timeLabel: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            createdByName: selectedTable?.assignedStaffName || actor.staffName || 'Staff',
+            notes: '',
+            items: cartItems,
           };
-          
-          await apiFetch(`/api/pos/orders/${encodeURIComponent(openOrder.id)}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tip: tipValue, payload }),
-          });
+          const html = kitchenTicketHtml('Kitchen Ticket', mockOrder, lines);
+          const printWindow = window.open('', 'kitchen_print', 'width=600,height=800,scrollbars=yes');
+          if (printWindow) {
+            printWindow.document.write(html);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+              try {
+                printWindow.print();
+              } catch {
+                // ignore
+              }
+            }, 500);
+          }
         } catch {
-          // ignore tip error, continue with payment
+          // ignore print errors
         }
       }
       
-      const tendered = parseFloat(tenderedAmount) || openOrder.total;
-      confirmPayment(openOrder.id, paymentMethod, tendered, undefined, paymentReference.trim() || undefined);
+      // Small delay to ensure order is created in state
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Get order details from cart or existing order
+      const orderTotal = openOrder?.total || finalTotal;
+      const tendered = parseFloat(tenderedAmount) || orderTotal;
+      
+      // Call confirmPayment to mark order as Paid
+      confirmPayment(orderId, paymentMethod, tendered, undefined, paymentReference.trim() || undefined);
+      
       setShowPaymentModal(false);
+      setTenderedAmount('');
+      setPaymentReference('');
+      setTipAmount('');
       selectTable(null);
+      setQuery('');
     } finally {
       setProcessingPayment(false);
     }
+  };
+
+  const handleCancelOrder = () => {
+    if (!openOrder) return;
+    if (!confirm('Are you sure you want to cancel this order?')) return;
+    // Use existing voidOrder pattern from PosContext (handles state + sync)
+    voidOrder(openOrder.id, 'Cancelled by user');
+    // Clear editing mode if active
+    setEditingOrder(false);
+    // Refresh after a delay to sync with server
+    setTimeout(() => {
+      void refreshFromServer();
+    }, 300);
   };
 
   const getTableStatusColor = (status?: string) => {
@@ -535,7 +599,100 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
         </div>
       </div>
 
-      {/* CENTER - ORDER - Smart sizing with Cart design from WaiterMenu */}
+      {/* CENTER - MENU - Smart sizing */}
+      <div className="flex-1 min-w-[300px] border-r bg-card flex flex-col overflow-hidden">
+        <div className="p-3 border-b space-y-3">
+          {/* Category Filter */}
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            {categories.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCategory(c)}
+                className={cn(
+                  'h-8 px-3 rounded-full border text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-colors',
+                  category === c
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                )}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <Input
+            ref={searchRef}
+            placeholder="Search... (Ctrl+F)"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-3 grid grid-cols-3 gap-3">
+            {filteredProducts.map((p) => {
+              const isDisabled = !selectedTableId || p.stock <= 0;
+              const statusLabel = p.stock <= 0 ? 'Sold Out' : 'In Stock';
+              const statusClass = p.stock <= 0
+                ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                : 'bg-green-500/20 text-green-400 border-green-500/30';
+
+              return (
+                <button
+                  key={p.id}
+                  disabled={isDisabled}
+                  onClick={() => handleAddItem(p.id)}
+                  className={cn(
+                    'group bg-card rounded-xl overflow-hidden border border-border hover:border-primary transition-all duration-200 text-left flex flex-col relative',
+                    isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                  )}
+                >
+                  <div className="absolute top-2 right-2 z-10">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusClass}`}>{statusLabel}</span>
+                  </div>
+
+                  <div className="h-24 w-full bg-cover bg-center group-hover:opacity-90 transition-opacity bg-secondary relative">
+                    {p.image ? (
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center bg-muted">
+                        <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-2 flex flex-col">
+                    <h3 className="font-bold text-foreground text-sm leading-snug mb-0.5 line-clamp-1">{p.name}</h3>
+                    <p className="text-muted-foreground text-[10px] line-clamp-1 mb-2">{(p as any).category || 'Item'}</p>
+                    <div className="mt-auto flex items-center justify-between">
+                      <span className="text-sm font-bold text-primary">ETB {Number(p.price || 0).toFixed(0)}</span>
+                      <div
+                        className={cn(
+                          'size-7 rounded-lg flex items-center justify-center shadow-lg transition-transform',
+                          isDisabled ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground shadow-primary/20 group-hover:scale-105'
+                        )}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* RIGHT - CART - Smart sizing with Cart design from WaiterMenu */}
       <div className="w-[360px] flex flex-col bg-card overflow-hidden flex-shrink-0">
         <div className="px-4 py-5 border-b border-border bg-card/50">
           <div className="flex justify-between items-center mb-3">
@@ -619,69 +776,113 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             </div>
           )}
 
-          {cartItems.length === 0 ? (
-            <div className="text-muted-foreground text-sm text-center py-8">No items in cart</div>
+          {cartItems.length === 0 && !(editingOrder && openOrder?.items?.length > 0) ? (
+            <div className="text-muted-foreground text-sm text-center py-8">
+              {editingOrder ? 'No items to edit' : 'No items in cart'}
+            </div>
           ) : (
-            cartItems.map((item) => (
-              <div key={item.productId} className="bg-secondary p-2.5 rounded-xl shadow-sm border border-border group relative">
-                <div className="flex gap-3 items-start">
-                  <div
-                    className="w-12 h-12 rounded-lg bg-cover bg-center flex-none shadow-inner bg-muted"
-                    style={{ backgroundImage: `url('${products.find((p) => p.id === item.productId)?.image ?? ''}')` }}
-                  />
-                  <div className="flex-1 min-w-0 pt-0.5">
-                    <div className="flex justify-between items-start mb-0.5">
-                      <p className="font-bold text-foreground truncate text-[15px]">{item.name}</p>
-                      <p className="font-bold text-foreground text-[14px]">ETB {(item.unitPrice * item.qty).toFixed(2)}</p>
-                    </div>
-                    <div className="text-[12px] text-muted-foreground space-y-0.5">
-                      <p className="leading-none">{`x${item.qty}`}</p>
-                      {item.note?.trim() ? <p className="text-[11px] text-muted-foreground truncate">{item.note.trim()}</p> : null}
+            <>
+              {/* Show cart items when not editing, or order items when editing */}
+              {(editingOrder && openOrder?.items ? openOrder.items : cartItems).map((item) => (
+                <div key={item.productId} className="bg-secondary p-2.5 rounded-xl shadow-sm border border-border group relative">
+                  <div className="flex gap-3 items-start">
+                    <div
+                      className="w-12 h-12 rounded-lg bg-cover bg-center flex-none shadow-inner bg-muted"
+                      style={{ backgroundImage: `url('${products.find((p) => p.id === item.productId)?.image ?? ''}')` }}
+                    />
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <div className="flex justify-between items-start mb-0.5">
+                        <p className="font-bold text-foreground truncate text-[15px]">{item.name}</p>
+                        <p className="font-bold text-foreground text-[14px]">ETB {(item.unitPrice * item.qty).toFixed(2)}</p>
+                      </div>
+                      <div className="text-[12px] text-muted-foreground space-y-0.5">
+                        <p className="leading-none">{`x${item.qty}`}</p>
+                        {item.note?.trim() ? <p className="text-[11px] text-muted-foreground truncate">{item.note.trim()}</p> : null}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="mt-2.5 flex items-center justify-between pl-14">
-                  <button
-                    onClick={() => {
-                      if (!selectedTableId) return;
-                      setCartQty(selectedTableId, item.productId, 0);
-                    }}
-                    className="h-8 w-8 rounded-lg border border-border bg-card text-red-300 hover:text-foreground hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
-                    title="Remove"
-                    type="button"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                  <div className="flex items-center bg-card rounded-lg border border-border h-8 overflow-hidden">
-                    <button
-                      onClick={() => {
-                        if (!selectedTableId) return;
-                        setCartQty(selectedTableId, item.productId, Math.max(0, item.qty - 1));
-                      }}
-                      className="w-8 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                      </svg>
-                    </button>
-                    <span className="w-7 text-center font-bold text-[13px] text-foreground bg-secondary h-full flex items-center justify-center border-x border-border">{item.qty}</span>
-                    <button
-                      onClick={() => {
-                        if (!selectedTableId) return;
-                        setCartQty(selectedTableId, item.productId, item.qty + 1);
-                      }}
-                      className="w-8 h-full flex items-center justify-center text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </button>
+                  <div className="mt-2.5 flex items-center justify-between pl-14">
+                    {editingOrder && openOrder ? (
+                      // Edit mode: use setPendingOrderItemQty for order items
+                      <>
+                        <button
+                          onClick={() => {
+                            if (item.qty > 1) {
+                              setPendingOrderItemQty(openOrder.id, item.productId, item.qty - 1);
+                            } else {
+                              // Remove item when qty would become 0
+                              setPendingOrderItemQty(openOrder.id, item.productId, 0);
+                            }
+                          }}
+                          className="h-8 w-8 rounded-lg border border-border bg-card text-red-300 hover:text-foreground hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
+                          title={item.qty > 1 ? 'Decrease' : 'Remove'}
+                          type="button"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                          </svg>
+                        </button>
+                        <span className="font-bold text-[13px] text-foreground">{item.qty}</span>
+                        <button
+                          onClick={() => {
+                            setPendingOrderItemQty(openOrder.id, item.productId, item.qty + 1);
+                          }}
+                          className="h-8 w-8 rounded-lg border border-border bg-card text-primary hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                          title="Increase"
+                          type="button"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                        </button>
+                      </>
+                    ) : (
+                      // Normal cart mode: use setCartQty
+                      <>
+                        <button
+                          onClick={() => {
+                            if (!selectedTableId) return;
+                            setCartQty(selectedTableId, item.productId, 0);
+                          }}
+                          className="h-8 w-8 rounded-lg border border-border bg-card text-red-300 hover:text-foreground hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
+                          title="Remove"
+                          type="button"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                        <div className="flex items-center bg-card rounded-lg border border-border h-8 overflow-hidden">
+                          <button
+                            onClick={() => {
+                              if (!selectedTableId) return;
+                              setCartQty(selectedTableId, item.productId, Math.max(0, item.qty - 1));
+                            }}
+                            className="w-8 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                            </svg>
+                          </button>
+                          <span className="w-7 text-center font-bold text-[13px] text-foreground bg-secondary h-full flex items-center justify-center border-x border-border">{item.qty}</span>
+                          <button
+                            onClick={() => {
+                              if (!selectedTableId) return;
+                              setCartQty(selectedTableId, item.productId, item.qty + 1);
+                            }}
+                            className="w-8 h-full flex items-center justify-center text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </>
           )}
         </ScrollArea>
 
@@ -690,10 +891,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             <div className="flex justify-between text-sm text-muted-foreground font-medium">
               <span>Subtotal</span>
               <span className="text-foreground">ETB {subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm text-muted-foreground font-medium">
-              <span>Tax/Service</span>
-              <span className="text-foreground">ETB {(tax + service).toFixed(2)}</span>
             </div>
             {takeawayFee > 0.0001 && (
               <div className="flex justify-between text-sm text-muted-foreground font-medium">
@@ -706,18 +903,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               <span className="font-bold text-2xl text-foreground">ETB {finalTotal.toFixed(2)}</span>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => void handleSendOrder()}
-              disabled={!selectedTableId || cartItems.length === 0 || sending}
-              className="flex flex-col items-center justify-center py-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/80 shadow-lg shadow-primary/20 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="text-lg font-black leading-tight">{sending ? 'Sending...' : 'Send'}</span>
-              <span className="text-[10px] font-bold opacity-70 uppercase tracking-widest">Ctrl+S</span>
-            </button>
+          <div className="grid grid-cols-1 gap-2">
             <button
               onClick={handlePay}
-              disabled={!openOrder}
+              disabled={!selectedTableId || (cartItems.length === 0 && !openOrder)}
               className="flex flex-col items-center justify-center py-3 px-2 bg-card border-2 border-primary text-primary rounded-xl hover:bg-primary hover:text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed font-bold"
             >
               <span className="text-lg font-black leading-tight">Pay</span>
@@ -727,90 +916,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
         </div>
       </div>
 
-      {/* RIGHT - MENU - Smart sizing */}
-      <div className="flex-1 min-w-[300px] border-l bg-card flex flex-col overflow-hidden">
-        <div className="p-3 border-b">
-          <Input
-            ref={searchRef}
-            placeholder="Search... (Ctrl+F)"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="p-3 grid grid-cols-3 gap-3">
-            {filteredProducts.map((p) => {
-              const isDisabled = !selectedTableId || p.stock <= 0;
-              const statusLabel = p.stock <= 0 ? 'Sold Out' : 'In Stock';
-              const statusClass = p.stock <= 0
-                ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                : 'bg-green-500/20 text-green-400 border-green-500/30';
-
-              return (
-                <button
-                  key={p.id}
-                  disabled={isDisabled}
-                  onClick={() => handleAddItem(p.id)}
-                  className={cn(
-                    'group bg-card rounded-xl overflow-hidden border border-border hover:border-primary transition-all duration-200 text-left flex flex-col relative',
-                    isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
-                  )}
-                >
-                  <div className="absolute top-2 right-2 z-10">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusClass}`}>{statusLabel}</span>
-                  </div>
-
-                  <div className="h-24 w-full bg-cover bg-center group-hover:opacity-90 transition-opacity bg-secondary relative">
-                    {p.image ? (
-                      <img
-                        src={p.image}
-                        alt={p.name}
-                        loading="lazy"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center bg-muted">
-                        <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-2 flex flex-col">
-                    <h3 className="font-bold text-foreground text-sm leading-snug mb-0.5 line-clamp-1">{p.name}</h3>
-                    <p className="text-muted-foreground text-[10px] line-clamp-1 mb-2">{(p as any).category || 'Item'}</p>
-                    <div className="mt-auto flex items-center justify-between">
-                      <span className="text-sm font-bold text-primary">ETB {Number(p.price || 0).toFixed(0)}</span>
-                      <div
-                        className={cn(
-                          'size-7 rounded-lg flex items-center justify-center shadow-lg transition-transform',
-                          isDisabled ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground shadow-primary/20 group-hover:scale-105'
-                        )}
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </ScrollArea>
-      </div>
-
       {/* PAYMENT MODAL */}
-      {showPaymentModal && openOrder && (
+      {showPaymentModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
           <div className="bg-card rounded-lg shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
             <div className="bg-primary text-primary-foreground p-4 flex justify-between items-center">
               <div>
                 <h2 className="text-lg font-bold">Process Payment</h2>
-                <p className="text-sm opacity-90">{openOrder.number} • {openOrder.tableName}</p>
+                <p className="text-sm opacity-90">
+                  {openOrder ? `${openOrder.number} • ${openOrder.tableName}` : `${selectedTable?.name || 'Table'} • New Order`}
+                </p>
               </div>
               <button
                 onClick={handleClosePayment}
@@ -826,7 +942,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               <div className="mb-4">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Order Items</h3>
                 <div className="border rounded-lg overflow-hidden">
-                  {openOrder.items.map((item, idx) => (
+                  {(openOrder?.items || cartItems).map((item, idx) => (
                     <div key={idx} className="flex justify-between items-center px-3 py-2 border-b last:border-0 bg-muted/30">
                       <div>
                         <span className="font-medium text-foreground">{item.name}</span>
@@ -842,19 +958,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               <div className="border-t pt-3 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span className="text-foreground">{openOrder.subtotal?.toFixed(2) || (openOrder.total * 0.8).toFixed(2)} ETB</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax (15%)</span>
-                  <span className="text-foreground">{openOrder.tax?.toFixed(2) || (openOrder.total * 0.15).toFixed(2)} ETB</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Service (5%)</span>
-                  <span className="text-foreground">{openOrder.service?.toFixed(2) || (openOrder.total * 0.05).toFixed(2)} ETB</span>
+                  <span className="text-foreground">
+                    {(openOrder?.subtotal || subtotal).toFixed(2)} ETB
+                  </span>
                 </div>
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span className="text-foreground">Total</span>
-                  <span className="text-primary">{openOrder.total.toFixed(2)} ETB</span>
+                  <span className="text-primary">{(openOrder?.total || finalTotal).toFixed(2)} ETB</span>
                 </div>
               </div>
             </div>
@@ -863,7 +973,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             <div className="border-t p-4 bg-muted/30">
               <label className="text-sm font-medium mb-2 block text-foreground">Payment Method</label>
               <div className="flex gap-2 mb-4">
-                {(['Cash', 'Telebirr'] as const).map((method) => (
+                {(['Cash', 'Telebirr', 'Bank'] as const).map((method) => (
                   <button
                     key={method}
                     onClick={() => setPaymentMethod(method)}
@@ -931,6 +1041,22 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                 </div>
               )}
 
+              {paymentMethod === 'Bank' && (
+                <div className="mb-4 space-y-3">
+                  <div className="bg-card p-4 rounded-xl border border-border">
+                    <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Bank Transaction Reference</label>
+                    <input
+                      type="text"
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
+                      placeholder="Enter bank transaction reference"
+                      className="mt-2 w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Enter the transaction reference from the bank transfer</p>
+                  </div>
+                </div>
+              )}
+
               {paymentMethod === 'Cash' && (
                 <div className="mb-4">
                   <label className="text-sm font-medium mb-2 block text-foreground">Amount Tendered</label>
@@ -944,10 +1070,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">ETB</span>
                   </div>
-                  {parseFloat(tenderedAmount) > openOrder.total && (
+                  {parseFloat(tenderedAmount) > (openOrder?.total || finalTotal) && (
                     <div className="flex justify-between text-sm mt-2 p-2 bg-green-100 text-green-800 rounded">
                       <span>Change Due:</span>
-                      <span className="font-bold">{(parseFloat(tenderedAmount) - openOrder.total).toFixed(2)} ETB</span>
+                      <span className="font-bold">{(parseFloat(tenderedAmount) - (openOrder?.total || finalTotal)).toFixed(2)} ETB</span>
                     </div>
                   )}
                 </div>
@@ -964,8 +1090,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                 </Button>
                 <Button
                   className="flex-1 h-12 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
-                  onClick={handleConfirmPayment}
-                  disabled={processingPayment || (paymentMethod === 'Cash' && parseFloat(tenderedAmount) < openOrder.total) || (paymentMethod === 'Telebirr' && !paymentReference.trim())}
+                  onClick={() => {
+                    // eslint-disable-next-line no-console
+                    console.log('[ConfirmButton] clicked, calling handleConfirmPayment');
+                    handleConfirmPayment();
+                  }}
+                  disabled={processingPayment || (paymentMethod === 'Cash' && parseFloat(tenderedAmount) < (openOrder?.total || finalTotal))}
                 >
                   {processingPayment ? 'Processing...' : `Confirm ${paymentMethod}`}
                 </Button>

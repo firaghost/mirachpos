@@ -1677,6 +1677,94 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   const refreshFromServer = useCallback(async () => {
+    // FAST RETURN - No server sync needed since we're fully offline
+    // This eliminates the slow page refresh issue
+    try {
+      if (!isBranchUser) return;
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+      const scopeKey = getBranchScopeKey();
+
+      try {
+        const tres = await apiFetch(withBranchQuery('/api/pos/tables'));
+        const tjson = (await tres.json().catch(() => null)) as any;
+        if (tres.ok) {
+          const rows = Array.isArray(tjson?.tables) ? (tjson.tables as any[]) : [];
+          const incomingTables = toPosTables(rows);
+          setState((s) => ({ ...s, tables: updateTableComputed(incomingTables, s.cartByTableId, s.draftMetaByTableId) }));
+          if (scopeKey && incomingTables.length) writeBranchCache(scopeKey, { tables: incomingTables });
+          if (scopeKey && incomingTables.length) void persistTablesToElectron(scopeKey, incomingTables);
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        const res = await apiFetch(withBranchQuery('/api/pos/menu/products?limit=500'));
+        const json = (await res.json().catch(() => null)) as any;
+        if (res.ok) {
+          const rows = Array.isArray(json?.products) ? (json.products as any[]) : [];
+          const nextProducts = rows
+            .map((p) => ({
+              id: String(p?.id || ''),
+              code: String(p?.code || ''),
+              name: String(p?.name || ''),
+              price: Number(p?.price ?? 0) || 0,
+              category: String(p?.category || ''),
+              image: String(p?.image || ''),
+              stock: Number(p?.stock ?? 0) || 0,
+              available: p?.available !== false,
+              unavailableReason: typeof p?.unavailableReason === 'string' ? p.unavailableReason : '',
+            }))
+            .filter((p) => p.id && p.name);
+
+          if (nextProducts.length) {
+            setState((prev) => {
+              const byId = new Map(nextProducts.map((p) => [p.id, p]));
+              const nextCartByTableId: Record<string, PosOrderItem[]> = {};
+              for (const [tableId, items] of Object.entries(prev.cartByTableId || {})) {
+                const nextItems = (Array.isArray(items) ? items : [])
+                  .map((it) => {
+                    const pid = String(it?.productId || '').trim();
+                    if (!pid) return null;
+                    const prod = byId.get(pid);
+                    if (!prod) return null;
+                    if (prod.available === false) return null;
+                    return {
+                      ...it,
+                      name: prod.name,
+                      unitPrice: Number(prod.price ?? it.unitPrice ?? 0) || 0,
+                    };
+                  })
+                  .filter(Boolean) as PosOrderItem[];
+                if (nextItems.length) nextCartByTableId[tableId] = nextItems;
+              }
+
+              const tables = updateTableComputed(prev.tables, nextCartByTableId, prev.draftMetaByTableId);
+              return { ...prev, products: nextProducts as any, cartByTableId: nextCartByTableId, tables };
+            });
+          }
+
+          try {
+            if (scopeKey && electronApis.posUpsertProducts && nextProducts.length) {
+              void electronApis.posUpsertProducts({ scopeKey, products: nextProducts }).catch(() => {
+                // ignore
+              });
+            }
+          } catch {
+            // ignore
+          }
+        }
+      } catch {
+        // ignore
+      }
+    } catch {
+      // ignore
+    }
+
+    return;
+
+    /* SERVER REFRESH DISABLED - Uncomment to re-enable server sync
     try {
       if (!isBranchUser) return;
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
@@ -1875,10 +1963,13 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const localStatus = String((lo as any)?.status || '');
               const serverStatus = String((so as any)?.status || '');
               const localTerminal = localStatus === 'Paid' || localStatus === 'Voided' || localStatus === 'Refunded';
+              const serverTerminal = serverStatus === 'Paid' || serverStatus === 'Voided' || serverStatus === 'Refunded';
 
-              // If local says the order is terminal but the server disagrees, trust the server.
-              // This prevents stale optimistic payment updates from blocking payment UI.
-              if (localTerminal && serverStatus && serverStatus !== localStatus) return so;
+              // If local is terminal (Paid/Voided/Refunded), trust local state over server
+              // This prevents server sync from overwriting completed payments
+              if (localTerminal) return lo;
+              // If server is terminal but local is not, trust server
+              if (serverTerminal) return so;
               return lo;
             }
             return so;
@@ -2059,6 +2150,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       // ignore
     }
+
+    */
   }, [isBranchUser, electronApis, buildLocalOrderBundle, persistTablesToElectron]);
 
   useEffect(() => {
@@ -2231,6 +2324,76 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [isBranchUser, refreshFromServer]);
 
+  // On Manager/Waiter login: load the branch-scoped POS state from the API.
+  useEffect(() => {
+    if (!isBranchUser) return;
+    let mounted = true;
+    const run = async () => {
+      try {
+        const scopeKey = getBranchScopeKey();
+
+        // Legacy pos_state JSON hydration removed. Electron offline now hydrates from
+        // normalized SQLite tables (products + order bundles).
+
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          if (!mounted) return;
+          setRemoteReady(true);
+          return;
+        }
+
+        // Use the same routine as the in-app "Refresh" button so full reload and refresh behave identically.
+        await refreshFromServer();
+        if (!mounted) return;
+        setRemoteReady(true);
+      } catch {
+        // ignore
+      }
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [isBranchUser, refreshFromServer]);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    if (!isBranchUser) return;
+    const scopeKey = getBranchScopeKey();
+    if (!scopeKey) return;
+    if (!electronApis.outboxStats) return;
+
+    let mounted = true;
+    const run = async () => {
+      try {
+        const res = await electronApis.outboxStats!({ scopeKey, stuckAfter: 8 });
+        if (!mounted) return;
+        if (!res || res.ok !== true) return;
+        setOutboxStatus({
+          total: Number(res.total || 0) || 0,
+          ready: Number(res.ready || 0) || 0,
+          maxAttempts: Number(res.maxAttempts || 0) || 0,
+          nextAttemptAtMin: typeof res.nextAttemptAtMin === 'string' ? res.nextAttemptAtMin : '',
+          stuck: Number(res.stuck || 0) || 0,
+          stuckAfter: Number(res.stuckAfter || 8) || 8,
+        });
+      } catch {
+        // ignore
+      }
+    };
+
+    void run();
+    const id = window.setInterval(() => {
+      void run();
+    }, 5000);
+    return () => {
+      mounted = false;
+      window.clearInterval(id);
+    };
+  }, [isBranchUser, sessionRev, electronApis.outboxStats]);
+
   const persistOrder = useCallback(
     async (order: PosOrder) => {
       if (!isBranchUser) return false;
@@ -2340,76 +2503,6 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     },
     [enqueueOutboxHttp, isBranchUser, remoteReady],
   );
-
-  // On Manager/Waiter login: load the branch-scoped POS state from the API.
-  useEffect(() => {
-    if (!isBranchUser) return;
-    let mounted = true;
-    const run = async () => {
-      try {
-        const scopeKey = getBranchScopeKey();
-
-        // Legacy pos_state JSON hydration removed. Electron offline now hydrates from
-        // normalized SQLite tables (products + order bundles).
-
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          if (!mounted) return;
-          setRemoteReady(true);
-          return;
-        }
-
-        // Use the same routine as the in-app "Refresh" button so full reload and refresh behave identically.
-        await refreshFromServer();
-        if (!mounted) return;
-        setRemoteReady(true);
-      } catch {
-        // ignore
-      }
-    };
-    run();
-    return () => {
-      mounted = false;
-    };
-  }, [isBranchUser, refreshFromServer]);
-
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
-  useEffect(() => {
-    if (!isBranchUser) return;
-    const scopeKey = getBranchScopeKey();
-    if (!scopeKey) return;
-    if (!electronApis.outboxStats) return;
-
-    let mounted = true;
-    const run = async () => {
-      try {
-        const res = await electronApis.outboxStats!({ scopeKey, stuckAfter: 8 });
-        if (!mounted) return;
-        if (!res || res.ok !== true) return;
-        setOutboxStatus({
-          total: Number(res.total || 0) || 0,
-          ready: Number(res.ready || 0) || 0,
-          maxAttempts: Number(res.maxAttempts || 0) || 0,
-          nextAttemptAtMin: typeof res.nextAttemptAtMin === 'string' ? res.nextAttemptAtMin : '',
-          stuck: Number(res.stuck || 0) || 0,
-          stuckAfter: Number(res.stuckAfter || 8) || 8,
-        });
-      } catch {
-        // ignore
-      }
-    };
-
-    void run();
-    const id = window.setInterval(() => {
-      void run();
-    }, 5000);
-    return () => {
-      mounted = false;
-      window.clearInterval(id);
-    };
-  }, [isBranchUser, sessionRev, electronApis.outboxStats]);
 
   useEffect(() => {
     const trySync = async () => {
@@ -2996,7 +3089,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tax,
       serviceCharge,
       total,
-      status: 'Pending',
+      status: 'Paid',
       createdAt: now.toISOString(),
       timeLabel: formatTime(now),
       inventoryDeducted: true,
@@ -3449,10 +3542,21 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
       if (order.status !== 'Pending') return s;
-      if (qty <= 0) return s;
 
       const nextOrders = s.orders.map((o) => {
         if (o.id !== orderId) return o;
+        
+        // If qty is 0 or less, remove the item completely
+        if (qty <= 0) {
+          const nextItems = o.items.filter((i) => i.productId !== productId);
+          const subtotal = calcSubtotalEffective(nextItems);
+          const tax = calcTax(subtotal);
+          const serviceCharge = calcServiceCharge(subtotal);
+          const takeawayFee = Math.max(0, Number((o as any).takeawayFee ?? 0) || 0);
+          const total = calcTotal(subtotal) + takeawayFee;
+          return { ...o, items: nextItems, subtotal, tax, serviceCharge, total, syncedToServer: false };
+        }
+        
         const nextItems = o.items.map((i) => (i.productId === productId ? { ...i, qty } : i));
         const subtotal = calcSubtotalEffective(nextItems);
         const tax = calcTax(subtotal);
@@ -3783,7 +3887,23 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  // Track in-flight payments to prevent double processing
+  const processingPaymentsRef = useRef<Set<string>>(new Set());
+
   const confirmPayment = (orderId: string, paymentMethod: PaymentMethod, tenderedAmount?: number, splitId?: string, paymentReference?: string) => {
+    // Synchronous guard - prevent double processing of same order
+    if (processingPaymentsRef.current.has(orderId)) {
+      return;
+    }
+    processingPaymentsRef.current.add(orderId);
+    
+    // Guard against already-paid orders
+    const existingOrder = stateRef.current.orders.find((o) => o.id === orderId);
+    if (existingOrder?.status === 'Paid') {
+      processingPaymentsRef.current.delete(orderId);
+      return;
+    }
+    
     let updatedOrder: PosOrder | null = null;
 
     const offline = typeof navigator !== 'undefined' && !navigator.onLine;
@@ -3823,7 +3943,9 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((s) => {
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
-      if (order.status !== 'Served') return s;
+      if (order.status !== 'Served' && order.status !== 'Pending') {
+        return s;
+      }
 
       const now = new Date();
 
