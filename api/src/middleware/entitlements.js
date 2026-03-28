@@ -25,6 +25,7 @@ const hasFeature = (req, featureId) => {
 };
 
 const requireFeature = (featureId) => (req, res, next) => {
+  if (config && config.devBypassAuth) return next();
   if (!hasFeature(req, featureId)) return res.status(403).json({ error: 'feature_disabled' });
   return next();
 };

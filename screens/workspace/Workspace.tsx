@@ -1,17 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Screen } from '../../types';
 import { usePos } from '../../PosContext';
 import { readSession } from '../../session';
-
-import { FloorPanel } from './FloorPanel';
-import { MenuPanel } from './MenuPanel';
-import { CartPanel } from './CartPanel';
-import { ActiveOrdersPanel } from './ActiveOrdersPanel';
+import { apiFetch } from '../../api';
 
 import { cn } from '@/components/lib/utils';
-
-type WorkspaceView = 'floor' | 'menu' | 'cart' | 'active';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 export type WorkspaceProps = {
   currentScreen: Screen;
@@ -19,20 +18,122 @@ export type WorkspaceProps = {
   posUiV2Enabled: boolean;
 };
 
+const formatTime = (mins: number) => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+// Kitchen ticket HTML generator for full-page print
+const kitchenTicketHtml = (title: string, order: any, lines: Array<{ name: string; qty: number; note?: string }>) => {
+  const escapeHtml = (s: string) =>
+    s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  
+  const now = new Date();
+  const header = `${escapeHtml(title)}`;
+  const table = escapeHtml(order.tableName ?? '');
+  const number = escapeHtml(order.number ?? '');
+  const time = escapeHtml(order.timeLabel ?? now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+  const placedBy = escapeHtml(order.createdByName ?? order.createdByStaffId ?? 'Staff');
+  const notes = order.notes ? `<div class="notes">${escapeHtml(order.notes)}</div>` : '';
+  const items = lines
+    .map((l) => {
+      const note = l.note?.trim() ? `<div class="note">${escapeHtml(l.note)}</div>` : '';
+      return `
+        <div class="row">
+          <div class="qty">${l.qty}x</div>
+          <div class="name">${escapeHtml(l.name)}${note}</div>
+        </div>
+      `;
+    })
+    .join('');
+
+  return `
+  <!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>${header}</title>
+      <style>
+        *{box-sizing:border-box;}
+        body{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; margin:0; padding:24px; color:#111;}
+        .top{display:flex; justify-content:space-between; align-items:flex-start; gap:12px;}
+        .brand{font-size:16px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;}
+        .meta{font-size:14px; text-align:right;}
+        .by{margin-top:6px; font-size:14px; font-weight:800;}
+        .kds{margin-top:12px; font-size:28px; font-weight:900;}
+        .hr{border-top:2px dashed #444; margin:16px 0;}
+        .row{display:flex; gap:12px; padding:10px 0; border-bottom:1px dashed #bbb;}
+        .qty{width:56px; font-size:20px; font-weight:900;}
+        .name{flex:1; font-size:18px; font-weight:800;}
+        .note{margin-top:4px; font-size:14px; font-weight:600; color:#333;}
+        .notes{margin-top:12px; padding:12px; border:1px dashed #777; font-size:14px; font-weight:700;}
+        @media print{body{padding:0} .no-print{display:none}}
+      </style>
+    </head>
+    <body>
+      <div class="top">
+        <div>
+          <div class="brand">${header}</div>
+          <div class="kds">${table}    ${number}</div>
+          <div class="by">Placed by: ${placedBy}</div>
+        </div>
+        <div class="meta">
+          <div>${time}</div>
+        </div>
+      </div>
+      ${notes}
+      <div class="hr"></div>
+      ${items}
+      <div class="hr"></div>
+      <div class="no-print" style="font-size:14px;color:#666;margin-top:20px;">
+        <button onclick="window.print()" style="padding:12px 24px;font-size:16px;cursor:pointer;">Print Ticket</button>
+        <p>Or press Ctrl+P to print</p>
+      </div>
+    </body>
+  </html>
+  `;
+};
+
+const minutesSince = (iso?: string) => {
+  if (!iso) return null;
+  const ts = new Date(iso).getTime();
+  if (!Number.isFinite(ts)) return null;
+  const mins = Math.floor((Date.now() - ts) / 60000);
+  return mins >= 0 ? mins : null;
+};
+
 export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate, posUiV2Enabled: _posUiV2Enabled }) => {
-  const { selectedTableId, selectTable, addToCart, setTableAssignment, tables, selectOrder, orders } = usePos();
+  const {
+    tables,
+    orders,
+    products,
+    selectedTableId,
+    selectTable,
+    selectOrder,
+    addToCart,
+    getCartItems,
+    setCartQty,
+    removeFromCart,
+    setTableAssignment,
+    sendOrderToKitchen,
+    setOrderStatus,
+    refreshFromServer,
+    printKitchenTicket,
+    confirmPayment,
+    getDraftOrderMeta,
+    setDraftOrderMeta,
+  } = usePos();
 
-  const features = useMemo(() => {
-    try {
-      const parsed = readSession<any>();
-      return Array.isArray(parsed?.features) ? parsed.features.map(String).filter(Boolean) : [];
-    } catch {
-      return [];
-    }
-  }, []);
-
-  const waiterFeatureMode = useMemo(() => features.some((f) => String(f).startsWith('waiter_')), [features]);
-  const hasFeature = (key: string) => (!waiterFeatureMode ? true : features.includes(key));
+  const [query, setQuery] = useState('');
+  const [sending, setSending] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const actor = useMemo(() => {
     try {
@@ -45,143 +146,834 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     }
   }, []);
 
-  const tabs = useMemo(() => {
-    const out: Array<{ key: WorkspaceView; label: string }> = [];
-    if (hasFeature('waiter_floor')) out.push({ key: 'floor', label: 'Floor' });
-    if (hasFeature('waiter_menu')) out.push({ key: 'menu', label: 'Menu' });
-    if (hasFeature('waiter_cart')) out.push({ key: 'cart', label: 'Cart' });
-    if (hasFeature('waiter_orders_active')) out.push({ key: 'active', label: 'Active' });
-    return out;
-  }, [waiterFeatureMode, features]);
+  const selectedTable = useMemo(
+    () => (selectedTableId ? tables.find((t) => t.id === selectedTableId) ?? null : null),
+    [selectedTableId, tables]
+  );
 
-  const defaultView = useMemo<WorkspaceView>(() => {
-    if (currentScreen === Screen.WAITER_ACTIVE_ORDERS && hasFeature('waiter_orders_active')) return 'active';
-    if ((currentScreen === Screen.WAITER_MENU || currentScreen === Screen.POS_MENU) && hasFeature('waiter_menu')) return 'menu';
-    if (hasFeature('waiter_floor')) return 'floor';
-    return tabs[0]?.key ?? 'floor';
-  }, [currentScreen, tabs, waiterFeatureMode, features]);
+  const cartItems = useMemo(
+    () => (selectedTableId ? getCartItems(selectedTableId) : []),
+    [getCartItems, selectedTableId]
+  );
 
-  const [view, setView] = useState<WorkspaceView>(defaultView);
+  const openOrder = useMemo(() => {
+    if (!selectedTable?.openOrderId) return null;
+    return orders.find((o) => o.id === selectedTable.openOrderId) ?? null;
+  }, [selectedTable, orders]);
 
+  const orderMins = useMemo(() => {
+    if (!openOrder) return null;
+    return minutesSince(openOrder.createdAt);
+  }, [openOrder]);
+
+  // Get waiter name for selected table
+  const tableWaiterName = useMemo(() => {
+    if (!selectedTable?.assignedStaffId) return actor.staffName || 'Unassigned';
+    return selectedTable.assignedStaffName || 'Waiter';
+  }, [selectedTable, actor.staffName]);
+
+  const filteredProducts = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return products.filter((p) => {
+      if ((p as any)?.available === false) return false;
+      if (p.stock <= 0) return false;
+      if (!q) return true;
+      return String(p.name || '').toLowerCase().includes(q) || String(p.code || '').toLowerCase().includes(q);
+    });
+  }, [products, query]);
+
+  const subtotal = useMemo(
+    () => cartItems.reduce((sum, i) => sum + (Number(i.unitPrice || 0) || 0) * (Number(i.qty || 0) || 0), 0),
+    [cartItems]
+  );
+  const tax = subtotal * 0.15;
+  const service = subtotal * 0.05;
+  const total = subtotal + tax + service;
+
+  const draftMeta = useMemo(() => (selectedTableId ? getDraftOrderMeta(selectedTableId) : {}), [selectedTableId, getDraftOrderMeta]);
+  const draftOrderType = draftMeta?.orderType === 'takeaway' ? 'takeaway' : 'dine_in';
+  const takeawayFee = draftOrderType === 'takeaway' ? Math.max(0, Number(draftMeta?.takeawayFee ?? 0) || 0) : 0;
+  const finalTotal = total + takeawayFee;
+
+  // Keyboard shortcuts
   useEffect(() => {
-    setView(defaultView);
-  }, [defaultView]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setView(defaultView);
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        if (selectedTableId && cartItems.length > 0 && !sending) {
+          void handleSendOrder();
+        }
+      }
+      if (e.ctrlKey && e.key === 'p') {
+        e.preventDefault();
+        if (openOrder) {
+          handlePay();
+        }
+      }
+      if (e.ctrlKey && e.key === 'f') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [defaultView]);
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selectedTableId, cartItems.length, sending, openOrder]);
+
+  // Auto-focus search when table changes
+  useEffect(() => {
+    searchRef.current?.focus();
+  }, [selectedTableId]);
+
+  const handleSelectTable = (tableId: string) => {
+    selectTable(tableId);
+    try {
+      const table = tables.find((t) => t.id === tableId) ?? null;
+      if (table && !table.assignedStaffId && actor.staffId) {
+        setTableAssignment([tableId], actor.staffId, actor.staffName || null);
+      }
+      const openOrderId = table?.openOrderId ? String(table.openOrderId) : '';
+      if (openOrderId) {
+        selectOrder(openOrderId);
+        // Stay on workspace, don't navigate - Pay button will be enabled
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleAddItem = (productId: string) => {
+    if (!selectedTableId) return;
+    addToCart(selectedTableId, productId);
+  };
+
+  const handleSendOrder = async () => {
+    if (!selectedTableId || cartItems.length === 0 || sending) return;
+    setSending(true);
+    console.log('DEBUG: handleSendOrder called, tableId:', selectedTableId);
+    try {
+      const id = sendOrderToKitchen(selectedTableId, '');
+      console.log('DEBUG: sendOrderToKitchen returned:', id);
+      if (id) {
+        // Print kitchen ticket immediately after sending
+        try {
+          // Get cart items directly since order might not be in state yet
+          const lines = cartItems.map((i) => ({ name: i.name, qty: i.qty, note: i.note || '' }));
+          const orderNumber = id.slice(-6).toUpperCase();
+          const mockOrder = {
+            id,
+            number: `#${orderNumber}`,
+            tableName: selectedTable?.name || 'Table',
+            timeLabel: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            createdByName: actor.staffName || 'Staff',
+            notes: '',
+            items: cartItems,
+          };
+          const html = kitchenTicketHtml('Kitchen Ticket', mockOrder, lines);
+          console.log('DEBUG: opening print window with', lines.length, 'items');
+          // Open as full page window - MUST specify dimensions for popup to work
+          const printWindow = window.open('', 'kitchen_print', 'width=600,height=800,scrollbars=yes');
+          if (printWindow) {
+            console.log('DEBUG: print window opened successfully');
+            printWindow.document.write(html);
+            printWindow.document.close();
+            printWindow.focus();
+            // Auto-trigger print dialog
+            setTimeout(() => {
+              try {
+                printWindow.print();
+              } catch {
+                // ignore
+              }
+            }, 500);
+          } else {
+            console.error('DEBUG: Popup blocked - kitchen ticket could not open');
+            alert('Popup blocked! Please allow popups for this site to print kitchen tickets.');
+          }
+        } catch (e) {
+          console.error('DEBUG: Print error:', e);
+        }
+        // Refresh after a delay to sync with server
+        setTimeout(() => {
+          void refreshFromServer();
+        }, 500);
+        // Don't clear table selection so user can pay immediately after sending
+        setQuery('');
+      }
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Telebirr'>('Cash');
+  const [tenderedAmount, setTenderedAmount] = useState('');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [tipAmount, setTipAmount] = useState('');
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [posSettings, setPosSettings] = useState<any>(null);
+
+  // Fetch POS settings for payment QR codes
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const res = await apiFetch('/api/pos/settings');
+        const json = (await res.json().catch(() => null)) as any;
+        if (!res.ok) return;
+        if (!mounted) return;
+        setPosSettings((json && typeof json === 'object' ? json : null) as any);
+      } catch {
+        // ignore
+      }
+    };
+    void run();
+    return () => { mounted = false; };
+  }, []);
+
+  const telebirrQr = useMemo(() => {
+    const q = posSettings?.branchPayments?.qrCodes?.telebirr;
+    return typeof q === 'string' ? q : '';
+  }, [posSettings]);
+
+  const telebirrDetails = useMemo(() => {
+    const d = posSettings?.branchPayments?.qrDetails?.telebirr;
+    if (!d) return null;
+    return {
+      accountName: typeof d.accountName === 'string' ? d.accountName : '',
+      phone: typeof d.phone === 'string' ? d.phone : '',
+      merchantId: typeof d.merchantId === 'string' ? d.merchantId : '',
+      note: typeof d.note === 'string' ? d.note : '',
+    };
+  }, [posSettings]);
+
+  const handleHoldOrder = async () => {
+    if (!selectedTableId || cartItems.length === 0) return;
+    try {
+      // Create order as Pending (held) without printing
+      const id = sendOrderToKitchen(selectedTableId, '');
+      if (id) {
+        // Refresh to show the held order
+        setTimeout(() => {
+          void refreshFromServer();
+        }, 300);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handlePay = () => {
+    console.log('DEBUG: handlePay called, openOrder:', openOrder?.id);
+    if (openOrder) {
+      setShowPaymentModal(true);
+      setTenderedAmount(openOrder.total.toFixed(2));
+      console.log('DEBUG: payment modal should be visible now');
+    } else {
+      console.log('DEBUG: no openOrder found');
+      alert('No open order to pay for');
+    }
+  };
+
+  const handleClosePayment = () => {
+    setShowPaymentModal(false);
+    setProcessingPayment(false);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!openOrder) return;
+    setProcessingPayment(true);
+    try {
+      // First set order to Served status so confirmPayment will work
+      try {
+        setOrderStatus(openOrder.id, 'Served');
+      } catch {
+        // ignore
+      }
+      
+      // Apply tip if entered (for Telebirr payments)
+      const tipValue = parseFloat(tipAmount) || 0;
+      if (tipValue > 0 && paymentMethod === 'Telebirr') {
+        try {
+          const payload = {
+            number: openOrder.number,
+            tableId: openOrder.tableId,
+            tableName: openOrder.tableName,
+            orderType: (openOrder as any).orderType ?? (openOrder as any)?.payload?.orderType ?? null,
+            takeawayFee: Number((openOrder as any).takeawayFee ?? (openOrder as any)?.payload?.takeawayFee ?? 0) || 0,
+            items: openOrder.items || [],
+            subtotal: Number(openOrder.subtotal ?? 0) || 0,
+            tax: Number(openOrder.tax ?? 0) || 0,
+            serviceCharge: Number((openOrder as any).serviceCharge ?? 0) || 0,
+            total: Number(openOrder.total ?? 0) || 0,
+            createdAt: openOrder.createdAt,
+            paidAt: (openOrder as any).paidAt ?? null,
+            createdByStaffId: (openOrder as any).createdByStaffId ?? null,
+            createdByName: (openOrder as any).createdByName ?? null,
+            paidByStaffId: (openOrder as any).paidByStaffId ?? null,
+            paidByName: (openOrder as any).paidByName ?? null,
+            paymentMethod: (openOrder as any).paymentMethod ?? null,
+            tenderedAmount: (openOrder as any).tenderedAmount ?? null,
+            paymentReference: (openOrder as any).paymentReference ?? null,
+            splits: (openOrder as any).splits ?? null,
+            notes: (openOrder as any).notes ?? null,
+            tip: tipValue,
+            tipAmount: tipValue,
+            tipPct: 0,
+            tipPctAmount: 0,
+          };
+          
+          await apiFetch(`/api/pos/orders/${encodeURIComponent(openOrder.id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tip: tipValue, payload }),
+          });
+        } catch {
+          // ignore tip error, continue with payment
+        }
+      }
+      
+      const tendered = parseFloat(tenderedAmount) || openOrder.total;
+      confirmPayment(openOrder.id, paymentMethod, tendered, undefined, paymentReference.trim() || undefined);
+      setShowPaymentModal(false);
+      selectTable(null);
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const getTableStatusColor = (status?: string) => {
+    if (status === 'Free') return 'bg-emerald-500';
+    if (status === 'Payment') return 'bg-blue-500';
+    if (status === 'Reserved') return 'bg-amber-500';
+    return 'bg-red-500'; // Occupied/busy
+  };
+
+  const getTableStatusBorder = (status?: string) => {
+    if (status === 'Free') return 'border-l-4 border-emerald-500';
+    if (status === 'Payment') return 'border-l-4 border-blue-500';
+    if (status === 'Reserved') return 'border-l-4 border-amber-500';
+    return 'border-l-4 border-red-500'; // Occupied
+  };
+
+  const getTableStatusBg = (status?: string) => {
+    if (status === 'Free') return 'bg-emerald-50';
+    if (status === 'Payment') return 'bg-blue-50';
+    if (status === 'Reserved') return 'bg-amber-50';
+    return 'bg-red-50'; // Occupied
+  };
+
+  const getTableStatusLabel = (status?: string) => {
+    if (status === 'Free') return 'Free';
+    if (status === 'Payment') return 'Payment';
+    if (status === 'Reserved') return 'Reserved';
+    return 'Occupied';
+  };
 
   return (
-    <div className="h-full w-full flex flex-col">
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)_420px_360px]">
-        <div className={cn('min-h-0 border-r border-border bg-background', view !== 'floor' ? 'lg:block hidden' : '')}>
-          <FloorPanel
-            onSelectTable={(tableId) => {
-              selectTable(tableId);
-              onNavigate(Screen.WAITER_DASHBOARD);
+    <div className="h-screen w-full flex bg-background text-sm overflow-hidden pb-8">
+      {/* LEFT - TABLES - Smart sizing */}
+      <div className="flex-1 min-w-[320px] max-w-[40%] border-r bg-card flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-auto p-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {tables.map((t) => {
+              const active = selectedTableId === t.id;
+              const order = t.openOrderId ? orders.find(o => o.id === t.openOrderId) : null;
+              const isFree = t.openOrderId == null;
+              const isOccupied = !isFree;
+              const assignedName = t.assignedStaffName || actor.staffName || 'Unassigned';
+              const displayTotal = isOccupied ? (order?.total || t.currentTotal || 0) : 0;
 
-              try {
-                const table = tables.find((t) => t.id === tableId) ?? null;
-                if (table && !table.assignedStaffId && actor.staffId) {
-                  setTableAssignment([tableId], actor.staffId, actor.staffName || null);
-                }
+              return (
+                <div
+                  key={t.id}
+                  onClick={() => handleSelectTable(t.id)}
+                  className={cn(
+                    'group relative flex flex-col justify-between aspect-[4/3] p-4 rounded-xl cursor-pointer transition-all duration-200',
+                    isFree
+                      ? 'border border-dashed border-border bg-background/50 hover:bg-card hover:border-solid hover:border-primary'
+                      : 'border-l-4 border-l-primary border-y border-r border-border bg-card hover:border-primary',
+                    active ? 'ring-2 ring-primary scale-[1.02]' : 'hover:-translate-y-1'
+                  )}
+                >
+                  <div className="flex justify-between items-start">
+                    <span className={cn(
+                      'text-3xl font-black transition-colors',
+                      isFree ? 'text-border group-hover:text-primary' : 'text-foreground opacity-90'
+                    )}>
+                      {t.name.replace(/^T-?/i, '')}
+                    </span>
+                    <div className={cn(
+                      'px-2 py-1 rounded text-xs font-bold uppercase tracking-wider',
+                      isFree
+                        ? 'bg-card text-muted-foreground'
+                        : 'bg-primary/10 text-primary border border-primary/20'
+                    )}>
+                      {isFree ? 'Free' : t.status === 'Payment' ? 'Payment' : order?.status ?? 'Occupied'}
+                    </div>
+                  </div>
 
-                const openOrderId = table?.openOrderId ? String(table.openOrderId) : '';
-                if (openOrderId) {
-                  selectOrder(openOrderId);
-                  const o = orders.find((x) => x.id === openOrderId) ?? null;
-                  const orderStatus = o ? String(o.status || '').trim() : '';
-                  const tableStatus = table ? String((table as any).status || '').trim() : '';
-                  if (orderStatus === 'Served' || tableStatus === 'Payment') {
-                    onNavigate(Screen.WAITER_PAYMENT);
-                    return;
-                  }
-                  onNavigate(Screen.WAITER_REVIEW);
-                  return;
-                }
-              } catch {
-                // ignore
-              }
-
-              if (hasFeature('waiter_menu')) setView('menu');
-              else if (hasFeature('waiter_cart')) setView('cart');
-            }}
-          />
-        </div>
-
-        <div className={cn('min-h-0 bg-background', view !== 'menu' ? 'lg:block hidden' : '')}>
-          <MenuPanel
-            selectedTableId={selectedTableId}
-            onAddItem={(productId) => {
-              if (!selectedTableId) return;
-              addToCart(selectedTableId, productId);
-              if (hasFeature('waiter_cart')) setView('cart');
-            }}
-          />
-        </div>
-
-        <div className={cn('min-h-0 border-l border-border bg-background', view !== 'cart' ? 'lg:block hidden' : '')}>
-          <CartPanel
-            selectedTableId={selectedTableId}
-            onOrderSent={(orderId) => {
-              try {
-                if (orderId) selectOrder(orderId);
-              } catch {
-                // ignore
-              }
-              if (hasFeature('waiter_orders_active')) {
-                setView('active');
-                onNavigate(Screen.WAITER_ACTIVE_ORDERS);
-                return;
-              }
-              if (hasFeature('waiter_floor')) {
-                setView('floor');
-                onNavigate(Screen.WAITER_DASHBOARD);
-              }
-            }}
-          />
-        </div>
-
-        <div className={cn('min-h-0 border-l border-border bg-background', view !== 'active' ? 'lg:block hidden' : '')}>
-          <ActiveOrdersPanel
-            onNavigate={onNavigate}
-            onFocusTable={(tableId) => {
-              selectTable(tableId);
-              if (hasFeature('waiter_floor')) setView('floor');
-            }}
-          />
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground truncate max-w-[80px]">{assignedName}</span>
+                      <span className="text-xs font-bold text-foreground">{isOccupied ? `${displayTotal.toFixed(0)} ETB` : ''}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-1 border-t border-border">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        {t.seats}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">{t.openOrderId ? order?.number : ''}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      <div className="lg:hidden border-t border-border bg-card p-2">
-        <div className={cn('grid gap-2', tabs.length === 4 ? 'grid-cols-4' : tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              className={cn(
-                'h-11 rounded-xl border text-xs font-black uppercase tracking-widest',
-                view === t.key
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background text-muted-foreground border-border hover:text-foreground'
+      {/* CENTER - ORDER - Smart sizing with Cart design from WaiterMenu */}
+      <div className="w-[360px] flex flex-col bg-card overflow-hidden flex-shrink-0">
+        <div className="px-4 py-5 border-b border-border bg-card/50">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-3">
+              <div className="bg-primary/10 text-primary p-2.5 rounded-xl">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h7v2H7v-2z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="font-bold text-xl text-foreground">{selectedTable ? selectedTable.name : 'Select Table'}</h2>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 font-medium">
+                  <span>Order #{selectedTable?.openOrderId ? String(selectedTable.openOrderId).slice(-6) : 'New'}</span>
+                  <span className="size-1 rounded-full bg-muted-foreground/50"></span>
+                  <span>{selectedTable?.openOrderId ? 'Active' : 'Draft'}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-foreground bg-secondary border border-border shadow-sm px-4 py-1.5 rounded-full font-semibold">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <span>{selectedTable?.seats || '-'}</span>
+            </div>
+          </div>
+          {orderMins != null && (
+            <Badge variant="secondary" className="text-xs font-mono">
+              {formatTime(orderMins)}
+            </Badge>
+          )}
+        </div>
+
+        <ScrollArea className="flex-1 min-h-0 p-4 space-y-5">
+          {!selectedTable?.openOrderId && selectedTable && (
+            <div className="bg-secondary p-4 rounded-2xl border border-border">
+              <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Order Type</div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDraftOrderMeta(selectedTableId!, { orderType: 'dine_in', takeawayFee: 0 })}
+                  className={cn(
+                    'flex-1 h-10 rounded-xl border text-sm font-bold',
+                    draftOrderType === 'dine_in'
+                      ? 'bg-primary border-primary text-primary-foreground'
+                      : 'bg-card border-border text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Dine-in
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDraftOrderMeta(selectedTableId!, { orderType: 'takeaway' })}
+                  className={cn(
+                    'flex-1 h-10 rounded-xl border text-sm font-bold',
+                    draftOrderType === 'takeaway'
+                      ? 'bg-primary border-primary text-primary-foreground'
+                      : 'bg-card border-border text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Takeaway
+                </button>
+              </div>
+
+              {draftOrderType === 'takeaway' && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground font-medium">
+                    <span>Takeaway Fee</span>
+                    <span className="text-foreground font-bold">ETB {takeawayFee.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={String(takeawayFee)}
+                    onChange={(e) => setDraftOrderMeta(selectedTableId!, { takeawayFee: Number(e.target.value || 0) || 0 })}
+                    className="mt-2 w-full h-10 bg-card border border-border rounded-xl px-3 text-sm text-foreground"
+                    placeholder="0.00"
+                  />
+                </div>
               )}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                setView(t.key);
-                if (t.key === 'floor') onNavigate(Screen.WAITER_DASHBOARD);
-                if (t.key === 'menu') onNavigate(Screen.WAITER_MENU);
-                if (t.key === 'active') onNavigate(Screen.WAITER_ACTIVE_ORDERS);
-              }}
+            </div>
+          )}
+
+          {cartItems.length === 0 ? (
+            <div className="text-muted-foreground text-sm text-center py-8">No items in cart</div>
+          ) : (
+            cartItems.map((item) => (
+              <div key={item.productId} className="bg-secondary p-2.5 rounded-xl shadow-sm border border-border group relative">
+                <div className="flex gap-3 items-start">
+                  <div
+                    className="w-12 h-12 rounded-lg bg-cover bg-center flex-none shadow-inner bg-muted"
+                    style={{ backgroundImage: `url('${products.find((p) => p.id === item.productId)?.image ?? ''}')` }}
+                  />
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <div className="flex justify-between items-start mb-0.5">
+                      <p className="font-bold text-foreground truncate text-[15px]">{item.name}</p>
+                      <p className="font-bold text-foreground text-[14px]">ETB {(item.unitPrice * item.qty).toFixed(2)}</p>
+                    </div>
+                    <div className="text-[12px] text-muted-foreground space-y-0.5">
+                      <p className="leading-none">{`x${item.qty}`}</p>
+                      {item.note?.trim() ? <p className="text-[11px] text-muted-foreground truncate">{item.note.trim()}</p> : null}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2.5 flex items-center justify-between pl-14">
+                  <button
+                    onClick={() => {
+                      if (!selectedTableId) return;
+                      setCartQty(selectedTableId, item.productId, 0);
+                    }}
+                    className="h-8 w-8 rounded-lg border border-border bg-card text-red-300 hover:text-foreground hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
+                    title="Remove"
+                    type="button"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                  <div className="flex items-center bg-card rounded-lg border border-border h-8 overflow-hidden">
+                    <button
+                      onClick={() => {
+                        if (!selectedTableId) return;
+                        setCartQty(selectedTableId, item.productId, Math.max(0, item.qty - 1));
+                      }}
+                      className="w-8 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                      </svg>
+                    </button>
+                    <span className="w-7 text-center font-bold text-[13px] text-foreground bg-secondary h-full flex items-center justify-center border-x border-border">{item.qty}</span>
+                    <button
+                      onClick={() => {
+                        if (!selectedTableId) return;
+                        setCartQty(selectedTableId, item.productId, item.qty + 1);
+                      }}
+                      className="w-8 h-full flex items-center justify-center text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </ScrollArea>
+
+        <div className="p-4 bg-card border-t border-border z-30">
+          <div className="space-y-2 mb-4">
+            <div className="flex justify-between text-sm text-muted-foreground font-medium">
+              <span>Subtotal</span>
+              <span className="text-foreground">ETB {subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-muted-foreground font-medium">
+              <span>Tax/Service</span>
+              <span className="text-foreground">ETB {(tax + service).toFixed(2)}</span>
+            </div>
+            {takeawayFee > 0.0001 && (
+              <div className="flex justify-between text-sm text-muted-foreground font-medium">
+                <span>Takeaway Fee</span>
+                <span className="text-foreground">ETB {takeawayFee.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-end pt-3 border-t border-dashed border-border mt-2">
+              <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Due</span>
+              <span className="font-bold text-2xl text-foreground">ETB {finalTotal.toFixed(2)}</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => void handleSendOrder()}
+              disabled={!selectedTableId || cartItems.length === 0 || sending}
+              className="flex flex-col items-center justify-center py-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/80 shadow-lg shadow-primary/20 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {t.label}
+              <span className="text-lg font-black leading-tight">{sending ? 'Sending...' : 'Send'}</span>
+              <span className="text-[10px] font-bold opacity-70 uppercase tracking-widest">Ctrl+S</span>
             </button>
-          ))}
+            <button
+              onClick={handlePay}
+              disabled={!openOrder}
+              className="flex flex-col items-center justify-center py-3 px-2 bg-card border-2 border-primary text-primary rounded-xl hover:bg-primary hover:text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+            >
+              <span className="text-lg font-black leading-tight">Pay</span>
+              <span className="text-[10px] font-bold opacity-70 uppercase tracking-widest">Ctrl+P</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* RIGHT - MENU - Smart sizing */}
+      <div className="flex-1 min-w-[300px] border-l bg-card flex flex-col overflow-hidden">
+        <div className="p-3 border-b">
+          <Input
+            ref={searchRef}
+            placeholder="Search... (Ctrl+F)"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-3 grid grid-cols-3 gap-3">
+            {filteredProducts.map((p) => {
+              const isDisabled = !selectedTableId || p.stock <= 0;
+              const statusLabel = p.stock <= 0 ? 'Sold Out' : 'In Stock';
+              const statusClass = p.stock <= 0
+                ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                : 'bg-green-500/20 text-green-400 border-green-500/30';
+
+              return (
+                <button
+                  key={p.id}
+                  disabled={isDisabled}
+                  onClick={() => handleAddItem(p.id)}
+                  className={cn(
+                    'group bg-card rounded-xl overflow-hidden border border-border hover:border-primary transition-all duration-200 text-left flex flex-col relative',
+                    isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                  )}
+                >
+                  <div className="absolute top-2 right-2 z-10">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusClass}`}>{statusLabel}</span>
+                  </div>
+
+                  <div className="h-24 w-full bg-cover bg-center group-hover:opacity-90 transition-opacity bg-secondary relative">
+                    {p.image ? (
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center bg-muted">
+                        <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-2 flex flex-col">
+                    <h3 className="font-bold text-foreground text-sm leading-snug mb-0.5 line-clamp-1">{p.name}</h3>
+                    <p className="text-muted-foreground text-[10px] line-clamp-1 mb-2">{(p as any).category || 'Item'}</p>
+                    <div className="mt-auto flex items-center justify-between">
+                      <span className="text-sm font-bold text-primary">ETB {Number(p.price || 0).toFixed(0)}</span>
+                      <div
+                        className={cn(
+                          'size-7 rounded-lg flex items-center justify-center shadow-lg transition-transform',
+                          isDisabled ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground shadow-primary/20 group-hover:scale-105'
+                        )}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* PAYMENT MODAL */}
+      {showPaymentModal && openOrder && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-card rounded-lg shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="bg-primary text-primary-foreground p-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold">Process Payment</h2>
+                <p className="text-sm opacity-90">{openOrder.number} • {openOrder.tableName}</p>
+              </div>
+              <button
+                onClick={handleClosePayment}
+                className="text-primary-foreground hover:opacity-80 text-2xl leading-none"
+                disabled={processingPayment}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Order Items */}
+            <div className="flex-1 overflow-auto p-4">
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Order Items</h3>
+                <div className="border rounded-lg overflow-hidden">
+                  {openOrder.items.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center px-3 py-2 border-b last:border-0 bg-muted/30">
+                      <div>
+                        <span className="font-medium text-foreground">{item.name}</span>
+                        <span className="text-muted-foreground ml-2">×{item.qty}</span>
+                      </div>
+                      <span className="font-medium text-foreground">{(item.unitPrice * item.qty).toFixed(2)} ETB</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="border-t pt-3 space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="text-foreground">{openOrder.subtotal?.toFixed(2) || (openOrder.total * 0.8).toFixed(2)} ETB</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tax (15%)</span>
+                  <span className="text-foreground">{openOrder.tax?.toFixed(2) || (openOrder.total * 0.15).toFixed(2)} ETB</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Service (5%)</span>
+                  <span className="text-foreground">{openOrder.service?.toFixed(2) || (openOrder.total * 0.05).toFixed(2)} ETB</span>
+                </div>
+                <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                  <span className="text-foreground">Total</span>
+                  <span className="text-primary">{openOrder.total.toFixed(2)} ETB</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Section */}
+            <div className="border-t p-4 bg-muted/30">
+              <label className="text-sm font-medium mb-2 block text-foreground">Payment Method</label>
+              <div className="flex gap-2 mb-4">
+                {(['Cash', 'Telebirr'] as const).map((method) => (
+                  <button
+                    key={method}
+                    onClick={() => setPaymentMethod(method)}
+                    className={cn(
+                      'flex-1 py-3 px-2 rounded-lg border-2 text-sm font-semibold transition-all',
+                      paymentMethod === method
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-card text-foreground border-border hover:border-primary'
+                    )}
+                  >
+                    {method}
+                  </button>
+                ))}
+              </div>
+
+              {paymentMethod === 'Telebirr' && (
+                <div className="mb-4 space-y-3">
+                  {telebirrQr ? (
+                    <div className="bg-card p-4 rounded-xl border border-border">
+                      <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Scan to Pay</div>
+                      <div className="flex items-center justify-center">
+                        <img src={telebirrQr} alt="Telebirr QR" className="w-full max-w-[200px] object-contain rounded-lg border border-border bg-white p-2" />
+                      </div>
+                      {telebirrDetails && (
+                        <div className="mt-3 space-y-1 text-xs">
+                          {telebirrDetails.accountName && <div className="flex justify-between"><span className="text-muted-foreground">Account:</span><span className="font-semibold">{telebirrDetails.accountName}</span></div>}
+                          {telebirrDetails.phone && <div className="flex justify-between"><span className="text-muted-foreground">Phone:</span><span className="font-semibold">{telebirrDetails.phone}</span></div>}
+                          {telebirrDetails.merchantId && <div className="flex justify-between"><span className="text-muted-foreground">Merchant ID:</span><span className="font-semibold">{telebirrDetails.merchantId}</span></div>}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                  
+                  {/* TIP Section */}
+                  <div className="bg-card p-4 rounded-xl border border-border">
+                    <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Tip Amount (ETB)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={tipAmount}
+                      onChange={(e) => setTipAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="mt-2 w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Enter tip amount to be recorded for the assigned waiter</p>
+                    {parseFloat(tipAmount) > 0 && (
+                      <div className="mt-2 p-2 bg-primary/10 rounded text-xs text-primary font-medium">
+                        Tip: ETB {parseFloat(tipAmount).toFixed(2)} will be recorded for {selectedTable?.assignedStaffName || 'waiter'}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="bg-card p-4 rounded-xl border border-border">
+                    <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Transaction Reference</label>
+                    <input
+                      type="text"
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
+                      placeholder="Enter Telebirr transaction ID"
+                      className="mt-2 w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Enter the transaction reference from the customer's Telebirr payment</p>
+                  </div>
+                </div>
+              )}
+
+              {paymentMethod === 'Cash' && (
+                <div className="mb-4">
+                  <label className="text-sm font-medium mb-2 block text-foreground">Amount Tendered</label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      value={tenderedAmount}
+                      onChange={(e) => setTenderedAmount(e.target.value)}
+                      className="text-xl h-12 pl-4"
+                      placeholder="0.00"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">ETB</span>
+                  </div>
+                  {parseFloat(tenderedAmount) > openOrder.total && (
+                    <div className="flex justify-between text-sm mt-2 p-2 bg-green-100 text-green-800 rounded">
+                      <span>Change Due:</span>
+                      <span className="font-bold">{(parseFloat(tenderedAmount) - openOrder.total).toFixed(2)} ETB</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 h-12 font-semibold"
+                  onClick={handleClosePayment}
+                  disabled={processingPayment}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 h-12 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+                  onClick={handleConfirmPayment}
+                  disabled={processingPayment || (paymentMethod === 'Cash' && parseFloat(tenderedAmount) < openOrder.total) || (paymentMethod === 'Telebirr' && !paymentReference.trim())}
+                >
+                  {processingPayment ? 'Processing...' : `Confirm ${paymentMethod}`}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

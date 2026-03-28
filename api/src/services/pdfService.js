@@ -187,6 +187,10 @@ const ensureSpace = (doc, minRemainingHeight) => {
     const remaining = bottomY - doc.y;
     if (remaining >= minRemainingHeight) return;
     doc.addPage();
+    // Reset y position after page add (header will set proper position via pageAdded event)
+    if (doc.y > doc.page.height - doc.page.margins.bottom - 100) {
+        doc.y = doc.page.margins.top + 80;
+    }
 };
 
 const drawReportHeader = (doc, opts) => {
@@ -541,52 +545,121 @@ const generateInvoicePDF = async (invoiceId) => {
             resolve(Buffer.concat(buffers));
         });
     });
-};
+}
 
-// Generate Report PDF (Generic)
-const generateReportPDF = async (reportTitle, dateRange, columns, rows) => {
-    const options = arguments.length >= 5 && arguments[4] && typeof arguments[4] === 'object' ? arguments[4] : {};
-
-    const doc = new PDFDocument({ margin: 50 });
+// Professional Daily Sales Report PDF - ULTRA SIMPLE
+async function generateReportPDF(reportTitle, dateRange, columns, rows, options = {}) {
+    const doc = new PDFDocument({ 
+        margin: 30,
+        size: 'A4'
+    });
     const buffers = [];
-    doc.on('data', buffers.push.bind(buffers));
+    doc.on('data', (chunk) => buffers.push(chunk));
 
-    let pageNum = 1;
-    const periodText = dateRange?.from && dateRange?.to
-        ? `Period: ${safeText(dateRange.from)} to ${safeText(dateRange.to)}`
-        : '';
-
-    const headerOpts = {
-        businessName: options?.businessName,
-        reportTitle: reportTitle,
-        periodText,
-        logoDataUrl: options?.logoDataUrl,
-        accent: options?.accent || '#C8A870',
+    const colors = {
+        primary: '#1A365D',
+        headerBg: '#F7FAFC',
+        border: '#E2E8F0',
+        text: '#2D3748',
+        lightText: '#718096',
     };
 
-    drawReportHeader(doc, headerOpts);
-    drawReportFooter(doc, { pageNum });
+    const safeText = (t) => (t === null || t === undefined ? '' : String(t));
+    const businessName = safeText(options?.businessName || 'Business');
+    let y = 30;
 
-    doc.on('pageAdded', () => {
-        pageNum += 1;
-        drawReportHeader(doc, headerOpts);
-        drawReportFooter(doc, { pageNum });
-    });
+    // HEADER
+    doc.rect(30, 30, doc.page.width - 60, 3).fill(colors.primary);
+    doc.font('Helvetica-Bold').fontSize(16).fillColor(colors.primary).text(businessName, 30, 38);
+    doc.font('Helvetica').fontSize(10).fillColor(colors.lightText).text('DAILY SALES REPORT', 30, 58);
+    doc.font('Helvetica').fontSize(8).fillColor(colors.lightText)
+       .text(`${dateRange.from}`, doc.page.width - 180, 38, { align: 'right' });
 
-    doc.font('Helvetica').fontSize(9).fillColor('#0f172a');
-    drawKpiTiles(doc, options?.totals);
-    renderSimpleTable(doc, columns, rows);
+    y = 80;
 
-    doc.y = doc.y + 12;
-    drawTotalsBlock(doc, options?.totals);
-    drawSignatures(doc);
-
-    doc.end();
-
-    return new Promise((resolve) => {
-        doc.on('end', () => {
-            resolve(Buffer.concat(buffers));
+    // SUMMARY - 2 columns compact
+    if (options?.totals?.length) {
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.primary).text('SUMMARY', 30, y);
+        y += 14;
+        
+        const colWidth = (doc.page.width - 60) / 2;
+        options.totals.slice(0, 6).forEach((item, idx) => {
+            const col = idx % 2;
+            const row = Math.floor(idx / 2);
+            const x = 30 + (col * colWidth);
+            const itemY = y + (row * 18);
+            doc.font('Helvetica').fontSize(7).fillColor(colors.lightText).text(item.label, x, itemY);
+            doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.text).text(item.value, x, itemY + 9);
         });
+        y += (Math.ceil(Math.min(options.totals.length, 6) / 2) * 18) + 6;
+    }
+
+    // TABLE FUNCTION - NO PAGE BREAKS
+    const drawTable = (title, cols, data) => {
+        if (!data?.length || y > 760) return y;
+        
+        const left = 30;
+        const tableWidth = doc.page.width - 60;
+        const colWidth = tableWidth / cols.length;
+        
+        // Title
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.primary).text(title.toUpperCase(), left, y);
+        y += 12;
+        
+        // Header
+        doc.rect(left, y, tableWidth, 16).fill(colors.primary);
+        doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(8);
+        cols.forEach((col, i) => {
+            const x = left + (i * colWidth);
+            const align = col.align === 'right' ? 'right' : 'left';
+            const textX = align === 'right' ? x + colWidth - 5 : x + 5;
+            let text = (col.header || col.key || '').substring(0, 10);
+            doc.text(text, textX, y + 4, { width: colWidth - 10, align, lineBreak: false });
+        });
+        y += 16;
+        
+        // Data rows - max 3 rows
+        doc.font('Helvetica').fontSize(8).fillColor(colors.text);
+        data.slice(0, 3).forEach((row, rowIdx) => {
+            if (rowIdx % 2 === 1) {
+                doc.rect(left, y, tableWidth, 14).fill(colors.headerBg);
+            }
+            
+            cols.forEach((col, i) => {
+                const x = left + (i * colWidth);
+                let val = row?.[col.key] ?? '';
+                if (col.format) val = col.format(val);
+                val = String(val).substring(0, 12);
+                const align = col.align === 'right' ? 'right' : 'left';
+                const textX = align === 'right' ? x + colWidth - 5 : x + 5;
+                doc.text(val, textX, y + 3, { width: colWidth - 10, align, lineBreak: false });
+            });
+            
+            y += 14;
+        });
+        y += 4;
+        return y;
+    };
+
+    // Payment Methods table (first additional section)
+    const sections = options?.additionalSections || [];
+    if (sections[0]?.rows?.length && y < 700) {
+        y = drawTable(sections[0].title, sections[0].columns, sections[0].rows);
+    }
+
+    // Products table
+    if (columns?.length && rows?.length && y < 700) {
+        y = drawTable('PRODUCTS', columns, rows);
+    }
+
+    // Footer
+    doc.font('Helvetica').fontSize(7).fillColor(colors.lightText)
+       .text('Page 1 of 1', 30, 830)
+       .text(businessName, doc.page.width - 100, 830, { align: 'right', width: 70 });
+    
+    doc.end();
+    return new Promise((resolve) => {
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
     });
 };
 
