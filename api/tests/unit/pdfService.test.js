@@ -265,11 +265,11 @@ describe('services/pdfService', () => {
     expect(buf.length).toBeGreaterThan(0);
   });
 
-  it('generateReportPDF can add pages for large reports', async () => {
+  it('generateReportPDF keeps large reports on single page', async () => {
     const { generateReportPDF } = require('../../src/services/pdfService');
 
     const rows = Array.from({ length: 120 }).map((_, i) => ({ name: `Row ${i}` }));
-    await generateReportPDF(
+    const buf = await generateReportPDF(
       'R',
       { from: '2026-02-01', to: '2026-02-02' },
       [{ header: 'Name', key: 'name', width: 100 }],
@@ -277,8 +277,12 @@ describe('services/pdfService', () => {
       { businessName: 'Tenant 1' },
     );
 
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.length).toBeGreaterThan(0);
+
     const doc = MockPDFDocument.instances[MockPDFDocument.instances.length - 1];
-    expect(doc.pageAddedCount).toBeGreaterThan(0);
+    // Single page behavior - no pages added
+    expect(doc.pageAddedCount).toBe(0);
   });
 
   it('generateInvoicePDF draws PAID seal for paid invoices', async () => {
