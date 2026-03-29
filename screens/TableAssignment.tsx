@@ -40,6 +40,9 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
   const [newTableSeats, setNewTableSeats] = useState('4');
   const [newTableArea, setNewTableArea] = useState<string>('');
 
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTargetId, setEditTargetId] = useState<string>('');
+
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string>('');
   const [actionBanner, setActionBanner] = useState('');
@@ -382,17 +385,40 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                       </div>
                                     )}
 
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeleteTargetId(table.id);
-                                        setDeleteOpen(true);
-                                      }}
-                                      className="absolute top-2 right-2 h-7 px-2 rounded-lg text-[10px] font-black bg-destructive/10 border border-destructive/20 text-destructive-foreground hover:bg-destructive/20"
-                                    >
-                                      Delete
-                                    </button>
+                                    {/* Edit and Delete buttons - always visible and vivid */}
+                                    <div className="absolute top-2 right-2 flex gap-1 z-10">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // Open edit modal - populate form with table data
+                                          const t = tables.find((tbl) => tbl.id === table.id);
+                                          if (t) {
+                                            setNewTableName(t.name);
+                                            setNewTableSeats(String(t.seats));
+                                            setNewTableArea(typeof (t as any).area === 'string' ? (t as any).area : '');
+                                            setEditTargetId(t.id);
+                                            setEditOpen(true);
+                                          }
+                                        }}
+                                        className="h-7 w-7 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg flex items-center justify-center text-xs"
+                                        title="Edit table"
+                                      >
+                                        <AppIcon name="edit" size={14} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDeleteTargetId(table.id);
+                                          setDeleteOpen(true);
+                                        }}
+                                        className="h-7 w-7 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg flex items-center justify-center text-xs"
+                                        title="Delete table"
+                                      >
+                                        <AppIcon name="delete" size={14} />
+                                      </button>
+                                    </div>
 
                                     <div className="absolute bottom-3 left-0 w-full text-center">
                                         <span className={`text-[9px] font-black uppercase tracking-widest ${
@@ -507,6 +533,79 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                         className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors"
                     >
                         Create
+                    </button>
+                </div>
+            }
+        >
+            <div className="flex flex-col gap-3">
+                <label className="text-sm font-bold text-muted-foreground">Table Name</label>
+                <input value={newTableName} onChange={(e) => setNewTableName(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" placeholder="T-07" />
+                <label className="text-sm font-bold text-muted-foreground">Seats</label>
+                <input value={newTableSeats} onChange={(e) => setNewTableSeats(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground" placeholder="4" />
+                <label className="text-sm font-bold text-muted-foreground">Area</label>
+                <input
+                  value={newTableArea}
+                  onChange={(e) => setNewTableArea(e.target.value)}
+                  list="table-area-suggestions"
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+                  placeholder="e.g. Main Hall"
+                />
+                <datalist id="table-area-suggestions">
+                  {availableZones.map((z) => (
+                    <option key={z} value={z} />
+                  ))}
+                </datalist>
+            </div>
+        </Modal>
+
+        <Modal
+            open={editOpen}
+            title="Edit Table"
+            onClose={() => {
+                setEditOpen(false);
+                setEditTargetId('');
+                setNewTableName('');
+                setNewTableSeats('4');
+                setNewTableArea('');
+            }}
+            footer={
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => {
+                            setEditOpen(false);
+                            setEditTargetId('');
+                            setNewTableName('');
+                            setNewTableSeats('4');
+                            setNewTableArea('');
+                        }}
+                        className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={() => {
+                            const seats = Number.parseInt(newTableSeats, 10);
+                            if (!newTableName.trim() || !Number.isFinite(seats) || seats <= 0) return;
+                            const area = newTableArea.trim();
+                            // Update table using addTable with same ID (will overwrite)
+                            const t = tables.find((tbl) => tbl.id === editTargetId);
+                            if (t) {
+                              deleteTable(t.id);
+                              // Small delay to ensure delete is processed before add
+                              setTimeout(() => {
+                                addTable({ id: t.id, name: newTableName.trim(), seats, area: area ? area : undefined });
+                              }, 100);
+                            }
+                            setEditOpen(false);
+                            setEditTargetId('');
+                            setNewTableName('');
+                            setNewTableSeats('4');
+                            setNewTableArea('');
+                            setActionBanner('Table updated.');
+                        }}
+                        className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors"
+                    >
+                        Save
                     </button>
                 </div>
             }

@@ -150,6 +150,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     swapOrderItem,
     voidOrder,
     refundOrder,
+    unlockOrder,
+    getShiftCashSummary,
+    reconcileCash,
   } = usePos();
 
   const [query, setQuery] = useState('');
@@ -470,6 +473,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   const [managerPin, setManagerPin] = useState('');
   const [processingRefund, setProcessingRefund] = useState(false);
 
+  // Unlock order state (for manager override)
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [unlockReason, setUnlockReason] = useState('');
+  const [unlockPin, setUnlockPin] = useState('');
+  const [processingUnlock, setProcessingUnlock] = useState(false);
+
+  // Cash reconciliation state
+  const [showCashReconcileModal, setShowCashReconcileModal] = useState(false);
+  const [actualCashAmount, setActualCashAmount] = useState('');
+  const [reconcilePassword, setReconcilePassword] = useState('');
+  const [reconcileResult, setReconcileResult] = useState<{ difference: number; status: 'balanced' | 'short' | 'over' } | null>(null);
+  const [processingReconcile, setProcessingReconcile] = useState(false);
+
   const handleRefund = async () => {
     if (!openOrder) return;
     if (!refundReason.trim()) {
@@ -495,6 +511,57 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
       alert(e instanceof Error ? e.message : 'Refund failed');
     } finally {
       setProcessingRefund(false);
+    }
+  };
+
+  const handleUnlockOrder = async () => {
+    if (!openOrder) return;
+    if (!unlockReason.trim()) {
+      alert('Unlock reason is required');
+      return;
+    }
+    if (!unlockPin || unlockPin.length < 4) {
+      alert('Manager PIN required to unlock order');
+      return;
+    }
+    
+    setProcessingUnlock(true);
+    try {
+      await unlockOrder(openOrder.id, unlockPin, unlockReason.trim());
+      setShowUnlockModal(false);
+      setUnlockReason('');
+      setUnlockPin('');
+      // Refresh after unlock
+      setTimeout(() => {
+        void refreshFromServer();
+      }, 300);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Unlock failed');
+    } finally {
+      setProcessingUnlock(false);
+    }
+  };
+
+  const handleCashReconcile = async () => {
+    if (!reconcilePassword || reconcilePassword.length < 4) {
+      alert('Manager password required for cash reconciliation');
+      return;
+    }
+    const actualCash = parseFloat(actualCashAmount);
+    if (isNaN(actualCash) || actualCash < 0) {
+      alert('Please enter a valid cash amount');
+      return;
+    }
+    
+    setProcessingReconcile(true);
+    try {
+      const result = await reconcileCash(actualCash, reconcilePassword);
+      setReconcileResult(result);
+      // Keep modal open to show result
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Cash reconciliation failed');
+    } finally {
+      setProcessingReconcile(false);
     }
   };
 
@@ -640,11 +707,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
           />
         </div>
 
-        <ScrollArea className="flex-1 min-h-0 max-h-[50vh] lg:max-h-none">
-          {/* Billing State Overlay */}
+        <ScrollArea className={cn("flex-1 min-h-0 max-h-[50vh] lg:max-h-none", isBilling && "overflow-hidden")}>
+          {/* Billing State Overlay - Fixed at top when billing */}
           {isBilling && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-              <div className="bg-card border border-primary/30 rounded-2xl p-8 text-center max-w-md mx-4 shadow-2xl">
+            <div className="absolute inset-0 z-10 flex items-start justify-center bg-background/80 backdrop-blur-sm pt-20">
+              <div className="bg-card border border-primary/30 rounded-2xl p-8 text-center max-w-md mx-4 shadow-2xl sticky top-4">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -660,9 +727,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
           )}
           <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
             {filteredProducts.map((p) => {
-              const isDisabled = !selectedTableId || p.stock <= 0 || isBilling || isOrderTerminal;
-              const statusLabel = p.stock <= 0 ? 'Sold Out' : isBilling ? 'Billing' : isOrderTerminal ? 'Closed' : 'In Stock';
-              const statusClass = p.stock <= 0 || isBilling || isOrderTerminal
+              // Disable menu if: no table, out of stock, billing mode, terminal status, or existing order not in edit
+              const isExistingOrderLocked = openOrder && !editingOrder && openOrder.status !== 'Pending' && openOrder.status !== 'Draft';
+              const isDisabled = !selectedTableId || p.stock <= 0 || isBilling || isOrderTerminal || isExistingOrderLocked;
+              const statusLabel = p.stock <= 0 ? 'Sold Out' : isBilling ? 'Billing' : isOrderTerminal ? 'Closed' : isExistingOrderLocked ? 'View Only' : 'In Stock';
+              const statusClass = p.stock <= 0 || isBilling || isOrderTerminal || isExistingOrderLocked
                 ? 'bg-red-500/20 text-red-400 border-red-500/30'
                 : 'bg-green-500/20 text-green-400 border-green-500/30';
 
@@ -754,11 +823,22 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-sm text-foreground bg-secondary border border-border shadow-sm px-4 py-1.5 rounded-full font-semibold">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              <span>{selectedTable?.seats || '-'}</span>
+            <div className="flex items-center gap-2">
+              {/* Cash Reconcile Button - DISABLED for now
+              <button
+                onClick={() => setShowCashReconcileModal(true)}
+                className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-1 rounded-md hover:bg-primary/20 transition-colors border border-primary/20"
+                title="End of Shift Cash Reconciliation"
+              >
+                 Reconcile
+              </button>
+              */}
+              <div className="flex items-center gap-2 text-sm text-foreground bg-secondary border border-border shadow-sm px-4 py-1.5 rounded-full font-semibold">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span>{selectedTable?.seats || '-'}</span>
+              </div>
             </div>
           </div>
           {isBilling && (
@@ -830,17 +910,18 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             </div>
           )}
 
-          {cartItems.length === 0 && !(editingOrder && openOrder?.items?.length > 0) ? (
+          {cartItems.length === 0 && !((editingOrder || isBilling || openOrder) && openOrder?.items?.length > 0) ? (
             <div className="text-muted-foreground text-sm text-center py-8">
               {editingOrder ? 'No items to edit' : 'No items in cart'}
             </div>
           ) : (
             <>
-              {/* Show cart items when not editing, or order items when editing */}
-              {(editingOrder && openOrder?.items ? openOrder.items : cartItems).map((item, index, arr) => {
+              {/* Show order items when there's an open order, or cart items for drafts */}
+              {(openOrder?.items && !cartItems.length ? openOrder.items : (editingOrder || isBilling) && openOrder?.items ? openOrder.items : cartItems).map((item, index, arr) => {
                 const isLastItem = arr.length === 1;
-                const itemsToRender = editingOrder && openOrder?.items ? openOrder.items : cartItems;
+                const itemsToRender = (editingOrder || isBilling) && openOrder?.items ? openOrder.items : cartItems;
                 const canRemove = itemsToRender.length > 1 || item.qty > 1;
+                const isViewOnly = openOrder && !editingOrder && !isBilling;
                 return (
                 <div key={item.productId} className="bg-secondary p-2.5 rounded-xl shadow-sm border border-border group relative">
                   <div className="flex gap-3 items-start">
@@ -889,7 +970,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                     </div>
                   </div>
                   <div className="mt-2.5 flex items-center justify-between pl-14">
-                    {editingOrder && openOrder ? (
+                    {isViewOnly ? (
+                      // View-only mode: just show quantity, no controls
+                      <span className="text-[13px] text-muted-foreground">Qty: {item.qty}</span>
+                    ) : editingOrder && openOrder ? (
                       // Edit mode: use setPendingOrderItemQty for order items
                       <>
                         <button
@@ -1075,6 +1159,18 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                 <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Mgr</span>
               </button>
             )}
+            
+            {/* Unlock Button - DISABLED for now
+            {isBilling && (
+              <button
+                onClick={() => setShowUnlockModal(true)}
+                className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-purple-500 text-purple-500 rounded-xl hover:bg-purple-500 hover:text-white font-bold"
+              >
+                <span className="text-base sm:text-lg font-black leading-tight">Unlock</span>
+                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Mgr</span>
+              </button>
+            )}
+            */}
             
             {/* Print Receipt Button - For Paid orders */}
             {openOrder?.status === 'Paid' && (
@@ -1472,6 +1568,197 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               >
                 Cancel
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UNLOCK ORDER MODAL */}
+      {showUnlockModal && openOrder && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-card rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="bg-primary text-primary-foreground p-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold">Unlock Order</h2>
+                <p className="text-sm opacity-90">{openOrder.number} • Manager Override Required</p>
+              </div>
+              <button
+                onClick={() => setShowUnlockModal(false)}
+                className="text-primary-foreground hover:opacity-80 text-2xl leading-none"
+                disabled={processingUnlock}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+                <p className="text-sm text-primary">
+                  <strong>Manager Override:</strong> This will unlock the order from Billing mode back to Served, allowing modifications. Use with caution.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-foreground">Unlock Reason *</label>
+                <textarea
+                  value={unlockReason}
+                  onChange={(e) => setUnlockReason(e.target.value)}
+                  placeholder="Enter reason for unlocking..."
+                  className="w-full h-24 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-foreground">Manager PIN *</label>
+                <input
+                  type="password"
+                  value={unlockPin}
+                  onChange={(e) => setUnlockPin(e.target.value)}
+                  placeholder="Enter 4+ digit PIN"
+                  className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 h-12 font-semibold"
+                  onClick={() => setShowUnlockModal(false)}
+                  disabled={processingUnlock}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 h-12 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+                  onClick={handleUnlockOrder}
+                  disabled={processingUnlock || !unlockReason.trim() || unlockPin.length < 4}
+                >
+                  {processingUnlock ? 'Processing...' : 'Unlock Order'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CASH RECONCILIATION MODAL */}
+      {showCashReconcileModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-card rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="bg-primary text-primary-foreground p-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold">Cash Reconciliation</h2>
+                <p className="text-sm opacity-90">End of Shift • Manager Required</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowCashReconcileModal(false);
+                  setReconcileResult(null);
+                }}
+                className="text-primary-foreground hover:opacity-80 text-2xl leading-none"
+                disabled={processingReconcile}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {!reconcileResult ? (
+                <>
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+                    <p className="text-sm text-primary">
+                      <strong>Expected Cash:</strong> ETB {getShiftCashSummary().expectedCash.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-primary/70 mt-1">
+                      Based on {getShiftCashSummary().cashPayments.length} cash payment(s)
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block text-foreground">Actual Cash in Drawer *</label>
+                    <input
+                      type="number"
+                      value={actualCashAmount}
+                      onChange={(e) => setActualCashAmount(e.target.value)}
+                      placeholder="Enter actual cash amount"
+                      className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block text-foreground">Manager Password *</label>
+                    <input
+                      type="password"
+                      value={reconcilePassword}
+                      onChange={(e) => setReconcilePassword(e.target.value)}
+                      placeholder="Enter manager password"
+                      className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground"
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      className="flex-1 h-12 font-semibold"
+                      onClick={() => setShowCashReconcileModal(false)}
+                      disabled={processingReconcile}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-1 h-12 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+                      onClick={handleCashReconcile}
+                      disabled={processingReconcile || !actualCashAmount || reconcilePassword.length < 4}
+                    >
+                      {processingReconcile ? 'Processing...' : 'Reconcile'}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className={cn(
+                    "rounded-lg p-4 text-center",
+                    reconcileResult.status === 'balanced' && "bg-green-50 border border-green-200",
+                    reconcileResult.status === 'short' && "bg-red-50 border border-red-200",
+                    reconcileResult.status === 'over' && "bg-amber-50 border border-amber-200"
+                  )}>
+                    <p className={cn(
+                      "text-2xl font-bold",
+                      reconcileResult.status === 'balanced' && "text-green-700",
+                      reconcileResult.status === 'short' && "text-red-700",
+                      reconcileResult.status === 'over' && "text-amber-700"
+                    )}>
+                      {reconcileResult.status === 'balanced' && '✓ Cash Balanced'}
+                      {reconcileResult.status === 'short' && '⚠ Cash Short'}
+                      {reconcileResult.status === 'over' && '⚠ Cash Over'}
+                    </p>
+                    <p className="text-lg mt-2 text-foreground">
+                      Difference: ETB {reconcileResult.difference.toFixed(2)}
+                    </p>
+                    {reconcileResult.status !== 'balanced' && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {reconcileResult.status === 'short' 
+                          ? 'Cash is less than expected. Please double-check.'
+                          : 'Cash is more than expected. Please verify.'}
+                      </p>
+                    )}
+                  </div>
+
+                  <Button
+                    className="w-full h-12 font-semibold"
+                    onClick={() => {
+                      setShowCashReconcileModal(false);
+                      setReconcileResult(null);
+                      setActualCashAmount('');
+                      setReconcilePassword('');
+                    }}
+                  >
+                    Close
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

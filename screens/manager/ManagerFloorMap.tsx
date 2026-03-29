@@ -9,6 +9,8 @@ import { InitializePosModal } from '../../components/InitializePosModal';
 
 import { AppIcon } from '@/components/ui/app-icon';
 
+import { Modal } from '../../components/Modal';
+
 const readStaffNameCache = (): Record<string, string> => {
   try {
     const raw = localStorage.getItem('mirachpos.staffNameCache.v1');
@@ -31,11 +33,20 @@ interface Props {
 const STORAGE_KEY = 'mirachpos.manager.floor.waiterId';
 
 export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
-  const { tables, orders, selectOrder, selectTable, refreshFromServer } = usePos();
+  const { tables, orders, selectOrder, selectTable, refreshFromServer, addTable, deleteTable } = usePos();
   const [initOpen, setInitOpen] = useState(false);
   const [area, setArea] = useState<string>('All Areas');
   const [filter, setFilter] = useState<'All' | 'Free' | 'Occupied' | 'Action'>('All');
   const [now, setNow] = useState<Date>(() => new Date());
+
+  // Table editing state
+  const [tableModalOpen, setTableModalOpen] = useState(false);
+  const [tableModalMode, setTableModalMode] = useState<'add' | 'edit'>('add');
+  const [tableEditTarget, setTableEditTarget] = useState<typeof tables[number] | null>(null);
+  const [tableDraftName, setTableDraftName] = useState('');
+  const [tableDraftSeats, setTableDraftSeats] = useState(4);
+  const [tableDraftArea, setTableDraftArea] = useState('');
+  const [tableModalLoading, setTableModalLoading] = useState(false);
 
   useEffect(() => {
     void refreshFromServer();
@@ -192,6 +203,93 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
     onNavigate(Screen.MANAGER_TABLE_DETAILS);
   };
 
+  // Table editing handlers
+  const openAddTable = () => {
+    setTableModalMode('add');
+    setTableEditTarget(null);
+    setTableDraftName('');
+    setTableDraftSeats(4);
+    setTableDraftArea(area === 'All Areas' ? '' : area);
+    setTableModalOpen(true);
+    setTableModalLoading(false);
+  };
+
+  const openEditTable = (e: React.MouseEvent, table: typeof tables[number]) => {
+    e.stopPropagation();
+    setTableModalMode('edit');
+    setTableEditTarget(table);
+    setTableDraftName(table.name);
+    setTableDraftSeats(table.seats);
+    setTableDraftArea((table as any).area || '');
+    setTableModalOpen(true);
+    setTableModalLoading(false);
+  };
+
+  const closeTableModal = () => {
+    setTableModalOpen(false);
+    setTableEditTarget(null);
+    setTableModalLoading(false);
+  };
+
+  const handleDeleteTable = async (e: React.MouseEvent, tableId: string) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this table?')) return;
+    try {
+      deleteTable(tableId);
+      await refreshFromServer();
+    } catch (err) {
+      alert('Failed to delete table');
+    }
+  };
+
+  const submitTableModal = async () => {
+    if (tableModalLoading) return;
+    const name = tableDraftName.trim();
+    if (!name) {
+      alert('Table name is required');
+      return;
+    }
+    if (tableDraftSeats < 1) {
+      alert('Seats must be at least 1');
+      return;
+    }
+
+    setTableModalLoading(true);
+    try {
+      if (tableModalMode === 'add') {
+        // Add new table via API
+        const res = await apiFetch('/api/manager/tables', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            seats: tableDraftSeats,
+            area: tableDraftArea.trim() || undefined,
+          }),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+      } else if (tableModalMode === 'edit' && tableEditTarget) {
+        // Edit existing table via API
+        const res = await apiFetch(`/api/manager/tables/${encodeURIComponent(tableEditTarget.id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            seats: tableDraftSeats,
+            area: tableDraftArea.trim() || undefined,
+          }),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+      }
+      closeTableModal();
+      await refreshFromServer();
+    } catch (err) {
+      alert(tableModalMode === 'add' ? 'Failed to add table' : 'Failed to update table');
+    } finally {
+      setTableModalLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background text-foreground">
       <Header title="Floor Map" subtitle="Manager view of tables and waiter assignments" />
@@ -232,7 +330,16 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
                   <AppIcon name="build" className="text-[18px]" size={18} />
                   Initialize POS
                 </button>
-              ) : null}
+              ) : (
+                <button
+                  type="button"
+                  onClick={openAddTable}
+                  className="h-11 px-5 rounded-lg bg-primary text-primary-foreground font-black hover:bg-primary/90 flex items-center gap-2 text-sm"
+                >
+                  <AppIcon name="add" className="text-[18px]" size={18} />
+                  Add Table
+                </button>
+              )}
               <button onClick={() => onNavigate(Screen.TABLE_ASSIGNMENT)} className="h-11 px-5 rounded-lg bg-background border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 flex items-center gap-2 text-sm font-semibold">
                 <AppIcon name="arrow_back" className="text-[18px]" size={18} />
                 Back to Assign
@@ -304,6 +411,24 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
                       : 'border-l-4 border-l-teal-500 border border-border bg-card hover:border-teal-500/50'
                   }`}
                 >
+                  {/* Edit/Delete buttons - always visible and vivid */}
+                  <div className="absolute top-3 right-3 flex gap-2 z-10">
+                    <button
+                      onClick={(e) => openEditTable(e, t)}
+                      className="h-9 w-9 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/40 flex items-center justify-center border-2 border-white"
+                      title="Edit table"
+                    >
+                      <AppIcon name="edit" size={18} />
+                    </button>
+                    <button
+                      onClick={(e) => handleDeleteTable(e, t.id)}
+                      className="h-9 w-9 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/40 flex items-center justify-center border-2 border-white"
+                      title="Delete table"
+                    >
+                      <AppIcon name="delete" size={18} />
+                    </button>
+                  </div>
+
                   <div className="flex justify-between items-start">
                     <span className={`text-4xl font-black transition-colors ${isFree ? 'text-muted-foreground group-hover:text-primary' : 'text-foreground opacity-90'}`}>{t.name.replace(/^T-?/i, '')}</span>
                     <div className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${isFree ? 'bg-secondary text-muted-foreground border border-border' : 'bg-teal-500/10 text-teal-500 border border-teal-500/20'}`}>
@@ -330,6 +455,54 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
           </div>
         </div>
       </div>
+
+      {/* Table Add/Edit Modal */}
+      <Modal open={tableModalOpen} onClose={closeTableModal} title={tableModalMode === 'add' ? 'Add Table' : 'Edit Table'}>
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-bold text-muted-foreground">Table Name</label>
+            <input
+              value={tableDraftName}
+              onChange={(e) => setTableDraftName(e.target.value)}
+              className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground"
+              placeholder="e.g., T-12, Patio 1"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-muted-foreground">Seats</label>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={tableDraftSeats}
+              onChange={(e) => setTableDraftSeats(Math.max(1, parseInt(e.target.value) || 1))}
+              className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-muted-foreground">Area (optional)</label>
+            <input
+              value={tableDraftArea}
+              onChange={(e) => setTableDraftArea(e.target.value)}
+              className="mt-1 w-full h-11 bg-background border border-border rounded-lg px-4 text-foreground"
+              placeholder="e.g., Main Hall, Patio, VIP"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button onClick={closeTableModal} className="h-10 px-4 rounded-lg bg-secondary text-foreground font-bold">
+              Cancel
+            </button>
+            <button
+              disabled={tableModalLoading || !tableDraftName.trim()}
+              onClick={submitTableModal}
+              className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-extrabold disabled:opacity-50"
+            >
+              {tableModalLoading ? 'Saving...' : tableModalMode === 'add' ? 'Add' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

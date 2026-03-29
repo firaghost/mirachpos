@@ -384,6 +384,7 @@ type PosContextType = {
   voidOrder: (orderId: string, reason?: string) => void;
   voidOrderItem: (orderId: string, productId: string, qty: number, reason?: string) => void;
   refundOrder: (orderId: string, reason: string, managerPin: string) => void;
+  unlockOrder: (orderId: string, managerPin: string, reason?: string) => void;
   confirmPayment: (orderId: string, paymentMethod: PaymentMethod, tenderedAmount?: number, splitId?: string, paymentReference?: string, tip?: number) => void;
   enterBillingMode: (orderId: string) => void;
   setOrderCustomer: (orderId: string, customer: { id: string; name: string; phone: string; loyaltyPoints: number; loyaltyBalance: number } | null) => void;
@@ -409,6 +410,9 @@ type PosContextType = {
   resetDemoData: () => void;
   refreshFromServer: () => Promise<void>;
   queueOfflineWrite: (args: { url: string; method: string; body?: any; headers?: Record<string, string> }) => Promise<void>;
+  // Cash reconciliation
+  getShiftCashSummary: () => { expectedCash: number; cashPayments: Array<{ orderId: string; amount: number; time: string }> };
+  reconcileCash: (actualCash: number, managerPin: string) => Promise<{ difference: number; status: 'balanced' | 'short' | 'over' }>;
 };
 
 type PersistedState = {
@@ -477,6 +481,30 @@ const auditLog = async (args: {
   } catch {
     // ignore
   }
+};
+
+// Role-based permission utilities
+const getCurrentRole = (): string => {
+  try {
+    const s = readSession<any>();
+    return s?.role || 'Waiter';
+  } catch {
+    return 'Waiter';
+  }
+};
+
+const hasPermission = (action: 'void' | 'refund' | 'unlock' | 'edit_cooking' | 'manage_staff' | 'view_all_tables'): boolean => {
+  const role = getCurrentRole();
+  
+  const permissions: Record<string, string[]> = {
+    'Waiter': ['edit_cooking'],
+    'Waiter Manager': ['void', 'edit_cooking', 'manage_staff', 'view_all_tables'],
+    'Branch Manager': ['void', 'refund', 'unlock', 'edit_cooking', 'manage_staff', 'view_all_tables'],
+    'Cafe Owner': ['void', 'refund', 'unlock', 'edit_cooking', 'manage_staff', 'view_all_tables'],
+    'Super Admin': ['void', 'refund', 'unlock', 'edit_cooking', 'manage_staff', 'view_all_tables'],
+  };
+  
+  return permissions[role]?.includes(action) || false;
 };
 
 const readCounter = (key: string) => {
@@ -2666,9 +2694,12 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const addTable = (table: { name: string; seats: number; area?: PosTable['area'] }) => {
-    const id = generateId();
+  const addTable = (table: { id?: string; name: string; seats: number; area?: PosTable['area'] }) => {
+    const id = table.id || generateId();
+    const isUpdate = !!table.id;
     setState((s) => {
+      // If updating, replace existing table; otherwise add new
+      const existingTables = isUpdate ? s.tables.filter((t) => t.id !== id) : s.tables;
       const nextTables = updateTableComputed(
         [
           {
@@ -2683,7 +2714,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             assignedStaffId: null,
             assignedStaffName: null,
           },
-          ...s.tables,
+          ...existingTables,
         ],
         s.cartByTableId,
         s.draftMetaByTableId,
@@ -4270,6 +4301,95 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const unlockOrder = async (orderId: string, managerPin: string, reason?: string) => {
+    let updatedOrder: PosOrder | null = null;
+    
+    // Verify manager PIN format
+    if (!managerPin || managerPin.length < 4) {
+      throw new Error('Manager authentication required');
+    }
+
+    // Check permission using hasPermission utility
+    if (!hasPermission('unlock')) {
+      throw new Error('Manager approval required to unlock orders');
+    }
+
+    // Validate PIN against session (if PIN is stored in session)
+    const session = readSession<any>();
+    const storedPin = session?.pin || session?.staffPin;
+    if (storedPin && managerPin !== String(storedPin)) {
+      throw new Error('Invalid manager PIN');
+    }
+
+    setState((s) => {
+      const order = s.orders.find((o) => o.id === orderId);
+      if (!order) return s;
+      
+      // ANTI-FRAUD: Only allow unlocking from Billing status
+      if (order.status !== 'Billing') {
+        throw new Error('Only orders in Billing can be unlocked');
+      }
+
+      const now = new Date();
+      const nextOrders = s.orders.map((o) =>
+        o.id === orderId
+          ? { ...o, status: 'Served' as const, billingStartedAt: undefined, syncedToServer: false }
+          : o,
+      );
+      updatedOrder = nextOrders.find((o) => o.id === orderId) || null;
+
+      const nextNotifications: PosNotification[] = [
+        {
+          id: generateId(),
+          type: 'System',
+          title: `Order Unlocked - ${order.tableName}`,
+          message: `${order.number} unlocked by manager${reason ? `: ${reason}` : ''}`,
+          orderId,
+          createdAt: now.toISOString(),
+          read: false,
+        },
+        ...s.notifications,
+      ];
+
+      return {
+        ...s,
+        orders: nextOrders,
+        notifications: nextNotifications,
+      };
+    });
+
+    queueMicrotask(() => {
+      try {
+        if (updatedOrder) {
+          upsertLocalOrderBundle(updatedOrder);
+          void persistOrder(updatedOrder);
+        }
+      } catch {
+        // ignore
+      }
+    });
+
+    // Get current actor info for impersonation audit (use existing session)
+    const managerId = session?.staffId || session?.uid || 'unknown';
+    const managerName = session?.staffName || session?.email || 'Unknown';
+
+    // Audit with impersonation tracking
+    void auditLog({
+      action: 'order.unlocked',
+      entity_type: 'order',
+      entity_id: orderId,
+      message: `Order unlocked from Billing by manager: ${managerName}${reason ? ` - ${reason}` : ''}`,
+      meta: { 
+        reason: String(reason || ''), 
+        managerId,
+        managerName,
+        actingAs: updatedOrder?.createdByStaffId || null,
+        previousStatus: 'Billing',
+        newStatus: 'Served'
+      },
+    });
+  };
+
   const setOrderCustomer: PosContextType['setOrderCustomer'] = (orderId, customer) => {
     let updatedOrder: PosOrder | null = null;
     setState((s) => {
@@ -4344,6 +4464,70 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState(seedState());
   };
 
+  // Cash reconciliation functions
+  const getShiftCashSummary = () => {
+    const cashPayments = state.orders
+      .filter((o) => o.status === 'Paid' && o.paymentMethod === 'Cash')
+      .map((o) => ({
+        orderId: o.id,
+        amount: o.total,
+        time: o.paidAt || o.createdAt,
+      }));
+    
+    const expectedCash = cashPayments.reduce((sum, p) => sum + p.amount, 0);
+    
+    return { expectedCash, cashPayments };
+  };
+
+  const reconcileCash = async (actualCash: number, managerPin: string) => {
+    // Verify manager PIN format
+    if (!managerPin || managerPin.length < 4) {
+      throw new Error('Manager authentication required for cash reconciliation');
+    }
+
+    // Only Branch Manager and above can reconcile
+    if (!hasPermission('refund')) {
+      throw new Error('Manager approval required for cash reconciliation');
+    }
+
+    // Validate PIN against session (if PIN is stored in session)
+    const session = readSession<any>();
+    const storedPin = session?.pin || session?.staffPin;
+    if (storedPin && managerPin !== String(storedPin)) {
+      throw new Error('Invalid manager PIN');
+    }
+
+    const { expectedCash } = getShiftCashSummary();
+    const difference = actualCash - expectedCash;
+    
+    let status: 'balanced' | 'short' | 'over';
+    if (Math.abs(difference) < 0.01) {
+      status = 'balanced';
+    } else if (difference < 0) {
+      status = 'short';
+    } else {
+      status = 'over';
+    }
+
+    // Log the reconciliation (use existing session)
+    void auditLog({
+      action: 'cash.reconciled',
+      entity_type: 'shift',
+      entity_id: session?.staffId || 'unknown',
+      message: `Cash reconciliation: Expected ETB ${expectedCash.toFixed(2)}, Actual ETB ${actualCash.toFixed(2)}, Difference: ETB ${difference.toFixed(2)}`,
+      meta: {
+        expectedCash,
+        actualCash,
+        difference,
+        status,
+        managerId: session?.staffId,
+        managerName: session?.staffName,
+      },
+    });
+
+    return { difference, status };
+  };
+
   const value: PosContextType = {
     products: state.products,
     tables: state.tables,
@@ -4385,6 +4569,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     voidOrder,
     voidOrderItem,
     refundOrder,
+    unlockOrder,
     confirmPayment,
     enterBillingMode,
     setOrderCustomer,
@@ -4394,6 +4579,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     resetDemoData,
     refreshFromServer,
     queueOfflineWrite,
+    getShiftCashSummary,
+    reconcileCash,
   };
 
   return <PosContext.Provider value={value}>{children}</PosContext.Provider>;

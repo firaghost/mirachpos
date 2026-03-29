@@ -86,6 +86,9 @@ export const ManagerTeam: React.FC = () => {
   const [editPin, setEditPin] = useState('');
   const [editPassword, setEditPassword] = useState('');
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ApiStaff | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
   const [activity, setActivity] = useState<ActivityResp | null>(null);
@@ -379,6 +382,50 @@ export const ManagerTeam: React.FC = () => {
     }
   };
 
+  const openDelete = (s: ApiStaff) => {
+    setBanner(null);
+    setDeleteTarget(s);
+    setDeleteOpen(true);
+    setDeleteLoading(false);
+  };
+
+  const closeDelete = () => {
+    setDeleteOpen(false);
+    setDeleteLoading(false);
+    setDeleteTarget(null);
+  };
+
+  const submitDelete = async () => {
+    if (deleteLoading || !deleteTarget) return;
+    try {
+      const s = readSession<any>();
+      const role = typeof s?.role === 'string' ? s.role : '';
+      if (role !== 'Branch Manager' && role !== 'Cafe Owner') {
+        setBanner({ kind: 'error', message: 'forbidden' });
+        return;
+      }
+    } catch {
+      setBanner({ kind: 'error', message: 'forbidden' });
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      const res = await apiFetch(`/api/manager/staff/${encodeURIComponent(deleteTarget.id)}`, {
+        method: 'DELETE',
+      });
+      const payload = (await res.json().catch(() => null)) as any;
+      if (!res.ok) throw new Error(payload?.error || String(res.status));
+      closeDelete();
+      setBanner({ kind: 'success', message: `Staff member ${deleteTarget.name} deleted.` });
+      await fetchStaff();
+      if (tab === 'activity') await fetchActivity();
+    } catch (e) {
+      setBanner({ kind: 'error', message: e instanceof Error ? e.message : 'Failed to delete staff.' });
+      setDeleteLoading(false);
+    }
+  };
+
   const showing = useMemo(() => {
     if (!total) return { start: 0, end: 0, total: 0 };
     const start = (page - 1) * pageSize + 1;
@@ -531,12 +578,21 @@ export const ManagerTeam: React.FC = () => {
                               </span>
                             </td>
                             <td className="py-4 px-6 text-right">
-                              <button
-                                onClick={() => openEdit(s)}
-                                className="h-9 px-3 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-sm font-bold"
-                              >
-                                Manage
-                              </button>
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => openEdit(s)}
+                                  className="h-9 px-3 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-sm font-bold"
+                                >
+                                  Manage
+                                </button>
+                                <button
+                                  onClick={() => openDelete(s)}
+                                  className="h-9 px-3 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-sm font-bold"
+                                  title="Delete staff member"
+                                >
+                                  Delete
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -748,6 +804,32 @@ export const ManagerTeam: React.FC = () => {
             </button>
             <button disabled={editLoading} onClick={submitEdit} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-extrabold disabled:opacity-50">
               {editLoading ? 'Saving ' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+      {/* Delete Confirmation Modal */}
+      <Modal open={deleteOpen} onClose={closeDelete} title="Delete Staff">
+        <div className="space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-sm text-red-800">
+              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>?
+            </p>
+            <p className="text-xs text-red-600 mt-2">
+              This action cannot be undone. The staff member will be permanently removed from the system.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button onClick={closeDelete} className="h-10 px-4 rounded-lg bg-secondary text-foreground font-bold">
+              Cancel
+            </button>
+            <button 
+              disabled={deleteLoading} 
+              onClick={submitDelete} 
+              className="h-10 px-4 rounded-lg bg-red-600 text-white font-extrabold disabled:opacity-50"
+            >
+              {deleteLoading ? 'Deleting...' : 'Delete'}
             </button>
           </div>
         </div>
