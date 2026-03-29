@@ -1110,14 +1110,6 @@ export const WaiterPayment: React.FC<Props> = ({ onNavigate }) => {
                 <span className="text-muted-foreground text-[12px]">Subtotal</span>
                 <span className="text-foreground font-semibold text-[12px]">{settingsUi.currency} {order.subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-muted-foreground text-[12px]">Tax ({Math.round((order.tax / Math.max(1, order.subtotal)) * 100)}%)</span>
-                <span className="text-foreground font-semibold text-[12px]">{settingsUi.currency} {order.tax.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-muted-foreground text-[12px]">Service ({Math.round((order.serviceCharge / Math.max(1, order.subtotal)) * 100)}%)</span>
-                <span className="text-foreground font-semibold text-[12px]">{settingsUi.currency} {order.serviceCharge.toFixed(2)}</span>
-              </div>
               {Number((order as any)?.takeawayFee ?? (order as any)?.payload?.takeawayFee ?? 0) > 0 ? (
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-muted-foreground text-[12px]">Takeaway Fee</span>

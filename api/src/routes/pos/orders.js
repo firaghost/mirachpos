@@ -1058,8 +1058,8 @@ const makePosOrdersRouter = ({
 
             if (referenceRequiredForMethod(settings, pm)) {
               const ref = normalizePaymentReference(nextPayload?.paymentReference);
-              if (!ref) return res.status(400).json({ error: 'payment_reference_required', method: pm });
-              nextPayload.paymentReference = ref;
+              // Reference is optional - only normalize if provided
+              if (ref) nextPayload.paymentReference = ref;
             } else if (typeof nextPayload?.paymentReference === 'string' && nextPayload.paymentReference.trim()) {
               nextPayload.paymentReference = normalizePaymentReference(nextPayload.paymentReference);
             }
@@ -1447,8 +1447,8 @@ const makePosOrdersRouter = ({
 
               if (referenceRequiredForMethod(settings, pm)) {
                 const ref = normalizePaymentReference(incomingPayload?.paymentReference);
-                if (!ref) return res.status(400).json({ error: 'payment_reference_required', method: pm });
-                incomingPayload.paymentReference = ref;
+                // Reference is optional - only normalize if provided
+                if (ref) incomingPayload.paymentReference = ref;
               }
             }
 

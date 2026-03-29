@@ -13,7 +13,7 @@ interface Props {
 }
 
 export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
-  const { selectOrder, getUiPref, setUiPref, orders: localOrders } = usePos();
+  const { selectOrder, getUiPref, setUiPref } = usePos();
   const canRefundFromHere = useMemo(() => {
     try {
       const s = readSession<any>();
@@ -129,7 +129,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
   }, [dateFilter, page, pageSize, query, statusParam]);
 
   const rows = useMemo(() => {
-    let base = rowsRaw
+    const base = rowsRaw
       .map((o) => {
         const items = Array.isArray(o?.items) ? o.items : [];
         const number = typeof o?.number === 'string' ? o.number : '';
@@ -166,75 +166,8 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
         };
       })
       .filter((r) => r.id);
-
-    // Add local orders that aren't already in the list (offline orders not yet synced)
-    const serverIds = new Set(base.map((r) => r.id));
-
-    const localRows = localOrders
-      .filter((o) => {
-        // If order exists on server but local has terminal status (Paid/Voided), prefer local
-        // by NOT filtering it out - we'll merge and prefer local status below
-        if (serverIds.has(o.id)) {
-          const localTerminal = o.status === 'Paid' || o.status === 'Voided' || o.status === 'Refunded';
-          if (localTerminal) return true; // Keep local order to override server status
-        }
-        // Skip if already in server results and not terminal
-        if (serverIds.has(o.id)) return false;
-        // Apply status filter
-        if (statusFilter === 'Completed' && o.status !== 'Paid') return false;
-        if (statusFilter === 'Open' && o.status !== 'Pending' && o.status !== 'Served' && o.status !== 'Preparing') return false;
-        if (statusFilter === 'Voided' && o.status !== 'Voided') return false;
-        // 'All' shows everything with a status
-        return true;
-      })
-      .map((o) => {
-        const items = Array.isArray(o?.items) ? o.items : [];
-        const bestTime = o.paidAt || o.createdAt;
-        const dt = bestTime
-          ? formatDeviceDateTime(bestTime, {
-              month: 'short',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-            })
-          : '';
-        return {
-          id: o.id,
-          number: o.number || '',
-          table: o.tableName || '',
-          time: dt,
-          by: o.createdByName || o.createdByStaffId || '',
-          itemsSummary: items.map((i: any) => `${String(i?.name || '')} (x${Number(i?.qty) || 0})`).join(', '),
-          items,
-          total: o.total || 0,
-          status: o.status,
-        };
-      });
-
-
-    // Merge and sort by time (newest first)
-    // Create a map to deduplicate, preferring local rows (which have accurate Paid status)
-    const mergedMap = new Map<string, typeof base[0]>();
-    
-    // Add server rows first
-    for (const row of base) {
-      mergedMap.set(row.id, row);
-    }
-    
-    // Override with local rows (they have correct Paid/Voided status)
-    for (const row of localRows) {
-      mergedMap.set(row.id, row);
-    }
-    
-    const merged = Array.from(mergedMap.values()).sort((a, b) => {
-      const timeA = a.time || '';
-      const timeB = b.time || '';
-      return timeB.localeCompare(timeA);
-    });
-
-
-    return merged;
-  }, [rowsRaw, statusParam, localOrders, statusFilter, dateFilter]);
+    return base;
+  }, [rowsRaw, statusParam]);
 
   const dailyPaidRows = useMemo(() => {
     if (!isWaiterManager) return [];

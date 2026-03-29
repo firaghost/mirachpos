@@ -1403,7 +1403,8 @@ const normalizeSettingsForPos = (raw) => {
         typeof business.timezone === 'string' && business.timezone.trim() ? business.timezone.trim() : 'Africa/Addis_Ababa',
     },
     taxes: {
-      vatEnabled: typeof taxes.vatEnabled === 'boolean' ? taxes.vatEnabled : true,
+      // Tax is disabled by default - must be explicitly enabled by manager/owner
+      vatEnabled: typeof taxes.vatEnabled === 'boolean' ? taxes.vatEnabled : false,
       vatRate: Number.isFinite(Number(taxes.vatRate)) ? Number(taxes.vatRate) : 15,
       serviceChargeEnabled: typeof taxes.serviceChargeEnabled === 'boolean' ? taxes.serviceChargeEnabled : false,
       serviceChargeRate: Number.isFinite(Number(taxes.serviceChargeRate)) ? Number(taxes.serviceChargeRate) : 0,

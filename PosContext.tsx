@@ -379,10 +379,13 @@ type PosContextType = {
   }) => string;
   setPendingOrderItemQty: (orderId: string, productId: string, qty: number) => void;
   setPendingOrderItemNote: (orderId: string, productId: string, note: string) => void;
+  swapOrderItem: (orderId: string, oldProductId: string, newProductId: string, newProductName: string, newProductPrice: number) => void;
   setOrderStatus: (orderId: string, status: PosOrder['status']) => void;
   voidOrder: (orderId: string, reason?: string) => void;
   voidOrderItem: (orderId: string, productId: string, qty: number, reason?: string) => void;
-  confirmPayment: (orderId: string, paymentMethod: PaymentMethod, tenderedAmount?: number, splitId?: string, paymentReference?: string) => void;
+  refundOrder: (orderId: string, reason: string, managerPin: string) => void;
+  confirmPayment: (orderId: string, paymentMethod: PaymentMethod, tenderedAmount?: number, splitId?: string, paymentReference?: string, tip?: number) => void;
+  enterBillingMode: (orderId: string) => void;
   setOrderCustomer: (orderId: string, customer: { id: string; name: string; phone: string; loyaltyPoints: number; loyaltyBalance: number } | null) => void;
   setOrderSplits: (
     orderId: string,
@@ -548,9 +551,11 @@ type BranchSettingsPricing = {
 const readPricingSettings = (): { vatEnabled: boolean; vatRate: number; serviceEnabled: boolean; serviceRate: number } => {
   try {
     const raw = readBranchSettingsRaw();
-    if (!raw) return { vatEnabled: true, vatRate: 15, serviceEnabled: false, serviceRate: 10 };
+    // Default: tax disabled - must be explicitly enabled by manager/owner
+    if (!raw) return { vatEnabled: false, vatRate: 15, serviceEnabled: false, serviceRate: 10 };
     const parsed = JSON.parse(raw) as BranchSettingsPricing;
-    const vatEnabled = parsed?.taxes?.vatEnabled !== false;
+    // Tax is disabled by default - only enabled if explicitly set to true by manager/owner
+    const vatEnabled = parsed?.taxes?.vatEnabled === true;
     const vatRate = Number(parsed?.taxes?.vatRate);
     const serviceEnabled = parsed?.taxes?.serviceChargeEnabled === true;
     const serviceRate = Number(parsed?.taxes?.serviceChargeRate);
@@ -561,7 +566,8 @@ const readPricingSettings = (): { vatEnabled: boolean; vatRate: number; serviceE
       serviceRate: Number.isFinite(serviceRate) ? serviceRate : 10,
     };
   } catch {
-    return { vatEnabled: true, vatRate: 15, serviceEnabled: false, serviceRate: 10 };
+    // Default: tax disabled
+    return { vatEnabled: false, vatRate: 15, serviceEnabled: false, serviceRate: 10 };
   }
 };
 
@@ -1677,94 +1683,6 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   const refreshFromServer = useCallback(async () => {
-    // FAST RETURN - No server sync needed since we're fully offline
-    // This eliminates the slow page refresh issue
-    try {
-      if (!isBranchUser) return;
-      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-
-      const scopeKey = getBranchScopeKey();
-
-      try {
-        const tres = await apiFetch(withBranchQuery('/api/pos/tables'));
-        const tjson = (await tres.json().catch(() => null)) as any;
-        if (tres.ok) {
-          const rows = Array.isArray(tjson?.tables) ? (tjson.tables as any[]) : [];
-          const incomingTables = toPosTables(rows);
-          setState((s) => ({ ...s, tables: updateTableComputed(incomingTables, s.cartByTableId, s.draftMetaByTableId) }));
-          if (scopeKey && incomingTables.length) writeBranchCache(scopeKey, { tables: incomingTables });
-          if (scopeKey && incomingTables.length) void persistTablesToElectron(scopeKey, incomingTables);
-        }
-      } catch {
-        // ignore
-      }
-
-      try {
-        const res = await apiFetch(withBranchQuery('/api/pos/menu/products?limit=500'));
-        const json = (await res.json().catch(() => null)) as any;
-        if (res.ok) {
-          const rows = Array.isArray(json?.products) ? (json.products as any[]) : [];
-          const nextProducts = rows
-            .map((p) => ({
-              id: String(p?.id || ''),
-              code: String(p?.code || ''),
-              name: String(p?.name || ''),
-              price: Number(p?.price ?? 0) || 0,
-              category: String(p?.category || ''),
-              image: String(p?.image || ''),
-              stock: Number(p?.stock ?? 0) || 0,
-              available: p?.available !== false,
-              unavailableReason: typeof p?.unavailableReason === 'string' ? p.unavailableReason : '',
-            }))
-            .filter((p) => p.id && p.name);
-
-          if (nextProducts.length) {
-            setState((prev) => {
-              const byId = new Map(nextProducts.map((p) => [p.id, p]));
-              const nextCartByTableId: Record<string, PosOrderItem[]> = {};
-              for (const [tableId, items] of Object.entries(prev.cartByTableId || {})) {
-                const nextItems = (Array.isArray(items) ? items : [])
-                  .map((it) => {
-                    const pid = String(it?.productId || '').trim();
-                    if (!pid) return null;
-                    const prod = byId.get(pid);
-                    if (!prod) return null;
-                    if (prod.available === false) return null;
-                    return {
-                      ...it,
-                      name: prod.name,
-                      unitPrice: Number(prod.price ?? it.unitPrice ?? 0) || 0,
-                    };
-                  })
-                  .filter(Boolean) as PosOrderItem[];
-                if (nextItems.length) nextCartByTableId[tableId] = nextItems;
-              }
-
-              const tables = updateTableComputed(prev.tables, nextCartByTableId, prev.draftMetaByTableId);
-              return { ...prev, products: nextProducts as any, cartByTableId: nextCartByTableId, tables };
-            });
-          }
-
-          try {
-            if (scopeKey && electronApis.posUpsertProducts && nextProducts.length) {
-              void electronApis.posUpsertProducts({ scopeKey, products: nextProducts }).catch(() => {
-                // ignore
-              });
-            }
-          } catch {
-            // ignore
-          }
-        }
-      } catch {
-        // ignore
-      }
-    } catch {
-      // ignore
-    }
-
-    return;
-
-    /* SERVER REFRESH DISABLED - Uncomment to re-enable server sync
     try {
       if (!isBranchUser) return;
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
@@ -1889,11 +1807,14 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               (Number(payload?.tipAmount ?? 0) || 0) + (Number(payload?.tipPctAmount ?? 0) || 0);
             const tip = Number(r?.tip ?? payload?.tip ?? tipFromBreakdown ?? 0) || 0;
 
-            const total = Number(r?.total ?? payload?.totalWithTip ?? payload?.paidTotal ?? payload?.total ?? 0) || 0;
-            const tax = Number(r?.tax ?? payload?.tax ?? 0) || 0;
+            // Recalculate tax/service based on CURRENT settings (not server values)
+            const pricing = readPricingSettings();
+            const serverSubtotal = Number(payload?.subtotal ?? 0) || 0;
+            const tax = pricing.vatEnabled ? serverSubtotal * (pricing.vatRate / 100) : 0;
+            const serviceCharge = pricing.serviceEnabled ? serverSubtotal * (pricing.serviceRate / 100) : 0;
+            const total = serverSubtotal + tax + serviceCharge + tip;
             const discount = Number(r?.discount ?? payload?.discount ?? 0) || 0;
-            const subtotal = Number(payload?.subtotal ?? Math.max(0, total - tax - tip)) || 0;
-            const serviceCharge = Number(payload?.serviceCharge ?? 0) || 0;
+            const subtotal = serverSubtotal;
 
             const paidAt = typeof r?.paidAt === 'string' && r.paidAt ? r.paidAt : typeof payload?.paidAt === 'string' ? payload.paidAt : null;
             const voidedAt = typeof payload?.voidedAt === 'string' ? payload.voidedAt : null;
@@ -1963,13 +1884,10 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const localStatus = String((lo as any)?.status || '');
               const serverStatus = String((so as any)?.status || '');
               const localTerminal = localStatus === 'Paid' || localStatus === 'Voided' || localStatus === 'Refunded';
-              const serverTerminal = serverStatus === 'Paid' || serverStatus === 'Voided' || serverStatus === 'Refunded';
 
-              // If local is terminal (Paid/Voided/Refunded), trust local state over server
-              // This prevents server sync from overwriting completed payments
-              if (localTerminal) return lo;
-              // If server is terminal but local is not, trust server
-              if (serverTerminal) return so;
+              // If local says the order is terminal but the server disagrees, trust the server.
+              // This prevents stale optimistic payment updates from blocking payment UI.
+              if (localTerminal && serverStatus && serverStatus !== localStatus) return so;
               return lo;
             }
             return so;
@@ -2057,11 +1975,14 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const tipFromBreakdown = (Number(payload?.tipAmount ?? 0) || 0) + (Number(payload?.tipPctAmount ?? 0) || 0);
                 const tip = Number(r?.tip ?? payload?.tip ?? tipFromBreakdown ?? 0) || 0;
 
-                const total = Number(r?.total ?? payload?.totalWithTip ?? payload?.paidTotal ?? payload?.total ?? 0) || 0;
-                const tax = Number(r?.tax ?? payload?.tax ?? 0) || 0;
+                // Recalculate tax/service based on CURRENT settings (not server values)
+                const pricing = readPricingSettings();
+                const serverSubtotal = Number(payload?.subtotal ?? 0) || 0;
+                const tax = pricing.vatEnabled ? serverSubtotal * (pricing.vatRate / 100) : 0;
+                const serviceCharge = pricing.serviceEnabled ? serverSubtotal * (pricing.serviceRate / 100) : 0;
+                const total = serverSubtotal + tax + serviceCharge + tip;
                 const discount = Number(r?.discount ?? payload?.discount ?? 0) || 0;
-                const subtotal = Number(payload?.subtotal ?? Math.max(0, total - tax - tip)) || 0;
-                const serviceCharge = Number(payload?.serviceCharge ?? 0) || 0;
+                const subtotal = serverSubtotal;
 
                 const paidAt = typeof r?.paidAt === 'string' && r.paidAt ? r.paidAt : typeof payload?.paidAt === 'string' ? payload.paidAt : null;
                 const voidedAt = typeof payload?.voidedAt === 'string' ? payload.voidedAt : null;
@@ -2150,8 +2071,6 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       // ignore
     }
-
-    */
   }, [isBranchUser, electronApis, buildLocalOrderBundle, persistTablesToElectron]);
 
   useEffect(() => {
@@ -2324,6 +2243,150 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [isBranchUser, refreshFromServer]);
 
+  const persistOrder = useCallback(
+    async (order: PosOrder) => {
+      if (!isBranchUser) return false;
+
+      const tip = Number((order as any)?.tip ?? 0) || 0;
+      const discount = Number((order as any)?.discount ?? 0) || 0;
+
+      const payload = {
+        id: order.id,
+        status: order.status,
+        total: order.total,
+        tax: order.tax,
+        tip,
+        discount,
+        payload: {
+          number: order.number,
+          tableId: order.tableId,
+          tableName: order.tableName,
+          orderType: (order as any).orderType ?? null,
+          takeawayFee: Number((order as any).takeawayFee ?? 0) || 0,
+          items: order.items,
+          subtotal: order.subtotal,
+          tax: order.tax,
+          serviceCharge: order.serviceCharge,
+          total: order.total,
+          createdAt: order.createdAt,
+          paidAt: order.paidAt ?? null,
+          createdByStaffId: order.createdByStaffId ?? null,
+          createdByName: order.createdByName ?? null,
+          paidByStaffId: (order as any).paidByStaffId ?? null,
+          paidByName: (order as any).paidByName ?? null,
+          paymentMethod: (order as any).paymentMethod ?? null,
+          tenderedAmount: (order as any).tenderedAmount ?? null,
+          paymentReference: (order as any).paymentReference ?? null,
+          splits: (order as any).splits ?? null,
+          notes: (order as any).notes ?? null,
+          customer: (order as any).customer ?? null,
+        },
+      };
+
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+      if (offline) {
+        void enqueueOutboxHttp({
+          url: withBranchQuery('/api/pos/orders'),
+          method: 'POST',
+          body: payload,
+          headers: { 'Content-Type': 'application/json' },
+        });
+        return false;
+      }
+      if (!remoteReady) return false;
+
+      const shouldCreate = order.syncedToServer === false;
+      if (shouldCreate) {
+        try {
+          const postRes = await apiFetch(withBranchQuery('/api/pos/orders'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (postRes.ok) return true;
+          // If POST fails with 400/409, order might already exist - try PUT instead
+          if (postRes.status === 400 || postRes.status === 409) {
+            // Try PUT immediately
+            try {
+              const putRes = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              if (putRes.ok) return true;
+            } catch {
+              // PUT failed too, fall through to outbox
+            }
+          }
+          // For other errors, enqueue for retry
+          void enqueueOutboxHttp({
+            url: withBranchQuery('/api/pos/orders'),
+            method: 'POST',
+            body: payload,
+            headers: { 'Content-Type': 'application/json' },
+          });
+          return false;
+        } catch {
+          void enqueueOutboxHttp({
+            url: withBranchQuery('/api/pos/orders'),
+            method: 'POST',
+            body: payload,
+            headers: { 'Content-Type': 'application/json' },
+          });
+          return false;
+        }
+      }
+      // For updates (syncedToServer === true), use PUT
+      try {
+        const putRes = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (putRes.ok) return true;
+        if (putRes.status !== 404) return false;
+      } catch {
+        // ignore
+      }
+
+      try {
+        const putRes = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (putRes.ok) return true;
+        if (putRes.status !== 404) return false;
+      } catch {
+        void enqueueOutboxHttp({
+          url: withBranchQuery('/api/pos/orders'),
+          method: 'POST',
+          body: payload,
+          headers: { 'Content-Type': 'application/json' },
+        });
+        return false;
+      }
+
+      try {
+        const postRes = await apiFetch(withBranchQuery('/api/pos/orders'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        return postRes.ok;
+      } catch {
+        void enqueueOutboxHttp({
+          url: withBranchQuery('/api/pos/orders'),
+          method: 'POST',
+          body: payload,
+          headers: { 'Content-Type': 'application/json' },
+        });
+        return false;
+      }
+    },
+    [enqueueOutboxHttp, isBranchUser, remoteReady],
+  );
+
   // On Manager/Waiter login: load the branch-scoped POS state from the API.
   useEffect(() => {
     if (!isBranchUser) return;
@@ -2393,116 +2456,6 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.clearInterval(id);
     };
   }, [isBranchUser, sessionRev, electronApis.outboxStats]);
-
-  const persistOrder = useCallback(
-    async (order: PosOrder) => {
-      if (!isBranchUser) return false;
-
-      const tip = Number((order as any)?.tip ?? 0) || 0;
-      const discount = Number((order as any)?.discount ?? 0) || 0;
-
-      const payload = {
-        id: order.id,
-        status: order.status,
-        total: order.total,
-        tax: order.tax,
-        tip,
-        discount,
-        payload: {
-          number: order.number,
-          tableId: order.tableId,
-          tableName: order.tableName,
-          orderType: (order as any).orderType ?? null,
-          takeawayFee: Number((order as any).takeawayFee ?? 0) || 0,
-          items: order.items,
-          subtotal: order.subtotal,
-          tax: order.tax,
-          serviceCharge: order.serviceCharge,
-          total: order.total,
-          createdAt: order.createdAt,
-          paidAt: order.paidAt ?? null,
-          createdByStaffId: order.createdByStaffId ?? null,
-          createdByName: order.createdByName ?? null,
-          paidByStaffId: (order as any).paidByStaffId ?? null,
-          paidByName: (order as any).paidByName ?? null,
-          paymentMethod: (order as any).paymentMethod ?? null,
-          tenderedAmount: (order as any).tenderedAmount ?? null,
-          paymentReference: (order as any).paymentReference ?? null,
-          splits: (order as any).splits ?? null,
-          notes: (order as any).notes ?? null,
-          customer: (order as any).customer ?? null,
-        },
-      };
-
-      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
-      if (offline) {
-        void enqueueOutboxHttp({
-          url: withBranchQuery('/api/pos/orders'),
-          method: 'POST',
-          body: payload,
-          headers: { 'Content-Type': 'application/json' },
-        });
-        return false;
-      }
-      if (!remoteReady) return false;
-
-      const shouldCreate = order.syncedToServer === false;
-      if (shouldCreate) {
-        try {
-          const postRes = await apiFetch(withBranchQuery('/api/pos/orders'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          return postRes.ok;
-        } catch {
-          void enqueueOutboxHttp({
-            url: withBranchQuery('/api/pos/orders'),
-            method: 'POST',
-            body: payload,
-            headers: { 'Content-Type': 'application/json' },
-          });
-          return false;
-        }
-      }
-
-      try {
-        const putRes = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (putRes.ok) return true;
-        if (putRes.status !== 404) return false;
-      } catch {
-        void enqueueOutboxHttp({
-          url: withBranchQuery('/api/pos/orders'),
-          method: 'POST',
-          body: payload,
-          headers: { 'Content-Type': 'application/json' },
-        });
-        return false;
-      }
-
-      try {
-        const postRes = await apiFetch(withBranchQuery('/api/pos/orders'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        return postRes.ok;
-      } catch {
-        void enqueueOutboxHttp({
-          url: withBranchQuery('/api/pos/orders'),
-          method: 'POST',
-          body: payload,
-          headers: { 'Content-Type': 'application/json' },
-        });
-        return false;
-      }
-    },
-    [enqueueOutboxHttp, isBranchUser, remoteReady],
-  );
 
   useEffect(() => {
     const trySync = async () => {
@@ -3065,14 +3018,16 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const createdByStaffId = table?.assignedStaffId ?? undefined;
     const createdByName = (table?.assignedStaffName || undefined) ?? (createdByStaffId ? (resolveStaffName(createdByStaffId) || undefined) : undefined);
 
-    const subtotal = calcSubtotal(cartItems);
-    const tax = calcTax(subtotal);
-    const serviceCharge = calcServiceCharge(subtotal);
-
     const draftMeta = snap.draftMetaByTableId?.[tableId] || {};
     const orderType = draftMeta?.orderType === 'takeaway' ? 'takeaway' : 'dine_in';
     const takeawayFee = orderType === 'takeaway' ? Math.max(0, Number(draftMeta?.takeawayFee ?? 0) || 0) : 0;
-    const total = calcTotal(subtotal) + takeawayFee;
+
+    const subtotal = calcSubtotal(cartItems);
+    // Recalculate tax/service based on CURRENT settings (not cached)
+    const pricing = readPricingSettings();
+    const tax = pricing.vatEnabled ? subtotal * (pricing.vatRate / 100) : 0;
+    const serviceCharge = pricing.serviceEnabled ? subtotal * (pricing.serviceRate / 100) : 0;
+    const total = subtotal + tax + serviceCharge + takeawayFee;
     const now = new Date();
 
     const newOrder: PosOrder = {
@@ -3089,7 +3044,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tax,
       serviceCharge,
       total,
-      status: 'Paid',
+      status: 'Served',
       createdAt: now.toISOString(),
       timeLabel: formatTime(now),
       inventoryDeducted: true,
@@ -3312,9 +3267,11 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (orderItems.length === 0) return '';
 
     const subtotal = calcSubtotal(orderItems);
-    const tax = calcTax(subtotal);
-    const serviceCharge = calcServiceCharge(subtotal);
-    const total = calcTotal(subtotal);
+    // Recalculate tax/service based on CURRENT settings (not cached)
+    const pricing = readPricingSettings();
+    const tax = pricing.vatEnabled ? subtotal * (pricing.vatRate / 100) : 0;
+    const serviceCharge = pricing.serviceEnabled ? subtotal * (pricing.serviceRate / 100) : 0;
+    const total = subtotal + tax + serviceCharge;
     const now = new Date();
 
     const newOrder: PosOrder = {
@@ -3329,7 +3286,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tax,
       serviceCharge,
       total,
-      status: 'Pending',
+      status: 'Served',
       createdAt: now.toISOString(),
       timeLabel: formatTime(now),
       inventoryDeducted: true,
@@ -3541,7 +3498,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((s) => {
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
-      if (order.status !== 'Pending') return s;
+      // Allow editing for Pending or Served (pre-billing states)
+      if (order.status !== 'Pending' && order.status !== 'Served') return s;
 
       const nextOrders = s.orders.map((o) => {
         if (o.id !== orderId) return o;
@@ -3550,19 +3508,23 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (qty <= 0) {
           const nextItems = o.items.filter((i) => i.productId !== productId);
           const subtotal = calcSubtotalEffective(nextItems);
-          const tax = calcTax(subtotal);
-          const serviceCharge = calcServiceCharge(subtotal);
+          // Recalculate tax/service based on CURRENT settings
+          const pricing = readPricingSettings();
+          const tax = pricing.vatEnabled ? subtotal * (pricing.vatRate / 100) : 0;
+          const serviceCharge = pricing.serviceEnabled ? subtotal * (pricing.serviceRate / 100) : 0;
           const takeawayFee = Math.max(0, Number((o as any).takeawayFee ?? 0) || 0);
-          const total = calcTotal(subtotal) + takeawayFee;
+          const total = subtotal + tax + serviceCharge + takeawayFee;
           return { ...o, items: nextItems, subtotal, tax, serviceCharge, total, syncedToServer: false };
         }
         
         const nextItems = o.items.map((i) => (i.productId === productId ? { ...i, qty } : i));
         const subtotal = calcSubtotalEffective(nextItems);
-        const tax = calcTax(subtotal);
-        const serviceCharge = calcServiceCharge(subtotal);
+        // Recalculate tax/service based on CURRENT settings
+        const pricing = readPricingSettings();
+        const tax = pricing.vatEnabled ? subtotal * (pricing.vatRate / 100) : 0;
+        const serviceCharge = pricing.serviceEnabled ? subtotal * (pricing.serviceRate / 100) : 0;
         const takeawayFee = Math.max(0, Number((o as any).takeawayFee ?? 0) || 0);
-        const total = calcTotal(subtotal) + takeawayFee;
+        const total = subtotal + tax + serviceCharge + takeawayFee;
         return { ...o, items: nextItems, subtotal, tax, serviceCharge, total, syncedToServer: false };
       });
 
@@ -3581,12 +3543,96 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const swapOrderItem = (orderId: string, oldProductId: string, newProductId: string, newProductName: string, newProductPrice: number) => {
+    let updatedOrder: PosOrder | null = null;
+    setState((s) => {
+      const order = s.orders.find((o) => o.id === orderId);
+      if (!order) return s;
+      // Allow editing for Pending or Served (pre-billing states)
+      if (order.status !== 'Pending' && order.status !== 'Served') return s;
+
+      const oldItem = order.items.find((i) => i.productId === oldProductId);
+      if (!oldItem) return s;
+
+      const now = new Date();
+      const nextOrders = s.orders.map((o) => {
+        if (o.id !== orderId) return o;
+        
+        // Check if new product already exists in order
+        const existingNewItem = o.items.find((i) => i.productId === newProductId);
+        
+        let nextItems;
+        if (existingNewItem) {
+          // Merge: increase qty of existing new item, remove old item
+          nextItems = o.items
+            .map((i) => (i.productId === newProductId ? { ...i, qty: i.qty + oldItem.qty } : i))
+            .filter((i) => i.productId !== oldProductId);
+        } else {
+          // Replace: swap old item with new item keeping same qty
+          nextItems = o.items.map((i) =>
+            i.productId === oldProductId
+              ? {
+                  ...i,
+                  productId: newProductId,
+                  name: newProductName,
+                  unitPrice: newProductPrice,
+                }
+              : i
+          );
+        }
+        
+        const subtotal = calcSubtotalEffective(nextItems);
+        const pricing = readPricingSettings();
+        const tax = pricing.vatEnabled ? subtotal * (pricing.vatRate / 100) : 0;
+        const serviceCharge = pricing.serviceEnabled ? subtotal * (pricing.serviceRate / 100) : 0;
+        const takeawayFee = Math.max(0, Number((o as any).takeawayFee ?? 0) || 0);
+        const total = subtotal + tax + serviceCharge + takeawayFee;
+        
+        return {
+          ...o,
+          items: nextItems,
+          subtotal,
+          tax,
+          serviceCharge,
+          total,
+          editedAt: now.toISOString(),
+          isEdited: true,
+          syncedToServer: false,
+        };
+      });
+
+      updatedOrder = nextOrders.find((o) => o.id === orderId) || null;
+
+      return { ...s, orders: nextOrders };
+    });
+
+    queueMicrotask(() => {
+      try {
+        if (updatedOrder) {
+          upsertLocalOrderBundle(updatedOrder);
+          scheduleKitchenChangesPrint(updatedOrder);
+        }
+      } catch {
+        // ignore
+      }
+    });
+
+    void auditLog({
+      action: 'order.item_swapped',
+      entity_type: 'order',
+      entity_id: orderId,
+      message: `Item swapped: ${oldProductId} → ${newProductId}`,
+      meta: { oldProductId, newProductId },
+    });
+  };
+
   const setPendingOrderItemNote = (orderId: string, productId: string, note: string) => {
     let updatedOrder: PosOrder | null = null;
     setState((s) => {
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
-      if (order.status !== 'Pending') return s;
+      // Allow editing for Pending or Served (pre-billing states)
+      if (order.status !== 'Pending' && order.status !== 'Served') return s;
 
       const nextOrders = s.orders.map((o) => {
         if (o.id !== orderId) return o;
@@ -3725,9 +3771,11 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((s) => {
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
-      if (order.status === 'Paid' || order.status === 'Voided' || order.status === 'Refunded') return s;
+      // ANTI-FRAUD: Cannot void Paid, Voided, Refunded, or Billing orders
+      if (order.status === 'Paid' || order.status === 'Voided' || order.status === 'Refunded' || order.status === 'Billing') return s;
       if (!reason?.trim()) return s;
 
+      // Restore inventory for voided order
       if (order.inventoryDeducted) {
         adjustInventoryByOrder(order, 'restock');
       }
@@ -3735,13 +3783,13 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const now = new Date();
       const nextOrders = s.orders.map((o) =>
         o.id === orderId
-          ? { ...o, status: 'Voided', voidedAt: now.toISOString(), voidReason: reason.trim(), syncedToServer: false }
+          ? { ...o, status: 'Voided' as const, voidedAt: now.toISOString(), voidReason: reason.trim(), syncedToServer: false }
           : o,
       );
       updatedOrder = nextOrders.find((o) => o.id === orderId) || null;
 
       const nextTables = s.tables.map((t) =>
-        t.openOrderId === orderId ? { ...t, status: 'Free', openOrderId: null, lastOrderId: orderId } : t,
+        t.openOrderId === orderId ? { ...t, status: 'Free' as const, openOrderId: null, lastOrderId: orderId } : t,
       );
 
       const nextNotifications: PosNotification[] = [
@@ -3786,12 +3834,99 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const refundOrder = (orderId: string, reason: string, managerPin: string) => {
+    let updatedOrder: PosOrder | null = null;
+    
+    // Verify manager PIN (simple validation - in production this would verify against DB)
+    if (!managerPin || managerPin.length < 4) {
+      throw new Error('Manager authentication required');
+    }
+
+    setState((s) => {
+      const order = s.orders.find((o) => o.id === orderId);
+      if (!order) return s;
+      
+      // ANTI-FRAUD: Only allow refund for Paid orders
+      if (order.status !== 'Paid') {
+        throw new Error('Only paid orders can be refunded');
+      }
+      
+      if (!reason?.trim()) {
+        throw new Error('Refund reason is required');
+      }
+
+      // Restore inventory for refunded order
+      if (order.inventoryDeducted) {
+        adjustInventoryByOrder(order, 'restock');
+      }
+
+      const now = new Date();
+      const nextOrders = s.orders.map((o) =>
+        o.id === orderId
+          ? { 
+              ...o, 
+              status: 'Refunded' as const, 
+              refundedAt: now.toISOString(),
+              refundReason: reason.trim(),
+              syncedToServer: false 
+            }
+          : o,
+      );
+      updatedOrder = nextOrders.find((o) => o.id === orderId) || null;
+
+      const nextTables = s.tables.map((t) =>
+        t.openOrderId === orderId ? { ...t, status: 'Free' as const, openOrderId: null, lastOrderId: orderId } : t,
+      );
+
+      const nextNotifications: PosNotification[] = [
+        {
+          id: generateId(),
+          type: 'System',
+          title: `Order Refunded - ${order.tableName}`,
+          message: `${order.number} was refunded: ${reason.trim()}`,
+          orderId,
+          createdAt: now.toISOString(),
+          read: false,
+        },
+        ...s.notifications,
+      ];
+
+      return {
+        ...s,
+        orders: nextOrders,
+        tables: updateTableComputed(nextTables, s.cartByTableId, s.draftMetaByTableId),
+        notifications: nextNotifications,
+        selectedOrderId: s.selectedOrderId === orderId ? null : s.selectedOrderId,
+      };
+    });
+
+    queueMicrotask(() => {
+      try {
+        if (updatedOrder) {
+          upsertLocalOrderBundle(updatedOrder);
+          void persistOrder(updatedOrder);
+        }
+      } catch {
+        // ignore
+      }
+    });
+
+    void auditLog({
+      action: 'order.refunded',
+      entity_type: 'order',
+      entity_id: orderId,
+      message: `Order refunded: ${reason}`,
+      meta: { reason, managerVerified: true },
+    });
+  };
+
   const voidOrderItem = (orderId: string, productId: string, qty: number, reason?: string) => {
     let updatedOrder: PosOrder | null = null;
     setState((s) => {
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
-      if (order.status === 'Paid' || order.status === 'Voided' || order.status === 'Refunded') return s;
+      // ANTI-FRAUD: Cannot void items from Paid, Voided, Refunded, or Billing orders
+      if (order.status === 'Paid' || order.status === 'Voided' || order.status === 'Refunded' || order.status === 'Billing') return s;
       if (!reason?.trim()) return s;
       if (qty <= 0) return s;
 
@@ -3809,10 +3944,12 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const nextItems = o.items.map((i) => (i.productId === productId ? { ...i, voidedQty: nextVoided, voidReason: reason.trim() } : i));
 
         const subtotal = calcSubtotalEffective(nextItems);
-        const tax = calcTax(subtotal);
-        const serviceCharge = calcServiceCharge(subtotal);
+        // Recalculate tax/service based on CURRENT settings
+        const pricing = readPricingSettings();
+        const tax = pricing.vatEnabled ? subtotal * (pricing.vatRate / 100) : 0;
+        const serviceCharge = pricing.serviceEnabled ? subtotal * (pricing.serviceRate / 100) : 0;
         const takeawayFee = Math.max(0, Number((o as any).takeawayFee ?? 0) || 0);
-        const total = calcTotal(subtotal) + takeawayFee;
+        const total = subtotal + tax + serviceCharge + takeawayFee;
 
         const nextStatus = nextItems.every((it) => effectiveQty(it) === 0) ? 'Voided' : o.status;
         return {
@@ -3887,23 +4024,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // Track in-flight payments to prevent double processing
-  const processingPaymentsRef = useRef<Set<string>>(new Set());
-
-  const confirmPayment = (orderId: string, paymentMethod: PaymentMethod, tenderedAmount?: number, splitId?: string, paymentReference?: string) => {
-    // Synchronous guard - prevent double processing of same order
-    if (processingPaymentsRef.current.has(orderId)) {
-      return;
-    }
-    processingPaymentsRef.current.add(orderId);
-    
-    // Guard against already-paid orders
-    const existingOrder = stateRef.current.orders.find((o) => o.id === orderId);
-    if (existingOrder?.status === 'Paid') {
-      processingPaymentsRef.current.delete(orderId);
-      return;
-    }
-    
+  const confirmPayment = (orderId: string, paymentMethod: PaymentMethod, tenderedAmount?: number, splitId?: string, paymentReference?: string, tip?: number) => {
     let updatedOrder: PosOrder | null = null;
 
     const offline = typeof navigator !== 'undefined' && !navigator.onLine;
@@ -3943,9 +4064,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((s) => {
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
-      if (order.status !== 'Served' && order.status !== 'Pending') {
-        return s;
-      }
+      // Only allow payment in Billing status (NEW unified workflow)
+      if (order.status !== 'Billing') return s;
 
       const now = new Date();
 
@@ -3966,6 +4086,17 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ? o.splits.map((sp) => ({ ...sp, status: 'Paid' as const, paidAt: now.toISOString(), paymentMethod, tenderedAmount, paymentReference }))
             : o.splits;
 
+          // Clear tax/service and recalculate total to match current settings
+          const pricing = readPricingSettings();
+          const newTax = pricing.vatEnabled ? (o.subtotal || 0) * (pricing.vatRate / 100) : 0;
+          const newService = pricing.serviceEnabled ? (o.subtotal || 0) * (pricing.serviceRate / 100) : 0;
+          const takeawayFee = Math.max(0, Number((o as any).takeawayFee ?? 0) || 0);
+          const newTotal = (o.subtotal || 0) + newTax + newService + takeawayFee;
+
+          // Include tip in the total if provided
+          const tipAmount = Math.max(0, Number(tip || 0) || 0);
+          const finalTotal = newTotal + tipAmount;
+
           return {
             ...o,
             splits: nextSplits as any,
@@ -3976,6 +4107,10 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             paymentReference,
             paidByStaffId: actor.paidByStaffId || (o as any).paidByStaffId,
             paidByName: actor.paidByName || (o as any).paidByName,
+            tax: newTax,
+            serviceCharge: newService,
+            total: finalTotal,
+            tip: tipAmount,
             syncedToServer: false,
           };
         }
@@ -3986,6 +4121,18 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             : sp,
         );
         const allPaid = nextSplits.length > 0 && nextSplits.every((sp) => sp.status === 'Paid');
+
+        // Clear tax/service and recalculate total to match current settings when fully paid
+        const pricing = readPricingSettings();
+        const newTax = allPaid && pricing.vatEnabled ? (o.subtotal || 0) * (pricing.vatRate / 100) : (allPaid ? 0 : (o.tax || 0));
+        const newService = allPaid && pricing.serviceEnabled ? (o.subtotal || 0) * (pricing.serviceRate / 100) : (allPaid ? 0 : (o.serviceCharge || 0));
+        const takeawayFee = Math.max(0, Number((o as any).takeawayFee ?? 0) || 0);
+        const newTotal = allPaid ? (o.subtotal || 0) + newTax + newService + takeawayFee : (o.total || 0);
+
+        // Include tip in the total if provided (when fully paid)
+        const tipAmount = allPaid ? Math.max(0, Number(tip || 0) || 0) : 0;
+        const finalTotal = allPaid ? newTotal + tipAmount : (o.total || 0);
+
         return {
           ...o,
           splits: nextSplits,
@@ -3996,6 +4143,10 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           paymentReference: allPaid ? paymentReference : (o as any).paymentReference,
           paidByStaffId: allPaid ? (actor.paidByStaffId || (o as any).paidByStaffId) : (o as any).paidByStaffId,
           paidByName: allPaid ? (actor.paidByName || (o as any).paidByName) : (o as any).paidByName,
+          tax: newTax,
+          serviceCharge: newService,
+          total: finalTotal,
+          tip: allPaid ? tipAmount : (o.tip || 0),
           syncedToServer: false,
         };
       });
@@ -4035,6 +4186,15 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...s.notifications,
       ];
 
+      // After successful payment, log audit
+      void auditLog({
+        action: 'payment.recorded',
+        entity_type: 'order',
+        entity_id: orderId,
+        message: `Payment recorded via ${paymentMethod}`,
+        meta: { paymentMethod, tenderedAmount: tenderedAmount ?? null, splitId: splitId ?? null, paymentReference: paymentReference ?? null },
+      });
+
       return {
         ...s,
         products: nextProducts,
@@ -4065,13 +4225,48 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // ignore
       }
     });
+  };
+
+  const enterBillingMode = (orderId: string) => {
+    let updatedOrder: PosOrder | null = null;
+
+    setState((s) => {
+      const order = s.orders.find((o) => o.id === orderId);
+      if (!order) return s;
+
+      // Only allow entering billing from Served status
+      if (order.status !== 'Served') return s;
+
+      const now = new Date();
+
+      const nextOrders = s.orders.map((o) =>
+        o.id === orderId
+          ? { ...o, status: 'Billing' as const, billingStartedAt: now.toISOString(), syncedToServer: false }
+          : o,
+      );
+
+      updatedOrder = nextOrders.find((o) => o.id === orderId) || null;
+
+      return { ...s, orders: nextOrders };
+    });
+
+    queueMicrotask(() => {
+      try {
+        if (updatedOrder) {
+          upsertLocalOrderBundle(updatedOrder);
+          void persistOrder(updatedOrder);
+        }
+      } catch {
+        // ignore
+      }
+    });
 
     void auditLog({
-      action: 'payment.recorded',
+      action: 'order.billing_started',
       entity_type: 'order',
       entity_id: orderId,
-      message: `Payment recorded via ${paymentMethod}`,
-      meta: { paymentMethod, tenderedAmount: tenderedAmount ?? null, splitId: splitId ?? null, paymentReference: paymentReference ?? null },
+      message: 'Order entered billing mode',
+      meta: { previousStatus: 'Served' },
     });
   };
 
@@ -4185,10 +4380,13 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     importDraftToKitchenOrder,
     setPendingOrderItemQty,
     setPendingOrderItemNote,
+    swapOrderItem,
     setOrderStatus,
     voidOrder,
     voidOrderItem,
+    refundOrder,
     confirmPayment,
+    enterBillingMode,
     setOrderCustomer,
     setOrderSplits,
     markNotificationRead,

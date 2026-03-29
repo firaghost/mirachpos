@@ -42,9 +42,7 @@ export const CartPanel: React.FC<CartPanelProps> = ({ selectedTableId, onOrderSe
   const takeawayFee = orderType === 'takeaway' ? Math.max(0, Number(draftMeta?.takeawayFee ?? 0) || 0) : 0;
 
   const subtotal = useMemo(() => cartItems.reduce((sum, i) => sum + (Number(i.unitPrice || 0) || 0) * (Number(i.qty || 0) || 0), 0), [cartItems]);
-  const tax = useMemo(() => subtotal * 0.15, [subtotal]);
-  const service = useMemo(() => subtotal * 0.05, [subtotal]);
-  const total = useMemo(() => subtotal + tax + service + takeawayFee, [subtotal, tax, service, takeawayFee]);
+  const total = useMemo(() => subtotal + takeawayFee, [subtotal, takeawayFee]);
 
   const [notes, setNotes] = useState('');
   const [sending, setSending] = useState(false);
@@ -173,10 +171,6 @@ export const CartPanel: React.FC<CartPanelProps> = ({ selectedTableId, onOrderSe
         <div className="grid grid-cols-2 gap-2 text-xs font-bold text-muted-foreground">
           <div>Subtotal</div>
           <div className="text-right">ETB {subtotal.toFixed(2)}</div>
-          <div>Tax</div>
-          <div className="text-right">ETB {tax.toFixed(2)}</div>
-          <div>Service</div>
-          <div className="text-right">ETB {service.toFixed(2)}</div>
           {takeawayFee > 0 ? (
             <>
               <div>Takeaway fee</div>

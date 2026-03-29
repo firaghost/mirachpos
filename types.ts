@@ -136,7 +136,7 @@ export interface Table {
   time?: string;
 }
 
-export type PosOrderStatus = 'Pending' | 'Cooking' | 'Ready' | 'Served' | 'Paid' | 'Voided' | 'Refunded';
+export type PosOrderStatus = 'Pending' | 'Cooking' | 'Ready' | 'Served' | 'Billing' | 'Paid' | 'Voided' | 'Refunded';
 
 export interface PosOrderItem {
   productId: string;
@@ -173,6 +173,7 @@ export interface PosOrder {
   syncedAt?: string;
   notes?: string;
   paidAt?: string;
+  billingStartedAt?: string;
   paymentMethod?: 'Cash' | 'Card' | 'Telebirr' | 'Bank Transfer' | 'Loyalty';
   tenderedAmount?: number;
   paymentReference?: string;

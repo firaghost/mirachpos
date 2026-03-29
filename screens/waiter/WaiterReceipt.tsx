@@ -268,8 +268,6 @@ const receiptHtml = (
   const totals: Array<{ label: string; value: number }> = [];
   totals.push({ label: 'SUBTOTAL', value: Number(order.subtotal || 0) || 0 });
   if (discount > 0.0001 || discountPct > 0.0001) totals.push({ label: discountPct > 0.0001 ? `DISCOUNT (${discountPct.toFixed(0)}%)` : 'DISCOUNT', value: -Math.abs(discount) });
-  if (serviceCharge > 0.0001) totals.push({ label: serviceLabel.includes('%') ? serviceLabel.replace('+', '').trim() : serviceLabel, value: serviceCharge });
-  if (settings.vatEnabled) totals.push({ label: `TAX (${String(settings.vatRate || 0).trim()}%)`, value: Number(order.tax || 0) || 0 });
   if (takeawayFee > 0.0001) totals.push({ label: 'TAKEAWAY FEE', value: takeawayFee });
   if (tip > 0.0001) totals.push({ label: 'TIP', value: tip });
 

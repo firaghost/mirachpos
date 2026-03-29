@@ -24,6 +24,16 @@ const formatTime = (mins: number) => {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
+// Helper to recalculate order total without tax (tax disabled by default)
+const calcOrderTotalNoTax = (order: any): number => {
+  if (!order) return 0;
+  const subtotal = Number(order.subtotal || 0) || 0;
+  const takeawayFee = Number((order as any).takeawayFee || 0) || 0;
+  // Tax is disabled by default - only calculate if explicitly enabled
+  // Since we can't easily access settings here, we use subtotal + takeawayFee
+  return subtotal + takeawayFee;
+};
+
 // Kitchen ticket HTML generator for full-page print
 const kitchenTicketHtml = (title: string, order: any, lines: Array<{ name: string; qty: number; note?: string }>) => {
   const escapeHtml = (s: string) =>
@@ -41,6 +51,8 @@ const kitchenTicketHtml = (title: string, order: any, lines: Array<{ name: strin
   const time = escapeHtml(order.timeLabel ?? now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
   const placedBy = escapeHtml(order.createdByName ?? order.createdByStaffId ?? 'Staff');
   const notes = order.notes ? `<div class="notes">${escapeHtml(order.notes)}</div>` : '';
+  // Add EDITED label if order has been edited
+  const editedLabel = order.isEdited ? `<div class="edited-banner">EDITED - Updated at ${escapeHtml(order.editedAt ? new Date(order.editedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }))}</div>` : '';
   const items = lines
     .map((l) => {
       const note = l.note?.trim() ? `<div class="note">${escapeHtml(l.note)}</div>` : '';
@@ -74,6 +86,7 @@ const kitchenTicketHtml = (title: string, order: any, lines: Array<{ name: strin
         .name{flex:1; font-size:18px; font-weight:800;}
         .note{margin-top:4px; font-size:14px; font-weight:600; color:#333;}
         .notes{margin-top:12px; padding:12px; border:1px dashed #777; font-size:14px; font-weight:700;}
+        .edited-banner{background:#f59e0b; color:#fff; padding:8px 12px; font-size:14px; font-weight:900; text-align:center; margin:8px 0; border-radius:4px;}
         @media print{body{padding:0} .no-print{display:none}}
       </style>
     </head>
@@ -88,6 +101,7 @@ const kitchenTicketHtml = (title: string, order: any, lines: Array<{ name: strin
           <div>${time}</div>
         </div>
       </div>
+      ${editedLabel}
       ${notes}
       <div class="hr"></div>
       ${items}
@@ -120,6 +134,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     addToCart,
     getCartItems,
     setCartQty,
+    setCartItemNote,
     removeFromCart,
     setTableAssignment,
     sendOrderToKitchen,
@@ -127,11 +142,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     refreshFromServer,
     printKitchenTicket,
     confirmPayment,
+    enterBillingMode,
     getDraftOrderMeta,
     setDraftOrderMeta,
     setPendingOrderItemQty,
     setPendingOrderItemNote,
+    swapOrderItem,
     voidOrder,
+    refundOrder,
   } = usePos();
 
   const [query, setQuery] = useState('');
@@ -176,6 +194,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     return orders.find((o) => o.id === selectedTable.openOrderId) ?? null;
   }, [selectedTable, orders]);
 
+  // Unified Workspace State Checks
+  const isBilling = openOrder?.status === 'Billing';
+  const canEditOrder = openOrder && ['Pending', 'Cooking', 'Ready', 'Served'].includes(openOrder.status);
+  const canEnterBilling = openOrder?.status === 'Served';
+  const isOrderPaid = openOrder?.status === 'Paid';
+  const isOrderTerminal = openOrder && ['Paid', 'Voided', 'Refunded'].includes(openOrder.status);
+
   const orderMins = useMemo(() => {
     if (!openOrder) return null;
     return minutesSince(openOrder.createdAt);
@@ -198,32 +223,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     });
   }, [products, query, category]);
 
-  // Tax and service configuration from POS settings (professional pattern: configurable, not hardcoded)
-  const taxConfig = useMemo(() => {
-    const rate = Number(posSettings?.taxRate ?? 0.15);
-    const enabled = posSettings?.taxEnabled !== false; // default true if not set
-    return { rate: enabled ? rate : 0, enabled };
-  }, [posSettings]);
-
-  const serviceConfig = useMemo(() => {
-    const rate = Number(posSettings?.serviceRate ?? 0.05);
-    const enabled = posSettings?.serviceEnabled !== false; // default true if not set
-    return { rate: enabled ? rate : 0, enabled };
-  }, [posSettings]);
-
   const subtotal = useMemo(
     () => cartItems.reduce((sum, i) => sum + (Number(i.unitPrice || 0) || 0) * (Number(i.qty || 0) || 0), 0),
     [cartItems]
   );
-  // Professional pattern: only calculate if enabled, never hardcode rates
-  const tax = taxConfig.enabled ? subtotal * taxConfig.rate : 0;
-  const service = serviceConfig.enabled ? subtotal * serviceConfig.rate : 0;
-  const total = subtotal + tax + service;
+  const total = subtotal;
 
   const draftMeta = useMemo(() => (selectedTableId ? getDraftOrderMeta(selectedTableId) : {}), [selectedTableId, getDraftOrderMeta]);
   const draftOrderType = draftMeta?.orderType === 'takeaway' ? 'takeaway' : 'dine_in';
   const takeawayFee = draftOrderType === 'takeaway' ? Math.max(0, Number(draftMeta?.takeawayFee ?? 0) || 0) : 0;
-  const finalTotal = subtotal + takeawayFee;
+  const finalTotal = total + takeawayFee;
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -388,106 +397,50 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   };
 
   const handlePay = () => {
-    
-    // If there's an open order, pay for it
-    if (openOrder) {
+    if (!openOrder) {
+      alert('No open order to pay for');
+      return;
+    }
+    // Already in billing mode - just open payment modal
+    if (isBilling) {
       setShowPaymentModal(true);
       setTenderedAmount(openOrder.total.toFixed(2));
       return;
     }
-    
-    // If there's a cart with items, show payment modal for cart
-    if (cartItems.length > 0) {
-      setShowPaymentModal(true);
-      setTenderedAmount(finalTotal.toFixed(2));
+    // Must be in 'Served' status to enter billing
+    if (!canEnterBilling) {
+      alert('Order must be marked as Served before payment (Ctrl+P enters billing)');
       return;
     }
-    
-    alert('No items to pay for');
+    // Enter billing mode first (this changes order status to 'Billing')
+    enterBillingMode(openOrder.id);
+    // Show payment modal
+    setShowPaymentModal(true);
+    setTenderedAmount(openOrder.total.toFixed(2));
   };
 
   const handleClosePayment = () => {
     setShowPaymentModal(false);
     setProcessingPayment(false);
+    // If closing payment modal while in Billing state, revert to Served
+    if (openOrder?.status === 'Billing') {
+      setOrderStatus(openOrder.id, 'Served');
+    }
   };
 
   const handleConfirmPayment = async () => {
-    // Prevent double submission - check if already processing
-    if (processingPayment) {
-      return;
-    }
-    
+    if (!openOrder) return;
+    // Capture order ID synchronously to avoid stale closure issues
+    const orderId = openOrder.id;
+    // Use subtotal (without tax) for payment amount - tax is disabled
+    const paymentAmount = openOrder.subtotal || openOrder.total;
     setProcessingPayment(true);
-    
-    if (!selectedTableId) {
-      setProcessingPayment(false);
-      return;
-    }
-    
     try {
-      let orderId: string;
-      
-      // If there's already an open order, use it
-      if (openOrder) {
-        orderId = openOrder.id;
-      } else {
-        // Create new order from cart (send to kitchen)
-        orderId = sendOrderToKitchen(selectedTableId, '');
-        
-        if (!orderId) {
-          alert('Failed to create order');
-          setProcessingPayment(false);
-          return;
-        }
-        
-        // Print kitchen ticket immediately
-        try {
-          const lines = cartItems.map((i) => ({ name: i.name, qty: i.qty, note: i.note || '' }));
-          const orderNumber = orderId.slice(-6).toUpperCase();
-          const mockOrder = {
-            id: orderId,
-            number: `#${orderNumber}`,
-            tableName: selectedTable?.name || 'Table',
-            timeLabel: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            createdByName: selectedTable?.assignedStaffName || actor.staffName || 'Staff',
-            notes: '',
-            items: cartItems,
-          };
-          const html = kitchenTicketHtml('Kitchen Ticket', mockOrder, lines);
-          const printWindow = window.open('', 'kitchen_print', 'width=600,height=800,scrollbars=yes');
-          if (printWindow) {
-            printWindow.document.write(html);
-            printWindow.document.close();
-            printWindow.focus();
-            setTimeout(() => {
-              try {
-                printWindow.print();
-              } catch {
-                // ignore
-              }
-            }, 500);
-          }
-        } catch {
-          // ignore print errors
-        }
-      }
-      
-      // Small delay to ensure order is created in state
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Get order details from cart or existing order
-      const orderTotal = openOrder?.total || finalTotal;
-      const tendered = parseFloat(tenderedAmount) || orderTotal;
-      
-      // Call confirmPayment to mark order as Paid
-      confirmPayment(orderId, paymentMethod, tendered, undefined, paymentReference.trim() || undefined);
-      
+      const tendered = parseFloat(tenderedAmount) || paymentAmount;
+      const tip = parseFloat(tipAmount) || 0;
+      confirmPayment(orderId, paymentMethod, tendered, undefined, paymentReference.trim() || undefined, tip);
       setShowPaymentModal(false);
-      setTenderedAmount('');
-      setPaymentReference('');
-      setTipAmount('');
       selectTable(null);
-      setQuery('');
     } finally {
       setProcessingPayment(false);
     }
@@ -504,6 +457,45 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     setTimeout(() => {
       void refreshFromServer();
     }, 300);
+  };
+
+  // Determine available actions based on order state
+  const canVoid = openOrder && !['Paid', 'Billing', 'Refunded', 'Voided'].includes(openOrder.status);
+  const canRefund = openOrder?.status === 'Paid';
+  const isOrderLocked = openOrder?.status === 'Paid' || openOrder?.status === 'Refunded' || openOrder?.status === 'Voided';
+  
+  // Refund state
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [managerPin, setManagerPin] = useState('');
+  const [processingRefund, setProcessingRefund] = useState(false);
+
+  const handleRefund = async () => {
+    if (!openOrder) return;
+    if (!refundReason.trim()) {
+      alert('Refund reason is required');
+      return;
+    }
+    if (!managerPin || managerPin.length < 4) {
+      alert('Manager PIN required for refund');
+      return;
+    }
+    
+    setProcessingRefund(true);
+    try {
+      refundOrder(openOrder.id, refundReason.trim(), managerPin);
+      setShowRefundModal(false);
+      setRefundReason('');
+      setManagerPin('');
+      // Refresh after refund
+      setTimeout(() => {
+        void refreshFromServer();
+      }, 300);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Refund failed');
+    } finally {
+      setProcessingRefund(false);
+    }
   };
 
   const getTableStatusColor = (status?: string) => {
@@ -534,62 +526,78 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     return 'Occupied';
   };
 
+  // Mobile view state
+  const [mobileTab, setMobileTab] = useState<'tables' | 'menu' | 'cart'>('tables');
+  
+  // Product swap modal state
+  const [showProductSwapModal, setShowProductSwapModal] = useState<{ orderId: string; productId: string; currentName: string } | null>(null);
+
   return (
-    <div className="h-screen w-full flex bg-background text-sm overflow-hidden pb-8">
-      {/* LEFT - TABLES - Smart sizing */}
-      <div className="flex-1 min-w-[320px] max-w-[40%] border-r bg-card flex flex-col overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-auto p-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+    <div className="h-screen w-full flex bg-background text-sm overflow-hidden">
+      {/* LEFT - TABLES - Responsive */}
+      <div className={cn(
+        "border-r bg-card flex flex-col overflow-hidden flex-shrink-0",
+        "w-full lg:w-[40%] xl:w-[35%]",
+        mobileTab !== 'tables' && 'hidden lg:flex'
+      )}>
+        {/* Mobile header */}
+        <div className="lg:hidden flex items-center justify-between p-3 border-b">
+          <span className="font-bold text-lg">Tables</span>
+          <span className="text-xs text-muted-foreground">{tables.length} total</span>
+        </div>
+        <div className="flex-1 min-h-0 overflow-auto p-3 sm:p-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3">
             {tables.map((t) => {
               const active = selectedTableId === t.id;
               const order = t.openOrderId ? orders.find(o => o.id === t.openOrderId) : null;
               const isFree = t.openOrderId == null;
               const isOccupied = !isFree;
               const assignedName = t.assignedStaffName || actor.staffName || 'Unassigned';
-              const displayTotal = isOccupied ? (order?.total || t.currentTotal || 0) : 0;
+              // Recalculate total without tax for display
+              const displayTotal = isOccupied ? (calcOrderTotalNoTax(order) || t.currentTotal || 0) : 0;
 
               return (
                 <div
                   key={t.id}
                   onClick={() => handleSelectTable(t.id)}
                   className={cn(
-                    'group relative flex flex-col justify-between aspect-[4/3] p-4 rounded-xl cursor-pointer transition-all duration-200',
+                    'group relative flex flex-col justify-between p-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-200 min-h-[100px]',
                     isFree
                       ? 'border border-dashed border-border bg-background/50 hover:bg-card hover:border-solid hover:border-primary'
                       : 'border-l-4 border-l-primary border-y border-r border-border bg-card hover:border-primary',
                     active ? 'ring-2 ring-primary scale-[1.02]' : 'hover:-translate-y-1'
                   )}
                 >
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start gap-2 min-w-0">
                     <span className={cn(
-                      'text-3xl font-black transition-colors',
+                      'text-lg sm:text-xl lg:text-2xl font-black transition-colors truncate flex-1 min-w-0',
                       isFree ? 'text-border group-hover:text-primary' : 'text-foreground opacity-90'
                     )}>
                       {t.name.replace(/^T-?/i, '')}
                     </span>
                     <div className={cn(
-                      'px-2 py-1 rounded text-xs font-bold uppercase tracking-wider',
+                      'px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold uppercase tracking-wider whitespace-nowrap flex-shrink-0',
                       isFree
                         ? 'bg-card text-muted-foreground'
-                        : 'bg-primary/10 text-primary border border-primary/20'
+                        : order?.status === 'Billing' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-primary/10 text-primary border border-primary/20'
                     )}>
-                      {isFree ? 'Free' : t.status === 'Payment' ? 'Payment' : order?.status ?? 'Occupied'}
+                      {isFree ? 'Free' : order?.status === 'Billing' ? 'Billing' : order?.status ?? 'Occupied'}
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground truncate max-w-[80px]">{assignedName}</span>
-                      <span className="text-xs font-bold text-foreground">{isOccupied ? `${displayTotal.toFixed(0)} ETB` : ''}</span>
+                  <div className="flex flex-col gap-1 mt-2 min-w-0">
+                    <div className="flex items-center justify-between gap-1 min-w-0">
+                      <span className="text-[10px] sm:text-xs text-muted-foreground truncate flex-1">{assignedName}</span>
+                      <span className="text-[10px] sm:text-xs font-bold text-foreground whitespace-nowrap">{isOccupied ? `${displayTotal.toFixed(0)} ETB` : ''}</span>
                     </div>
                     <div className="flex justify-between items-center pt-1 border-t border-border">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <span className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                         {t.seats}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">{t.openOrderId ? order?.number : ''}</span>
+                      <span className="text-[9px] sm:text-[10px] text-muted-foreground truncate">{t.openOrderId ? order?.number : ''}</span>
                     </div>
                   </div>
                 </div>
@@ -599,8 +607,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
         </div>
       </div>
 
-      {/* CENTER - MENU - Smart sizing */}
-      <div className="flex-1 min-w-[300px] border-r bg-card flex flex-col overflow-hidden">
+      {/* CENTER - MENU - Responsive */}
+      <div className={cn(
+        "border-r bg-card flex-col overflow-hidden",
+        "hidden lg:flex lg:w-[35%] xl:flex-1",
+        mobileTab === 'menu' && 'flex w-full lg:w-[35%]'
+      )}>
         <div className="p-3 border-b space-y-3">
           {/* Category Filter */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
@@ -628,12 +640,29 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
           />
         </div>
 
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="p-3 grid grid-cols-3 gap-3">
+        <ScrollArea className="flex-1 min-h-0 max-h-[50vh] lg:max-h-none">
+          {/* Billing State Overlay */}
+          {isBilling && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+              <div className="bg-card border border-primary/30 rounded-2xl p-8 text-center max-w-md mx-4 shadow-2xl">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-2">Billing Mode Active</h3>
+                <p className="text-muted-foreground mb-4">Order is locked for payment processing.<br/>Menu items cannot be modified.</p>
+                <div className="text-sm text-primary font-medium">
+                  Press Ctrl+P or click Pay to open payment panel
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
             {filteredProducts.map((p) => {
-              const isDisabled = !selectedTableId || p.stock <= 0;
-              const statusLabel = p.stock <= 0 ? 'Sold Out' : 'In Stock';
-              const statusClass = p.stock <= 0
+              const isDisabled = !selectedTableId || p.stock <= 0 || isBilling || isOrderTerminal;
+              const statusLabel = p.stock <= 0 ? 'Sold Out' : isBilling ? 'Billing' : isOrderTerminal ? 'Closed' : 'In Stock';
+              const statusClass = p.stock <= 0 || isBilling || isOrderTerminal
                 ? 'bg-red-500/20 text-red-400 border-red-500/30'
                 : 'bg-green-500/20 text-green-400 border-green-500/30';
 
@@ -692,9 +721,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
         </ScrollArea>
       </div>
 
-      {/* RIGHT - CART - Smart sizing with Cart design from WaiterMenu */}
-      <div className="w-[360px] flex flex-col bg-card overflow-hidden flex-shrink-0">
-        <div className="px-4 py-5 border-b border-border bg-card/50">
+      {/* RIGHT - CART - Responsive */}
+      <div className={cn(
+        "flex-col bg-card overflow-hidden flex-shrink-0 h-full",
+        "hidden sm:flex sm:w-[280px] md:w-[320px] lg:w-[360px]",
+        mobileTab === 'cart' && 'flex w-full sm:w-[360px]'
+      )}>
+        {/* Mobile header */}
+        <div className="sm:hidden flex items-center justify-between p-3 border-b flex-shrink-0">
+          <span className="font-bold text-lg">Cart</span>
+          <button 
+            onClick={() => setMobileTab('tables')}
+            className="text-xs text-primary font-medium"
+          >
+            Back to Tables
+          </button>
+        </div>
+        <div className="px-4 py-3 border-b border-border bg-card/50 flex-shrink-0">
           <div className="flex justify-between items-center mb-3">
             <div className="flex items-center gap-3">
               <div className="bg-primary/10 text-primary p-2.5 rounded-xl">
@@ -718,6 +761,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               <span>{selectedTable?.seats || '-'}</span>
             </div>
           </div>
+          {isBilling && (
+            <div className="mx-4 mt-4 p-3 bg-primary/10 border border-primary/30 rounded-xl">
+              <div className="flex items-center gap-2 text-primary">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span className="font-bold text-sm">BILLING MODE</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Order locked. Payment ready.</p>
+            </div>
+          )}
           {orderMins != null && (
             <Badge variant="secondary" className="text-xs font-mono">
               {formatTime(orderMins)}
@@ -783,7 +837,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
           ) : (
             <>
               {/* Show cart items when not editing, or order items when editing */}
-              {(editingOrder && openOrder?.items ? openOrder.items : cartItems).map((item) => (
+              {(editingOrder && openOrder?.items ? openOrder.items : cartItems).map((item, index, arr) => {
+                const isLastItem = arr.length === 1;
+                const itemsToRender = editingOrder && openOrder?.items ? openOrder.items : cartItems;
+                const canRemove = itemsToRender.length > 1 || item.qty > 1;
+                return (
                 <div key={item.productId} className="bg-secondary p-2.5 rounded-xl shadow-sm border border-border group relative">
                   <div className="flex gap-3 items-start">
                     <div
@@ -797,8 +855,37 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                       </div>
                       <div className="text-[12px] text-muted-foreground space-y-0.5">
                         <p className="leading-none">{`x${item.qty}`}</p>
-                        {item.note?.trim() ? <p className="text-[11px] text-muted-foreground truncate">{item.note.trim()}</p> : null}
+                        {item.note?.trim() ? <p className="text-[11px] text-amber-600 font-medium truncate">{item.note.trim()}</p> : null}
                       </div>
+                      {/* Note input for cart items */}
+                      {!editingOrder && selectedTableId && (
+                        <div className="mt-2">
+                          <input
+                            type="text"
+                            placeholder="Add note (e.g. no sugar)"
+                            value={item.note || ''}
+                            onChange={(e) => {
+                              if (!selectedTableId) return;
+                              setCartItemNote(selectedTableId, item.productId, e.target.value);
+                            }}
+                            className="w-full h-7 bg-card border border-border rounded px-2 text-[11px] text-foreground placeholder:text-muted-foreground/50"
+                          />
+                        </div>
+                      )}
+                      {/* Note input for edit mode */}
+                      {editingOrder && openOrder && (
+                        <div className="mt-2">
+                          <input
+                            type="text"
+                            placeholder="Add note (e.g. no sugar)"
+                            value={item.note || ''}
+                            onChange={(e) => {
+                              setPendingOrderItemNote(openOrder.id, item.productId, e.target.value);
+                            }}
+                            className="w-full h-7 bg-card border border-border rounded px-2 text-[11px] text-foreground placeholder:text-muted-foreground/50"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="mt-2.5 flex items-center justify-between pl-14">
@@ -809,14 +896,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                           onClick={() => {
                             if (item.qty > 1) {
                               setPendingOrderItemQty(openOrder.id, item.productId, item.qty - 1);
+                            } else if (!canRemove) {
+                              alert('Cannot remove last item. Order must have at least 1 item.');
                             } else {
-                              // Remove item when qty would become 0
                               setPendingOrderItemQty(openOrder.id, item.productId, 0);
                             }
                           }}
-                          className="h-8 w-8 rounded-lg border border-border bg-card text-red-300 hover:text-foreground hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
-                          title={item.qty > 1 ? 'Decrease' : 'Remove'}
+                          className="h-8 w-8 rounded-lg border border-border bg-card text-red-300 hover:text-foreground hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center disabled:opacity-30"
+                          title={item.qty > 1 ? 'Decrease' : canRemove ? 'Remove' : 'Cannot remove last item'}
                           type="button"
+                          disabled={!canRemove && item.qty <= 1}
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
@@ -835,6 +924,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                           </svg>
                         </button>
+                        {/* Replace/Swap button */}
+                        <button
+                          onClick={() => {
+                            setShowProductSwapModal({ orderId: openOrder.id, productId: item.productId, currentName: item.name });
+                          }}
+                          className="h-8 px-2 rounded-lg border border-border bg-card text-amber-500 hover:bg-amber-500 hover:text-white transition-colors flex items-center gap-1 text-[11px] font-bold"
+                          title="Replace with different product"
+                          type="button"
+                        >
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                          </svg>
+                          Swap
+                        </button>
                       </>
                     ) : (
                       // Normal cart mode: use setCartQty
@@ -842,6 +945,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                         <button
                           onClick={() => {
                             if (!selectedTableId) return;
+                            const currentCart = getCartItems(selectedTableId);
+                            if (currentCart.length === 1 && item.qty === 1) {
+                              alert('Cannot remove last item. Order must have at least 1 item.');
+                              return;
+                            }
                             setCartQty(selectedTableId, item.productId, 0);
                           }}
                           className="h-8 w-8 rounded-lg border border-border bg-card text-red-300 hover:text-foreground hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
@@ -856,7 +964,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                           <button
                             onClick={() => {
                               if (!selectedTableId) return;
-                              setCartQty(selectedTableId, item.productId, Math.max(0, item.qty - 1));
+                              const currentCart = getCartItems(selectedTableId);
+                              if (currentCart.length === 1 && item.qty === 1) {
+                                alert('Cannot remove last item. Order must have at least 1 item.');
+                                return;
+                              }
+                              setCartQty(selectedTableId, item.productId, Math.max(1, item.qty - 1));
                             }}
                             className="w-8 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                           >
@@ -881,12 +994,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </>
           )}
         </ScrollArea>
 
-        <div className="p-4 bg-card border-t border-border z-30">
+        <div className="p-3 pb-8 bg-card border-t border-border z-30 flex-shrink-0">
           <div className="space-y-2 mb-4">
             <div className="flex justify-between text-sm text-muted-foreground font-medium">
               <span>Subtotal</span>
@@ -903,30 +1017,137 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               <span className="font-bold text-2xl text-foreground">ETB {finalTotal.toFixed(2)}</span>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-2">
-            <button
-              onClick={handlePay}
-              disabled={!selectedTableId || (cartItems.length === 0 && !openOrder)}
-              className="flex flex-col items-center justify-center py-3 px-2 bg-card border-2 border-primary text-primary rounded-xl hover:bg-primary hover:text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed font-bold"
-            >
-              <span className="text-lg font-black leading-tight">Pay</span>
-              <span className="text-[10px] font-bold opacity-70 uppercase tracking-widest">Ctrl+P</span>
-            </button>
+          <div className="grid grid-cols-4 gap-2">
+            {/* Send Button - Only show when there's a cart (draft) */}
+            {!openOrder && (
+              <button
+                onClick={() => void handleSendOrder()}
+                disabled={!selectedTableId || cartItems.length === 0 || sending}
+                className="flex flex-col items-center justify-center py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/80 shadow-lg shadow-primary/20 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="text-base sm:text-lg font-black leading-tight">{sending ? 'Sending...' : 'Send'}</span>
+                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Ctrl+S</span>
+              </button>
+            )}
+            
+            {/* Pay/Billing Button - Show for Served (enter billing) or Billing (open payment) */}
+            {openOrder && (canEnterBilling || isBilling) && !isOrderLocked && (
+              <button
+                onClick={handlePay}
+                disabled={!canEnterBilling && !isBilling}
+                title={!openOrder ? 'No order' : (!canEnterBilling && !isBilling) ? 'Order must be Served first' : isBilling ? 'Open payment panel' : 'Enter Billing (Ctrl+P)'}
+                className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-primary text-primary rounded-xl hover:bg-primary hover:text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+              >
+                <span className="text-base sm:text-lg font-black leading-tight">{isBilling ? 'Billing' : 'Pay'}</span>
+                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Ctrl+P</span>
+              </button>
+            )}
+            
+            {/* Edit Button - Only for Pending or Served orders (pre-billing) */}
+            {openOrder && (openOrder.status === 'Pending' || openOrder.status === 'Served') && !isBilling && (
+              <button
+                onClick={() => setEditingOrder(!editingOrder)}
+                className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-amber-500 text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+              >
+                <span className="text-base sm:text-lg font-black leading-tight">{editingOrder ? 'Done' : 'Edit'}</span>
+                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Order</span>
+              </button>
+            )}
+            
+            {/* Cancel/Void Button - Only when order can be voided */}
+            {canVoid && (
+              <button
+                onClick={handleCancelOrder}
+                className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-destructive text-destructive rounded-xl hover:bg-destructive hover:text-destructive-foreground disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+              >
+                <span className="text-base sm:text-lg font-black leading-tight">Cancel</span>
+                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Order</span>
+              </button>
+            )}
+            
+            {/* Refund Button - Only for Paid orders */}
+            {canRefund && (
+              <button
+                onClick={() => setShowRefundModal(true)}
+                className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-orange-500 text-orange-500 rounded-xl hover:bg-orange-500 hover:text-white font-bold"
+              >
+                <span className="text-base sm:text-lg font-black leading-tight">Refund</span>
+                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Mgr</span>
+              </button>
+            )}
+            
+            {/* Print Receipt Button - For Paid orders */}
+            {openOrder?.status === 'Paid' && (
+              <button
+                onClick={() => alert('Print receipt - implement with your print utility')}
+                className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-green-500 text-green-500 rounded-xl hover:bg-green-500 hover:text-white font-bold"
+              >
+                <span className="text-base sm:text-lg font-black leading-tight">Print</span>
+                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Receipt</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
+      {/* Mobile Bottom Navigation */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 flex items-center justify-around p-2">
+        <button
+          onClick={() => setMobileTab('tables')}
+          className={cn(
+            'flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors',
+            mobileTab === 'tables' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
+          )}
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h18v18H3V3zm16 16V5H5v14h14z" />
+          </svg>
+          <span className="text-[10px] font-medium">Tables</span>
+        </button>
+        <button
+          onClick={() => setMobileTab('menu')}
+          disabled={!selectedTableId}
+          className={cn(
+            'flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors',
+            mobileTab === 'menu' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
+            !selectedTableId && 'opacity-50 cursor-not-allowed'
+          )}
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          <span className="text-[10px] font-medium">Menu</span>
+        </button>
+        <button
+          onClick={() => setMobileTab('cart')}
+          disabled={!selectedTableId}
+          className={cn(
+            'flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors relative',
+            mobileTab === 'cart' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
+            !selectedTableId && 'opacity-50 cursor-not-allowed'
+          )}
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <span className="text-[10px] font-medium">Cart</span>
+          {cartItems.length > 0 && (
+            <span className="absolute -top-1 right-2 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+              {cartItems.length}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* PAYMENT MODAL */}
-      {showPaymentModal && (
+      {showPaymentModal && openOrder && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
           <div className="bg-card rounded-lg shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
             <div className="bg-primary text-primary-foreground p-4 flex justify-between items-center">
               <div>
                 <h2 className="text-lg font-bold">Process Payment</h2>
-                <p className="text-sm opacity-90">
-                  {openOrder ? `${openOrder.number} • ${openOrder.tableName}` : `${selectedTable?.name || 'Table'} • New Order`}
-                </p>
+                <p className="text-sm opacity-90">{openOrder.number} • {openOrder.tableName}</p>
               </div>
               <button
                 onClick={handleClosePayment}
@@ -942,7 +1163,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               <div className="mb-4">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Order Items</h3>
                 <div className="border rounded-lg overflow-hidden">
-                  {(openOrder?.items || cartItems).map((item, idx) => (
+                  {openOrder.items.map((item, idx) => (
                     <div key={idx} className="flex justify-between items-center px-3 py-2 border-b last:border-0 bg-muted/30">
                       <div>
                         <span className="font-medium text-foreground">{item.name}</span>
@@ -954,17 +1175,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                 </div>
               </div>
 
-              {/* Totals */}
+              {/* Totals - recalculate to exclude tax for old orders */}
               <div className="border-t pt-3 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span className="text-foreground">
-                    {(openOrder?.subtotal || subtotal).toFixed(2)} ETB
-                  </span>
+                  <span className="text-foreground">{openOrder.subtotal?.toFixed(2) || '0.00'} ETB</span>
                 </div>
+                {(openOrder.tax > 0 || openOrder.serviceCharge > 0) && (
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Tax/Service (included in old order)</span>
+                    <span>{((openOrder.tax || 0) + (openOrder.serviceCharge || 0)).toFixed(2)} ETB</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span className="text-foreground">Total</span>
-                  <span className="text-primary">{(openOrder?.total || finalTotal).toFixed(2)} ETB</span>
+                  <span className="text-primary">{openOrder.subtotal?.toFixed(2) || openOrder.total.toFixed(2)} ETB</span>
                 </div>
               </div>
             </div>
@@ -1043,6 +1268,26 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
 
               {paymentMethod === 'Bank' && (
                 <div className="mb-4 space-y-3">
+                  {/* TIP Section */}
+                  <div className="bg-card p-4 rounded-xl border border-border">
+                    <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Tip Amount (ETB)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={tipAmount}
+                      onChange={(e) => setTipAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="mt-2 w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Enter tip amount to be recorded for the assigned waiter</p>
+                    {parseFloat(tipAmount) > 0 && (
+                      <div className="mt-2 p-2 bg-primary/10 rounded text-xs text-primary font-medium">
+                        Tip: ETB {parseFloat(tipAmount).toFixed(2)} will be recorded for {selectedTable?.assignedStaffName || 'waiter'}
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="bg-card p-4 rounded-xl border border-border">
                     <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Bank Transaction Reference</label>
                     <input
@@ -1070,10 +1315,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">ETB</span>
                   </div>
-                  {parseFloat(tenderedAmount) > (openOrder?.total || finalTotal) && (
+                  {parseFloat(tenderedAmount) > (openOrder.subtotal || openOrder.total) && (
                     <div className="flex justify-between text-sm mt-2 p-2 bg-green-100 text-green-800 rounded">
                       <span>Change Due:</span>
-                      <span className="font-bold">{(parseFloat(tenderedAmount) - (openOrder?.total || finalTotal)).toFixed(2)} ETB</span>
+                      <span className="font-bold">{(parseFloat(tenderedAmount) - (openOrder.subtotal || openOrder.total)).toFixed(2)} ETB</span>
                     </div>
                   )}
                 </div>
@@ -1090,16 +1335,143 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                 </Button>
                 <Button
                   className="flex-1 h-12 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
-                  onClick={() => {
-                    // eslint-disable-next-line no-console
-                    console.log('[ConfirmButton] clicked, calling handleConfirmPayment');
-                    handleConfirmPayment();
-                  }}
-                  disabled={processingPayment || (paymentMethod === 'Cash' && parseFloat(tenderedAmount) < (openOrder?.total || finalTotal))}
+                  onClick={handleConfirmPayment}
+                  disabled={processingPayment || (paymentMethod === 'Cash' && parseFloat(tenderedAmount) < (openOrder.subtotal || openOrder.total))}
                 >
                   {processingPayment ? 'Processing...' : `Confirm ${paymentMethod}`}
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* REFUND MODAL */}
+      {showRefundModal && openOrder && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-card rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="bg-orange-500 text-white p-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold">Refund Order</h2>
+                <p className="text-sm opacity-90">{openOrder.number} • Manager Required</p>
+              </div>
+              <button
+                onClick={() => setShowRefundModal(false)}
+                className="text-white hover:opacity-80 text-2xl leading-none"
+                disabled={processingRefund}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-sm text-amber-800">
+                  <strong>Warning:</strong> This will reverse the payment and restore inventory. This action cannot be undone.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-foreground">Refund Reason *</label>
+                <textarea
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                  placeholder="Enter reason for refund..."
+                  className="w-full h-24 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-foreground">Manager PIN *</label>
+                <input
+                  type="password"
+                  value={managerPin}
+                  onChange={(e) => setManagerPin(e.target.value)}
+                  placeholder="Enter 4+ digit PIN"
+                  className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 h-12 font-semibold"
+                  onClick={() => setShowRefundModal(false)}
+                  disabled={processingRefund}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 h-12 font-semibold bg-orange-500 text-white hover:bg-orange-600"
+                  onClick={handleRefund}
+                  disabled={processingRefund || !refundReason.trim() || managerPin.length < 4}
+                >
+                  {processingRefund ? 'Processing...' : 'Confirm Refund'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PRODUCT SWAP MODAL */}
+      {showProductSwapModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-card rounded-lg shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="bg-amber-500 text-white p-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold">Replace Item</h2>
+                <p className="text-sm opacity-90">Swap {showProductSwapModal.currentName} with another product</p>
+              </div>
+              <button
+                onClick={() => setShowProductSwapModal(null)}
+                className="text-white hover:opacity-80 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Product List */}
+            <div className="flex-1 overflow-auto p-4">
+              <div className="grid grid-cols-2 gap-3">
+                {products.filter(p => p.id !== showProductSwapModal.productId && p.stock > 0).map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      if (!openOrder) return;
+                      // Use swapOrderItem from context
+                      swapOrderItem(showProductSwapModal.orderId, showProductSwapModal.productId, p.id, p.name, p.price);
+                      setShowProductSwapModal(null);
+                    }}
+                    className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card hover:border-amber-500 hover:bg-amber-50 transition-all text-left"
+                  >
+                    {p.image ? (
+                      <img src={p.image} alt={p.name} className="w-10 h-10 rounded-lg object-cover" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                        <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2z" />
+                        </svg>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm truncate">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">ETB {p.price.toFixed(0)}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 border-t">
+              <Button
+                variant="outline"
+                className="w-full h-12 font-semibold"
+                onClick={() => setShowProductSwapModal(null)}
+              >
+                Cancel
+              </Button>
             </div>
           </div>
         </div>
