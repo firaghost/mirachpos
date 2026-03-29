@@ -614,18 +614,18 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
         mobileTab === 'menu' && 'flex w-full lg:w-[35%]'
       )}>
         <div className="p-3 border-b space-y-3">
-          {/* Category Filter */}
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+          {/* Category Filter - Wrap layout */}
+          <div className="flex flex-wrap gap-2">
             {categories.map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => setCategory(c)}
                 className={cn(
-                  'h-8 px-3 rounded-full border text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-colors',
+                  'h-9 px-4 rounded-full border text-xs font-bold uppercase tracking-wide transition-colors',
                   category === c
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                    : 'bg-background text-muted-foreground border-border hover:text-foreground hover:border-muted'
                 )}
               >
                 {c}
@@ -697,10 +697,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                     )}
                   </div>
 
-                  <div className="p-2 flex flex-col">
-                    <h3 className="font-bold text-foreground text-sm leading-snug mb-0.5 line-clamp-1">{p.name}</h3>
-                    <p className="text-muted-foreground text-[10px] line-clamp-1 mb-2">{(p as any).category || 'Item'}</p>
-                    <div className="mt-auto flex items-center justify-between">
+                  <div className="p-2.5 flex flex-col min-h-[90px]">
+                    <h3 className="font-bold text-foreground text-sm leading-tight mb-1 line-clamp-2 min-h-[2.5rem]">{p.name}</h3>
+                    <p className="text-muted-foreground text-[10px] mb-2">{(p as any).category || 'Item'}</p>
+                    <div className="mt-auto flex items-center justify-between pt-1">
                       <span className="text-sm font-bold text-primary">ETB {Number(p.price || 0).toFixed(0)}</span>
                       <div
                         className={cn(
