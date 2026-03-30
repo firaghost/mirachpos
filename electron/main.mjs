@@ -112,7 +112,70 @@ const createMainWindow = async () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Prevent blackout after long inactivity
+      backgroundThrottling: false,
+      // Disable offscreen rendering to avoid GPU issues
+      offscreen: false,
     },
+  });
+
+  // Prevent blackout: disable background throttling on the webContents
+  win.webContents.setBackgroundThrottling(false);
+
+  // Handle renderer crashes and reload failures
+  win.webContents.on('did-fail-load', (_event, _errorCode, _errorDescription, _validatedURL, isMainFrame) => {
+    if (isMainFrame) {
+      console.log('[Electron] Main frame failed to load, reloading...');
+      setTimeout(() => {
+        if (!win.isDestroyed()) {
+          win.reload();
+        }
+      }, 1000);
+    }
+  });
+
+  // Handle renderer process crashes
+  win.webContents.on('render-process-gone', (_event, details) => {
+    console.log('[Electron] Renderer process gone:', details?.reason);
+    // Recreate the window if renderer crashes
+    if (!win.isDestroyed()) {
+      console.log('[Electron] Recreating window after crash...');
+      win.destroy();
+      setTimeout(() => {
+        createMainWindow().then((newWin) => {
+          mainWindow = newWin;
+          broadcastUpdaterState();
+        }).catch((err) => {
+          console.error('[Electron] Failed to recreate window:', err);
+        });
+      }, 500);
+    }
+  });
+
+  // Handle unresponsive renderer (can happen during long inactivity)
+  win.on('unresponsive', () => {
+    console.log('[Electron] Window became unresponsive');
+    // Force reload to recover
+    setTimeout(() => {
+      if (!win.isDestroyed() && win.isEnabled()) {
+        win.reload();
+      }
+    }, 3000);
+  });
+
+  win.on('responsive', () => {
+    console.log('[Electron] Window became responsive again');
+  });
+
+  // Prevent suspend/hibernate from causing black screen
+  const { powerSaveBlocker } = await import('electron');
+  const blockerId = powerSaveBlocker.start('prevent-app-suspension');
+  win.on('closed', () => {
+    try {
+      powerSaveBlocker.stop(blockerId);
+    } catch {
+      // ignore
+    }
   });
 
   if (isDev) {
@@ -409,7 +472,25 @@ app.whenReady().then(async () => {
 
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      await createMainWindow();
+      mainWindow = await createMainWindow();
+      broadcastUpdaterState();
+    } else {
+      // Restore and focus existing window (prevents black screen after long inactivity)
+      const existingWin = BrowserWindow.getAllWindows()[0];
+      if (existingWin) {
+        if (existingWin.isMinimized()) {
+          existingWin.restore();
+        }
+        existingWin.focus();
+        // Force reload if window was in background for long time
+        try {
+          if (!existingWin.webContents.isLoading()) {
+            existingWin.webContents.executeJavaScript('document.visibilityState').catch(() => null);
+          }
+        } catch {
+          // ignore
+        }
+      }
     }
   });
 });

@@ -174,6 +174,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     return ['All', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   }, [products]);
 
+  const staffNameCache = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('mirachpos.staffNameCache.v1');
+      const parsed = raw ? (JSON.parse(raw) as any) : null;
+      if (!parsed || typeof parsed !== 'object') return {} as Record<string, string>;
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(parsed)) {
+        if (typeof k === 'string' && typeof v === 'string' && v.trim()) out[k] = v;
+      }
+      return out;
+    } catch {
+      return {} as Record<string, string>;
+    }
+  }, []);
+
   const actor = useMemo(() => {
     try {
       const s = readSession<any>();
@@ -214,9 +229,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
 
   // Get waiter name for selected table
   const tableWaiterName = useMemo(() => {
-    if (!selectedTable?.assignedStaffId) return actor.staffName || 'Unassigned';
-    return selectedTable.assignedStaffName || 'Waiter';
-  }, [selectedTable, actor.staffName]);
+    const direct = typeof (selectedTable as any)?.assignedStaffName === 'string' ? String((selectedTable as any).assignedStaffName).trim() : '';
+    if (direct) return direct;
+    const assignedId = typeof (selectedTable as any)?.assignedStaffId === 'string' ? String((selectedTable as any).assignedStaffId).trim() : '';
+    if (!assignedId) return 'Unassigned';
+    const cached = staffNameCache[assignedId] ? String(staffNameCache[assignedId] || '').trim() : '';
+    return cached ? cached : 'Unassigned';
+  }, [selectedTable, staffNameCache]);
 
   const filteredProducts = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -604,8 +623,15 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
 
   // Get current shift for display only (don't filter tables)
-  const { currentShift } = useShift();
+  const { currentShift, refreshShift } = useShift();
   const currentShiftType = currentShift?.shiftType || 'ALL';
+
+  // Auto-refresh tables when shift changes
+  useEffect(() => {
+    // When shift changes, refresh tables to get the correct filtered set
+    void refreshFromServer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentShift?.id, currentShift?.shiftType]);
 
   // Shift modal handler
   const handleOpenShiftModal = useCallback(() => {
@@ -648,7 +674,15 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               const order = t.openOrderId ? orders.find(o => o.id === t.openOrderId) : null;
               const isFree = t.openOrderId == null;
               const isOccupied = !isFree;
-              const assignedName = t.assignedStaffName || actor.staffName || 'Unassigned';
+              const assignedName = (() => {
+                const direct = typeof (t as any).assignedStaffName === 'string' ? String((t as any).assignedStaffName).trim() : '';
+                if (direct) return direct;
+                const assignedId = typeof (t as any).assignedStaffId === 'string' ? String((t as any).assignedStaffId).trim() : '';
+                if (!assignedId) return '';
+                const cached = staffNameCache[assignedId] ? String(staffNameCache[assignedId] || '').trim() : '';
+                if (cached) return cached;
+                return '';
+              })();
               // Recalculate total without tax for display
               const displayTotal = isOccupied ? (calcOrderTotalNoTax(order) || t.currentTotal || 0) : 0;
 
@@ -949,7 +983,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               {(openOrder?.items && !cartItems.length ? openOrder.items : (editingOrder || isBilling) && openOrder?.items ? openOrder.items : cartItems).map((item, index, arr) => {
                 const isLastItem = arr.length === 1;
                 const itemsToRender = (editingOrder || isBilling) && openOrder?.items ? openOrder.items : cartItems;
-                const canRemove = itemsToRender.length > 1 || item.qty > 1;
+                const preventEmptyServedEdit = Boolean(editingOrder && openOrder && String(openOrder.status || '').trim() === 'Served');
+                const canRemove = !preventEmptyServedEdit || itemsToRender.length > 1 || item.qty > 1;
                 const isViewOnly = openOrder && !editingOrder && !isBilling;
                 return (
                 <div key={item.productId} className="bg-secondary p-2.5 rounded-xl shadow-sm border border-border group relative">
@@ -1058,11 +1093,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                         <button
                           onClick={() => {
                             if (!selectedTableId) return;
-                            const currentCart = getCartItems(selectedTableId);
-                            if (currentCart.length === 1 && item.qty === 1) {
-                              alert('Cannot remove last item. Order must have at least 1 item.');
-                              return;
-                            }
                             setCartQty(selectedTableId, item.productId, 0);
                           }}
                           className="h-8 w-8 rounded-lg border border-border bg-card text-red-300 hover:text-foreground hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
@@ -1077,12 +1107,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                           <button
                             onClick={() => {
                               if (!selectedTableId) return;
-                              const currentCart = getCartItems(selectedTableId);
-                              if (currentCart.length === 1 && item.qty === 1) {
-                                alert('Cannot remove last item. Order must have at least 1 item.');
-                                return;
-                              }
-                              setCartQty(selectedTableId, item.productId, Math.max(1, item.qty - 1));
+                              setCartQty(selectedTableId, item.productId, Math.max(0, item.qty - 1));
                             }}
                             className="w-8 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                           >

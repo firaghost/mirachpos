@@ -343,9 +343,10 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
  
     selectTable(table.id);
 
-    // Assign the table to the current waiter on first interaction.
+    // Assign the table to the current waiter on first interaction (only if not a manager)
     try {
-      if (effectiveWaiterId && !table.assignedStaffId) {
+      const isManagerRole = sessionRole === 'Waiter Manager' || sessionRole === 'Branch Manager' || sessionRole === 'Cafe Owner';
+      if (effectiveWaiterId && !table.assignedStaffId && !isManagerRole) {
         const name = staffById.get(effectiveWaiterId)?.name || staffNameCache[effectiveWaiterId] || '';
         setTableAssignment([table.id], effectiveWaiterId, name || null);
       }
@@ -474,7 +475,8 @@ export const WaiterDashboard: React.FC<Props> = ({ onNavigate }) => {
     selectTable(free.id);
 
     try {
-      if (effectiveWaiterId && !free.assignedStaffId) {
+      const isManagerRole = sessionRole === 'Waiter Manager' || sessionRole === 'Branch Manager' || sessionRole === 'Cafe Owner';
+      if (effectiveWaiterId && !free.assignedStaffId && !isManagerRole) {
         const name = staffById.get(effectiveWaiterId)?.name || staffNameCache[effectiveWaiterId] || '';
         setTableAssignment([free.id], effectiveWaiterId, name || null);
       }

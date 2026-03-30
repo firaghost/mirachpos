@@ -1,0 +1,247 @@
+
+> mirachpos-api@0.1.0 lint
+> eslint src tests --ext .js
+
+
+D:\Projects\mirachpos\api\src\__tests__\paymentStateMachine.test.js
+  21:7  warning  'setupTestData' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\customReports.js
+  156:15  warning  'groupColumn' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\enhancedReports.js
+  727:19  warning  'reportType' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\inventory.js
+  6:9  warning  'makeId' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\manager.js
+  22:3  warning  'getDailySalesSummary' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  28:7  warning  'startOfDayIso' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+  34:7  warning  'endOfDayIso' is assigned a value but never used. Allowed unused vars must match /^_/u           no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\managerMenu.js
+  36:9  warning  'normalizeBranchId' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\owner.js
+    8:9   warning  'sanitizeLikeInput' is assigned a value but never used. Allowed unused vars must match /^_/u                 no-unused-vars
+    8:28  warning  'sanitizeText' is assigned a value but never used. Allowed unused vars must match /^_/u                      no-unused-vars
+   11:9   warning  'uid' is assigned a value but never used. Allowed unused vars must match /^_/u                               no-unused-vars
+   12:24  warning  'safeJsonStringify' is assigned a value but never used. Allowed unused vars must match /^_/u                 no-unused-vars
+   17:9   warning  'computeTenantEntitlements' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+   17:36  warning  'normalizeModules' is assigned a value but never used. Allowed unused vars must match /^_/u                  no-unused-vars
+   17:54  warning  'upsertTenantEntitlementsSnapshot' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+   34:7   warning  'startOfDayIso' is assigned a value but never used. Allowed unused vars must match /^_/u                     no-unused-vars
+   40:7   warning  'endOfDayIso' is assigned a value but never used. Allowed unused vars must match /^_/u                       no-unused-vars
+   46:7   warning  'addMonths' is assigned a value but never used. Allowed unused vars must match /^_/u                         no-unused-vars
+   52:7   warning  'startOfMonthIso' is assigned a value but never used. Allowed unused vars must match /^_/u                   no-unused-vars
+   59:7   warning  'endOfMonthIso' is assigned a value but never used. Allowed unused vars must match /^_/u                     no-unused-vars
+   66:7   warning  'startOfYearIso' is assigned a value but never used. Allowed unused vars must match /^_/u                    no-unused-vars
+   73:7   warning  'endOfYearIso' is assigned a value but never used. Allowed unused vars must match /^_/u                      no-unused-vars
+   80:7   warning  'yyyyMmDd' is assigned a value but never used. Allowed unused vars must match /^_/u                          no-unused-vars
+  102:7   warning  'getPlanModules' is assigned a value but never used. Allowed unused vars must match /^_/u                    no-unused-vars
+  591:13  warning  'filename' is assigned a value but never used. Allowed unused vars must match /^_/u                          no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\owner\dashboard.js
+  10:55  warning  'clampInt' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\owner\menu.js
+  443:17  warning  'price' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\pos.js
+    9:9   warning  'safeJsonStringify' is assigned a value but never used. Allowed unused vars must match /^_/u        no-unused-vars
+   10:9   warning  'sanitizeLikeInput' is assigned a value but never used. Allowed unused vars must match /^_/u        no-unused-vars
+   10:28  warning  'sanitizeText' is assigned a value but never used. Allowed unused vars must match /^_/u             no-unused-vars
+   12:9   warning  'makeInitialPosState' is assigned a value but never used. Allowed unused vars must match /^_/u      no-unused-vars
+  554:7   warning  'stripTablesFromPosState' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\posInitPreset.js
+  1:9  warning  'uid' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\pos\hardware.js
+  2:7  warning  'crypto' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\pos\loyalty.js
+  10:7  warning  'safeJsonParse' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\pos\orders.js
+     7:9   warning  'safeJsonStringify' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+     8:9   warning  'sanitizeLikeInput' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+     8:28  warning  'sanitizeText' is assigned a value but never used. Allowed unused vars must match /^_/u       no-unused-vars
+    25:3   warning  'getBusinessDate' is assigned a value but never used. Allowed unused vars must match /^_/u    no-unused-vars
+   474:28  error    'deviceId' is not defined                                                                     no-undef
+   497:24  error    'deviceId' is not defined                                                                     no-undef
+   758:15  warning  'beforeStatus' is assigned a value but never used. Allowed unused vars must match /^_/u       no-unused-vars
+  1684:22  warning  'next' is defined but never used. Allowed unused args must match /^_/u                        no-unused-vars
+  1814:22  warning  'next' is defined but never used. Allowed unused args must match /^_/u                        no-unused-vars
+  1995:22  warning  'next' is defined but never used. Allowed unused args must match /^_/u                        no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\pos\shifts.js
+   29:3   warning  'ShiftType' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  172:15  warning  'notes' is assigned a value but never used. Allowed unused vars must match /^_/u      no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\public.js
+   88:9    warning  'renderBrandedEmail' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  682:13   warning  'tin' is assigned a value but never used. Allowed unused vars must match /^_/u                 no-unused-vars
+  733:113  warning  'next' is defined but never used. Allowed unused args must match /^_/u                         no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\schedule.js
+  11:7  warning  'normalizeBranchId' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\subscription.js
+  11:9  warning  'makeId' is assigned a value but never used. Allowed unused vars must match /^_/u                    no-unused-vars
+  27:3  warning  'getPlatformPaymentConfig' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\subscriptionStatus.js
+  7:22  warning  'requireRole' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\superadmin.js
+    3:7   warning  'jwt' is assigned a value but never used. Allowed unused vars must match /^_/u                                     no-unused-vars
+    9:24  warning  'safeJsonStringify' is assigned a value but never used. Allowed unused vars must match /^_/u                       no-unused-vars
+   27:3   warning  'validateSuperadminBillingPolicy' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+   28:3   warning  'validateSuperadminTenantCreate' is assigned a value but never used. Allowed unused vars must match /^_/u          no-unused-vars
+   30:3   warning  'validateSuperadminResetCreds' is assigned a value but never used. Allowed unused vars must match /^_/u            no-unused-vars
+   31:3   warning  'validateSuperadminImpersonate' is assigned a value but never used. Allowed unused vars must match /^_/u           no-unused-vars
+   32:3   warning  'validateSuperadminGatewayParam' is assigned a value but never used. Allowed unused vars must match /^_/u          no-unused-vars
+   33:3   warning  'validateSuperadminPosGatewayUpdate' is assigned a value but never used. Allowed unused vars must match /^_/u      no-unused-vars
+   34:3   warning  'validateSuperadminTenantNote' is assigned a value but never used. Allowed unused vars must match /^_/u            no-unused-vars
+   35:3   warning  'validateSuperadminDunningCreate' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+   36:3   warning  'validateSuperadminDunningUpdate' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+   41:3   warning  'validateSuperadminOfflineAccountCreate' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+   42:3   warning  'validateSuperadminOfflineAccountUpdate' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+   43:3   warning  'validateSuperadminTaxCodeParam' is assigned a value but never used. Allowed unused vars must match /^_/u          no-unused-vars
+   44:3   warning  'validateSuperadminTaxRuleCreate' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+   45:3   warning  'validateSuperadminTaxRuleUpdate' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+   54:3   warning  'validateSuperadminTaxCategoryIdParam' is assigned a value but never used. Allowed unused vars must match /^_/u    no-unused-vars
+   55:3   warning  'validateSuperadminTaxCategoryCreate' is assigned a value but never used. Allowed unused vars must match /^_/u     no-unused-vars
+   56:3   warning  'validateSuperadminTaxCategoryUpdate' is assigned a value but never used. Allowed unused vars must match /^_/u     no-unused-vars
+   57:3   warning  'validateSuperadminTaxStatusUpdate' is assigned a value but never used. Allowed unused vars must match /^_/u       no-unused-vars
+   58:3   warning  'validateSuperadminInvoiceManual' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+   59:3   warning  'validateSuperadminInvoicesQuery' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+   60:3   warning  'validateSuperadminInvoiceIdParam' is assigned a value but never used. Allowed unused vars must match /^_/u        no-unused-vars
+   61:3   warning  'validateSuperadminInvoiceVerify' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+   62:3   warning  'validateSuperadminPaymentReject' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+   63:3   warning  'validateSuperadminIntegrationsQuery' is assigned a value but never used. Allowed unused vars must match /^_/u     no-unused-vars
+   64:3   warning  'validateSuperadminIntegrationCreate' is assigned a value but never used. Allowed unused vars must match /^_/u     no-unused-vars
+   65:3   warning  'validateSuperadminIntegrationUpdate' is assigned a value but never used. Allowed unused vars must match /^_/u     no-unused-vars
+   66:3   warning  'validateSuperadminAddonQuery' is assigned a value but never used. Allowed unused vars must match /^_/u            no-unused-vars
+   67:3   warning  'validateSuperadminAddonCreate' is assigned a value but never used. Allowed unused vars must match /^_/u           no-unused-vars
+   68:3   warning  'validateSuperadminAddonUpdate' is assigned a value but never used. Allowed unused vars must match /^_/u           no-unused-vars
+   77:9   warning  'encryptConfigFields' is assigned a value but never used. Allowed unused vars must match /^_/u                     no-unused-vars
+   77:30  warning  'decryptConfigFields' is assigned a value but never used. Allowed unused vars must match /^_/u                     no-unused-vars
+   81:3   warning  'generateSubscriptionInvoice' is assigned a value but never used. Allowed unused vars must match /^_/u             no-unused-vars
+   82:3   warning  'getTenantInvoices' is assigned a value but never used. Allowed unused vars must match /^_/u                       no-unused-vars
+   83:3   warning  'getInvoiceDetails' is assigned a value but never used. Allowed unused vars must match /^_/u                       no-unused-vars
+   85:3   warning  'verifyPayment' is assigned a value but never used. Allowed unused vars must match /^_/u                           no-unused-vars
+   86:3   warning  'rejectPayment' is assigned a value but never used. Allowed unused vars must match /^_/u                           no-unused-vars
+   87:3   warning  'recordPaymentSubmission' is assigned a value but never used. Allowed unused vars must match /^_/u                 no-unused-vars
+   90:9   warning  'generateInvoicePDF' is assigned a value but never used. Allowed unused vars must match /^_/u                      no-unused-vars
+   93:7   warning  'maskSecret' is assigned a value but never used. Allowed unused vars must match /^_/u                              no-unused-vars
+  208:7   warning  'getTenantTier' is assigned a value but never used. Allowed unused vars must match /^_/u                           no-unused-vars
+  222:7   warning  'getPlanModules' is assigned a value but never used. Allowed unused vars must match /^_/u                          no-unused-vars
+  229:7   warning  'readTenantProfileJson' is assigned a value but never used. Allowed unused vars must match /^_/u                   no-unused-vars
+  234:7   warning  'writeTenantProfileJson' is assigned a value but never used. Allowed unused vars must match /^_/u                  no-unused-vars
+  615:13  warning  'errorRatePrev' is assigned a value but never used. Allowed unused vars must match /^_/u                           no-unused-vars
+  737:13  warning  'jobsLast' is assigned a value but never used. Allowed unused vars must match /^_/u                                no-unused-vars
+  746:13  warning  'jobsPrev' is assigned a value but never used. Allowed unused vars must match /^_/u                                no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\superadmin\integrations.js
+  186:13  warning  'nowIso' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  445:13  warning  'nowIso' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\superadmin\invoices.js
+  5:9  warning  'makeId' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\superadmin\overview.js
+  345:13  warning  'jobsLast' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  354:13  warning  'jobsPrev' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\superadmin\plans.js
+  6:9  warning  'makeId' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\superadmin\tax.js
+    6:9   warning  'safeJsonParse' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  162:13  warning  'nowIso' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+  197:13  warning  'nowIso' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\superadmin\tenants.js
+  74:7  warning  'resolveCdnUrl' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\sync.js
+  6:9  warning  'makeId' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\routes\waiter.js
+  8:43  warning  'requireModule' is assigned a value but never used. Allowed unused vars must match /^_/u      no-unused-vars
+  9:22  warning  'requirePermission' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\services\fcmService.js
+  212:39  warning  'tokenId' is defined but never used. Allowed unused args must match /^_/u          no-unused-vars
+  294:9   warning  'pushId' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  383:71  warning  'clickAction' is defined but never used. Allowed unused args must match /^_/u      no-unused-vars
+  395:9   warning  'nowIso' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\services\integrationService.js
+  11:9  warning  'makeId' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\services\invoiceService.js
+  511:62  warning  'paymentId' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  511:73  warning  'invoiceId' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\services\paymentGatewayService.js
+   108:21  warning  'dispatcher' is assigned a value but never used. Allowed unused vars must match /^_/u        no-unused-vars
+   623:7   warning  'TELEBIRR_API_URL' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+   670:5   warning  'nonce' is defined but never used. Allowed unused args must match /^_/u                      no-unused-vars
+   673:5   warning  'receiveName' is defined but never used. Allowed unused args must match /^_/u                no-unused-vars
+  1013:5   warning  'tenantId' is defined but never used. Allowed unused args must match /^_/u                   no-unused-vars
+  1016:5   warning  'phone' is defined but never used. Allowed unused args must match /^_/u                      no-unused-vars
+
+D:\Projects\mirachpos\api\src\services\pdfService.js
+   10:7   warning  'path' is assigned a value but never used. Allowed unused vars must match /^_/u              no-unused-vars
+   11:7   warning  'fs' is assigned a value but never used. Allowed unused vars must match /^_/u                no-unused-vars
+   21:10  warning  'drawKpiTiles' is defined but never used. Allowed unused vars must match /^_/u               no-unused-vars
+   77:10  warning  'renderSimpleTable' is defined but never used. Allowed unused vars must match /^_/u          no-unused-vars
+  196:7   warning  'drawReportHeader' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  243:7   warning  'drawReportFooter' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  264:7   warning  'drawTotalsBlock' is assigned a value but never used. Allowed unused vars must match /^_/u   no-unused-vars
+  291:7   warning  'drawSignatures' is assigned a value but never used. Allowed unused vars must match /^_/u    no-unused-vars
+  388:33  warning  'tenantConfig' is assigned a value but never used. Allowed unused vars must match /^_/u      no-unused-vars
+  421:7   warning  'drawTotals' is assigned a value but never used. Allowed unused vars must match /^_/u        no-unused-vars
+  664:2   error    Unnecessary semicolon                                                                        no-extra-semi
+
+D:\Projects\mirachpos\api\src\services\reportAggregationService.js
+  1069:29  warning  'idx' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\services\reportXlsxExportService.js
+  9:7  warning  'formatDateOnly' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\src\utils\mail.js
+  17:9  warning  'from' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\tests\integration\auth.test.js
+  3:52  warning  'generateTestToken' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\tests\integration\pos-complete.test.js
+  3:25  warning  'getUnauthenticatedHeaders' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\tests\integration\subscription.test.js
+  1:7  warning  'request' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  5:7  warning  'app' is assigned a value but never used. Allowed unused vars must match /^_/u      no-unused-vars
+
+D:\Projects\mirachpos\api\tests\unit\ids.test.js
+  41:13  warning  'id2' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\tests\unit\invoiceService.test.js
+  186:11  warning  'nextWeek' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\tests\unit\menuEvaluationService.test.js
+  6:7  warning  'safeJsonParse' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\tests\unit\pdfService.test.js
+  340:11  warning  'saveCalls' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+D:\Projects\mirachpos\api\tests\unit\schedulerService.test.js
+  206:11  warning  'state' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+Γ£û 151 problems (3 errors, 148 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

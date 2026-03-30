@@ -481,7 +481,7 @@ const normalizeSplitItemsFromPayload = ({ tenantId, branchId, orderId, splitRows
   return out;
 };
 
-const normalizePaymentsFromPayload = ({ tenantId, branchId, orderId, status, payload, nowIso }) => {
+const normalizePaymentsFromPayload = ({ tenantId, branchId, orderId, shiftId, status, payload, nowIso }) => {
   const p = payload && typeof payload === 'object' ? payload : {};
   const out = [];
 
@@ -506,6 +506,7 @@ const normalizePaymentsFromPayload = ({ tenantId, branchId, orderId, status, pay
           tenant_id: tenantId,
           branch_id: branchId,
           order_id: orderId,
+          shift_id: shiftId || null,
           split_id: splitId,
           method,
           amount: amt,
@@ -529,6 +530,7 @@ const normalizePaymentsFromPayload = ({ tenantId, branchId, orderId, status, pay
             tenant_id: tenantId,
             branch_id: branchId,
             order_id: orderId,
+            shift_id: shiftId || null,
             split_id: null,
             method,
             amount: amt,

@@ -158,8 +158,18 @@ const makeWaiterRouter = () => {
           await trx('order_items').insert(orderItems);
         }
 
-        // Update table status if tableId provided
+        // Update table status if tableId provided, actively preventing race condition
         if (tableId) {
+          const tableRow = await trx('restaurant_tables')
+            .where({ tenant_id: req.tenant.id, branch_id: branchId, id: tableId })
+            .select(['open_order_id'])
+            .forUpdate()
+            .first();
+
+          if (tableRow && tableRow.open_order_id) {
+            throw new Error('table_already_occupied');
+          }
+
           await trx('restaurant_tables')
             .where({ tenant_id: req.tenant.id, branch_id: branchId, id: tableId })
             .update({
@@ -349,6 +359,10 @@ const makeWaiterRouter = () => {
         .first();
       const staffName = staffRow?.name ? String(staffRow.name) : '';
 
+      // Resolve the currently active shift for accurate cash reconciliation
+      const currentShift = await getCurrentShift({ tenantId: req.tenant.id, branchId });
+      const activeShiftId = currentShift?.id || null;
+
       // Process payment
       await db().transaction(async (trx) => {
         // Update order status
@@ -356,6 +370,7 @@ const makeWaiterRouter = () => {
           .where({ tenant_id: req.tenant.id, branch_id: branchId, id: orderId })
           .update({
             status: 'Paid',
+            shift_id: activeShiftId || orderRow.shift_id,
             paid_at: nowIso,
             paid_by_staff_id: staffId,
             paid_by_name: staffName,
@@ -365,13 +380,13 @@ const makeWaiterRouter = () => {
             updated_at: nowIso,
           });
 
-        // Insert payment record
+        // Insert payment record tied strictly to the current active register shift
         await trx('order_payments').insert({
           id: uid('pmt'),
           tenant_id: req.tenant.id,
           branch_id: branchId,
           order_id: orderId,
-          shift_id: orderRow.shift_id,
+          shift_id: activeShiftId,
           method: String(method || 'cash'),
           amount: total,
           tendered_amount: tendered,
@@ -380,11 +395,12 @@ const makeWaiterRouter = () => {
           created_at: nowIso,
         });
 
-        // Update shift metrics if order has shift_id
-        if (orderRow.shift_id) {
+        // Safely update shift metrics inside the transaction
+        if (activeShiftId) {
           try {
             await updateShiftMetrics({
-              shiftId: orderRow.shift_id,
+              trx,
+              shiftId: activeShiftId,
               orderData: {
                 total,
                 tax: Number(orderRow.tax || 0),
@@ -1343,7 +1359,10 @@ const makeWaiterRouter = () => {
         agg.shiftSales.forEach((s, idx) => {
           const rowNum = shiftStartRow + 1 + idx;
           const shiftLabel = s.shiftType === 'DAY' ? '☀ Day Shift' : s.shiftType === 'NIGHT' ? '🌙 Night Shift' : 'All Shifts';
-          summarySheet.addRow([`${shiftLabel}:`, `${s.orderCount} orders`, `ETB ${Number(s.total || 0).toFixed(2)}`, '']);
+          const openedAt = s.openedAt ? new Date(s.openedAt).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
+          const closedAt = s.closedAt ? new Date(s.closedAt).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'Open';
+          const timeRange = `${openedAt} - ${closedAt}`;
+          summarySheet.addRow([`${shiftLabel}:`, `${s.orderCount} orders`, `ETB ${Number(s.total || 0).toFixed(2)}`, timeRange]);
           summarySheet.getRow(rowNum).font = { size: 11 };
           summarySheet.getRow(rowNum).getCell(1).font = { bold: true, size: 11 };
         });
@@ -1827,17 +1846,21 @@ const makeWaiterRouter = () => {
       additionalSections.push({
         title: 'Shift Sales',
         columns: [
-          { header: 'Shift Type', key: 'shiftType', width: 120 },
-          { header: 'Opened At', key: 'openedAt', width: 100 },
-          { header: 'Orders', key: 'orderCount', width: 80, align: 'right' },
-          { header: 'Sales (ETB)', key: 'total', width: 120, align: 'right', format: (n) => Number(n).toFixed(2) },
+          { header: 'Shift Type', key: 'shiftType', width: 100 },
+          { header: 'Time Range', key: 'timeRange', width: 140 },
+          { header: 'Orders', key: 'orderCount', width: 60, align: 'right' },
+          { header: 'Sales (ETB)', key: 'total', width: 100, align: 'right', format: (n) => Number(n).toFixed(2) },
         ],
-        rows: (agg.shiftSales || []).map((s) => ({
-          shiftType: s.shiftType === 'DAY' ? 'Day Shift' : s.shiftType === 'NIGHT' ? 'Night Shift' : 'All Shifts',
-          openedAt: s.openedAt ? new Date(s.openedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-',
-          orderCount: s.orderCount,
-          total: s.total,
-        })),
+        rows: (agg.shiftSales || []).map((s) => {
+          const openedAt = s.openedAt ? new Date(s.openedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
+          const closedAt = s.closedAt ? new Date(s.closedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'Open';
+          return {
+            shiftType: s.shiftType === 'DAY' ? 'Day Shift' : s.shiftType === 'NIGHT' ? 'Night Shift' : 'All Shifts',
+            timeRange: `${openedAt} - ${closedAt}`,
+            orderCount: s.orderCount,
+            total: s.total,
+          };
+        }),
       });
 
       // Products by Shift section - separated DAY vs NIGHT

@@ -661,7 +661,7 @@ async function generateReportPDF(reportTitle, dateRange, columns, rows, options 
     return new Promise((resolve) => {
         doc.on('end', () => resolve(Buffer.concat(buffers)));
     });
-};
+}
 
 module.exports = {
     generateInvoicePDF,

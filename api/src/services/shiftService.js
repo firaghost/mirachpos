@@ -219,14 +219,6 @@ const closeShift = async ({ shiftId, closedBy, closingCash, notes, force = false
       updated_at: nowIso,
     });
 
-  // Reset table assignments for shift-specific tables
-  await resetTableAssignmentsForShiftChange({
-    tenantId: shift.tenant_id,
-    branchId: shift.branch_id,
-    shiftType: shift.shift_type,
-    now,
-  });
-
   // Log audit
   await logShiftAudit({
     tenantId: shift.tenant_id,
@@ -288,12 +280,20 @@ const calculateExpectedCash = async ({ shiftId }) => {
  * @param {Object} params.orderData - Order information
  * @returns {Promise<void>}
  */
-const updateShiftMetrics = async ({ shiftId, orderData }) => {
-  const shift = await db()
+const updateShiftMetrics = async ({ trx, shiftId, orderData }) => {
+  const queryBuilder = trx || db();
+
+  // Use forUpdate() if we are inside a transaction to prevent race conditions (locking)
+  let shiftQuery = queryBuilder
     .select(['*'])
     .from('shifts')
-    .where({ id: shiftId })
-    .first();
+    .where({ id: shiftId });
+    
+  if (trx) {
+    shiftQuery = shiftQuery.forUpdate();
+  }
+  
+  const shift = await shiftQuery.first();
 
   if (!shift || shift.status !== ShiftStatus.OPEN) {
     return; // Don't update closed shifts
@@ -304,11 +304,11 @@ const updateShiftMetrics = async ({ shiftId, orderData }) => {
   const methodKey = method.toLowerCase().replace(/\s+/g, '_');
   paymentBreakdown[methodKey] = (paymentBreakdown[methodKey] || 0) + (orderData.total || 0);
 
-  await db()
+  await queryBuilder
     .from('shifts')
     .where({ id: shiftId })
     .update({
-      order_count: shift.order_count + 1,
+      order_count: Number(shift.order_count || 0) + 1,
       gross_sales_etb: Number(shift.gross_sales_etb || 0) + (orderData.subtotal || 0),
       discounts_etb: Number(shift.discounts_etb || 0) + (orderData.discount || 0),
       net_sales_etb: Number(shift.net_sales_etb || 0) + (orderData.total || 0),
@@ -331,7 +331,8 @@ const updateShiftMetrics = async ({ shiftId, orderData }) => {
 const resetTableAssignmentsForShiftChange = async ({ tenantId, branchId, shiftType, now = new Date() }) => {
   const nowIso = now.toISOString();
 
-  // Unassign staff from tables of the shift type that's ending
+  // Only unassign staff from tables of the specific shift type that's ending
+  // Tables with 'ALL' shift type keep their assignments across shifts
   await db()
     .from('restaurant_tables')
     .where({
@@ -345,21 +346,8 @@ const resetTableAssignmentsForShiftChange = async ({ tenantId, branchId, shiftTy
       updated_at: nowIso,
     });
 
-  // Also reset 'ALL' tables that are currently occupied
-  // These will need reassignment in the new shift
-  await db()
-    .from('restaurant_tables')
-    .where({
-      tenant_id: tenantId,
-      branch_id: branchId,
-      shift_type: 'ALL',
-    })
-    .whereNotNull('assigned_staff_id')
-    .update({
-      assigned_staff_id: null,
-      assigned_staff_name: null,
-      updated_at: nowIso,
-    });
+  // Note: We no longer clear 'ALL' table assignments - they persist across shifts
+  // This ensures consistent table/waiter assignments regardless of shift changes
 };
 
 /**
@@ -717,7 +705,11 @@ const getTablesForShift = async ({ tenantId, branchId, activeShiftType }) => {
     .from('restaurant_tables')
     .where({ tenant_id: tenantId, branch_id: branchId })
     .andWhere(function () {
-      this.where('shift_type', 'ALL').orWhere('shift_type', activeShiftType);
+      // Include tables with NULL, empty string, 'ALL', or matching the active shift type
+      this.where('shift_type', 'ALL')
+        .orWhere('shift_type', activeShiftType)
+        .orWhereNull('shift_type')
+        .orWhere('shift_type', '');
     })
     .orderBy('name', 'asc');
 

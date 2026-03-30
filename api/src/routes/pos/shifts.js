@@ -304,6 +304,73 @@ const makePosShiftsRouter = ({ resolveBranchId, setNoStore }) => {
   );
 
   /**
+   * PUT /pos/shifts/close-all
+   * Close all open shifts at once (emergency/end-of-day use)
+   */
+  r.put(
+    '/pos/shifts/close-all',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('pos'),
+    async (req, res, next) => {
+      try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) {
+          return res.status(400).json({ error: 'branch_required' });
+        }
+
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const closingCash = Number(body?.closingCash ?? 0);
+        const notes = typeof body?.notes === 'string' ? body.notes.trim() : null;
+        const force = body?.force === true;
+
+        const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
+        if (!staffId) {
+          return res.status(401).json({ error: 'staff_id_required' });
+        }
+
+        // Get all open shifts
+        const openShifts = await listShifts({
+          tenantId: req.tenant.id,
+          branchId,
+          filters: { status: 'OPEN' },
+          limit: 100,
+          offset: 0,
+        });
+
+        const errors = [];
+        let closed = 0;
+
+        for (const shift of openShifts.shifts) {
+          try {
+            await closeShift({
+              shiftId: shift.id,
+              closedBy: staffId,
+              closingCash: closingCash / openShifts.shifts.length, // Distribute cash evenly
+              notes: notes || 'Closed via close-all endpoint',
+              force,
+            });
+            closed++;
+          } catch (error) {
+            errors.push(`${shift.id}: ${error.message}`);
+          }
+        }
+
+        return res.json({
+          ok: true,
+          closed,
+          errors,
+          total: openShifts.shifts.length,
+        });
+      } catch (e) {
+        return next(e);
+      }
+    }
+  );
+
+  /**
    * GET /pos/shifts/:id/verify-close
    * Validate if a shift can be closed (check for open orders, calculate expected cash)
    */

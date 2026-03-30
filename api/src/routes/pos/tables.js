@@ -54,7 +54,12 @@ const makePosTablesRouter = ({
         let rows;
         try {
           const shiftEnabled = await isShiftManagementEnabled({ tenantId: req.tenant.id, branchId });
-          if (shiftEnabled) {
+          // Managers can request all tables with ?all=true query param
+          const role = String(req.auth?.role || '').trim();
+          const isManager = ['Cafe Owner', 'Branch Manager', 'Manager'].includes(role);
+          const showAll = req.query?.all === 'true' || isManager;
+          
+          if (shiftEnabled && !showAll) {
             const currentShift = await getCurrentShift({ tenantId: req.tenant.id, branchId });
             if (currentShift) {
               // Filter tables by current shift type (DAY or NIGHT)
@@ -64,25 +69,24 @@ const makePosTablesRouter = ({
                 activeShiftType: currentShift.shift_type,
               });
             } else {
-              // No active shift - return empty or all tables based on query param
-              const showAll = req.query?.showAll === 'true';
-              if (!showAll) {
-                return res.json({
-                  ok: true,
-                  tenantId: req.tenant.id,
-                  branchId,
-                  tables: [],
-                  shiftRequired: true,
-                });
-              }
+              // No active shift - show all tables but include shiftRequired flag
+              // This allows users to see tables even when no shift is open
               rows = await db()
                 .from('restaurant_tables')
                 .where({ tenant_id: req.tenant.id, branch_id: branchId })
                 .select(['id', 'name', 'area', 'status', 'seats', 'open_order_id', 'last_order_id', 'assigned_staff_id', 'assigned_staff_name', 'shift_type', 'updated_at'])
                 .orderBy('name', 'asc');
+              // Add shiftRequired flag to response
+              return res.json({
+                ok: true,
+                tenantId: req.tenant.id,
+                branchId,
+                tables: (rows || []).map(mapRestaurantTableRow).filter(Boolean),
+                shiftRequired: true,
+              });
             }
           } else {
-            // Shift management not enabled - return all tables
+            // Shift management not enabled, manager request, or all=true - return all tables
             rows = await db()
               .from('restaurant_tables')
               .where({ tenant_id: req.tenant.id, branch_id: branchId })

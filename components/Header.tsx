@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../api';
 import { readSession } from '../session';
 import { ThemeToggle } from './ui/theme-toggle';
-import { ShiftIndicator } from './ShiftIndicator';
+// ShiftIndicator removed from header - only accessible via settings
 import { ShiftManagerModal } from './ShiftManagerModal';
 
 import { AppIcon } from '@/components/ui/app-icon';
@@ -212,7 +212,7 @@ export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; actio
 
         <div className="flex items-center gap-3">
           {action ? <div className="flex flex-wrap items-center justify-end gap-2">{action}</div> : null}
-          <ShiftIndicator onOpenShiftModal={() => setShiftModalOpen(true)} />
+          {/* Shift indicator removed from header per user request */}
           <div className="flex items-center gap-3">
             <ThemeToggle size="sm" />
             <div className="text-right hidden md:block">

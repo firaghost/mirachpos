@@ -59,6 +59,7 @@ interface ShiftContextType {
       expectedCash: number;
     };
   }>;
+  closeAllShifts: (closingCash: number, notes?: string, force?: boolean) => Promise<{ closed: number; errors: string[] }>;
 
   // Utility
   formatBusinessDate: (date: string) => string;
@@ -170,6 +171,29 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const closeAllShifts = useCallback(async (
+    closingCash: number,
+    notes?: string,
+    force?: boolean
+  ): Promise<{ closed: number; errors: string[] }> => {
+    const res = await apiFetch('/api/pos/shifts/close-all', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ closingCash, notes, force }),
+    });
+    const data = (await res.json().catch(() => null)) as any;
+
+    if (!data?.ok) {
+      throw new Error(data?.error || 'Failed to close all shifts');
+    }
+
+    setCurrentShift(null);
+    return {
+      closed: data.closed || 0,
+      errors: data.errors || [],
+    };
+  }, []);
+
   const formatBusinessDate = useCallback((date: string): string => {
     if (!date) return '';
     const d = new Date(date);
@@ -201,6 +225,7 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
     openShift,
     closeShift,
     verifyCloseShift,
+    closeAllShifts,
     formatBusinessDate,
     getShiftLabel,
   };

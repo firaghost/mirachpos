@@ -33,7 +33,7 @@
     "knex": "^3.1.0",
     "multer": "^2.1.1",
     "mysql2": "^3.11.0",
-    "nodemailer": "^7.0.12",
+    "nodemailer": "^8.0.4",
     "pdfkit": "^0.17.2",
     "pdfkit-table": "^0.1.99",
     "pino": "^10.1.0",

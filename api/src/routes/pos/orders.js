@@ -471,7 +471,7 @@ const makePosOrdersRouter = ({
                 branch_id: branchId,
                 order_id: orderId,
                 profile: 'Kitchen',
-                device_id: deviceId,
+                device_id: resolvedDeviceId,
                 fallback_device_id: fallbackId || null,
                 status: 'pending',
                 error: mapped.error,
@@ -494,7 +494,7 @@ const makePosOrdersRouter = ({
             branch_id: branchId,
             order_id: orderId,
             profile: 'Kitchen',
-            device_id: deviceId,
+            device_id: resolvedDeviceId,
             fallback_device_id: fallbackId || null,
             status: 'pending',
             error: mapped.error,
@@ -1076,11 +1076,27 @@ const makePosOrdersRouter = ({
         const id = requestedId || uid('ord');
         const nowIso = new Date().toISOString();
 
+        // Get shift info if shift management is enabled
+        let shiftId = null;
+        let businessDate = null;
+        try {
+          const shiftEnabled = await isShiftManagementEnabled({ tenantId: req.tenant.id, branchId });
+          if (shiftEnabled) {
+            const currentShift = await getCurrentShift({ tenantId: req.tenant.id, branchId });
+            if (currentShift) {
+              shiftId = currentShift.id;
+              businessDate = currentShift.business_date;
+            }
+          }
+        } catch {
+          // Ignore shift detection errors, proceed without shift data
+        }
+
         const normalizedCols = normalizeOrderColsFromPayload({ payload: nextPayload, status, nowIso });
         const orderItemRows = normalizeItemsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, payload: nextPayload, nowIso });
         const splitRows = normalizeSplitsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, payload: nextPayload, nowIso });
         const splitItemRows = normalizeSplitItemsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, splitRows, orderItemRows, payload: nextPayload, nowIso });
-        const paymentRows = normalizePaymentsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, status, payload: nextPayload, nowIso });
+        const paymentRows = normalizePaymentsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, shiftId, status, payload: nextPayload, nowIso });
 
         const redeemAmount = status === 'Paid'
           ? computeLoyaltyRedeemAmount({ payload: nextPayload, paymentMethod: nextPayload?.paymentMethod, computed })
@@ -1104,22 +1120,6 @@ const makePosOrdersRouter = ({
           if (typeof payload?.tableName === 'string' && payload.tableName.trim()) return payload.tableName.trim();
           return tableId;
         })();
-
-        // Get shift info if shift management is enabled
-        let shiftId = null;
-        let businessDate = null;
-        try {
-          const shiftEnabled = await isShiftManagementEnabled({ tenantId: req.tenant.id, branchId });
-          if (shiftEnabled) {
-            const currentShift = await getCurrentShift({ tenantId: req.tenant.id, branchId });
-            if (currentShift) {
-              shiftId = currentShift.id;
-              businessDate = currentShift.business_date;
-            }
-          }
-        } catch {
-          // Ignore shift detection errors, proceed without shift data
-        }
 
         await db().transaction(async (trx) => {
           await trx
@@ -1202,6 +1202,22 @@ const makePosOrdersRouter = ({
             if (splitRows.length) await trx('order_splits').insert(splitRows);
             if (splitItemRows.length) await trx('order_split_items').insert(splitItemRows);
             if (paymentRows.length) await trx('order_payments').insert(paymentRows);
+
+            if (status === 'Paid' && shiftId) {
+              const paymentMethod = nextPayload?.paymentMethod || 'cash';
+              await updateShiftMetrics({
+                trx,
+                shiftId,
+                orderData: {
+                  total,
+                  tax,
+                  tip,
+                  discount: computed.discount,
+                  subtotal: total - tax - tip,
+                  paymentMethod,
+                },
+              });
+            }
           } catch {
             // ignore
           }
@@ -1513,6 +1529,19 @@ const makePosOrdersRouter = ({
           } catch {
             // ignore
           }
+          // Cross-shift boundary reconciliation:
+          // If the order is being paid, pull it into the actively open shift to prevent cash leak inconsistencies
+          if (patch.status === 'Paid') {
+            try {
+              const currentShift = await getCurrentShift({ tenantId: req.tenant.id, branchId });
+              if (currentShift && currentShift.id) {
+                patch.shift_id = currentShift.id;
+                patch.business_date = currentShift.business_date;
+              }
+            } catch {
+              // Ignore
+            }
+          }
         }
 
         if (Object.keys(patch).length === 0) return res.json({ ok: true });
@@ -1527,10 +1556,18 @@ const makePosOrdersRouter = ({
             const effectiveStatus = typeof patch.status === 'string' ? String(patch.status) : beforeStatus;
             const payloadObj = safeJsonParse(patch.payload, {}) || {};
 
+            let shiftId = null;
+            try {
+              const currentShift = await getCurrentShift({ tenantId: req.tenant.id, branchId });
+              if (currentShift) shiftId = currentShift.id;
+            } catch {
+              // Ignore
+            }
+
             const orderItemRows = normalizeItemsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, payload: payloadObj, nowIso });
             const splitRows = normalizeSplitsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, payload: payloadObj, nowIso });
             const splitItemRows = normalizeSplitItemsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, splitRows, orderItemRows, payload: payloadObj, nowIso });
-            const paymentRows = normalizePaymentsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, status: effectiveStatus, payload: payloadObj, nowIso });
+            const paymentRows = normalizePaymentsFromPayload({ tenantId: req.tenant.id, branchId, orderId: id, shiftId, status: effectiveStatus, payload: payloadObj, nowIso });
 
             await db().transaction(async (trx) => {
               await trx('order_payments').where({ tenant_id: req.tenant.id, branch_id: branchId, order_id: id }).del();
@@ -1542,9 +1579,35 @@ const makePosOrdersRouter = ({
               if (splitRows.length) await trx('order_splits').insert(splitRows);
               if (splitItemRows.length) await trx('order_split_items').insert(splitItemRows);
               if (paymentRows.length) await trx('order_payments').insert(paymentRows);
+
+              if (effectiveStatus === 'Paid' && beforeStatus !== 'Paid' && shiftId) {
+                try {
+                  const afterPayloadForMetrics = safeJsonParse(patch.payload, {}) || {};
+                  const total = Number(patch.total ?? computed?.total ?? afterPayloadForMetrics?.total ?? 0) || 0;
+                  const tip = Number(afterPayloadForMetrics?.tip ?? 0) || 0;
+                  const tax = Number(afterPayloadForMetrics?.tax ?? 0) || 0;
+                  const discount = Number(afterPayloadForMetrics?.discount ?? 0) || 0;
+                  const paymentMethod = afterPayloadForMetrics?.paymentMethod || 'cash';
+                  
+                  await updateShiftMetrics({
+                    trx,
+                    shiftId,
+                    orderData: {
+                      total,
+                      tax,
+                      tip,
+                      discount,
+                      subtotal: total - tax - tip,
+                      paymentMethod,
+                    },
+                  });
+                } catch (err) {
+                  console.error('Failed to update shift metrics in POS PATCH:', err);
+                }
+              }
             });
-          } catch {
-            // ignore
+          } catch (err) {
+            console.error('POS Patch Shift Update Transaction ignored error:', err);
           }
         }
 

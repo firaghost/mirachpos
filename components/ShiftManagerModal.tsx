@@ -29,13 +29,14 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
     isLoading,
     openShift,
     closeShift,
+    closeAllShifts,
     verifyCloseShift,
     getShiftLabel,
     formatBusinessDate,
     refreshShift,
   } = useShift();
 
-  const [activeTab, setActiveTab] = useState<'current' | 'close' | 'new'>('current');
+  const [activeTab, setActiveTab] = useState<'current' | 'close' | 'closeAll' | 'new'>('current');
   const [shiftType, setShiftType] = useState<ShiftType>('DAY');
   const [openingCash, setOpeningCash] = useState<string>('');
   const [closingCash, setClosingCash] = useState<string>('');
@@ -199,6 +200,26 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
     }
   };
 
+  const handleCloseAllShifts = async () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const cash = parseFloat(closingCash) || 0;
+      const result = await closeAllShifts(cash, notes);
+      await refreshShift();
+      if (result.errors.length > 0) {
+        setError(`Closed ${result.closed} shifts. Errors: ${result.errors.join(', ')}`);
+      } else {
+        onClose();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to close all shifts');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (!isShiftManagementEnabled) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Shift Management">
@@ -270,7 +291,7 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
           </div>
         </div>
         {/* Tab Navigation */}
-        <div className="flex gap-1 mb-3">
+        <div className="flex gap-1 mb-3 flex-wrap">
           {currentShift && (
             <>
               <Button
@@ -490,7 +511,68 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
           </div>
         )}
 
-        {/* New Shift View */}
+        {/* Close All Shifts View */}
+        {activeTab === 'closeAll' && (
+          <div className="space-y-3">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2 text-red-700">
+                <AlertCircle className="w-4 h-4" />
+                <span className="font-medium text-sm">
+                  Warning: This will close ALL open shifts
+                </span>
+              </div>
+              <p className="text-xs text-red-600 mt-1">
+                Use this only in emergency situations or at end of day.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="closingCashAll" className="text-sm">Closing Cash Amount (Total)</Label>
+              <Input
+                id="closingCashAll"
+                type="number"
+                value={closingCash}
+                onChange={(e) => setClosingCash(e.target.value)}
+                placeholder="Enter total closing cash amount"
+                className="h-9"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notesAll" className="text-sm">Closing Notes (Optional)</Label>
+              <textarea
+                id="notesAll"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any notes about closing all shifts..."
+                className="w-full min-h-[60px] px-3 py-2 border rounded-md text-sm"
+              />
+            </div>
+
+            {error && (
+              <div className="p-2 bg-red-50 text-red-600 rounded-md text-xs">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setActiveTab(currentShift ? 'current' : 'new')}
+                className="flex-1 h-9"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCloseAllShifts}
+                disabled={isSubmitting}
+                className="flex-1 h-9 bg-red-600 hover:bg-red-700"
+              >
+                {isSubmitting ? 'Closing All...' : 'Close All Shifts'}
+              </Button>
+            </div>
+          </div>
+        )}
         {activeTab === 'new' && (
           <div className="space-y-3">
             {currentShift && (

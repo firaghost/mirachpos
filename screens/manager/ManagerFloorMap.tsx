@@ -37,6 +37,7 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
   const [initOpen, setInitOpen] = useState(false);
   const [area, setArea] = useState<string>('All Areas');
   const [filter, setFilter] = useState<'All' | 'Free' | 'Occupied' | 'Action'>('All');
+  const [shiftTypeFilter, setShiftTypeFilter] = useState<'ALL' | 'DAY' | 'NIGHT'>('ALL');
   const [now, setNow] = useState<Date>(() => new Date());
 
   // Table editing state
@@ -144,8 +145,22 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
   }, [remoteWaiters, staffNameCache]);
 
   const baseTables = useMemo(() => {
-    return waiterId === 'All' ? tables : tables.filter((t) => (t.assignedStaffId ?? null) === waiterId);
-  }, [tables, waiterId]);
+    let filtered = waiterId === 'All' ? tables : tables.filter((t) => (t.assignedStaffId ?? null) === waiterId);
+    // Apply shift type filter
+    if (shiftTypeFilter !== 'ALL') {
+      filtered = filtered.filter((t) => {
+        const tableShiftType = (t as any).shiftType || (t as any).shift_type || 'ALL';
+        return tableShiftType === shiftTypeFilter || tableShiftType === 'ALL';
+      });
+    }
+    return filtered;
+  }, [tables, waiterId, shiftTypeFilter]);
+
+  // Debug: log table counts and shift types
+  useEffect(() => {
+    console.log('[ManagerFloorMap] Tables:', tables.length, 'Base:', baseTables.length, 'ShiftFilter:', shiftTypeFilter);
+    console.log('[ManagerFloorMap] Table shift types:', tables.map(t => ({ id: t.id, name: t.name, shiftType: (t as any).shiftType || (t as any).shift_type || 'ALL' })));
+  }, [tables, baseTables, shiftTypeFilter]);
 
   const availableAreas = useMemo(() => {
     const set = new Set<string>();
@@ -381,7 +396,16 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
             </div>
           </div>
 
+          <div className="flex flex-wrap gap-2 overflow-x-auto items-center">
+            <span className="text-xs text-muted-foreground font-medium mr-1">Shift:</span>
+            <button onClick={() => setShiftTypeFilter('ALL')} className={`h-8 px-3 rounded-full border text-xs font-bold ${shiftTypeFilter === 'ALL' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:text-foreground hover:border-primary/30'}`}>All ({tables.length})</button>
+            <button onClick={() => setShiftTypeFilter('DAY')} className={`h-8 px-3 rounded-full border text-xs font-bold ${shiftTypeFilter === 'DAY' ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-transparent border-border text-muted-foreground hover:text-foreground hover:border-primary/30'}`}>☀ Day</button>
+            <button onClick={() => setShiftTypeFilter('NIGHT')} className={`h-8 px-3 rounded-full border text-xs font-bold ${shiftTypeFilter === 'NIGHT' ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : 'bg-transparent border-border text-muted-foreground hover:text-foreground hover:border-primary/30'}`}>🌙 Night</button>
+            <span className="text-xs text-muted-foreground ml-2">Showing: {baseTables.length}</span>
+          </div>
+
           <div className="flex gap-2 overflow-x-auto items-center">
+            <span className="text-xs text-muted-foreground font-medium mr-1">Waiter:</span>
             <button onClick={() => setWaiterId('All')} className={`h-9 px-4 rounded-full border text-xs font-bold ${waiterId === 'All' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:text-foreground hover:border-primary/30'}`}>All Waiters</button>
             {waiters.map((w) => (
               <button key={w.id} onClick={() => setWaiterId(w.id)} className={`h-9 px-4 rounded-full border text-xs font-bold whitespace-nowrap ${waiterId === w.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-border text-muted-foreground hover:text-foreground hover:border-primary/30'}`}>{staffNameCache[w.id] || w.name}</button>
@@ -411,6 +435,18 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
                       : 'border-l-4 border-l-teal-500 border border-border bg-card hover:border-teal-500/50'
                   }`}
                 >
+                  {/* Shift Type Badge */}
+                  <div className="absolute top-2 left-2">
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                      ((t as any).shiftType || (t as any).shift_type || 'ALL') === 'DAY'
+                        ? 'bg-amber-100 text-amber-700'
+                        : ((t as any).shiftType || (t as any).shift_type || 'ALL') === 'NIGHT'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {(t as any).shiftType || (t as any).shift_type || 'ALL'}
+                    </span>
+                  </div>
                   {/* Edit/Delete buttons - always visible and vivid */}
                   <div className="absolute top-3 right-3 flex gap-2 z-10">
                     <button
