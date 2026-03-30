@@ -142,6 +142,20 @@ export const openKvDb = (dbDir) => {
 
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
+
+  // Migration: Add shift_type column to restaurant_tables if missing (old dbs)
+  try {
+    const colCheck = db.prepare(
+      "SELECT 1 FROM pragma_table_info('restaurant_tables') WHERE name = 'shift_type'"
+    );
+    const hasCol = colCheck.get();
+    if (!hasCol) {
+      db.exec("ALTER TABLE restaurant_tables ADD COLUMN shift_type TEXT NULL DEFAULT 'ALL'");
+    }
+  } catch {
+    // ignore - column might already exist or table doesn't exist yet
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS kv (
       key TEXT PRIMARY KEY,

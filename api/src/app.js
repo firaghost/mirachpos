@@ -232,50 +232,59 @@ const createApp = () => {
   });
 
   app.get('/health', async (req, res) => {
-    let dbStatus = 'unknown';
     try {
-      await require('./db').db().raw('SELECT 1');
-      dbStatus = 'up';
-    } catch (e) {
-      dbStatus = 'down';
-    }
-
-    const full = String(req.query?.full || '').trim() === '1';
-    const gateways = {};
-    if (full && config.healthExternalChecksEnabled) {
+      let dbStatus = 'unknown';
       try {
-        const [chapaCfg, telebirrCfg] = await Promise.all([
-          getGatewayConfig('chapa'),
-          getGatewayConfig('telebirr'),
-        ]);
-
-        const chapaEnabled = Boolean(chapaCfg?.enabled);
-        const telebirrEnabled = Boolean(telebirrCfg?.enabled);
-        const chapaUrl = chapaEnabled ? 'https://api.chapa.co' : '';
-        const telebirrUrl = telebirrEnabled ? String(telebirrCfg?.baseUrl || 'https://api.ethiotelecom.et') : '';
-        const start = Date.now();
-        const [chapaOk, telebirrOk] = await Promise.all([
-          chapaEnabled ? probeUrl(chapaUrl, config.healthGatewayTimeoutMs) : false,
-          telebirrEnabled ? probeUrl(telebirrUrl, config.healthGatewayTimeoutMs) : false,
-        ]);
-        const elapsed = Date.now() - start;
-
-        gateways.chapa = { status: chapaEnabled ? (chapaOk ? 'up' : 'down') : 'disabled' };
-        gateways.telebirr = { status: telebirrEnabled ? (telebirrOk ? 'up' : 'down') : 'disabled' };
-        gateways.responseTimeMs = elapsed;
-      } catch {
-        gateways.chapa = { status: 'unknown' };
-        gateways.telebirr = { status: 'unknown' };
+        await require('./db').db().raw('SELECT 1');
+        dbStatus = 'up';
+      } catch (e) {
+        dbStatus = 'down';
       }
-    }
 
-    res.json({
-      ok: true,
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      db: dbStatus,
-      gateways,
-    });
+      const full = String(req.query?.full || '').trim() === '1';
+      const gateways = {};
+      if (full && config.healthExternalChecksEnabled) {
+        try {
+          const [chapaCfg, telebirrCfg] = await Promise.all([
+            getGatewayConfig('chapa'),
+            getGatewayConfig('telebirr'),
+          ]);
+
+          const chapaEnabled = Boolean(chapaCfg?.enabled);
+          const telebirrEnabled = Boolean(telebirrCfg?.enabled);
+          const chapaUrl = chapaEnabled ? 'https://api.chapa.co' : '';
+          const telebirrUrl = telebirrEnabled ? String(telebirrCfg?.baseUrl || 'https://api.ethiotelecom.et') : '';
+          const start = Date.now();
+          const [chapaOk, telebirrOk] = await Promise.all([
+            chapaEnabled ? probeUrl(chapaUrl, config.healthGatewayTimeoutMs) : false,
+            telebirrEnabled ? probeUrl(telebirrUrl, config.healthGatewayTimeoutMs) : false,
+          ]);
+          const elapsed = Date.now() - start;
+
+          gateways.chapa = { status: chapaEnabled ? (chapaOk ? 'up' : 'down') : 'disabled' };
+          gateways.telebirr = { status: telebirrEnabled ? (telebirrOk ? 'up' : 'down') : 'disabled' };
+          gateways.responseTimeMs = elapsed;
+        } catch {
+          gateways.chapa = { status: 'unknown' };
+          gateways.telebirr = { status: 'unknown' };
+        }
+      }
+
+      res.json({
+        ok: true,
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        db: dbStatus,
+        gateways,
+      });
+    } catch (err) {
+      res.status(503).json({
+        ok: false,
+        error: 'health_check_failed',
+        message: err?.message || 'Health check failed',
+        timestamp: new Date().toISOString(),
+      });
+    }
   });
 
   app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
