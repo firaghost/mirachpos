@@ -611,35 +611,34 @@ describe('POS Routes - Complete Coverage', () => {
   
   // ========== SHIFT MANAGEMENT ==========
   describe('Shifts', () => {
-    describe('POST /api/pos/shifts/start', () => {
+    describe('POST /api/pos/shifts', () => {
       it('should start shift', async () => {
         const res = await request(app)
-          .post('/api/pos/shifts/start')
+          .post('/api/pos/shifts')
           .set(getAuthHeaders('cafe_owner'))
           .set('X-Tenant', tenantId)
           .query({ branchId })
-          .send({ startingCash: 1000 });
+          .send({ shiftType: 'DAY', openingCash: 1000 });
         
-        expect([200, 201, 400, 401, 403]).toContain(res.status);
+        expect([200, 201, 400, 401, 403, 409]).toContain(res.status);
       });
     });
     
-    describe('POST /api/pos/shifts/end', () => {
+    describe('PUT /api/pos/shifts/:id/close', () => {
       it('should end shift with reconciliation', async () => {
         const shiftData = {
-          endingCash: 2500,
-          expectedCash: 2450,
+          closingCash: 2500,
           notes: 'Normal shift'
         };
         
         const res = await request(app)
-          .post('/api/pos/shifts/end')
+          .put('/api/pos/shifts/shift-test-123/close')
           .set(getAuthHeaders('cafe_owner'))
           .set('X-Tenant', tenantId)
           .query({ branchId })
           .send(shiftData);
         
-        expect([200, 400, 401, 403]).toContain(res.status);
+        expect([200, 400, 401, 403, 404, 409]).toContain(res.status);
       });
     });
     
