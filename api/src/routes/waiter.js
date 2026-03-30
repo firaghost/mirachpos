@@ -707,15 +707,14 @@ const makeWaiterRouter = () => {
       .where({ 's.tenant_id': tenantId, 's.branch_id': branchId })
       .andWhere('s.business_date', '=', day)
       .select([
-        's.id',
         's.shift_type',
-        's.opened_at',
-        's.closed_at',
+        db().raw('MIN(s.opened_at) as opened_at'),
+        db().raw('MAX(s.closed_at) as closed_at'),
         db().raw('COUNT(o.id) as order_count'),
         db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as total'),
       ])
-      .groupBy('s.id', 's.shift_type', 's.opened_at', 's.closed_at')
-      .orderBy('s.opened_at');
+      .groupBy('s.shift_type')
+      .orderBy('s.shift_type');
 
     // Voids and refunds
     const voids = await db()
@@ -873,9 +872,9 @@ const makeWaiterRouter = () => {
       totalTips: Number(s.total_tips || 0),
     }));
 
-    // Format shift sales
+    // Format shift sales (grouped by shiftType)
     const shiftBreakdown = shiftSales.map((s) => ({
-      shiftId: String(s.id || ''),
+      shiftId: '', // aggregated
       shiftType: String(s.shift_type || 'ALL'),
       openedAt: s.opened_at ? new Date(s.opened_at).toISOString() : null,
       closedAt: s.closed_at ? new Date(s.closed_at).toISOString() : null,
@@ -1397,14 +1396,57 @@ const makeWaiterRouter = () => {
       products.mergeCells(3, 1, 3, prodMaxCol);
       products.addRow([]);
 
-      // Table Header row with styling
-      const headerCols = ['Product', 'Category', 'Qty Sold', 'Unit Price', 'Revenue (ETB)', 'Void Qty'];
-      products.addRow(headerCols);
-      const headerRow = products.getRow(5);
-      headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
-      headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1A365D' } };
-      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      products.views = [{ state: 'frozen', ySplit: 3 }]; // Moved frozen row up to title
 
+      // Helper function to draw a section of products
+      const drawProductSection = (sectionTitle, items) => {
+        if (!items || items.length === 0) return;
+
+        products.addRow([]); // Spacing
+        const titleRow = products.rowCount + 1;
+        products.addRow([sectionTitle]);
+        products.getRow(titleRow).font = { bold: true, size: 14, color: { argb: '2C5282' } };
+        products.mergeCells(titleRow, 1, titleRow, prodMaxCol);
+
+        // Table Header
+        const headerCols = ['Product', 'Category', 'Qty Sold', 'Unit Price', 'Revenue (ETB)', 'Void Qty'];
+        products.addRow(headerCols);
+        const headerRowIdx = products.rowCount;
+        const headerRow = products.getRow(headerRowIdx);
+        headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1A365D' } };
+        headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        // Table Data
+        for (const p of items) {
+          const qtySold = Number(p.qtySold || 0);
+          const revenue = Number(p.revenue || 0);
+          const unitPrice = qtySold > 0 ? revenue / qtySold : 0;
+          products.addRow([
+            String(p.name || ''),
+            String(p.category || ''),
+            qtySold,
+            unitPrice,
+            revenue,
+            Number(p.voidQty || 0),
+          ]);
+        }
+
+        // Section Total logic
+        const prodTotalRow = products.rowCount + 1;
+        products.addRow([
+          'TOTAL',
+          '',
+          items.reduce((sum, p) => sum + Number(p.qtySold || 0), 0),
+          '',
+          items.reduce((sum, p) => sum + Number(p.revenue || 0), 0).toFixed(2),
+          '',
+        ]);
+        products.getRow(prodTotalRow).font = { bold: true, color: { argb: '1A365D' } };
+        products.getRow(prodTotalRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F7FAFC' } };
+      };
+
+      // Set columns configuration first
       products.columns = [
         { key: 'name', width: 32 },
         { key: 'category', width: 18 },
@@ -1414,27 +1456,17 @@ const makeWaiterRouter = () => {
         { key: 'voidQty', width: 12 },
       ];
 
-      for (const p of agg.products) {
-        const qtySold = Number(p.qtySold || 0);
-        const revenue = Number(p.revenue || 0);
-        const unitPrice = qtySold > 0 ? revenue / qtySold : 0;
-        products.addRow([
-          String(p.name || ''),
-          String(p.category || ''),
-          qtySold,
-          unitPrice,
-          revenue,
-          Number(p.voidQty || 0),
-        ]);
+      if (agg.productsByShift && agg.productsByShift.length > 0) {
+        // Draw separate tables for DAY and NIGHT
+        const dayProducts = agg.productsByShift.filter(p => String(p.shiftType || '').toUpperCase() === 'DAY');
+        const nightProducts = agg.productsByShift.filter(p => String(p.shiftType || '').toUpperCase() === 'NIGHT');
+
+        if (dayProducts.length > 0) drawProductSection('Day Shift Products', dayProducts);
+        if (nightProducts.length > 0) drawProductSection('Night Shift Products', nightProducts);
+      } else {
+        // Fallback: draw all products in one block if no shift data is available
+        drawProductSection('All Products', agg.products);
       }
-
-      // Add total row
-      const prodTotalRow = products.rowCount + 1;
-      products.addRow(['TOTAL', '', agg.products.reduce((sum, p) => sum + Number(p.qtySold || 0), 0), '', agg.products.reduce((sum, p) => sum + Number(p.revenue || 0), 0).toFixed(2), '']);
-      products.getRow(prodTotalRow).font = { bold: true, color: { argb: '1A365D' } };
-      products.getRow(prodTotalRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F7FAFC' } };
-
-      products.views = [{ state: 'frozen', ySplit: 5 }];
 
       // Payment Methods sheet with Tips and Sales breakdown
       if (agg.paymentMethods && agg.paymentMethods.length > 0) {
