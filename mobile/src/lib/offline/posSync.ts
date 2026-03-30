@@ -121,12 +121,22 @@ function toItemsPayload(items: Array<{ productId: string; name: string; price: n
 
 async function performCreate(p: any) {
   const { profile } = await withProfile()
+  const { data: shift } = await supabase
+    .from('shifts')
+    .select('id')
+    .eq('branch_id', (profile as any).branch_id)
+    .eq('status', 'OPEN')
+    .order('opened_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .insert({
       branch_id: (profile as any).branch_id,
       staff_id: (profile as any).id,
       table_id: p.tableId,
+      shift_id: shift?.id || null,
       status: 'pending',
       total_amount: p.totals.total,
       tax_amount: p.totals.tax,

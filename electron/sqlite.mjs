@@ -202,6 +202,7 @@ export const openKvDb = (dbDir) => {
       last_order_id TEXT NULL,
       assigned_staff_id TEXT NULL,
       assigned_staff_name TEXT NULL,
+      shift_type TEXT NULL DEFAULT 'ALL',
       updated_at TEXT NOT NULL,
       PRIMARY KEY (scope_key, id)
     );
@@ -391,8 +392,8 @@ export const openKvDb = (dbDir) => {
         scope_key, id, name, area, status, seats,
         open_order_id, last_order_id,
         assigned_staff_id, assigned_staff_name,
-        updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        shift_type, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(scope_key, id) DO UPDATE SET
         name=excluded.name,
         area=excluded.area,
@@ -402,10 +403,11 @@ export const openKvDb = (dbDir) => {
         last_order_id=excluded.last_order_id,
         assigned_staff_id=excluded.assigned_staff_id,
         assigned_staff_name=excluded.assigned_staff_name,
+        shift_type=excluded.shift_type,
         updated_at=excluded.updated_at`,
   );
   const stmtRestaurantTablesList = db.prepare(
-    'SELECT id,name,area,status,seats,open_order_id,last_order_id,assigned_staff_id,assigned_staff_name,updated_at FROM restaurant_tables WHERE scope_key = ? ORDER BY name ASC LIMIT ?',
+    'SELECT id,name,area,status,seats,open_order_id,last_order_id,assigned_staff_id,assigned_staff_name,shift_type,updated_at FROM restaurant_tables WHERE scope_key = ? ORDER BY name ASC LIMIT ?',
   );
 
   const stmtPosProductsUpsert = db.prepare(
@@ -643,6 +645,7 @@ export const openKvDb = (dbDir) => {
             t?.lastOrderId ? String(t.lastOrderId) : t?.last_order_id ? String(t.last_order_id) : null,
             t?.assignedStaffId ? String(t.assignedStaffId) : t?.assigned_staff_id ? String(t.assigned_staff_id) : null,
             t?.assignedStaffName ? String(t.assignedStaffName) : t?.assigned_staff_name ? String(t.assigned_staff_name) : null,
+            t?.shiftType ? String(t.shiftType) : t?.shift_type ? String(t.shift_type) : 'ALL',
             now,
           );
         }

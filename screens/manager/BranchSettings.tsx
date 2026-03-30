@@ -121,6 +121,7 @@ type BranchSettingsState = {
     language: string;
     enableSounds: boolean;
     enableOfflineMode: boolean;
+    enableShiftManagement?: boolean;
   };
 
   loyalty: {
@@ -595,6 +596,7 @@ export const BranchSettings: React.FC = () => {
         language: 'en',
         enableSounds: true,
         enableOfflineMode: false,
+        enableShiftManagement: false,
       },
       loyalty: {
         earnRate: 0,
@@ -2760,6 +2762,14 @@ export const BranchSettings: React.FC = () => {
                     </div>
                     <Toggle checked={draft.general.enableSounds} onChange={(next) => setDraft((p) => ({ ...p, general: { ...p.general, enableSounds: next } }))} label="Enable Sounds" />
                   </div>
+                  <div className="p-4 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-foreground font-bold text-sm">Shift Management</p>
+                      <p className="text-muted-foreground text-xs mt-1">Enable DAY/NIGHT shift system with cash reconciliation.</p>
+                    </div>
+                    <Toggle checked={draft.general.enableShiftManagement} onChange={(next) => setDraft((p) => ({ ...p, general: { ...p.general, enableShiftManagement: next } }))} label="Shift Management" />
+                  </div>
+
                   <div className="p-4 flex items-center justify-between gap-4">
                     <div>
                       <p className="text-foreground font-bold text-sm">Currency</p>

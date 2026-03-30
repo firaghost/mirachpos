@@ -39,6 +39,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
   const [newTableName, setNewTableName] = useState('');
   const [newTableSeats, setNewTableSeats] = useState('4');
   const [newTableArea, setNewTableArea] = useState<string>('');
+  const [newTableShiftType, setNewTableShiftType] = useState<'DAY' | 'NIGHT' | 'ALL'>('ALL');
 
   const [editOpen, setEditOpen] = useState(false);
   const [editTargetId, setEditTargetId] = useState<string>('');
@@ -130,6 +131,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
         zone: (typeof (t as any).area === 'string' ? String((t as any).area).trim() : '') as string,
         status: t.openOrderId ? 'occupied' : 'available',
         assignedStaffId: t.assignedStaffId ?? null,
+        shiftType: (t as any).shiftType || 'ALL',
       }));
   }, [tables, searchQuery, selectedZone]);
 
@@ -326,112 +328,137 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                 + New Table
                             </button>
                         </div>
-
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
-                        {filteredTables.map((table) => {
-                            const isSelected = selectedTableIds.has(table.id);
-                            const assigned = table.assignedStaffId ? staffById.get(table.assignedStaffId) : null;
-                            return (
-                                <div
-                                    key={table.id}
-                                    onDoubleClick={() => openTable(table.id)}
-                                    onClick={() => toggleTableSelection(table.id)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        toggleTableSelection(table.id);
-                                      }
-                                    }}
-                                    role="button"
-                                    tabIndex={0}
-                                    className={`
-                                        relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 transition-all duration-200 group
-                                        ${isSelected 
-                                            ? 'bg-primary/10 border-2 border-primary shadow-[0_0_20px_rgba(0,0,0,0.12)] scale-[1.02]' 
-                                            : 'bg-card border border-border hover:border-border/80 hover:bg-accent'
-                                        }
-                                    `}
-                                >
-                                    {isSelected && (
-                                        <div className="absolute top-2 right-2 bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center shadow-sm z-10">
-                                            <AppIcon name="check" className="text-[16px] font-bold" size={16} />
-                                        </div>
-                                    )}
-                                    
-                                    <div className={`
-                                        w-12 h-12 rounded-full flex items-center justify-center mb-1 transition-colors
-                                        ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground group-hover:text-foreground'}
-                                        ${!isSelected && (table.status === 'occupied') ? 'bg-muted text-foreground/70' : ''}
-                                    `}>
-                                        <AppIcon name="table_restaurant" className="text-2xl" size={24} />
-                                    </div>
-                                    
-                                    <div className="text-center">
-                                        <h3 className={`text-xl font-black leading-none mb-1 ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                            {table.code}
-                                        </h3>
-                                        <p className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-wide">{table.seats} Seats</p>
-                                    </div>
-
-                                    {assigned ? (
-                                      <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary">
-                                        {assigned.name}
-                                      </div>
-                                    ) : (
-                                      <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded bg-secondary/50 border border-border text-muted-foreground">
-                                        Unassigned
-                                      </div>
-                                    )}
-
-                                    {/* Edit and Delete buttons - always visible and vivid */}
-                                    <div className="absolute top-2 right-2 flex gap-1 z-10">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          // Open edit modal - populate form with table data
-                                          const t = tables.find((tbl) => tbl.id === table.id);
-                                          if (t) {
-                                            setNewTableName(t.name);
-                                            setNewTableSeats(String(t.seats));
-                                            setNewTableArea(typeof (t as any).area === 'string' ? (t as any).area : '');
-                                            setEditTargetId(t.id);
-                                            setEditOpen(true);
-                                          }
-                                        }}
-                                        className="h-7 w-7 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg flex items-center justify-center text-xs"
-                                        title="Edit table"
-                                      >
-                                        <AppIcon name="edit" size={14} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setDeleteTargetId(table.id);
-                                          setDeleteOpen(true);
-                                        }}
-                                        className="h-7 w-7 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg flex items-center justify-center text-xs"
-                                        title="Delete table"
-                                      >
-                                        <AppIcon name="delete" size={14} />
-                                      </button>
-                                    </div>
-
-                                    <div className="absolute bottom-3 left-0 w-full text-center">
-                                        <span className={`text-[9px] font-black uppercase tracking-widest ${
-                                            table.status === 'available' ? 'text-emerald-500' : 
-                                            table.status === 'occupied' ? 'text-muted-foreground' : 'text-primary'
-                                        }`}>
-                                            {table.status}
-                                        </span>
-                                    </div>
+                    {/* Tables grouped by Shift Type */}
+                    {[
+                        { key: 'ALL', label: 'All Shifts Tables', color: 'bg-slate-100 dark:bg-slate-800' },
+                        { key: 'DAY', label: 'Day Shift Only Tables', color: 'bg-amber-50 dark:bg-amber-900/20' },
+                        { key: 'NIGHT', label: 'Night Shift Only Tables', color: 'bg-indigo-50 dark:bg-indigo-900/20' },
+                    ].map((section) => {
+                        const sectionTables = filteredTables.filter((t) => {
+                            const tableShiftType = (t as any).shiftType;
+                            if (section.key === 'ALL') {
+                                return !tableShiftType || tableShiftType === 'ALL';
+                            }
+                            return tableShiftType === section.key;
+                        });
+                        if (sectionTables.length === 0) return null;
+                        return (
+                            <div key={section.key} className="flex flex-col gap-3">
+                                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${section.color} border border-border/50`}>
+                                    <span className="font-bold text-sm">
+                                        {section.key === 'DAY' && <span className="text-amber-600 mr-2">☀</span>}
+                                        {section.key === 'NIGHT' && <span className="text-indigo-600 mr-2">🌙</span>}
+                                        {section.label}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">({sectionTables.length} tables)</span>
                                 </div>
-                            );
-                        })}
-                    </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
+                                    {sectionTables.map((table) => {
+                                        const isSelected = selectedTableIds.has(table.id);
+                                        const assigned = table.assignedStaffId ? staffById.get(table.assignedStaffId) : null;
+                                        return (
+                                            <div
+                                                key={table.id}
+                                                onDoubleClick={() => openTable(table.id)}
+                                                onClick={() => toggleTableSelection(table.id)}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    toggleTableSelection(table.id);
+                                                  }
+                                                }}
+                                                role="button"
+                                                tabIndex={0}
+                                                className={`
+                                                    relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 transition-all duration-200 group
+                                                    ${isSelected 
+                                                        ? 'bg-primary/10 border-2 border-primary shadow-[0_0_20px_rgba(0,0,0,0.12)] scale-[1.02]' 
+                                                        : 'bg-card border border-border hover:border-border/80 hover:bg-accent'
+                                                    }
+                                                `}
+                                            >
+                                                {isSelected && (
+                                                    <div className="absolute top-2 right-2 bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center shadow-sm z-10">
+                                                        <AppIcon name="check" className="text-[16px] font-bold" size={16} />
+                                                    </div>
+                                                )}
+                                                
+                                                <div className={`
+                                                    w-12 h-12 rounded-full flex items-center justify-center mb-1 transition-colors
+                                                    ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground group-hover:text-foreground'}
+                                                    ${!isSelected && (table.status === 'occupied') ? 'bg-muted text-foreground/70' : ''}
+                                                `}>
+                                                    <AppIcon name="table_restaurant" className="text-2xl" size={24} />
+                                                </div>
+                                                
+                                                <div className="text-center">
+                                                    <h3 className={`text-xl font-black leading-none mb-1 ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                                        {table.code}
+                                                    </h3>
+                                                    <p className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-wide">{table.seats} Seats</p>
+                                                </div>
+
+                                                {assigned ? (
+                                                  <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary">
+                                                    {assigned.name}
+                                                  </div>
+                                                ) : (
+                                                  <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded bg-secondary/50 border border-border text-muted-foreground">
+                                                    Unassigned
+                                                  </div>
+                                                )}
+
+                                                <div className="absolute top-2 right-2 flex gap-1 z-10">
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      const t = tables.find((tbl) => tbl.id === table.id);
+                                                      if (t) {
+                                                        setNewTableName(t.name);
+                                                        setNewTableSeats(String(t.seats));
+                                                        setNewTableArea(typeof (t as any).area === 'string' ? (t as any).area : '');
+                                                        setNewTableShiftType((t as any).shiftType || 'ALL');
+                                                        setEditTargetId(t.id);
+                                                        setEditOpen(true);
+                                                      }
+                                                    }}
+                                                    className="h-7 w-7 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg flex items-center justify-center text-xs"
+                                                    title="Edit table"
+                                                  >
+                                                    <AppIcon name="edit" size={14} />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setDeleteTargetId(table.id);
+                                                      setDeleteOpen(true);
+                                                    }}
+                                                    className="h-7 w-7 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg flex items-center justify-center text-xs"
+                                                    title="Delete table"
+                                                  >
+                                                    <AppIcon name="delete" size={14} />
+                                                  </button>
+                                                </div>
+
+                                                <div className="absolute bottom-3 left-0 w-full text-center">
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest ${
+                                                        table.status === 'available' ? 'text-emerald-500' : 
+                                                        table.status === 'occupied' ? 'text-muted-foreground' : 'text-primary'
+                                                    }`}>
+                                                        {table.status}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -505,6 +532,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                 setNewTableName('');
                 setNewTableSeats('4');
                 setNewTableArea('');
+                setNewTableShiftType('ALL');
             }}
             footer={
                 <div className="flex gap-3">
@@ -514,6 +542,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                             setNewTableName('');
                             setNewTableSeats('4');
                             setNewTableArea('');
+                            setNewTableShiftType('ALL');
                         }}
                         className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
                     >
@@ -524,11 +553,12 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                             const seats = Number.parseInt(newTableSeats, 10);
                             if (!newTableName.trim() || !Number.isFinite(seats) || seats <= 0) return;
                             const area = newTableArea.trim();
-                            addTable({ name: newTableName.trim(), seats, area: area ? area : undefined });
+                            addTable({ name: newTableName.trim(), seats, area: area ? area : undefined, shiftType: newTableShiftType });
                             setAddOpen(false);
                             setNewTableName('');
                             setNewTableSeats('4');
                             setNewTableArea('');
+                            setNewTableShiftType('ALL');
                         }}
                         className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors"
                     >
@@ -555,6 +585,16 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                     <option key={z} value={z} />
                   ))}
                 </datalist>
+                <label className="text-sm font-bold text-muted-foreground">Shift Type</label>
+                <select
+                  value={newTableShiftType}
+                  onChange={(e) => setNewTableShiftType(e.target.value as 'DAY' | 'NIGHT' | 'ALL')}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+                >
+                  <option value="ALL">All Shifts (Always Visible)</option>
+                  <option value="DAY">Day Shift Only</option>
+                  <option value="NIGHT">Night Shift Only</option>
+                </select>
             </div>
         </Modal>
 
@@ -567,6 +607,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                 setNewTableName('');
                 setNewTableSeats('4');
                 setNewTableArea('');
+                setNewTableShiftType('ALL');
             }}
             footer={
                 <div className="flex gap-3">
@@ -577,6 +618,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                             setNewTableName('');
                             setNewTableSeats('4');
                             setNewTableArea('');
+                            setNewTableShiftType('ALL');
                         }}
                         className="flex-1 h-11 rounded-lg bg-secondary hover:bg-secondary/80 border border-border text-foreground font-semibold transition-colors"
                     >
@@ -593,7 +635,15 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                               deleteTable(t.id);
                               // Small delay to ensure delete is processed before add
                               setTimeout(() => {
-                                addTable({ id: t.id, name: newTableName.trim(), seats, area: area ? area : undefined });
+                                addTable({ 
+                                  id: t.id, 
+                                  name: newTableName.trim(), 
+                                  seats, 
+                                  area: area ? area : undefined, 
+                                  shiftType: newTableShiftType,
+                                  assignedStaffId: t.assignedStaffId,
+                                  assignedStaffName: t.assignedStaffName
+                                });
                               }, 100);
                             }
                             setEditOpen(false);
@@ -601,6 +651,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                             setNewTableName('');
                             setNewTableSeats('4');
                             setNewTableArea('');
+                            setNewTableShiftType('ALL');
                             setActionBanner('Table updated.');
                         }}
                         className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold transition-colors"
@@ -628,6 +679,16 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                     <option key={z} value={z} />
                   ))}
                 </datalist>
+                <label className="text-sm font-bold text-muted-foreground">Shift Type</label>
+                <select
+                  value={newTableShiftType}
+                  onChange={(e) => setNewTableShiftType(e.target.value as 'DAY' | 'NIGHT' | 'ALL')}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+                >
+                  <option value="ALL">All Shifts (Always Visible)</option>
+                  <option value="DAY">Day Shift Only</option>
+                  <option value="NIGHT">Night Shift Only</option>
+                </select>
             </div>
         </Modal>
       </div>

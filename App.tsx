@@ -3,6 +3,7 @@ import { Sidebar } from './components/Sidebar';
 import { Login } from './screens/Login';
 import { ThemeProvider } from './ThemeContext';
 import { PosProvider } from './PosContext';
+import { ShiftProvider } from './src/contexts/ShiftContext';
 import { apiFetch, logoutAndReload } from './api';
 
 import { AppIcon } from '@/components/ui/app-icon';
@@ -1368,7 +1369,9 @@ const App: React.FC = () => {
   return (
     <ThemeProvider>
       <PosProvider>
-        <AppContent />
+        <ShiftProvider>
+          <AppContent />
+        </ShiftProvider>
       </PosProvider>
     </ThemeProvider>
   );

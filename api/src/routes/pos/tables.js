@@ -6,6 +6,11 @@ const { db } = require('../../db');
 const { uid } = require('../../utils/ids');
 const { loadEntitlements, requireModule } = require('../../middleware/entitlements');
 const { requireRole, requirePermission } = require('../../middleware/permissions');
+const {
+  getCurrentShift,
+  isShiftManagementEnabled,
+  getTablesForShift,
+} = require('../../services/shiftService');
 
 const safeJsonParse = (raw, fallback) => {
   try {
@@ -45,11 +50,53 @@ const makePosTablesRouter = ({
 
         await backfillRestaurantTablesFromLegacyState({ tenantId: req.tenant.id, branchId });
 
-        const rows = await db()
-          .from('restaurant_tables')
-          .where({ tenant_id: req.tenant.id, branch_id: branchId })
-          .select(['id', 'name', 'area', 'status', 'seats', 'open_order_id', 'last_order_id', 'assigned_staff_id', 'assigned_staff_name', 'updated_at'])
-          .orderBy('name', 'asc');
+        // Check if shift management is enabled and get current shift
+        let rows;
+        try {
+          const shiftEnabled = await isShiftManagementEnabled({ tenantId: req.tenant.id, branchId });
+          if (shiftEnabled) {
+            const currentShift = await getCurrentShift({ tenantId: req.tenant.id, branchId });
+            if (currentShift) {
+              // Filter tables by current shift type (DAY or NIGHT)
+              rows = await getTablesForShift({
+                tenantId: req.tenant.id,
+                branchId,
+                activeShiftType: currentShift.shift_type,
+              });
+            } else {
+              // No active shift - return empty or all tables based on query param
+              const showAll = req.query?.showAll === 'true';
+              if (!showAll) {
+                return res.json({
+                  ok: true,
+                  tenantId: req.tenant.id,
+                  branchId,
+                  tables: [],
+                  shiftRequired: true,
+                });
+              }
+              rows = await db()
+                .from('restaurant_tables')
+                .where({ tenant_id: req.tenant.id, branch_id: branchId })
+                .select(['id', 'name', 'area', 'status', 'seats', 'open_order_id', 'last_order_id', 'assigned_staff_id', 'assigned_staff_name', 'shift_type', 'updated_at'])
+                .orderBy('name', 'asc');
+            }
+          } else {
+            // Shift management not enabled - return all tables
+            rows = await db()
+              .from('restaurant_tables')
+              .where({ tenant_id: req.tenant.id, branch_id: branchId })
+              .select(['id', 'name', 'area', 'status', 'seats', 'open_order_id', 'last_order_id', 'assigned_staff_id', 'assigned_staff_name', 'shift_type', 'updated_at'])
+              .orderBy('name', 'asc');
+          }
+        } catch {
+          // Fallback to all tables if shift service fails
+          rows = await db()
+            .from('restaurant_tables')
+            .where({ tenant_id: req.tenant.id, branch_id: branchId })
+            .select(['id', 'name', 'area', 'status', 'seats', 'open_order_id', 'last_order_id', 'assigned_staff_id', 'assigned_staff_name', 'shift_type', 'updated_at'])
+            .orderBy('name', 'asc');
+        }
 
         // Derive open orders from the orders table so stale open_order_id never points at a Paid order.
         // We intentionally keep this dialect-safe by parsing payload JSON in JS.
@@ -124,6 +171,10 @@ const makePosTablesRouter = ({
         }
 
         const nowIso = new Date().toISOString();
+        const shiftType = typeof body?.shiftType === 'string' && ['DAY', 'NIGHT', 'ALL'].includes(body.shiftType.toUpperCase())
+          ? body.shiftType.toUpperCase()
+          : 'ALL';
+
         await db()
           .from('restaurant_tables')
           .insert({
@@ -134,6 +185,7 @@ const makePosTablesRouter = ({
             area: typeof body?.area === 'string' && body.area.trim() ? body.area.trim() : null,
             status: typeof body?.status === 'string' && body.status.trim() ? body.status.trim() : 'Free',
             seats: Number.isFinite(Number(body?.seats)) ? Number(body.seats) : 4,
+            shift_type: shiftType,
             open_order_id: null,
             last_order_id: null,
             assigned_staff_id: typeof body?.assignedStaffId === 'string' && body.assignedStaffId.trim() ? body.assignedStaffId.trim() : null,
@@ -146,6 +198,7 @@ const makePosTablesRouter = ({
             area: typeof body?.area === 'string' && body.area.trim() ? body.area.trim() : null,
             status: typeof body?.status === 'string' && body.status.trim() ? body.status.trim() : 'Free',
             seats: Number.isFinite(Number(body?.seats)) ? Number(body.seats) : 4,
+            shift_type: shiftType,
             assigned_staff_id: typeof body?.assignedStaffId === 'string' && body.assignedStaffId.trim() ? body.assignedStaffId.trim() : null,
             assigned_staff_name: typeof body?.assignedStaffName === 'string' && body.assignedStaffName.trim() ? body.assignedStaffName.trim() : null,
             updated_at: nowIso,
@@ -276,6 +329,10 @@ const makePosTablesRouter = ({
         if (typeof body?.area === 'string' && body.area.trim()) patch.area = body.area.trim();
         if (typeof body?.status === 'string' && body.status.trim()) patch.status = body.status.trim();
         if (Number.isFinite(Number(body?.seats))) patch.seats = Number(body.seats);
+
+        if (typeof body?.shiftType === 'string' && ['DAY', 'NIGHT', 'ALL'].includes(body.shiftType.toUpperCase())) {
+          patch.shift_type = body.shiftType.toUpperCase();
+        }
 
         if (typeof body?.assignedStaffId === 'string') {
           patch.assigned_staff_id = body.assignedStaffId.trim() ? body.assignedStaffId.trim() : null;

@@ -1,4 +1,5 @@
 import { AppIcon } from '@/components/ui/app-icon';
+import { Sun, Moon, Calendar, ChevronDown } from 'lucide-react';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Screen } from '../../types';
@@ -39,12 +40,25 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
     onNavigate(canRefundFromHere ? Screen.MANAGER_ORDER_DETAILS : Screen.WAITER_RECEIPT);
   };
   const todayLabel = useMemo(() => formatDeviceDate(new Date(), { month: 'short', day: '2-digit', year: 'numeric' }), []);
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Completed' | 'Open' | 'Voided'>(() =>
-    getUiPref<'All' | 'Completed' | 'Open' | 'Voided'>('waiter.history.statusFilter', 'All'),
-  );
-  const [dateFilter, setDateFilter] = useState<'Today' | 'AllTime'>(() =>
-    getUiPref<'Today' | 'AllTime'>('waiter.history.dateFilter', 'Today'),
-  );
+  
+  // Date range filter - now supports custom date ranges
+  const [dateFilter, setDateFilter] = useState<'Today' | 'Yesterday' | 'Last7Days' | 'Last30Days' | 'Custom'>('Today');
+  const [customDateFrom, setCustomDateFrom] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [customDateTo, setCustomDateTo] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  
+  // Shift filter - DAY, NIGHT, or ALL
+  const [shiftFilter, setShiftFilter] = useState<'ALL' | 'DAY' | 'NIGHT'>('ALL');
+  
+  // Status filter
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Completed' | 'Open' | 'Voided'>('All');
+  
   const [query, setQuery] = useState(() => getUiPref<string>('waiter.history.query', ''));
 
   const [loading, setLoading] = useState(true);
@@ -66,7 +80,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
 
   useEffect(() => {
     setPage(1);
-  }, [query, statusFilter, dateFilter]);
+  }, [query, statusFilter, dateFilter, shiftFilter, customDateFrom, customDateTo]);
 
   useEffect(() => {
     setUiPref('waiter.history.statusFilter', statusFilter);
@@ -80,9 +94,19 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
     setUiPref('waiter.history.query', query);
   }, [query, setUiPref]);
 
+  // Close date picker when clicking outside
   useEffect(() => {
-    setUiPref('waiter.history.page', page);
-  }, [page, setUiPref]);
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target?.closest('.date-picker-container')) {
+        setShowDatePicker(false);
+      }
+    };
+    if (showDatePicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showDatePicker]);
 
   useEffect(() => {
     let mounted = true;
@@ -93,17 +117,70 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
         const params = new URLSearchParams();
         if (query.trim()) params.set('q', query.trim());
         if (statusParam) params.set('status', statusParam);
+        if (shiftFilter !== 'ALL') params.set('shift', shiftFilter);
         params.set('page', String(page));
         params.set('pageSize', String(pageSize));
 
-        if (dateFilter === 'Today') {
-          const now = new Date();
-          const yyyy = String(now.getFullYear());
-          const mm = String(now.getMonth() + 1).padStart(2, '0');
-          const dd = String(now.getDate()).padStart(2, '0');
-          const isoDay = `${yyyy}-${mm}-${dd}`;
-          params.set('from', isoDay);
-          params.set('to', isoDay);
+        // Calculate date range based on filter
+        const now = new Date();
+        let fromDate: string | null = null;
+        let toDate: string | null = null;
+
+        switch (dateFilter) {
+          case 'Today': {
+            const yyyy = String(now.getFullYear());
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            fromDate = `${yyyy}-${mm}-${dd}`;
+            toDate = fromDate;
+            break;
+          }
+          case 'Yesterday': {
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yyyy = String(yesterday.getFullYear());
+            const mm = String(yesterday.getMonth() + 1).padStart(2, '0');
+            const dd = String(yesterday.getDate()).padStart(2, '0');
+            fromDate = `${yyyy}-${mm}-${dd}`;
+            toDate = fromDate;
+            break;
+          }
+          case 'Last7Days': {
+            const last7 = new Date(now);
+            last7.setDate(last7.getDate() - 6);
+            const yyyyFrom = String(last7.getFullYear());
+            const mmFrom = String(last7.getMonth() + 1).padStart(2, '0');
+            const ddFrom = String(last7.getDate()).padStart(2, '0');
+            const yyyyTo = String(now.getFullYear());
+            const mmTo = String(now.getMonth() + 1).padStart(2, '0');
+            const ddTo = String(now.getDate()).padStart(2, '0');
+            fromDate = `${yyyyFrom}-${mmFrom}-${ddFrom}`;
+            toDate = `${yyyyTo}-${mmTo}-${ddTo}`;
+            break;
+          }
+          case 'Last30Days': {
+            const last30 = new Date(now);
+            last30.setDate(last30.getDate() - 29);
+            const yyyyFrom = String(last30.getFullYear());
+            const mmFrom = String(last30.getMonth() + 1).padStart(2, '0');
+            const ddFrom = String(last30.getDate()).padStart(2, '0');
+            const yyyyTo = String(now.getFullYear());
+            const mmTo = String(now.getMonth() + 1).padStart(2, '0');
+            const ddTo = String(now.getDate()).padStart(2, '0');
+            fromDate = `${yyyyFrom}-${mmFrom}-${ddFrom}`;
+            toDate = `${yyyyTo}-${mmTo}-${ddTo}`;
+            break;
+          }
+          case 'Custom': {
+            fromDate = customDateFrom;
+            toDate = customDateTo;
+            break;
+          }
+        }
+
+        if (fromDate && toDate) {
+          params.set('from', fromDate);
+          params.set('to', toDate);
         }
 
         const res = await apiFetch(`/api/waiter/history?${params.toString()}`);
@@ -126,7 +203,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
     return () => {
       mounted = false;
     };
-  }, [dateFilter, page, pageSize, query, statusParam]);
+  }, [dateFilter, page, pageSize, query, statusParam, shiftFilter, customDateFrom, customDateTo]);
 
   const rows = useMemo(() => {
     const base = rowsRaw
@@ -141,6 +218,8 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
         const createdByStaffId = typeof o?.createdByStaffId === 'string' ? o.createdByStaffId : '';
         const totalAmount = typeof o?.total === 'number' ? o.total : Number(o?.total) || 0;
         const status = typeof o?.status === 'string' ? o.status : '';
+        // Get shift info from the order or its shift_id
+        const shiftType = o?.shiftType || o?.shift_type || '';
 
         const bestTime = paidAt || createdAt;
         const dt = bestTime
@@ -163,11 +242,12 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
           items,
           total: totalAmount,
           status,
+          shiftType,
         };
       })
       .filter((r) => r.id);
     return base;
-  }, [rowsRaw, statusParam]);
+  }, [rowsRaw]);
 
   const dailyPaidRows = useMemo(() => {
     if (!isWaiterManager) return [];
@@ -219,17 +299,37 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
   const dailyPaidTotal = useMemo(() => dailyPaidRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0), [dailyPaidRows]);
 
   const downloadDailySalesXlsx = async () => {
-    if (!isWaiterManager || dateFilter !== 'Today') return;
+    if (!isWaiterManager) return;
 
-    const d = new Date();
-    const yyyy = String(d.getFullYear());
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const isoDay = `${yyyy}-${mm}-${dd}`;
+    // Get date range based on current filter
+    let fromDate: string;
+    let toDate: string;
+    const now = new Date();
+
+    switch (dateFilter) {
+      case 'Today': {
+        fromDate = toDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        break;
+      }
+      case 'Yesterday': {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        fromDate = toDate = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+        break;
+      }
+      case 'Custom': {
+        fromDate = customDateFrom;
+        toDate = customDateTo;
+        break;
+      }
+      default: {
+        fromDate = toDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      }
+    }
 
     const qs = new URLSearchParams();
-    qs.set('from', isoDay);
-    qs.set('to', isoDay);
+    qs.set('from', fromDate);
+    qs.set('to', toDate);
 
     const res = await apiFetch(`/api/waiter/history/export/xlsx?${qs.toString()}`);
     if (!res.ok) throw new Error(`Export failed (HTTP ${res.status}).`);
@@ -237,7 +337,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
     const blob = await res.blob();
     const cd = res.headers.get('content-disposition') || '';
     const m = /filename="?([^";]+)"?/i.exec(cd);
-    const filename = m?.[1] ? String(m[1]) : `daily_sales_${isoDay}.xlsx`;
+    const filename = m?.[1] ? String(m[1]) : `sales_${fromDate}_to_${toDate}.xlsx`;
 
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -250,17 +350,37 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
   };
 
   const downloadDailySalesPdf = async () => {
-    if (!isWaiterManager || dateFilter !== 'Today') return;
+    if (!isWaiterManager) return;
 
-    const d = new Date();
-    const yyyy = String(d.getFullYear());
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const isoDay = `${yyyy}-${mm}-${dd}`;
+    // Get date range based on current filter
+    let fromDate: string;
+    let toDate: string;
+    const now = new Date();
+
+    switch (dateFilter) {
+      case 'Today': {
+        fromDate = toDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        break;
+      }
+      case 'Yesterday': {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        fromDate = toDate = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+        break;
+      }
+      case 'Custom': {
+        fromDate = customDateFrom;
+        toDate = customDateTo;
+        break;
+      }
+      default: {
+        fromDate = toDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      }
+    }
 
     const qs = new URLSearchParams();
-    qs.set('from', isoDay);
-    qs.set('to', isoDay);
+    qs.set('from', fromDate);
+    qs.set('to', toDate);
 
     try {
       const res = await apiFetch(`/api/waiter/history/export/pdf?${qs.toString()}`);
@@ -269,7 +389,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
       const blob = await res.blob();
       const cd = res.headers.get('content-disposition') || '';
       const m = /filename="?([^";]+)"?/i.exec(cd);
-      const filename = m?.[1] ? String(m[1]) : `daily_sales_${isoDay}.pdf`;
+      const filename = m?.[1] ? String(m[1]) : `sales_${fromDate}_to_${toDate}.pdf`;
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -296,7 +416,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
             <p className="text-muted-foreground">View and manage past transactions</p>
           </div>
           <div className="flex items-center gap-2">
-            {isWaiterManager && dateFilter === 'Today' ? (
+            {isWaiterManager ? (
               <div className="hidden lg:flex items-center gap-2 mr-2">
                 <button
                   onClick={() => void downloadDailySalesXlsx()}
@@ -314,29 +434,101 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
                 </button>
               </div>
             ) : null}
-            <button
-              onClick={() => setDateFilter('Today')}
-              className={`h-10 px-3 rounded-lg border text-sm font-bold transition-colors ${
-                dateFilter === 'Today'
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
-              }`}
-            >
-              Today
-            </button>
-            <button
-              onClick={() => setDateFilter('AllTime')}
-              className={`h-10 px-3 rounded-lg border text-sm font-bold transition-colors ${
-                dateFilter === 'AllTime'
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
-              }`}
-            >
-              All Time
-            </button>
-            <div className="hidden md:flex items-center bg-card rounded-lg border border-border h-10 px-3">
-              <AppIcon name="calendar_today" className="text-muted-foreground text-[20px] mr-2" size={20} />
-              <span className="text-sm text-foreground font-medium">{todayLabel}</span>
+            
+            {/* Professional Date Range Dropdown */}
+            <div className="relative date-picker-container">
+              <button
+                onClick={() => setShowDatePicker(!showDatePicker)}
+                className="h-10 px-3 rounded-lg border text-sm font-bold transition-colors bg-card text-muted-foreground border-border hover:border-primary/50 hover:text-foreground flex items-center gap-2"
+                type="button"
+              >
+                <Calendar className="w-4 h-4" />
+                {dateFilter === 'Today' && 'Today'}
+                {dateFilter === 'Yesterday' && 'Yesterday'}
+                {dateFilter === 'Last7Days' && 'Last 7 Days'}
+                {dateFilter === 'Last30Days' && 'Last 30 Days'}
+                {dateFilter === 'Custom' && `${customDateFrom} - ${customDateTo}`}
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              
+              {showDatePicker && (
+                <div className="absolute right-0 mt-2 w-64 bg-card rounded-lg border border-border shadow-xl z-50">
+                  <div className="p-2">
+                    <button
+                      onClick={() => { setDateFilter('Today'); setShowDatePicker(false); }}
+                      className={`w-full px-3 py-2 rounded text-sm text-left transition-colors ${dateFilter === 'Today' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={() => { setDateFilter('Yesterday'); setShowDatePicker(false); }}
+                      className={`w-full px-3 py-2 rounded text-sm text-left transition-colors ${dateFilter === 'Yesterday' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                    >
+                      Yesterday
+                    </button>
+                    <button
+                      onClick={() => { setDateFilter('Last7Days'); setShowDatePicker(false); }}
+                      className={`w-full px-3 py-2 rounded text-sm text-left transition-colors ${dateFilter === 'Last7Days' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                    >
+                      Last 7 Days
+                    </button>
+                    <button
+                      onClick={() => { setDateFilter('Last30Days'); setShowDatePicker(false); }}
+                      className={`w-full px-3 py-2 rounded text-sm text-left transition-colors ${dateFilter === 'Last30Days' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                    >
+                      Last 30 Days
+                    </button>
+                    <div className="border-t border-border my-2" />
+                    <div className="px-3 py-2">
+                      <p className="text-xs text-muted-foreground mb-2">Custom Range</p>
+                      <div className="flex flex-col gap-2">
+                        <input
+                          type="date"
+                          value={customDateFrom}
+                          onChange={(e) => {
+                            setCustomDateFrom(e.target.value);
+                            setDateFilter('Custom');
+                          }}
+                          className="w-full px-2 py-1 text-sm rounded border border-border bg-background"
+                        />
+                        <input
+                          type="date"
+                          value={customDateTo}
+                          onChange={(e) => {
+                            setCustomDateTo(e.target.value);
+                            setDateFilter('Custom');
+                          }}
+                          className="w-full px-2 py-1 text-sm rounded border border-border bg-background"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Shift Filter Buttons */}
+            <div className="flex items-center bg-card rounded-lg border border-border p-1">
+              <button
+                onClick={() => setShiftFilter('ALL')}
+                className={`h-8 px-3 rounded text-sm font-medium transition-colors ${shiftFilter === 'ALL' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                All Shifts
+              </button>
+              <button
+                onClick={() => setShiftFilter('DAY')}
+                className={`h-8 px-3 rounded text-sm font-medium transition-colors flex items-center gap-1 ${shiftFilter === 'DAY' ? 'bg-amber-500 text-white' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Sun className="w-3 h-3" />
+                Day
+              </button>
+              <button
+                onClick={() => setShiftFilter('NIGHT')}
+                className={`h-8 px-3 rounded text-sm font-medium transition-colors flex items-center gap-1 ${shiftFilter === 'NIGHT' ? 'bg-indigo-500 text-white' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Moon className="w-3 h-3" />
+                Night
+              </button>
             </div>
           </div>
         </div>
@@ -372,6 +564,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
               <thead className="bg-secondary/50 text-muted-foreground text-xs uppercase font-semibold tracking-wider sticky top-0 z-10 backdrop-blur-sm">
                 <tr>
                   <th className="px-6 py-4">Order ID</th>
+                  <th className="px-6 py-4">Shift</th>
                   <th className="px-6 py-4">Table</th>
                   <th className="px-6 py-4">Time</th>
                   <th className="px-6 py-4">By</th>
@@ -384,7 +577,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
               <tbody className="divide-y divide-border text-sm">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-8 text-muted-foreground">
+                    <td colSpan={9} className="px-6 py-8 text-muted-foreground">
                       Loading 
                     </td>
                   </tr>
@@ -396,9 +589,24 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
                     onClick={() => openOrder(r.id)}
                   >
                     <td className="px-6 py-4 font-mono text-primary">{r.number}</td>
+                    <td className="px-6 py-4">
+                      {r.shiftType === 'DAY' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                          <Sun className="w-3 h-3 mr-1" />
+                          Day
+                        </span>
+                      ) : r.shiftType === 'NIGHT' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
+                          <Moon className="w-3 h-3 mr-1" />
+                          Night
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-foreground">{r.table}</td>
                     <td className="px-6 py-4 text-muted-foreground">{r.time}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{r.by || ' ”'}</td>
+                    <td className="px-6 py-4 text-muted-foreground">{r.by || ' -'}</td>
                     <td className="px-6 py-4 text-foreground truncate max-w-xs">{r.itemsSummary}</td>
                     <td className="px-6 py-4 text-right font-mono text-foreground font-medium">ETB {r.total.toFixed(2)}</td>
                     <td className="px-6 py-4 text-center">

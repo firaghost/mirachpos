@@ -57,3 +57,21 @@ localStorage.clear();
 sessionStorage.clear();
 window.location.reload();
 ```
+
+
+
+
+
+
+
+
+
+
+
+curl -X POST http://localhost:3001/api/pos/shifts/open \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZW5hbnRJZCI6InRfNWRlNGQ0Y2RiNmVjZl8xOWQyZGVjNmI5MSIsInN0YWZmSWQiOiJzXzIxYmI4ZTZkMWUxNDVfMTlkMmUwMzcwMTEiLCJyb2xlIjoiV2FpdGVyIE1hbmFnZXIiLCJicmFuY2hJZCI6ImJyX2VjYjQwMzhjZDQzZjZfMTlkMmRlYzZiOTEiLCJpYXQiOjE3NzQ4MDA4OTgsImV4cCI6MTc3NDg0NDA5OH0.j5ajGa5qBsmfCovhVgKY72Iyeu0-MAbxSdYA7wLrzls" \
+  -H "X-Tenant: cafe1" \
+  -d '{"shiftType": "DAY", "openingCash": 0, "notes": "Opening shift"}'
+
+  curl -X POST http://localhost:3001/api/pos/shifts -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZW5hbnRJZCI6InRfNWRlNGQ0Y2RiNmVjZl8xOWQyZGVjNmI5MSIsInN0YWZmSWQiOiJzXzIxYmI4ZTZkMWUxNDVfMTlkMmUwMzcwMTEiLCJyb2xlIjoiV2FpdGVyIE1hbmFnZXIiLCJicmFuY2hJZCI6ImJyX2VjYjQwMzhjZDQzZjZfMTlkMmRlYzZiOTEiLCJpYXQiOjE3NzQ4MDA4OTgsImV4cCI6MTc3NDg0NDA5OH0.j5ajGa5qBsmfCovhVgKY72Iyeu0-MAbxSdYA7wLrzls" -H "X-Tenant: cafe1" -d '{"shiftType": "DAY", "openingCash": 0}'

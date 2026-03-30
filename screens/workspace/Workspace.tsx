@@ -1,9 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 
 import { Screen } from '../../types';
 import { usePos } from '../../PosContext';
+import { useShift } from '../../src/contexts/ShiftContext';
 import { readSession } from '../../session';
 import { apiFetch } from '../../api';
+import { ShiftIndicator } from '../../components/ShiftIndicator';
+import { ShiftManagerModal } from '../../components/ShiftManagerModal';
 
 import { cn } from '@/components/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -598,6 +601,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   
   // Product swap modal state
   const [showProductSwapModal, setShowProductSwapModal] = useState<{ orderId: string; productId: string; currentName: string } | null>(null);
+  const [shiftModalOpen, setShiftModalOpen] = useState(false);
+
+  // Get current shift for display only (don't filter tables)
+  const { currentShift } = useShift();
+  const currentShiftType = currentShift?.shiftType || 'ALL';
+
+  // Shift modal handler
+  const handleOpenShiftModal = useCallback(() => {
+    console.log('[DEBUG] handleOpenShiftModal called, setting shiftModalOpen to true');
+    setShiftModalOpen(true);
+  }, []);
+
+  // Show all tables - no shift filtering
+  const filteredTables = tables;
 
   return (
     <div className="h-screen w-full flex bg-background text-sm overflow-hidden">
@@ -610,11 +627,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
         {/* Mobile header */}
         <div className="lg:hidden flex items-center justify-between p-3 border-b">
           <span className="font-bold text-lg">Tables</span>
-          <span className="text-xs text-muted-foreground">{tables.length} total</span>
+          <div className="flex items-center gap-2">
+            <ShiftIndicator onOpenShiftModal={handleOpenShiftModal} compact />
+            <span className="text-xs text-muted-foreground">{filteredTables.length} / {tables.length}</span>
+          </div>
+        </div>
+
+        {/* Desktop header */}
+        <div className="hidden lg:flex items-center justify-between p-3 border-b">
+          <span className="font-bold text-lg">Tables</span>
+          <div className="flex items-center gap-2">
+            <ShiftIndicator onOpenShiftModal={handleOpenShiftModal} />
+            <span className="text-xs text-muted-foreground">{filteredTables.length} showing</span>
+          </div>
         </div>
         <div className="flex-1 min-h-0 overflow-auto p-3 sm:p-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-            {tables.map((t) => {
+            {filteredTables.map((t) => {
               const active = selectedTableId === t.id;
               const order = t.openOrderId ? orders.find(o => o.id === t.openOrderId) : null;
               const isFree = t.openOrderId == null;
@@ -1763,6 +1792,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
           </div>
         </div>
       )}
+      <ShiftManagerModal isOpen={shiftModalOpen} onClose={() => setShiftModalOpen(false)} />
     </div>
   );
 };

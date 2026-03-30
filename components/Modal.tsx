@@ -22,7 +22,7 @@ export const Modal: React.FC<Props> = ({ open, title, children, onClose, footer 
   if (!open) return null;
 
   return (
-    <div className="fixed top-0 bottom-0 right-0 left-64 z-[100] flex items-center justify-center">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div className="relative w-full max-w-lg mx-4 rounded-2xl border border-border bg-card text-foreground shadow-2xl">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">

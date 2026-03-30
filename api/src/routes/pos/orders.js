@@ -18,6 +18,12 @@ const { requireRole, requirePermission } = require('../../middleware/permissions
 const { logAudit } = require('../../utils/logger');
 const { createOrFireTicketForOrder, EVENT_TYPE } = require('../../services/kdsService');
 const { evaluateMenuCart } = require('../../services/menuEvaluationService');
+const {
+  getCurrentShift,
+  isShiftManagementEnabled,
+  updateShiftMetrics,
+  getBusinessDate,
+} = require('../../services/shiftService');
 
 const isMissingTableError = (e) => {
   const code = String(e?.code || '').trim().toUpperCase();
@@ -1099,6 +1105,22 @@ const makePosOrdersRouter = ({
           return tableId;
         })();
 
+        // Get shift info if shift management is enabled
+        let shiftId = null;
+        let businessDate = null;
+        try {
+          const shiftEnabled = await isShiftManagementEnabled({ tenantId: req.tenant.id, branchId });
+          if (shiftEnabled) {
+            const currentShift = await getCurrentShift({ tenantId: req.tenant.id, branchId });
+            if (currentShift) {
+              shiftId = currentShift.id;
+              businessDate = currentShift.business_date;
+            }
+          }
+        } catch {
+          // Ignore shift detection errors, proceed without shift data
+        }
+
         await db().transaction(async (trx) => {
           await trx
             .from('orders')
@@ -1124,6 +1146,8 @@ const makePosOrdersRouter = ({
               payment_reference: normalizedCols.payment_reference,
               tendered_amount: normalizedCols.tendered_amount,
               notes: normalizedCols.notes,
+              shift_id: shiftId,
+              business_date: businessDate,
               updated_at: nowIso,
               payload: JSON.stringify(nextPayload),
             })
@@ -1146,6 +1170,8 @@ const makePosOrdersRouter = ({
               payment_reference: normalizedCols.payment_reference,
               tendered_amount: normalizedCols.tendered_amount,
               notes: normalizedCols.notes,
+              shift_id: shiftId,
+              business_date: businessDate,
               updated_at: nowIso,
               payload: JSON.stringify(nextPayload),
             });

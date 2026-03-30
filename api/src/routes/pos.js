@@ -578,7 +578,7 @@ const loadRestaurantTable = async ({ tenantId, branchId, tableId }) => {
     const row = await db()
       .from('restaurant_tables')
       .where({ tenant_id: tenantId, branch_id: branchId, id: String(tableId || '').trim() })
-      .select(['id', 'name', 'area', 'status', 'seats', 'open_order_id', 'last_order_id', 'assigned_staff_id', 'assigned_staff_name', 'updated_at'])
+      .select(['id', 'name', 'area', 'status', 'seats', 'open_order_id', 'last_order_id', 'assigned_staff_id', 'assigned_staff_name', 'shift_type', 'updated_at'])
       .first();
     return row || null;
   } catch {
@@ -598,6 +598,7 @@ const mapRestaurantTableRow = (row) => {
     lastOrderId: row.last_order_id ? String(row.last_order_id) : null,
     assignedStaffId: row.assigned_staff_id ? String(row.assigned_staff_id) : null,
     assignedStaffName: row.assigned_staff_name ? String(row.assigned_staff_name) : null,
+    shiftType: row.shift_type ? String(row.shift_type) : 'ALL',
     updatedAt: row.updated_at || null,
   };
 };
@@ -1690,7 +1691,7 @@ const resolveBranchId = async (req) => {
 const makePosRouter = () => {
   const r = express.Router();
 
-  r.use(makePosShiftsRouter());
+  r.use(makePosShiftsRouter({ resolveBranchId, setNoStore }));
   r.use(makePosCustomerDisplayRouter({ resolveBranchId }));
   r.use(makePosPrintQueueRouter({ resolveBranchId, loadBranchSettings, hydratePayloadFromNormalized, makeKitchenTicketPayload, sendTcp, mapPrintError }));
   r.use(makePosHardwareRouter({ resolveBranchId, sendTcp }));

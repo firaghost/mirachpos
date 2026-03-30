@@ -129,11 +129,13 @@ export interface InventoryItem {
 export interface Table {
   id: string;
   name: string;
+  code?: string;
   area?: 'Main Hall' | 'Patio' | 'Bar Area' | 'Private Room';
   status: 'Free' | 'Occupied' | 'Reserved' | 'Payment';
   seats: number;
   orderTotal?: number;
   time?: string;
+  shiftType?: 'DAY' | 'NIGHT' | 'ALL';
 }
 
 export type PosOrderStatus = 'Pending' | 'Cooking' | 'Ready' | 'Served' | 'Billing' | 'Paid' | 'Voided' | 'Refunded';

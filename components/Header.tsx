@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../api';
 import { readSession } from '../session';
 import { ThemeToggle } from './ui/theme-toggle';
+import { ShiftIndicator } from './ShiftIndicator';
+import { ShiftManagerModal } from './ShiftManagerModal';
 
 import { AppIcon } from '@/components/ui/app-icon';
 export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; action?: React.ReactNode }> = ({ title, subtitle, action }) => {
@@ -10,6 +12,7 @@ export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; actio
   const [updaterDismissed, setUpdaterDismissed] = useState(false);
   const [installingLocal, setInstallingLocal] = useState(false);
   const [branchName, setBranchName] = useState<string>('');
+  const [shiftModalOpen, setShiftModalOpen] = useState(false);
 
   useEffect(() => {
     const onSessionChanged = () => {
@@ -209,6 +212,7 @@ export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; actio
 
         <div className="flex items-center gap-3">
           {action ? <div className="flex flex-wrap items-center justify-end gap-2">{action}</div> : null}
+          <ShiftIndicator onOpenShiftModal={() => setShiftModalOpen(true)} />
           <div className="flex items-center gap-3">
             <ThemeToggle size="sm" />
             <div className="text-right hidden md:block">
@@ -227,6 +231,8 @@ export const Header: React.FC<{ title: string; subtitle?: React.ReactNode; actio
           <div className="pointer-events-auto">{updaterUi}</div>
         </div>
       ) : null}
+
+      <ShiftManagerModal isOpen={shiftModalOpen} onClose={() => setShiftModalOpen(false)} />
     </header>
   );
 };

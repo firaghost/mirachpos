@@ -11,6 +11,7 @@ const { validateWaiterAccount, validateWaiterHistoryQuery } = require('../middle
 const { sanitizeLikeInput, sanitizeText } = require('../utils/sanitize');
 const { uid } = require('../utils/ids');
 const { createOrFireTicketForOrder, EVENT_TYPE } = require('../services/kdsService');
+const { getCurrentShift, updateShiftMetrics } = require('../services/shiftService');
 
 const makeWaiterRouter = () => {
   const r = express.Router();
@@ -78,6 +79,13 @@ const makeWaiterRouter = () => {
         .first();
       const waiterName = staffRow?.name ? String(staffRow.name) : '';
 
+      // Get current shift for this order
+      const currentShift = await getCurrentShift({
+        tenantId: req.tenant.id,
+        branchId,
+      });
+      const shiftId = currentShift?.id || null;
+
       // Build payload
       const payload = {
         items: items.map(item => ({
@@ -127,7 +135,7 @@ const makeWaiterRouter = () => {
             created_by_name: waiterName,
             notes: String(note || ''),
             updated_at: nowIso,
-            payload: JSON.stringify(payload),
+            shift_id: shiftId,
           });
 
         // Insert order items
@@ -363,6 +371,7 @@ const makeWaiterRouter = () => {
           tenant_id: req.tenant.id,
           branch_id: branchId,
           order_id: orderId,
+          shift_id: orderRow.shift_id,
           method: String(method || 'cash'),
           amount: total,
           tendered_amount: tendered,
@@ -370,6 +379,26 @@ const makeWaiterRouter = () => {
           reference: String(reference || ''),
           created_at: nowIso,
         });
+
+        // Update shift metrics if order has shift_id
+        if (orderRow.shift_id) {
+          try {
+            await updateShiftMetrics({
+              shiftId: orderRow.shift_id,
+              orderData: {
+                total,
+                tax: Number(orderRow.tax || 0),
+                tip: Number(orderRow.tip || 0),
+                discount: Number(orderRow.discount || 0),
+                subtotal: total - Number(orderRow.tax || 0) - Number(orderRow.tip || 0),
+                paymentMethod: method || 'cash',
+              },
+            });
+          } catch (err) {
+            console.error('Failed to update shift metrics:', err);
+            // Don't fail the payment if shift update fails
+          }
+        }
 
         // Bump KDS tickets
         await trx('kds_tickets')
@@ -650,20 +679,27 @@ const makeWaiterRouter = () => {
       .groupBy('staff_id', 'staff_name')
       .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0)'), 'desc');
 
-    // Hourly breakdown
-    const hourlySales = await db()
-      .from({ o: 'orders' })
-      .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
-      .andWhere((qb) => {
-        qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+    // Shift breakdown - aggregate sales by shift for the day
+    const shiftSales = await db()
+      .from({ s: 'shifts' })
+      .leftJoin({ o: 'orders' }, function () {
+        this.on('o.shift_id', '=', 's.id')
+          .andOn('o.tenant_id', '=', 's.tenant_id')
+          .andOn('o.branch_id', '=', 's.branch_id')
+          .andOn('o.status', '=', db().raw("'Paid'"));
       })
+      .where({ 's.tenant_id': tenantId, 's.branch_id': branchId })
+      .andWhere('s.business_date', '=', day)
       .select([
-        db().raw("DATE_FORMAT(o.paid_at, '%H:00') as hour"),
-        db().raw('COUNT(*) as order_count'),
+        's.id',
+        's.shift_type',
+        's.opened_at',
+        's.closed_at',
+        db().raw('COUNT(o.id) as order_count'),
         db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as total'),
       ])
-      .groupBy('hour')
-      .orderBy('hour');
+      .groupBy('s.id', 's.shift_type', 's.opened_at', 's.closed_at')
+      .orderBy('s.opened_at');
 
     // Voids and refunds
     const voids = await db()
@@ -714,6 +750,76 @@ const makeWaiterRouter = () => {
       ])
       .groupBy('product_name', 'category', 'oi.product_id');
 
+    // Products by Shift - DAY vs NIGHT breakdown
+    let productsByShiftRaw = [];
+    try {
+      productsByShiftRaw = await db()
+        .from({ oi: 'order_items' })
+        .innerJoin({ o: 'orders' }, function () {
+          this.on('o.id', '=', 'oi.order_id')
+            .andOn('o.tenant_id', '=', 'oi.tenant_id')
+            .andOn('o.branch_id', '=', 'oi.branch_id');
+        })
+        .innerJoin({ s: 'shifts' }, function () {
+          this.on('s.id', '=', 'o.shift_id')
+            .andOn('s.tenant_id', '=', 'o.tenant_id')
+            .andOn('s.branch_id', '=', 'o.branch_id');
+        })
+        .leftJoin({ p: 'menu_products' }, function () {
+          this.on('p.id', '=', 'oi.product_id')
+            .andOn('p.tenant_id', '=', 'oi.tenant_id')
+            .andOn('p.branch_id', '=', 'oi.branch_id');
+        })
+        .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
+        .andWhere((qb) => {
+          qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+        })
+        .whereIn('s.shift_type', ['DAY', 'NIGHT'])
+        .select([
+          's.shift_type',
+          db().raw('COALESCE(NULLIF(TRIM(oi.name), \'\'), \'Unknown\') as product_name'),
+          db().raw('COALESCE(NULLIF(TRIM(p.category), \'\'), \'Uncategorized\') as category'),
+          db().raw('SUM(COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) as qty_sold'),
+          db().raw('SUM((COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) * COALESCE(oi.unit_price, 0)) as revenue_etb'),
+          db().raw('COALESCE(oi.product_id, \'\') as product_id'),
+        ])
+        .groupBy('s.shift_type', 'product_name', 'category', 'oi.product_id');
+    } catch (err) {
+      console.error('productsByShift query failed:', err.message);
+      productsByShiftRaw = [];
+    }
+
+    // Staff performance by Shift - who sold what on each shift
+    let staffByShiftRaw = [];
+    try {
+      staffByShiftRaw = await db()
+        .from({ o: 'orders' })
+        .innerJoin({ s: 'shifts' }, function () {
+          this.on('s.id', '=', 'o.shift_id')
+            .andOn('s.tenant_id', '=', 'o.tenant_id')
+            .andOn('s.branch_id', '=', 'o.branch_id');
+        })
+        .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
+        .andWhere((qb) => {
+          qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+        })
+        .whereIn('s.shift_type', ['DAY', 'NIGHT'])
+        .select([
+          's.shift_type',
+          db().raw("COALESCE(NULLIF(TRIM(o.created_by_staff_id), ''), 'unknown') as staff_id"),
+          db().raw("COALESCE(NULLIF(TRIM(o.created_by_name), ''), 'Unknown') as staff_name"),
+          db().raw('COUNT(*) as order_count'),
+          db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as total_sales'),
+          db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as total_tips'),
+        ])
+        .groupBy('s.shift_type', 'staff_id', 'staff_name')
+        .orderBy('s.shift_type')
+        .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0'), 'desc');
+    } catch (err) {
+      console.error('staffByShift query failed:', err.message);
+      staffByShiftRaw = [];
+    }
+
     const rows = productRowsRaw
       .map((r) => ({
         productId: String(r.product_id || ''),
@@ -751,11 +857,34 @@ const makeWaiterRouter = () => {
       totalTips: Number(s.total_tips || 0),
     }));
 
-    // Format hourly sales
-    const hourlyBreakdown = hourlySales.map((h) => ({
-      hour: String(h.hour || '00:00'),
-      orderCount: Number(h.order_count || 0),
-      total: Number(h.total || 0),
+    // Format shift sales
+    const shiftBreakdown = shiftSales.map((s) => ({
+      shiftId: String(s.id || ''),
+      shiftType: String(s.shift_type || 'ALL'),
+      openedAt: s.opened_at ? new Date(s.opened_at).toISOString() : null,
+      closedAt: s.closed_at ? new Date(s.closed_at).toISOString() : null,
+      orderCount: Number(s.order_count || 0),
+      total: Number(s.total || 0),
+    }));
+
+    // Format products by shift
+    const productsByShift = (productsByShiftRaw || []).map((r) => ({
+      shiftType: String(r.shift_type || ''),
+      productId: String(r.product_id || ''),
+      name: String(r.product_name || ''),
+      category: String(r.category || 'Uncategorized'),
+      qtySold: Number(r.qty_sold || 0),
+      revenue: Number(r.revenue_etb || 0),
+    })).filter((r) => r.qtySold > 0).sort((a, b) => b.revenue - a.revenue);
+
+    // Format staff by shift
+    const staffByShift = (staffByShiftRaw || []).map((s) => ({
+      shiftType: String(s.shift_type || ''),
+      staffId: String(s.staff_id || 'unknown'),
+      staffName: String(s.staff_name || 'Unknown'),
+      orderCount: Number(s.order_count || 0),
+      totalSales: Number(s.total_sales || 0),
+      totalTips: Number(s.total_tips || 0),
     }));
 
     return {
@@ -774,7 +903,9 @@ const makeWaiterRouter = () => {
       products: rows,
       paymentMethods: paymentBreakdown,
       staffPerformance: staffBreakdown,
-      hourlySales: hourlyBreakdown,
+      shiftSales: shiftBreakdown,
+      productsByShift,
+      staffByShift,
     };
   };
 
@@ -879,9 +1010,10 @@ const makeWaiterRouter = () => {
       const staffId = String(req.auth?.staffId || '');
       if (!staffId) return res.status(401).json({ error: 'unauthorized' });
 
-      const { q: qRaw, status: statusRaw, from: fromRaw, to: toRaw, page: pageRaw, pageSize: pageSizeRaw } = req.validatedQuery || req.query;
+      const { q: qRaw, status: statusRaw, from: fromRaw, to: toRaw, page: pageRaw, pageSize: pageSizeRaw, shift: shiftRaw } = req.validatedQuery || req.query;
       const q = sanitizeLikeInput(qRaw, { lower: true, maxLen: 80 });
       const status = sanitizeText(statusRaw, { maxLen: 40 });
+      const shift = sanitizeText(shiftRaw, { maxLen: 10 });
       const page = Math.max(1, Number(pageRaw || 1) || 1);
       const pageSize = Math.min(50, Math.max(1, Number(pageSizeRaw || 25) || 25));
 
@@ -917,6 +1049,16 @@ const makeWaiterRouter = () => {
         }
       }
 
+      // Filter by shift type (DAY or NIGHT)
+      if (shift && (shift === 'DAY' || shift === 'NIGHT')) {
+        base.andWhereExists(function() {
+          this.select('*')
+            .from('shifts')
+            .whereRaw('shifts.id = orders.shift_id')
+            .andWhere('shifts.shift_type', shift);
+        });
+      }
+
       if (fromIso) {
         base.andWhere((qb) => {
           qb.where('created_at', '>=', fromIso).orWhere('paid_at', '>=', fromIso);
@@ -940,26 +1082,73 @@ const makeWaiterRouter = () => {
         });
       }
 
-      const countRow = await base.clone().clearSelect().clearOrder().count({ total: '*' }).first();
+      // The shift filter was already applied to base query above at lines 961-968
+      // Just clone and count - no need for additional filtering
+      const countRow = await base
+        .clone()
+        .count({ total: '*' })
+        .first();
       const total = Number(countRow?.total || 0);
 
-      const rows0 = await base
+      const baseWithJoin = db()
+        .from('orders')
+        .leftJoin('shifts', 'orders.shift_id', 'shifts.id')
+        .where({ 'orders.tenant_id': req.tenant.id, 'orders.branch_id': branchId });
+
+      // Re-apply all filters to the join query
+      if (status) {
+        if (status === 'Open') {
+          baseWithJoin.whereNotIn('orders.status', ['Paid', 'Voided']);
+        } else {
+          baseWithJoin.andWhere({ 'orders.status': status });
+        }
+      }
+
+      if (shift && (shift === 'DAY' || shift === 'NIGHT')) {
+        baseWithJoin.andWhere('shifts.shift_type', shift);
+      }
+
+      if (fromIso) {
+        baseWithJoin.andWhere((qb) => {
+          qb.where('orders.created_at', '>=', fromIso).orWhere('orders.paid_at', '>=', fromIso);
+        });
+      }
+      if (toIso) {
+        baseWithJoin.andWhere((qb) => {
+          qb.where('orders.created_at', '<=', toIso).orWhere('orders.paid_at', '<=', toIso);
+        });
+      }
+
+      if (role !== 'Waiter Manager') {
+        baseWithJoin.andWhere({ 'orders.created_by_staff_id': staffId });
+      }
+
+      if (q) {
+        const qLike = `%${q}%`;
+        baseWithJoin.andWhere((qb) => {
+          qb.whereRaw('LOWER(COALESCE(orders.display_number, \'\')) LIKE ?', [qLike])
+            .orWhereRaw('LOWER(COALESCE(orders.table_name, \'\')) LIKE ?', [qLike]);
+        });
+      }
+
+      const rows0 = await baseWithJoin
         .select([
-          'id',
-          'status',
-          'total',
-          'tax',
-          'tip',
-          'discount',
-          'created_at',
-          'paid_at',
-          'payload',
-          'display_number',
-          'table_name',
-          'created_by_staff_id',
-          'created_by_name',
+          'orders.id',
+          'orders.status',
+          'orders.total',
+          'orders.tax',
+          'orders.tip',
+          'orders.discount',
+          'orders.created_at',
+          'orders.paid_at',
+          'orders.payload',
+          'orders.display_number',
+          'orders.table_name',
+          'orders.created_by_staff_id',
+          'orders.created_by_name',
+          'shifts.shift_type',
         ])
-        .orderBy('created_at', 'desc')
+        .orderBy('orders.created_at', 'desc')
         .limit(pageSize)
         .offset((page - 1) * pageSize);
 
@@ -983,6 +1172,7 @@ const makeWaiterRouter = () => {
           items: Array.isArray(payload?.items) ? payload.items : [],
           status: String(o.status || ''),
           total: Number(o.total || 0),
+          shiftType: String(o.shift_type || ''),
           createdAt: o.created_at ? new Date(o.created_at).toISOString() : '',
           paidAt: o.paid_at ? new Date(o.paid_at).toISOString() : '',
         };
@@ -1006,9 +1196,23 @@ const makeWaiterRouter = () => {
       if (!requireWaiter(req, res)) return;
 
       const branchId = resolveBranchId(req);
+      const { from: fromRaw, to: toRaw } = req.query || {};
+      
+      // Use provided date range or default to today
+      const parseIsoDate = (s) => {
+        const v = String(s || '').trim();
+        if (!v) return null;
+        const m = /^\d{4}-\d{2}-\d{2}$/.exec(v);
+        if (!m) return null;
+        return v;
+      };
+      
+      const fromDate = parseIsoDate(fromRaw);
+      const toDate = parseIsoDate(toRaw);
       const today = new Date().toISOString().slice(0, 10);
+      const date = fromDate || toDate || today;
 
-      const agg = await buildWaiterTodaySalesReport({ tenantId: req.tenant.id, branchId, date: today });
+      const agg = await buildWaiterTodaySalesReport({ tenantId: req.tenant.id, branchId, date });
       if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
 
       const businessName = await getTenantBusinessName(req.tenant.id);
@@ -1128,18 +1332,20 @@ const makeWaiterRouter = () => {
         });
       }
       
-      // Hourly Summary
-      if (agg.hourlySales && agg.hourlySales.length > 0) {
+      // Shift Summary
+      if (agg.shiftSales && agg.shiftSales.length > 0) {
         summarySheet.addRow([]);
-        const hourlyStartRow = summarySheet.rowCount + 1;
-        summarySheet.addRow(['HOURLY BREAKDOWN']);
-        summarySheet.getRow(hourlyStartRow).font = { bold: true, size: 12, color: { argb: '1A365D' } };
-        summarySheet.getRow(hourlyStartRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F7FAFC' } };
+        const shiftStartRow = summarySheet.rowCount + 1;
+        summarySheet.addRow(['SHIFT BREAKDOWN']);
+        summarySheet.getRow(shiftStartRow).font = { bold: true, size: 12, color: { argb: '1A365D' } };
+        summarySheet.getRow(shiftStartRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F7FAFC' } };
         
-        agg.hourlySales.forEach((h, idx) => {
-          const rowNum = hourlyStartRow + 1 + idx;
-          summarySheet.addRow([`Hour ${h.hour}:`, `${h.orderCount} orders`, `ETB ${Number(h.total || 0).toFixed(2)}`, '']);
+        agg.shiftSales.forEach((s, idx) => {
+          const rowNum = shiftStartRow + 1 + idx;
+          const shiftLabel = s.shiftType === 'DAY' ? '☀ Day Shift' : s.shiftType === 'NIGHT' ? '🌙 Night Shift' : 'All Shifts';
+          summarySheet.addRow([`${shiftLabel}:`, `${s.orderCount} orders`, `ETB ${Number(s.total || 0).toFixed(2)}`, '']);
           summarySheet.getRow(rowNum).font = { size: 11 };
+          summarySheet.getRow(rowNum).getCell(1).font = { bold: true, size: 11 };
         });
       }
       
@@ -1296,45 +1502,223 @@ const makeWaiterRouter = () => {
         ];
       }
 
-      // Hourly Sales sheet
-      if (agg.hourlySales && agg.hourlySales.length > 0) {
-        const hourlySheet = wb.addWorksheet('Hourly Sales');
-        const hourlyMaxCol = 3;
+      // Shift Sales sheet (replaces Hourly Sales)
+      if (agg.shiftSales && agg.shiftSales.length > 0) {
+        const shiftSheet = wb.addWorksheet('Shift Sales');
+        const shiftMaxCol = 4;
         
-        hourlySheet.addRow([businessName]);
-        hourlySheet.getRow(1).font = { bold: true, size: 16 };
-        hourlySheet.getRow(1).alignment = { horizontal: 'center' };
-        hourlySheet.mergeCells(1, 1, 1, hourlyMaxCol);
+        shiftSheet.addRow([businessName]);
+        shiftSheet.getRow(1).font = { bold: true, size: 16 };
+        shiftSheet.getRow(1).alignment = { horizontal: 'center' };
+        shiftSheet.mergeCells(1, 1, 1, shiftMaxCol);
         
-        hourlySheet.addRow(['Hourly Sales Breakdown']);
-        hourlySheet.getRow(2).font = { bold: true, size: 14 };
-        hourlySheet.getRow(2).alignment = { horizontal: 'center' };
-        hourlySheet.mergeCells(2, 1, 2, hourlyMaxCol);
+        shiftSheet.addRow(['Shift Sales Breakdown']);
+        shiftSheet.getRow(2).font = { bold: true, size: 14 };
+        shiftSheet.getRow(2).alignment = { horizontal: 'center' };
+        shiftSheet.mergeCells(2, 1, 2, shiftMaxCol);
         
-        hourlySheet.addRow([`Date: ${agg.date}`]);
-        hourlySheet.getRow(3).font = { size: 11 };
-        hourlySheet.getRow(3).alignment = { horizontal: 'center' };
-        hourlySheet.mergeCells(3, 1, 3, hourlyMaxCol);
-        hourlySheet.addRow([]);
+        shiftSheet.addRow([`Date: ${agg.date}`]);
+        shiftSheet.getRow(3).font = { size: 11 };
+        shiftSheet.getRow(3).alignment = { horizontal: 'center' };
+        shiftSheet.mergeCells(3, 1, 3, shiftMaxCol);
+        shiftSheet.addRow([]);
         
-        const hourlyHeaders = ['Hour', 'Orders', 'Sales (ETB)'];
-        hourlySheet.addRow(hourlyHeaders);
-        hourlySheet.getRow(5).font = { bold: true };
-        hourlySheet.getRow(5).alignment = { horizontal: 'center' };
+        const shiftHeaders = ['Shift Type', 'Opened At', 'Orders', 'Sales (ETB)'];
+        shiftSheet.addRow(shiftHeaders);
+        shiftSheet.getRow(5).font = { bold: true };
+        shiftSheet.getRow(5).alignment = { horizontal: 'center' };
         
-        agg.hourlySales.forEach((h) => {
-          hourlySheet.addRow([h.hour, h.orderCount, Number(h.total || 0).toFixed(2)]);
+        agg.shiftSales.forEach((s) => {
+          const shiftLabel = s.shiftType === 'DAY' ? 'Day Shift' : s.shiftType === 'NIGHT' ? 'Night Shift' : 'All Shifts';
+          const openedTime = s.openedAt ? new Date(s.openedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-';
+          shiftSheet.addRow([shiftLabel, openedTime, s.orderCount, Number(s.total || 0).toFixed(2)]);
         });
         
         // Add total row
-        const totalRow = hourlySheet.rowCount + 1;
-        hourlySheet.addRow(['Total', agg.orderCount, agg.hourlySales.reduce((sum, h) => sum + Number(h.total || 0), 0).toFixed(2)]);
-        hourlySheet.getRow(totalRow).font = { bold: true };
+        const totalRow = shiftSheet.rowCount + 1;
+        shiftSheet.addRow(['Total', '', agg.orderCount, agg.shiftSales.reduce((sum, s) => sum + Number(s.total || 0), 0).toFixed(2)]);
+        shiftSheet.getRow(totalRow).font = { bold: true };
         
-        hourlySheet.columns = [
+        shiftSheet.columns = [
+          { width: 18 },
           { width: 15 },
           { width: 12, style: { numFmt: '0' } },
           { width: 18, style: { numFmt: '#,##0.00' } },
+        ];
+      }
+
+      // Products by Shift sheet - separated DAY vs NIGHT
+      if (agg.productsByShift && agg.productsByShift.length > 0) {
+        const prodShiftSheet = wb.addWorksheet('Products by Shift');
+        const prodShiftMaxCol = 6;
+        
+        prodShiftSheet.addRow([businessName]);
+        prodShiftSheet.getRow(1).font = { bold: true, size: 16, color: { argb: '1A365D' } };
+        prodShiftSheet.getRow(1).alignment = { horizontal: 'center' };
+        prodShiftSheet.mergeCells(1, 1, 1, prodShiftMaxCol);
+        
+        prodShiftSheet.addRow(['Products Sold by Shift']);
+        prodShiftSheet.getRow(2).font = { bold: true, size: 14, color: { argb: '2C5282' } };
+        prodShiftSheet.getRow(2).alignment = { horizontal: 'center' };
+        prodShiftSheet.mergeCells(2, 1, 2, prodShiftMaxCol);
+        
+        prodShiftSheet.addRow([`Date: ${agg.date}`]);
+        prodShiftSheet.getRow(3).font = { size: 11, color: { argb: '718096' } };
+        prodShiftSheet.getRow(3).alignment = { horizontal: 'center' };
+        prodShiftSheet.mergeCells(3, 1, 3, prodShiftMaxCol);
+        prodShiftSheet.addRow([]);
+
+        // Group products by shift
+        const dayProducts = agg.productsByShift.filter(p => p.shiftType === 'DAY');
+        const nightProducts = agg.productsByShift.filter(p => p.shiftType === 'NIGHT');
+
+        let currentRow = 5;
+
+        // Day Shift Products
+        if (dayProducts.length > 0) {
+          prodShiftSheet.addRow(['☀ DAY SHIFT PRODUCTS']);
+          prodShiftSheet.getRow(currentRow).font = { bold: true, size: 12, color: { argb: 'B45309' } };
+          prodShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FEF3C7' } };
+          currentRow++;
+          
+          const dayHeaders = ['Product', 'Category', 'Qty Sold', 'Revenue (ETB)'];
+          prodShiftSheet.addRow(dayHeaders);
+          prodShiftSheet.getRow(currentRow).font = { bold: true };
+          prodShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FDE68A' } };
+          currentRow++;
+
+          dayProducts.forEach((p) => {
+            prodShiftSheet.addRow([p.name, p.category, p.qtySold, Number(p.revenue || 0).toFixed(2)]);
+            currentRow++;
+          });
+          
+          // Day shift total
+          prodShiftSheet.addRow(['Day Shift Total', '', dayProducts.reduce((sum, p) => sum + Number(p.qtySold || 0), 0), dayProducts.reduce((sum, p) => sum + Number(p.revenue || 0), 0).toFixed(2)]);
+          prodShiftSheet.getRow(currentRow).font = { bold: true, color: { argb: 'B45309' } };
+          prodShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FEF3C7' } };
+          currentRow++;
+          prodShiftSheet.addRow([]);
+          currentRow++;
+        }
+
+        // Night Shift Products
+        if (nightProducts.length > 0) {
+          prodShiftSheet.addRow(['🌙 NIGHT SHIFT PRODUCTS']);
+          prodShiftSheet.getRow(currentRow).font = { bold: true, size: 12, color: { argb: '3730A3' } };
+          prodShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E0E7FF' } };
+          currentRow++;
+          
+          const nightHeaders = ['Product', 'Category', 'Qty Sold', 'Revenue (ETB)'];
+          prodShiftSheet.addRow(nightHeaders);
+          prodShiftSheet.getRow(currentRow).font = { bold: true };
+          prodShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'C7D2FE' } };
+          currentRow++;
+
+          nightProducts.forEach((p) => {
+            prodShiftSheet.addRow([p.name, p.category, p.qtySold, Number(p.revenue || 0).toFixed(2)]);
+            currentRow++;
+          });
+          
+          // Night shift total
+          prodShiftSheet.addRow(['Night Shift Total', '', nightProducts.reduce((sum, p) => sum + Number(p.qtySold || 0), 0), nightProducts.reduce((sum, p) => sum + Number(p.revenue || 0), 0).toFixed(2)]);
+          prodShiftSheet.getRow(currentRow).font = { bold: true, color: { argb: '3730A3' } };
+          prodShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E0E7FF' } };
+        }
+
+        prodShiftSheet.columns = [
+          { width: 32 },
+          { width: 18 },
+          { width: 12, style: { numFmt: '0' } },
+          { width: 16, style: { numFmt: '#,##0.00' } },
+          { width: 12 },
+          { width: 16 },
+        ];
+      }
+
+      // Staff by Shift sheet - separated DAY vs NIGHT
+      if (agg.staffByShift && agg.staffByShift.length > 0) {
+        const staffShiftSheet = wb.addWorksheet('Staff by Shift');
+        const staffShiftMaxCol = 5;
+        
+        staffShiftSheet.addRow([businessName]);
+        staffShiftSheet.getRow(1).font = { bold: true, size: 16, color: { argb: '1A365D' } };
+        staffShiftSheet.getRow(1).alignment = { horizontal: 'center' };
+        staffShiftSheet.mergeCells(1, 1, 1, staffShiftMaxCol);
+        
+        staffShiftSheet.addRow(['Staff Performance by Shift']);
+        staffShiftSheet.getRow(2).font = { bold: true, size: 14, color: { argb: '2C5282' } };
+        staffShiftSheet.getRow(2).alignment = { horizontal: 'center' };
+        staffShiftSheet.mergeCells(2, 1, 2, staffShiftMaxCol);
+        
+        staffShiftSheet.addRow([`Date: ${agg.date}`]);
+        staffShiftSheet.getRow(3).font = { size: 11, color: { argb: '718096' } };
+        staffShiftSheet.getRow(3).alignment = { horizontal: 'center' };
+        staffShiftSheet.mergeCells(3, 1, 3, staffShiftMaxCol);
+        staffShiftSheet.addRow([]);
+
+        // Group staff by shift
+        const dayStaff = agg.staffByShift.filter(s => s.shiftType === 'DAY');
+        const nightStaff = agg.staffByShift.filter(s => s.shiftType === 'NIGHT');
+
+        let currentRow = 5;
+
+        // Day Shift Staff
+        if (dayStaff.length > 0) {
+          staffShiftSheet.addRow(['☀ DAY SHIFT STAFF']);
+          staffShiftSheet.getRow(currentRow).font = { bold: true, size: 12, color: { argb: 'B45309' } };
+          staffShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FEF3C7' } };
+          currentRow++;
+          
+          const dayHeaders = ['Staff Name', 'Orders', 'Sales (ETB)', 'Tips (ETB)'];
+          staffShiftSheet.addRow(dayHeaders);
+          staffShiftSheet.getRow(currentRow).font = { bold: true };
+          staffShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FDE68A' } };
+          currentRow++;
+
+          dayStaff.forEach((s) => {
+            staffShiftSheet.addRow([s.staffName, s.orderCount, Number(s.totalSales || 0).toFixed(2), Number(s.totalTips || 0).toFixed(2)]);
+            currentRow++;
+          });
+          
+          // Day shift total
+          staffShiftSheet.addRow(['Day Shift Total', dayStaff.reduce((sum, s) => sum + Number(s.orderCount || 0), 0), dayStaff.reduce((sum, s) => sum + Number(s.totalSales || 0), 0).toFixed(2), dayStaff.reduce((sum, s) => sum + Number(s.totalTips || 0), 0).toFixed(2)]);
+          staffShiftSheet.getRow(currentRow).font = { bold: true, color: { argb: 'B45309' } };
+          staffShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FEF3C7' } };
+          currentRow++;
+          staffShiftSheet.addRow([]);
+          currentRow++;
+        }
+
+        // Night Shift Staff
+        if (nightStaff.length > 0) {
+          staffShiftSheet.addRow(['🌙 NIGHT SHIFT STAFF']);
+          staffShiftSheet.getRow(currentRow).font = { bold: true, size: 12, color: { argb: '3730A3' } };
+          staffShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E0E7FF' } };
+          currentRow++;
+          
+          const nightHeaders = ['Staff Name', 'Orders', 'Sales (ETB)', 'Tips (ETB)'];
+          staffShiftSheet.addRow(nightHeaders);
+          staffShiftSheet.getRow(currentRow).font = { bold: true };
+          staffShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'C7D2FE' } };
+          currentRow++;
+
+          nightStaff.forEach((s) => {
+            staffShiftSheet.addRow([s.staffName, s.orderCount, Number(s.totalSales || 0).toFixed(2), Number(s.totalTips || 0).toFixed(2)]);
+            currentRow++;
+          });
+          
+          // Night shift total
+          staffShiftSheet.addRow(['Night Shift Total', nightStaff.reduce((sum, s) => sum + Number(s.orderCount || 0), 0), nightStaff.reduce((sum, s) => sum + Number(s.totalSales || 0), 0).toFixed(2), nightStaff.reduce((sum, s) => sum + Number(s.totalTips || 0), 0).toFixed(2)]);
+          staffShiftSheet.getRow(currentRow).font = { bold: true, color: { argb: '3730A3' } };
+          staffShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E0E7FF' } };
+        }
+
+        staffShiftSheet.columns = [
+          { width: 25 },
+          { width: 12, style: { numFmt: '0' } },
+          { width: 16, style: { numFmt: '#,##0.00' } },
+          { width: 16, style: { numFmt: '#,##0.00' } },
+          { width: 12 },
         ];
       }
 
@@ -1360,9 +1744,23 @@ const makeWaiterRouter = () => {
       if (!requireWaiter(req, res)) return;
 
       const branchId = resolveBranchId(req);
+      const { from: fromRaw, to: toRaw } = req.query || {};
+      
+      // Use provided date range or default to today
+      const parseIsoDate = (s) => {
+        const v = String(s || '').trim();
+        if (!v) return null;
+        const m = /^\d{4}-\d{2}-\d{2}$/.exec(v);
+        if (!m) return null;
+        return v;
+      };
+      
+      const fromDate = parseIsoDate(fromRaw);
+      const toDate = parseIsoDate(toRaw);
       const today = new Date().toISOString().slice(0, 10);
+      const date = fromDate || toDate || today;
 
-      const agg = await buildWaiterTodaySalesReport({ tenantId: req.tenant.id, branchId, date: today });
+      const agg = await buildWaiterTodaySalesReport({ tenantId: req.tenant.id, branchId, date });
       if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
 
       const businessName = await getTenantBusinessName(req.tenant.id);
@@ -1425,20 +1823,106 @@ const makeWaiterRouter = () => {
         })),
       });
 
-      // Hourly Sales section (always included, even if empty)
+      // Shift Sales section (replaces Hourly Sales)
       additionalSections.push({
-        title: 'Hourly Sales',
+        title: 'Shift Sales',
         columns: [
-          { header: 'Hour', key: 'hour', width: 100 },
+          { header: 'Shift Type', key: 'shiftType', width: 120 },
+          { header: 'Opened At', key: 'openedAt', width: 100 },
           { header: 'Orders', key: 'orderCount', width: 80, align: 'right' },
           { header: 'Sales (ETB)', key: 'total', width: 120, align: 'right', format: (n) => Number(n).toFixed(2) },
         ],
-        rows: (agg.hourlySales || []).map((h) => ({
-          hour: h.hour,
-          orderCount: h.orderCount,
-          total: h.total,
+        rows: (agg.shiftSales || []).map((s) => ({
+          shiftType: s.shiftType === 'DAY' ? 'Day Shift' : s.shiftType === 'NIGHT' ? 'Night Shift' : 'All Shifts',
+          openedAt: s.openedAt ? new Date(s.openedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-',
+          orderCount: s.orderCount,
+          total: s.total,
         })),
       });
+
+      // Products by Shift section - separated DAY vs NIGHT
+      if (agg.productsByShift && agg.productsByShift.length > 0) {
+        const dayProducts = agg.productsByShift.filter(p => p.shiftType === 'DAY');
+        const nightProducts = agg.productsByShift.filter(p => p.shiftType === 'NIGHT');
+
+        if (dayProducts.length > 0) {
+          additionalSections.push({
+            title: '☀ Day Shift Products',
+            columns: [
+              { header: 'Product', key: 'name', width: 180 },
+              { header: 'Category', key: 'category', width: 100 },
+              { header: 'Qty', key: 'qtySold', width: 60, align: 'right' },
+              { header: 'Revenue (ETB)', key: 'revenue', width: 100, align: 'right', format: (n) => Number(n).toFixed(2) },
+            ],
+            rows: dayProducts.map((p) => ({
+              name: p.name,
+              category: p.category,
+              qtySold: p.qtySold,
+              revenue: p.revenue,
+            })),
+          });
+        }
+
+        if (nightProducts.length > 0) {
+          additionalSections.push({
+            title: '🌙 Night Shift Products',
+            columns: [
+              { header: 'Product', key: 'name', width: 180 },
+              { header: 'Category', key: 'category', width: 100 },
+              { header: 'Qty', key: 'qtySold', width: 60, align: 'right' },
+              { header: 'Revenue (ETB)', key: 'revenue', width: 100, align: 'right', format: (n) => Number(n).toFixed(2) },
+            ],
+            rows: nightProducts.map((p) => ({
+              name: p.name,
+              category: p.category,
+              qtySold: p.qtySold,
+              revenue: p.revenue,
+            })),
+          });
+        }
+      }
+
+      // Staff by Shift section - separated DAY vs NIGHT
+      if (agg.staffByShift && agg.staffByShift.length > 0) {
+        const dayStaff = agg.staffByShift.filter(s => s.shiftType === 'DAY');
+        const nightStaff = agg.staffByShift.filter(s => s.shiftType === 'NIGHT');
+
+        if (dayStaff.length > 0) {
+          additionalSections.push({
+            title: '☀ Day Shift Staff Performance',
+            columns: [
+              { header: 'Staff', key: 'staffName', width: 150 },
+              { header: 'Orders', key: 'orderCount', width: 60, align: 'right' },
+              { header: 'Sales (ETB)', key: 'totalSales', width: 90, align: 'right', format: (n) => Number(n).toFixed(2) },
+              { header: 'Tips (ETB)', key: 'totalTips', width: 90, align: 'right', format: (n) => Number(n).toFixed(2) },
+            ],
+            rows: dayStaff.map((s) => ({
+              staffName: s.staffName,
+              orderCount: s.orderCount,
+              totalSales: s.totalSales,
+              totalTips: s.totalTips,
+            })),
+          });
+        }
+
+        if (nightStaff.length > 0) {
+          additionalSections.push({
+            title: '🌙 Night Shift Staff Performance',
+            columns: [
+              { header: 'Staff', key: 'staffName', width: 150 },
+              { header: 'Orders', key: 'orderCount', width: 60, align: 'right' },
+              { header: 'Sales (ETB)', key: 'totalSales', width: 90, align: 'right', format: (n) => Number(n).toFixed(2) },
+              { header: 'Tips (ETB)', key: 'totalTips', width: 90, align: 'right', format: (n) => Number(n).toFixed(2) },
+            ],
+            rows: nightStaff.map((s) => ({
+              staffName: s.staffName,
+              orderCount: s.orderCount,
+              totalSales: s.totalSales,
+              totalTips: s.totalTips,
+            })),
+          });
+        }
+      }
 
       const columns = [
         { header: 'Product', key: 'name', width: 180 },

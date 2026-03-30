@@ -143,10 +143,34 @@ const mergeTablesPreservingAssignments = (currentTables: PosTable[], incomingTab
     const assignedStaffId = hasIncomingAssignedId ? (incomingAssignedId ?? null) : (curAssignedId ?? null);
     const assignedStaffName = hasIncomingAssignedName ? (incomingAssignedName ?? null) : (curAssignedName ?? null);
 
+    // Preserve shiftType from incoming or current
+    const hasIncomingShiftType = raw && typeof raw === 'object' && (Object.prototype.hasOwnProperty.call(raw, 'shiftType') || Object.prototype.hasOwnProperty.call(raw, 'shift_type'));
+    const incomingShiftType = hasIncomingShiftType
+      ? ((raw as any)?.shiftType || (raw as any)?.shift_type)
+      : undefined;
+    const curShiftType = (cur as any)?.shiftType || (cur as any)?.shift_type;
+    // Use incoming if it's a specific value (DAY/NIGHT), otherwise preserve current
+    const shiftType = (incomingShiftType && incomingShiftType !== 'ALL') ? incomingShiftType : (curShiftType || 'ALL');
+
+    // DEBUG logging for T-01
+    if (String((incoming as any)?.id) === 'T-01' || String((cur as any)?.id) === 'T-01') {
+      // eslint-disable-next-line no-console
+      console.log('[DEBUG MERGE] T-01:', {
+        hasIncomingShiftType,
+        incomingShiftType,
+        curShiftType,
+        resultShiftType: shiftType,
+        rawProps: raw ? Object.keys(raw).filter(k => k.includes('shift') || k.includes('type')) : [],
+        rawShiftType: (raw as any)?.shiftType,
+        rawShift_type: (raw as any)?.shift_type,
+      });
+    }
+
     return {
       ...incoming,
       assignedStaffId: assignedStaffId ?? null,
       assignedStaffName: assignedStaffName ?? null,
+      shiftType: shiftType || 'ALL',
     };
   });
 };
@@ -199,6 +223,7 @@ const toPosTables = (rows: any[]): PosTable[] => {
         currentTotal: 0,
         assignedStaffId: r?.assignedStaffId == null ? null : String(r.assignedStaffId),
         assignedStaffName: r?.assignedStaffName == null ? null : String(r.assignedStaffName),
+        shiftType: r?.shiftType || r?.shift_type || 'ALL',
       } as PosTable;
     })
     .filter(Boolean) as PosTable[];
@@ -348,7 +373,7 @@ type PosContextType = {
   selectedOrderId: string | null;
   selectTable: (tableId: string | null) => void;
   selectOrder: (orderId: string | null) => void;
-  addTable: (table: { name: string; seats: number; area?: PosTable['area'] }) => string;
+  addTable: (table: { id?: string; name: string; seats: number; area?: PosTable['area']; shiftType?: 'DAY' | 'NIGHT' | 'ALL'; assignedStaffId?: string | null; assignedStaffName?: string | null }) => string;
   deleteTable: (tableId: string) => void;
   setTableAssignment: (tableIds: string[], staffId: string | null, staffName?: string | null) => void;
   getCartItems: (tableId: string) => PosOrderItem[];
@@ -430,6 +455,34 @@ type PersistedState = {
 
 const STORAGE_KEY = 'mirachpos.state.v1';
 const BRANCH_CACHE_PREFIX = 'mirachpos.pos.branchCache.v1.';
+const BRANCH_CACHE_VERSION_KEY = 'mirachpos.pos.branchCache.version.v1';
+const BRANCH_CACHE_CURRENT_VERSION = 2; // Increment when schema changes
+
+// Migration: clear stale branch cache if version mismatch (e.g., missing shift_type)
+const migrateBranchCache = () => {
+  try {
+    const currentVersion = Number(localStorage.getItem(BRANCH_CACHE_VERSION_KEY) || '0');
+    if (currentVersion < BRANCH_CACHE_CURRENT_VERSION) {
+      // Clear all old branch caches
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(BRANCH_CACHE_PREFIX)) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+      localStorage.setItem(BRANCH_CACHE_VERSION_KEY, String(BRANCH_CACHE_CURRENT_VERSION));
+      // eslint-disable-next-line no-console
+      console.log('[DEBUG] Cleared stale branchCache, upgraded to version', BRANCH_CACHE_CURRENT_VERSION);
+    }
+  } catch {
+    // ignore
+  }
+};
+
+// Run migration immediately on module load
+migrateBranchCache();
 const UI_STATE_PREFIX = 'mirachpos.pos.uiState.v1.';
 
 const readUiState = (scopeKey: string): Partial<PersistedState> | null => {
@@ -794,6 +847,7 @@ const readState = (): PersistedState => {
           })(),
         cartItemCount: typeof t.cartItemCount === 'number' ? t.cartItemCount : 0,
         currentTotal: typeof t.currentTotal === 'number' ? t.currentTotal : 0,
+        shiftType: ((t as any).shiftType || (t as any).shift_type || 'ALL') as any,
       }))
       : seeded.tables;
 
@@ -1001,6 +1055,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         if (!scopeKey) return;
         if (!electronApis.posUpsertTables) return;
+        // eslint-disable-next-line no-console
+        console.log('[DEBUG PERSIST] Saving tables to Electron:', tables.map((t: any) => ({ id: t.id, shiftType: t.shiftType, shift_type: t.shift_type })));
         await electronApis.posUpsertTables({ scopeKey, tables });
       } catch {
         // ignore
@@ -1419,7 +1475,15 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!scopeKey) return;
       const cached = readBranchCache(scopeKey);
       if (!cached) return;
-      setState((s) => mergeBranchState(s, cached));
+      // Only merge branchCache if we don't have tables yet or if we're offline
+      // Server refresh will provide authoritative data including shift_type
+      setState((s) => {
+        const hasServerTables = Array.isArray(s.tables) && s.tables.length > 0 && s.tables.some((t: any) => t.shiftType && t.shiftType !== 'ALL');
+        if (hasServerTables) {
+          return s;
+        }
+        return mergeBranchState(s, cached);
+      });
     } catch {
       // ignore
     }
@@ -1468,11 +1532,14 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     lastOrderId: t?.last_order_id ? String(t.last_order_id) : null,
                     assignedStaffId: t?.assigned_staff_id ? String(t.assigned_staff_id) : null,
                     assignedStaffName: t?.assigned_staff_name ? String(t.assigned_staff_name) : null,
+                    shiftType: String(t?.shift_type || t?.shiftType || 'ALL'),
                   }))
                   .filter((t: any) => t.id && t.name)
               : [];
             if (mounted && localTables.length) {
-              setState((s) => ({ ...s, tables: updateTableComputed(localTables as any, s.cartByTableId, s.draftMetaByTableId) }));
+              const currentTables = stateRef.current.tables;
+              const merged = mergeTablesPreservingAssignments(currentTables, localTables);
+              setState((s) => ({ ...s, tables: merged }));
             }
           }
         } catch {
@@ -2694,7 +2761,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const addTable = (table: { id?: string; name: string; seats: number; area?: PosTable['area'] }) => {
+  const addTable = (table: { id?: string; name: string; seats: number; area?: PosTable['area']; shiftType?: 'DAY' | 'NIGHT' | 'ALL'; assignedStaffId?: string | null; assignedStaffName?: string | null }) => {
     const id = table.id || generateId();
     const isUpdate = !!table.id;
     setState((s) => {
@@ -2711,8 +2778,9 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             openOrderId: null,
             cartItemCount: 0,
             currentTotal: 0,
-            assignedStaffId: null,
-            assignedStaffName: null,
+            assignedStaffId: table.assignedStaffId ?? null,
+            assignedStaffName: table.assignedStaffName ?? null,
+            shiftType: table.shiftType || 'ALL',
           },
           ...existingTables,
         ],
@@ -2725,7 +2793,15 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     queueMicrotask(() => {
       const url = withBranchQuery('/api/pos/tables');
-      const body = { id, name: table.name, seats: table.seats, area: table.area ?? null };
+      const body = { 
+        id, 
+        name: table.name, 
+        seats: table.seats, 
+        area: table.area ?? null, 
+        shiftType: table.shiftType || 'ALL',
+        assignedStaffId: table.assignedStaffId ?? null,
+        assignedStaffName: table.assignedStaffName ?? null
+      };
       const offline = typeof navigator !== 'undefined' && !navigator.onLine;
       if (offline) {
         void enqueueOutboxHttp({ url, method: 'POST', body, headers: { 'Content-Type': 'application/json' } });
