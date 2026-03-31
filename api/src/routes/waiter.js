@@ -637,22 +637,71 @@ const makeWaiterRouter = () => {
     return v;
   };
 
-  const buildWaiterTodaySalesReport = async ({ tenantId, branchId, date }) => {
+  const buildWaiterTodaySalesReport = async ({ tenantId, branchId, date, fromHour = null, toHour = null }) => {
     const day = parseIsoDateOnly(date);
     if (!day) return { ok: false, error: 'invalid_range' };
 
-    const fromDt = `${day} 00:00:00`;
-    const toDt = `${day} 23:59:59`;
-    const fromIso = `${day}T00:00:00.000Z`;
-    const toIso = `${day}T23:59:59.999Z`;
+    const dFrom = new Date(`${day}T07:00:00`);
+    const dTo = new Date(dFrom.getTime() + 24 * 60 * 60 * 1000 - 1);
+    
+    const fromIso = dFrom.toISOString();
+    const toIso = dTo.toISOString();
+    const pad = (n) => String(n).padStart(2, '0');
+    const fromDt = `${dFrom.getFullYear()}-${pad(dFrom.getMonth()+1)}-${pad(dFrom.getDate())} ${pad(dFrom.getHours())}:${pad(dFrom.getMinutes())}:${pad(dFrom.getSeconds())}`;
+    const toDt = `${dTo.getFullYear()}-${pad(dTo.getMonth()+1)}-${pad(dTo.getDate())} ${pad(dTo.getHours())}:${pad(dTo.getMinutes())}:${pad(dTo.getSeconds())}`;
 
-    // Order aggregations
+    // Validate hour range
+    const hFrom = (fromHour !== null && fromHour !== undefined) ? Math.max(0, Math.min(23, Number(fromHour))) : null;
+    const hTo   = (toHour   !== null && toHour   !== undefined) ? Math.max(0, Math.min(23, Number(toHour)))   : null;
+    const hasHourFilter = hFrom !== null && hTo !== null;
+
+    const shiftRows = await db().select('id').from('shifts').where({ tenant_id: tenantId, branch_id: branchId, business_date: day });
+    const shiftIds = shiftRows.map(s => String(s.id));
+
+    const applyDateFilter = (qb, tableAlias) => {
+      const alias = tableAlias ? `${tableAlias}.` : '';
+      
+      // Default boundary is the full business day (dFrom to dTo)
+      let currentFrom = fromDt;
+      let currentTo = toDt;
+      let currentFromIso = fromIso;
+      let currentToIso = toIso;
+
+      // If hourly filter is provided, shrink the boundary
+      if (hasHourFilter) {
+        const dHFrom = new Date(dFrom);
+        dHFrom.setHours(hFrom, 0, 0, 0);
+        
+        let dHTo = new Date(dFrom);
+        dHTo.setHours(hTo, 59, 59, 999);
+
+        // If across midnight (e.g. 10 PM to 2 AM), dHTo belongs to next calendar day
+        if (hTo < hFrom) {
+          dHTo.setDate(dHTo.getDate() + 1);
+        }
+
+        currentFrom = `${dHFrom.getFullYear()}-${pad(dHFrom.getMonth()+1)}-${pad(dHFrom.getDate())} ${pad(dHFrom.getHours())}:${pad(dHFrom.getMinutes())}:${pad(dHFrom.getSeconds())}`;
+        currentTo = `${dHTo.getFullYear()}-${pad(dHTo.getMonth()+1)}-${pad(dHTo.getDate())} ${pad(dHTo.getHours())}:${pad(dHTo.getMinutes())}:${pad(dHTo.getSeconds())}`;
+        currentFromIso = dHFrom.toISOString();
+        currentToIso = dHTo.toISOString();
+      }
+
+      qb.where(function() {
+        // If we have specific shift associations, use them as primary
+        if (shiftIds.length > 0 && !hasHourFilter) {
+          this.whereIn(`${alias}shift_id`, shiftIds);
+        }
+        // Fallback or override with time boundaries (handles orders without shift_id or specific hourly ranges)
+        this.orWhereBetween(`${alias}paid_at`, [currentFrom, currentTo])
+            .orWhereBetween(`${alias}paid_at`, [currentFromIso, currentToIso]);
+      });
+    };
+
+    // Order aggregations — also apply hour-of-day filter in the same WHERE if specified
     const orderAgg = await db()
       .from({ o: 'orders' })
       .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
-      .andWhere((qb) => {
-        qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
-      })
+      .andWhere((qb) => applyDateFilter(qb, 'o'))
       .select([
         db().raw('COUNT(*) as order_count'),
         db().raw('COALESCE(SUM(COALESCE(o.discount, 0)), 0) as discounts_etb'),
@@ -668,9 +717,7 @@ const makeWaiterRouter = () => {
     const paymentMethods = await db()
       .from({ o: 'orders' })
       .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
-      .andWhere((qb) => {
-        qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
-      })
+      .andWhere((qb) => applyDateFilter(qb, 'o'))
       .select([
         db().raw("COALESCE(NULLIF(TRIM(o.payment_method), ''), 'Other') as payment_method"),
         db().raw('COUNT(*) as count'),
@@ -682,9 +729,7 @@ const makeWaiterRouter = () => {
     const staffPerformance = await db()
       .from({ o: 'orders' })
       .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
-      .andWhere((qb) => {
-        qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
-      })
+      .andWhere((qb) => applyDateFilter(qb, 'o'))
       .select([
         db().raw("COALESCE(NULLIF(TRIM(o.created_by_staff_id), ''), 'unknown') as staff_id"),
         db().raw("COALESCE(NULLIF(TRIM(o.created_by_name), ''), 'Unknown') as staff_name"),
@@ -725,9 +770,7 @@ const makeWaiterRouter = () => {
           .andOn('o.branch_id', '=', 'oi.branch_id');
       })
       .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
-      .andWhere((qb) => {
-        qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
-      })
+      .andWhere((qb) => applyDateFilter(qb, 'o'))
       .andWhere((qb) => {
         qb.where('oi.voided_qty', '>', 0);
       })
@@ -751,9 +794,7 @@ const makeWaiterRouter = () => {
           .andOn('p.branch_id', '=', 'oi.branch_id');
       })
       .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
-      .andWhere((qb) => {
-        qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
-      })
+      .andWhere((qb) => applyDateFilter(qb, 'o'))
       .select([
         db().raw('COALESCE(NULLIF(TRIM(oi.name), \'\'), \'Unknown\') as product_name'),
         db().raw('COALESCE(NULLIF(TRIM(p.category), \'\'), \'Uncategorized\') as category'),
@@ -847,6 +888,31 @@ const makeWaiterRouter = () => {
       .filter((r) => r.qtySold > 0)
       .sort((a, b) => b.revenue - a.revenue);
 
+    // Hourly Breakdown
+    const hourlyOrdersRaw = await db()
+      .from({ o: 'orders' })
+      .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
+      .andWhere((qb) => applyDateFilter(qb, 'o'))
+      .select(['o.paid_at', 'o.total', 'o.tax', 'o.tip']);
+      
+    const hourlyBreakdownMap = {};
+    for (const ord of hourlyOrdersRaw) {
+      if (!ord.paid_at) continue;
+      const dt = new Date(ord.paid_at);
+      if (isNaN(dt.getTime())) continue;
+      const h = pad(dt.getHours());
+      const label = `${h}:00`;
+      
+      if (!hourlyBreakdownMap[label]) {
+        hourlyBreakdownMap[label] = { hour: label, orders: 0, sales: 0 };
+      }
+      hourlyBreakdownMap[label].orders += 1;
+      const net = (Number(ord.total) || 0) - (Number(ord.tax) || 0) - (Number(ord.tip) || 0);
+      hourlyBreakdownMap[label].sales += Math.max(0, net);
+    }
+    const hourlySales = Object.values(hourlyBreakdownMap).sort((a, b) => a.hour.localeCompare(b.hour));
+
+
     const orderCount = Number(orderAgg?.order_count || 0) || 0;
     const discounts = Number(orderAgg?.discounts_etb || 0) || 0;
     const tax = Number(orderAgg?.tax_etb || 0) || 0;
@@ -905,6 +971,8 @@ const makeWaiterRouter = () => {
     return {
       ok: true,
       date: day,
+      fromHour: hasHourFilter ? hFrom : null,
+      toHour: hasHourFilter ? hTo : null,
       orderCount,
       grossSales,
       discounts,
@@ -921,6 +989,7 @@ const makeWaiterRouter = () => {
       shiftSales: shiftBreakdown,
       productsByShift,
       staffByShift,
+      hourlySales,
     };
   };
 
@@ -1028,7 +1097,7 @@ const makeWaiterRouter = () => {
       const { q: qRaw, status: statusRaw, from: fromRaw, to: toRaw, page: pageRaw, pageSize: pageSizeRaw, shift: shiftRaw } = req.validatedQuery || req.query;
       const q = sanitizeLikeInput(qRaw, { lower: true, maxLen: 80 });
       const status = sanitizeText(statusRaw, { maxLen: 40 });
-      const shift = sanitizeText(shiftRaw, { maxLen: 10 });
+      const shift = sanitizeText(shiftRaw, { maxLen: 80 }); // UUID is 36 chars, DAY/NIGHT are 3-5
       const page = Math.max(1, Number(pageRaw || 1) || 1);
       const pageSize = Math.min(50, Math.max(1, Number(pageSizeRaw || 25) || 25));
 
@@ -1064,14 +1133,40 @@ const makeWaiterRouter = () => {
         }
       }
 
-      // Filter by shift type (DAY or NIGHT)
+      // Filter by shift type (DAY or NIGHT) or exact shiftId
+      let shiftBoundaries = null;
       if (shift && (shift === 'DAY' || shift === 'NIGHT')) {
-        base.andWhereExists(function() {
-          this.select('*')
-            .from('shifts')
-            .whereRaw('shifts.id = orders.shift_id')
-            .andWhere('shifts.shift_type', shift);
-        });
+        const baseDate = fromDateOnly ? new Date(`${fromDateOnly}T07:00:00`) : new Date(fromIso);
+        let startGate, endGate;
+        if (shift === 'DAY') {
+          startGate = new Date(baseDate); 
+          endGate = new Date(baseDate); endGate.setHours(18, 59, 59, 999);
+        } else {
+          startGate = new Date(baseDate); startGate.setHours(19, 0, 0, 0);
+          endGate = new Date(baseDate); endGate.setDate(endGate.getDate() + 1); endGate.setHours(6, 59, 59, 999);
+        }
+        shiftBoundaries = {
+          sIso: startGate.toISOString(),
+          eIso: endGate.toISOString(),
+          sDt: `${startGate.getFullYear()}-${pad(startGate.getMonth()+1)}-${pad(startGate.getDate())} ${pad(startGate.getHours())}:${pad(startGate.getMinutes())}:${pad(startGate.getSeconds())}`,
+          eDt: `${endGate.getFullYear()}-${pad(endGate.getMonth()+1)}-${pad(endGate.getDate())} ${pad(endGate.getHours())}:${pad(endGate.getMinutes())}:${pad(endGate.getSeconds())}`
+        };
+      }
+
+      if (shift) {
+        if (shiftBoundaries) {
+          base.andWhere(function() {
+            this.whereExists(function() {
+              this.select('*').from('shifts').whereRaw('shifts.id = orders.shift_id').andWhere('shifts.shift_type', shift);
+            })
+            .orWhereBetween('paid_at', [shiftBoundaries.sDt, shiftBoundaries.eDt])
+            .orWhereBetween('paid_at', [shiftBoundaries.sIso, shiftBoundaries.eIso])
+            .orWhereBetween('created_at', [shiftBoundaries.sDt, shiftBoundaries.eDt])
+            .orWhereBetween('created_at', [shiftBoundaries.sIso, shiftBoundaries.eIso]);
+          });
+        } else {
+          base.andWhere({ shift_id: shift });
+        }
       }
 
       if (fromIso) {
@@ -1119,8 +1214,18 @@ const makeWaiterRouter = () => {
         }
       }
 
-      if (shift && (shift === 'DAY' || shift === 'NIGHT')) {
-        baseWithJoin.andWhere('shifts.shift_type', shift);
+      if (shift) {
+        if (shiftBoundaries) {
+          baseWithJoin.andWhere(function() {
+            this.where('shifts.shift_type', shift)
+              .orWhereBetween('orders.paid_at', [shiftBoundaries.sDt, shiftBoundaries.eDt])
+              .orWhereBetween('orders.paid_at', [shiftBoundaries.sIso, shiftBoundaries.eIso])
+              .orWhereBetween('orders.created_at', [shiftBoundaries.sDt, shiftBoundaries.eDt])
+              .orWhereBetween('orders.created_at', [shiftBoundaries.sIso, shiftBoundaries.eIso]);
+          });
+        } else {
+          baseWithJoin.andWhere('orders.shift_id', shift);
+        }
       }
 
       if (fromIso) {
@@ -1199,8 +1304,33 @@ const makeWaiterRouter = () => {
     }
   });
 
+
+  r.get(
+    '/waiter/sales-report',
+    tenantMiddleware,
+    requireAuth,
+    loadEntitlements,
+    requireRole('Waiter Manager'),
+    requireFeature('waiter_history'),
+    async (req, res, next) => {
+    try {
+      if (!requireWaiter(req, res)) return;
+      const branchId = resolveBranchId(req);
+      const rawDate = String(req.query?.date || '').trim();
+      const today = new Date().toISOString().slice(0, 10);
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : today;
+
+      const agg = await buildWaiterTodaySalesReport({ tenantId: req.tenant.id, branchId, date });
+      if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
+      return res.json(agg);
+    } catch (e) {
+      return next(e);
+    }
+  });
+
   r.get(
     '/waiter/history/export/xlsx',
+
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
@@ -1227,7 +1357,13 @@ const makeWaiterRouter = () => {
       const today = new Date().toISOString().slice(0, 10);
       const date = fromDate || toDate || today;
 
-      const agg = await buildWaiterTodaySalesReport({ tenantId: req.tenant.id, branchId, date });
+      // Hour range filter — optional, 0..23
+      const fromHourRaw = req.query?.fromHour;
+      const toHourRaw   = req.query?.toHour;
+      const fromHour = fromHourRaw !== undefined && fromHourRaw !== '' ? Number(fromHourRaw) : null;
+      const toHour   = toHourRaw   !== undefined && toHourRaw   !== '' ? Number(toHourRaw)   : null;
+
+      const agg = await buildWaiterTodaySalesReport({ tenantId: req.tenant.id, branchId, date, fromHour, toHour });
       if (!agg?.ok) return res.status(400).json({ error: agg?.error || 'aggregation_failed' });
 
       const businessName = await getTenantBusinessName(req.tenant.id);
@@ -1251,7 +1387,22 @@ const makeWaiterRouter = () => {
       summary.getRow(2).alignment = { horizontal: 'center' };
       summary.mergeCells(2, 1, 2, summaryMaxCol);
 
-      summary.addRow([`Period: ${agg.date} to ${agg.date}`]);
+      const periodLabel = (() => {
+        const dateLabel = `${agg.date}`;
+        const formatH = (h) => {
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          let hh = h % 12;
+          if (hh === 0) hh = 12;
+          return `${String(hh).padStart(2, '0')}:00 ${ampm}`;
+        };
+
+        if (agg.fromHour !== null && agg.toHour !== null) {
+          return `Period: ${dateLabel}  |  Hours: ${formatH(agg.fromHour)} – ${formatH(agg.toHour)}`;
+        }
+        return `Period: ${dateLabel}  (Full Business Day: 07:00 AM – 06:59 AM)`;
+      })();
+
+      summary.addRow([periodLabel]);
       summary.getRow(3).font = { size: 11 };
       summary.getRow(3).alignment = { horizontal: 'center' };
       summary.mergeCells(3, 1, 3, summaryMaxCol);
@@ -1553,7 +1704,43 @@ const makeWaiterRouter = () => {
         ];
       }
 
-      // Shift Sales sheet (replaces Hourly Sales)
+      // Hourly Sales sheet
+      if (agg.hourlySales && agg.hourlySales.length > 0) {
+        const hourSheet = wb.addWorksheet('Hourly Breakdown');
+        const hrMaxCol = 3;
+        
+        hourSheet.addRow([businessName]);
+        hourSheet.getRow(1).font = { bold: true, size: 16 };
+        hourSheet.getRow(1).alignment = { horizontal: 'center' };
+        hourSheet.mergeCells(1, 1, 1, hrMaxCol);
+        
+        hourSheet.addRow(['Hourly Sales Report']);
+        hourSheet.getRow(2).font = { bold: true, size: 14 };
+        hourSheet.getRow(2).alignment = { horizontal: 'center' };
+        hourSheet.mergeCells(2, 1, 2, hrMaxCol);
+        
+        hourSheet.addRow([`Date: ${agg.date}`]);
+        hourSheet.getRow(3).font = { size: 11 };
+        hourSheet.getRow(3).alignment = { horizontal: 'center' };
+        hourSheet.mergeCells(3, 1, 3, hrMaxCol);
+        hourSheet.addRow([]);
+        
+        const hrHeaders = ['Hour', 'Orders', 'Sales (ETB)'];
+        hourSheet.addRow(hrHeaders);
+        hourSheet.getRow(5).font = { bold: true };
+        
+        agg.hourlySales.forEach((h) => {
+          hourSheet.addRow([h.hour, h.orders, Number(h.sales || 0).toFixed(2)]);
+        });
+        
+        hourSheet.columns = [
+          { width: 16 },
+          { width: 12, style: { numFmt: '0' } },
+          { width: 16, style: { numFmt: '#,##0.00' } },
+        ];
+      }
+
+      // Shift Sales sheet
       if (agg.shiftSales && agg.shiftSales.length > 0) {
         const shiftSheet = wb.addWorksheet('Shift Sales');
         const shiftMaxCol = 4;

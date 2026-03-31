@@ -258,12 +258,12 @@ const calculateExpectedCash = async ({ shiftId }) => {
     throw new Error('shift_not_found');
   }
 
-  // Sum all cash payments in this shift (case-insensitive)
+  // Sum all cash payments in this shift (case-insensitive).
+  // NOTE: order_payments does not have a 'status' column, so we do NOT filter by status.
   const cashPayments = await db()
     .sum('amount as total')
     .from('order_payments')
     .where({ shift_id: shiftId })
-    .where('status', 'confirmed')
     .whereRaw("LOWER(method) = 'cash'")
     .first();
 
@@ -374,12 +374,12 @@ const getShiftReport = async ({ shiftId }) => {
     .where({ shift_id: shiftId })
     .orderBy('created_at', 'desc');
 
-  // Get payment breakdown
+  // Get payment breakdown.
+  // NOTE: order_payments does not have a 'status' column, do NOT filter by status.
   const payments = await db()
     .select(['method', 'amount'])
     .from('order_payments')
-    .where({ shift_id: shiftId })
-    .where('status', 'confirmed');
+    .where({ shift_id: shiftId });
 
   const paymentBreakdown = {};
   for (const p of payments) {
@@ -409,7 +409,7 @@ const getShiftReport = async ({ shiftId }) => {
       db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as total_tips'),
     ])
     .groupBy('staff_id', 'staff_name')
-    .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0'), 'desc');
+    .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0)'), 'desc');
 
   // Get product sales breakdown
   const productSales = await db()
@@ -582,12 +582,11 @@ const validateShiftClose = async ({ shiftId }) => {
 
   const expectedCash = await calculateExpectedCash({ shiftId });
 
-  // Get payment breakdown for the shift
+  // NOTE: order_payments has no 'status' column, do NOT filter by status.
   const payments = await db()
     .select(['method', 'amount'])
     .from('order_payments')
-    .where({ shift_id: shiftId })
-    .where('status', 'confirmed');
+    .where({ shift_id: shiftId });
 
   const paymentBreakdown = {};
   for (const p of payments) {
@@ -595,15 +594,15 @@ const validateShiftClose = async ({ shiftId }) => {
     paymentBreakdown[key] = (paymentBreakdown[key] || 0) + Number(p.amount || 0);
   }
 
-  // Calculate cash received specifically (for expected cash calculation)
-  const cashPayments = await db()
+  // Calculate cash received specifically (for expected cash calculation).
+  // NOTE: order_payments has no 'status' column.
+  const cashPaymentsRow = await db()
     .sum('amount as total')
     .from('order_payments')
     .where({ shift_id: shiftId })
-    .where('status', 'confirmed')
     .whereRaw("LOWER(method) = 'cash'")
     .first();
-  const cashReceived = Number(cashPayments?.total || 0);
+  const cashReceived = Number(cashPaymentsRow?.total || 0);
 
   // Get orders summary
   const orders = await db()
@@ -683,12 +682,16 @@ const getBusinessDate = (date) => {
   const d = new Date(date);
   const hour = d.getHours();
 
-  // If before 7 AM, it belongs to the previous business day
+  // Business day starts at 07:00 (7 AM).
+  // Hours 0-6 belong to the PREVIOUS business day.
   if (hour < 7) {
     d.setDate(d.getDate() - 1);
   }
 
-  return d.toISOString().split('T')[0];
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 };
 
 /**
