@@ -546,23 +546,41 @@ const aggregateHourlySales = async ({ tenantId, branchId, date }) => {
     if (!b) return { hoursProcessed: 0 };
     const nowIso = new Date().toISOString();
 
-    // Get orders grouped by hour
-    const hourlyData = await db()
-        .select([
-            db().raw('EXTRACT(HOUR FROM paid_at) as hour'),
-            db().raw('COUNT(*) as order_count'),
-            db().raw('COALESCE(SUM(GREATEST(0, COALESCE(total, 0) - COALESCE(tax, 0) - COALESCE(tip, 0))), 0) as net_sales'),
-            db().raw('COALESCE(SUM(COALESCE(total, 0)), 0) as total_collected'),
-        ])
+    // Get orders grouped by hour using raw query for DB compatibility
+    // Fallback: fetch all orders and aggregate in JS to ensure all orders are counted
+    const orders = await db()
+        .select(['paid_at', 'total', 'tax', 'tip'])
         .from('orders')
         .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
         .andWhere((qb) => {
             qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
-        })
-        .groupByRaw('EXTRACT(HOUR FROM paid_at)');
+        });
 
-    for (const row of hourlyData) {
-        const hour = Number(row.hour || 0);
+    // Aggregate by hour in JS to ensure all orders are counted
+    const hourlyMap = new Map();
+    for (const order of orders) {
+        const paidAt = order.paid_at;
+        if (!paidAt) continue;
+        
+        const d = new Date(paidAt);
+        if (Number.isNaN(d.getTime())) continue;
+        
+        const hour = d.getHours(); // 0-23
+        const total = Number(order.total || 0) || 0;
+        const orderTax = Number(order.tax || 0) || 0;
+        const orderTip = Number(order.tip || 0) || 0;
+        const net = Math.max(0, total - orderTax - orderTip);
+
+        const existing = hourlyMap.get(hour) || { hour, order_count: 0, net_sales: 0, total_collected: 0 };
+        existing.order_count += 1;
+        existing.net_sales += net;
+        existing.total_collected += total;
+        hourlyMap.set(hour, existing);
+    }
+
+    // Save all hours with data (0-23 to ensure complete range)
+    for (let hour = 0; hour < 24; hour++) {
+        const data = hourlyMap.get(hour) || { hour, order_count: 0, net_sales: 0, total_collected: 0 };
         const summaryId = `hss_${tenantId}_${branchId}_${dateStr}_${hour}`;
         const record = {
             id: summaryId,
@@ -570,9 +588,9 @@ const aggregateHourlySales = async ({ tenantId, branchId, date }) => {
             branch_id: branchId,
             report_date: dateStr,
             hour,
-            order_count: Number(row.order_count || 0),
-            net_sales_etb: Number(row.net_sales || 0),
-            total_collected_etb: Number(row.total_collected || 0),
+            order_count: data.order_count,
+            net_sales_etb: data.net_sales,
+            total_collected_etb: data.total_collected,
             computed_at: nowIso,
         };
 
@@ -580,7 +598,7 @@ const aggregateHourlySales = async ({ tenantId, branchId, date }) => {
         await db().from('hourly_sales_summary').insert(record).onConflict('id').merge(update);
     }
 
-    return { hoursProcessed: hourlyData.length };
+    return { hoursProcessed: hourlyMap.size };
 };
 
 // Aggregate product sales
@@ -835,11 +853,11 @@ const buildShiftReport = async ({ shiftId }) => {
 
     if (!shift) return null;
 
-    // Get orders during this shift
+    // Get PAID orders during this shift (CRITICAL FIX: only count paid orders)
     const orders = await db()
         .select(['id', 'total', 'tax', 'tip', 'discount', 'payload'])
         .from('orders')
-        .where({ tenant_id: shift.tenant_id, branch_id: shift.branch_id })
+        .where({ tenant_id: shift.tenant_id, branch_id: shift.branch_id, status: 'Paid' })
         .andWhere('paid_at', '>=', shift.opened_at)
         .andWhere(function () {
             if (shift.closed_at) {

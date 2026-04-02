@@ -393,6 +393,7 @@ type PosContextType = {
   deleteProduct: (productId: string) => void;
   updateProductPrice: (productId: string, price: number) => void;
   sendOrderToKitchen: (tableId: string, notes?: string) => string;
+  sendAdditionalOrderToKitchen: (tableId: string, notes?: string, orderType?: 'dine_in' | 'takeaway') => string;
   printKitchenTicket: (orderId: string, opts?: { mode?: 'auto' | 'dialog' }) => Promise<void>;
   retryKitchenTicket: (orderId: string) => Promise<void>;
   importDraftToKitchenOrder: (args: {
@@ -430,6 +431,7 @@ type PosContextType = {
       }>
       | null,
   ) => void;
+  setOrderType: (orderId: string, orderType: 'dine_in' | 'takeaway', takeawayFee?: number) => void;
   markNotificationRead: (notificationId: string, read: boolean) => void;
   markAllNotificationsRead: () => void;
   resetDemoData: () => void;
@@ -3265,6 +3267,162 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return orderId;
   };
 
+  const sendAdditionalOrderToKitchen: PosContextType['sendAdditionalOrderToKitchen'] = (tableId, notes, orderTypeOverride) => {
+    const orderId = generateId();
+    const snap = state;
+    const cartItems = snap.cartByTableId[tableId] ?? [];
+    if (cartItems.length === 0) return '';
+
+    const table = snap.tables.find((t) => t.id === tableId);
+    const tableName = table?.name ?? tableId;
+    const createdByStaffId = table?.assignedStaffId ?? undefined;
+    const createdByName = (table?.assignedStaffName || undefined) ?? (createdByStaffId ? (resolveStaffName(createdByStaffId) || undefined) : undefined);
+
+    const draftMeta = snap.draftMetaByTableId?.[tableId] || {};
+    const orderType = orderTypeOverride || (draftMeta?.orderType === 'takeaway' ? 'takeaway' : 'dine_in');
+    const takeawayFee = orderType === 'takeaway' ? Math.max(0, Number(draftMeta?.takeawayFee ?? 0) || 0) : 0;
+
+    const subtotal = calcSubtotal(cartItems);
+    const pricing = readPricingSettings();
+    const tax = pricing.vatEnabled ? subtotal * (pricing.vatRate / 100) : 0;
+    const serviceCharge = pricing.serviceEnabled ? subtotal * (pricing.serviceRate / 100) : 0;
+    const total = subtotal + tax + serviceCharge + takeawayFee;
+    const now = new Date();
+
+    const newOrder: PosOrder = {
+      id: orderId,
+      number: orderNumberFromId(orderId),
+      tableId,
+      tableName,
+      orderType,
+      takeawayFee,
+      createdByStaffId,
+      createdByName,
+      items: cartItems,
+      subtotal,
+      tax,
+      serviceCharge,
+      total,
+      status: 'Served',
+      createdAt: now.toISOString(),
+      timeLabel: formatTime(now),
+      inventoryDeducted: true,
+      syncedToServer: false,
+      notes: notes?.trim() ? notes.trim() : undefined,
+    };
+
+    adjustInventoryByOrder(newOrder, 'deduct');
+
+    void auditLog({
+      action: 'order.additional_placed',
+      entity_type: 'order',
+      entity_id: orderId,
+      message: `${newOrder.number} additional order placed for ${tableName}`,
+      meta: { tableId, tableName, items: cartItems.length, total: newOrder.total, orderType },
+    });
+
+    setState((s) => {
+      // Use the captured cartItems, don't check cart again (race condition)
+      const nextOrders = [newOrder, ...s.orders];
+      const nextNotifications: PosNotification[] = [
+        {
+          id: generateId(),
+          type: 'Kitchen',
+          title: `Additional Order - ${tableName}`,
+          message: `${newOrder.number} sent to kitchen (${cartItems.length} items).`,
+          orderId,
+          createdAt: now.toISOString(),
+          read: false,
+        },
+        ...s.notifications,
+      ];
+
+      const nextCartByTableId = { ...s.cartByTableId };
+      delete nextCartByTableId[tableId];
+
+      const nextTables = updateTableComputed(
+        s.tables.map((t) => {
+          if (t.id !== tableId) return t;
+          const existingIds = t.openOrderIds || (t.openOrderId ? [t.openOrderId] : []);
+          return {
+            ...t,
+            status: 'Occupied',
+            openOrderId: orderId,
+            openOrderIds: [...existingIds, orderId],
+          };
+        }),
+        nextCartByTableId,
+        s.draftMetaByTableId,
+      );
+
+      return {
+        ...s,
+        orders: nextOrders,
+        notifications: nextNotifications,
+        cartByTableId: nextCartByTableId,
+        tables: nextTables,
+        selectedOrderId: orderId,
+      };
+    });
+
+    try {
+      upsertLocalOrderBundle(newOrder);
+    } catch {
+      // ignore
+    }
+
+    void (async () => {
+      try {
+        const ok = await persistOrder(newOrder);
+        if (!ok) return;
+        const nowIso = new Date().toISOString();
+        setState((s) => ({
+          ...s,
+          orders: s.orders.map((o) => (o.id === orderId ? { ...o, syncedToServer: true, syncedAt: nowIso } : o)),
+        }));
+      } catch {
+        // ignore
+      }
+    })();
+
+    try {
+      const { autoKitchen, separateDrinkTickets, hasBarRoute, beep } = readKitchenPrintSettings();
+      if (autoKitchen) {
+        const order = newOrder;
+        const allLines = order.items.map((i) => ({ name: i.name, qty: i.qty, note: i.note }));
+
+        setKitchenPrintStatus({ orderId, status: 'queued', message: 'Queued (retrying)' });
+        void (async () => {
+          try {
+            await persistOrder(order);
+          } catch {
+            // ignore
+          }
+
+          if (separateDrinkTickets && hasBarRoute) {
+            const food = allLines.filter((l) => !isDrinkLine(l.name));
+            if (food.length > 0) await attemptKitchenAutoPrint({ order, lines: food, title: 'Kitchen Ticket (Additional)' });
+          } else {
+            await attemptKitchenAutoPrint({ order, lines: allLines, title: 'Kitchen Ticket (Additional)' });
+          }
+          queueKitchenSnapshot(orderId, allLines);
+        })();
+      }
+    } catch {
+      // ignore
+    }
+
+    void auditLog({
+      action: 'order.print.kitchen',
+      entity_type: 'order',
+      entity_id: orderId,
+      message: `Kitchen ticket triggered for additional order ${newOrder.number}`,
+      meta: { tableId, tableName, orderType },
+    });
+
+    return orderId;
+  };
+
   const printKitchenTicket: PosContextType['printKitchenTicket'] = async (orderId, opts) => {
     const oid = String(orderId || '').trim();
     if (!oid) return;
@@ -3623,8 +3781,24 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const total = subtotal + tax + serviceCharge + takeawayFee;
           return { ...o, items: nextItems, subtotal, tax, serviceCharge, total, syncedToServer: false };
         }
-        
-        const nextItems = o.items.map((i) => (i.productId === productId ? { ...i, qty } : i));
+
+        const hasLine = o.items.some((i) => i.productId === productId);
+        const nextItems = hasLine
+          ? o.items.map((i) => (i.productId === productId ? { ...i, qty } : i))
+          : (() => {
+              const p = s.products.find((x) => x.id === productId);
+              if (!p) return o.items;
+              return [
+                ...o.items,
+                {
+                  productId,
+                  name: p.name,
+                  unitPrice: p.price,
+                  qty,
+                  note: '',
+                },
+              ];
+            })();
         const subtotal = calcSubtotalEffective(nextItems);
         // Recalculate tax/service based on CURRENT settings
         const pricing = readPricingSettings();
@@ -3895,9 +4069,18 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
       updatedOrder = nextOrders.find((o) => o.id === orderId) || null;
 
-      const nextTables = s.tables.map((t) =>
-        t.openOrderId === orderId ? { ...t, status: 'Free' as const, openOrderId: null, lastOrderId: orderId } : t,
-      );
+      const nextTables = s.tables.map((t) => {
+        if (t.openOrderId !== orderId && !(t.openOrderIds?.includes(orderId))) return t;
+        const remainingIds = (t.openOrderIds || []).filter((id) => id !== orderId);
+        const hasOtherOrders = remainingIds.length > 0;
+        return {
+          ...t,
+          status: hasOtherOrders ? 'Occupied' : 'Free',
+          openOrderId: hasOtherOrders ? remainingIds[remainingIds.length - 1] : null,
+          openOrderIds: remainingIds,
+          lastOrderId: orderId,
+        };
+      });
 
       const nextNotifications: PosNotification[] = [
         {
@@ -3981,9 +4164,18 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
       updatedOrder = nextOrders.find((o) => o.id === orderId) || null;
 
-      const nextTables = s.tables.map((t) =>
-        t.openOrderId === orderId ? { ...t, status: 'Free' as const, openOrderId: null, lastOrderId: orderId } : t,
-      );
+      const nextTables = s.tables.map((t) => {
+        if (t.openOrderId !== orderId && !(t.openOrderIds?.includes(orderId))) return t;
+        const remainingIds = (t.openOrderIds || []).filter((id) => id !== orderId);
+        const hasOtherOrders = remainingIds.length > 0;
+        return {
+          ...t,
+          status: hasOtherOrders ? 'Occupied' : 'Free',
+          openOrderId: hasOtherOrders ? remainingIds[remainingIds.length - 1] : null,
+          openOrderIds: remainingIds,
+          lastOrderId: orderId,
+        };
+      });
 
       const nextNotifications: PosNotification[] = [
         {
@@ -4074,9 +4266,18 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       const nextTables = s.tables.map((t) => {
-        if (t.openOrderId !== orderId) return t;
+        if (t.openOrderId !== orderId && !(t.openOrderIds?.includes(orderId))) return t;
         const updated = nextOrders.find((x) => x.id === orderId);
-        if (updated?.status === 'Voided') return { ...t, status: 'Free', openOrderId: null };
+        if (updated?.status === 'Voided') {
+          const remainingIds = (t.openOrderIds || []).filter((id) => id !== orderId);
+          const hasOtherOrders = remainingIds.length > 0;
+          return {
+            ...t,
+            status: hasOtherOrders ? 'Occupied' : 'Free',
+            openOrderId: hasOtherOrders ? remainingIds[remainingIds.length - 1] : null,
+            openOrderIds: remainingIds,
+          };
+        }
         return t;
       });
 
@@ -4272,13 +4473,18 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
         : s.products;
 
-      const nextTables = s.tables.map((t) =>
-        t.openOrderId !== orderId
-          ? t
-          : shouldCloseTable
-            ? { ...t, status: 'Free', openOrderId: null, lastOrderId: orderId }
-            : t,
-      );
+      const nextTables = s.tables.map((t) => {
+        if (t.openOrderId !== orderId && !(t.openOrderIds?.includes(orderId))) return t;
+        const remainingIds = (t.openOrderIds || []).filter((id) => id !== orderId);
+        const hasOtherOrders = remainingIds.length > 0;
+        return {
+          ...t,
+          status: hasOtherOrders ? 'Occupied' : 'Free',
+          openOrderId: hasOtherOrders ? remainingIds[remainingIds.length - 1] : null,
+          openOrderIds: remainingIds,
+          lastOrderId: orderId,
+        };
+      });
 
       const nextNotifications: PosNotification[] = [
         {
@@ -4522,6 +4728,48 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const setOrderType: PosContextType['setOrderType'] = (orderId, orderType, takeawayFee = 0) => {
+    let updatedOrder: PosOrder | null = null;
+    setState((s) => {
+      const order = s.orders.find((o) => o.id === orderId);
+      if (!order) return s;
+
+      const newTakeawayFee = orderType === 'takeaway' ? Math.max(0, Number(takeawayFee) || 0) : 0;
+      const subtotal = Number(order.subtotal ?? calcSubtotalEffective(order.items) ?? 0) || 0;
+      const pricing = readPricingSettings();
+      const tax = pricing.vatEnabled ? subtotal * (pricing.vatRate / 100) : 0;
+      const serviceCharge = pricing.serviceEnabled ? subtotal * (pricing.serviceRate / 100) : 0;
+      const total = subtotal + tax + serviceCharge + newTakeawayFee;
+
+      const nextOrders = s.orders.map((o) =>
+        o.id === orderId
+          ? { ...o, orderType, takeawayFee: newTakeawayFee, subtotal, tax, serviceCharge, total, syncedToServer: false }
+          : o,
+      );
+      updatedOrder = nextOrders.find((o) => o.id === orderId) || null;
+      return { ...s, orders: nextOrders };
+    });
+
+    queueMicrotask(() => {
+      try {
+        if (updatedOrder) {
+          upsertLocalOrderBundle(updatedOrder);
+          void persistOrder(updatedOrder);
+        }
+      } catch {
+        // ignore
+      }
+    });
+
+    void auditLog({
+      action: 'order.type_changed',
+      entity_type: 'order',
+      entity_id: orderId,
+      message: `Order type changed to ${orderType}`,
+      meta: { orderType, takeawayFee },
+    });
+  };
+
   const markNotificationRead = (notificationId: string, read: boolean) => {
     setState((s) => ({
       ...s,
@@ -4635,6 +4883,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deleteProduct,
     updateProductPrice,
     sendOrderToKitchen,
+    sendAdditionalOrderToKitchen,
     printKitchenTicket,
     retryKitchenTicket,
     importDraftToKitchenOrder,
@@ -4650,6 +4899,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     enterBillingMode,
     setOrderCustomer,
     setOrderSplits,
+    setOrderType,
     markNotificationRead,
     markAllNotificationsRead,
     resetDemoData,
@@ -4676,4 +4926,15 @@ export const useSelectedOrder = () => {
 export const useSelectedTable = () => {
   const { tables, selectedTableId } = usePos();
   return useMemo(() => tables.find((t) => t.id === selectedTableId) ?? null, [tables, selectedTableId]);
+};
+
+export const useTableOrders = (tableId: string | null) => {
+  const { orders, tables } = usePos();
+  return useMemo(() => {
+    if (!tableId) return [];
+    const table = tables.find((t) => t.id === tableId);
+    if (!table) return [];
+    const orderIds = table.openOrderIds || (table.openOrderId ? [table.openOrderId] : []);
+    return orders.filter((o) => orderIds.includes(o.id));
+  }, [orders, tables, tableId]);
 };

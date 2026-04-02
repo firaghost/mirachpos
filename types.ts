@@ -211,6 +211,7 @@ export interface PosOrder {
 
 export interface PosTable extends Table {
   openOrderId: string | null;
+  openOrderIds?: string[];
   lastOrderId?: string | null;
   cartItemCount: number;
   currentTotal: number;

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 
-import { Screen } from '../../types';
+import { Screen, PosOrderItem } from '../../types';
 import { usePos } from '../../PosContext';
 import { useShift } from '../../src/contexts/ShiftContext';
 import { readSession } from '../../session';
@@ -131,16 +131,18 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     tables,
     orders,
     products,
-    selectedTableId,
     selectTable,
     selectOrder,
+    selectedTableId,
     addToCart,
     getCartItems,
     setCartQty,
     setCartItemNote,
     removeFromCart,
+    clearCart,
     setTableAssignment,
     sendOrderToKitchen,
+    sendAdditionalOrderToKitchen,
     setOrderStatus,
     refreshFromServer,
     printKitchenTicket,
@@ -154,6 +156,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     voidOrder,
     refundOrder,
     unlockOrder,
+    setOrderType,
     getShiftCashSummary,
     reconcileCash,
   } = usePos();
@@ -162,6 +165,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   const [category, setCategory] = useState<string>('All');
   const [sending, setSending] = useState(false);
   const [editingOrder, setEditingOrder] = useState(false);
+  const [preEditItems, setPreEditItems] = useState<PosOrderItem[]>([]);
   const [posSettings, setPosSettings] = useState<any>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -214,6 +218,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     if (!selectedTable?.openOrderId) return null;
     return orders.find((o) => o.id === selectedTable.openOrderId) ?? null;
   }, [selectedTable, orders]);
+
+  // Get ALL orders for this table (for multi-order support)
+  const tableOrders = useMemo(() => {
+    if (!selectedTable) return [];
+    const orderIds = selectedTable.openOrderIds || (selectedTable.openOrderId ? [selectedTable.openOrderId] : []);
+    const filtered = orders.filter((o) => orderIds.includes(o.id) && o.status !== 'Paid' && o.status !== 'Voided' && o.status !== 'Refunded');
+    // Sort to ensure consistent order
+    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [selectedTable, orders]);
+
+  const hasMultipleOrders = tableOrders.length > 1;
 
   // Unified Workspace State Checks
   const isBilling = openOrder?.status === 'Billing';
@@ -309,6 +324,70 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   const handleAddItem = (productId: string) => {
     if (!selectedTableId) return;
     addToCart(selectedTableId, productId);
+  };
+
+  const [addingOrder, setAddingOrder] = useState(false);
+
+  const handleAddAdditionalOrder = async () => {
+    if (!selectedTableId || cartItems.length === 0 || addingOrder) return;
+    
+    // Capture cart items before any async operations
+    const itemsToAdd = [...cartItems];
+    const existingOrder = tableOrders[0];
+    
+    if (existingOrder && (existingOrder.status === 'Pending' || existingOrder.status === 'Served')) {
+      setAddingOrder(true);
+      try {
+        // First add items to the order
+        itemsToAdd.forEach(item => {
+          const existingItem = existingOrder.items.find(i => i.productId === item.productId);
+          const newQty = (existingItem?.qty || 0) + item.qty;
+          setPendingOrderItemQty(existingOrder.id, item.productId, newQty);
+          if (item.note) {
+            setPendingOrderItemNote(existingOrder.id, item.productId, item.note);
+          }
+        });
+        
+        // Clear cart immediately using clearCart
+        clearCart(selectedTableId);
+        
+        // Print kitchen ticket for the new items
+        setTimeout(() => {
+          const lines = itemsToAdd.map((i) => ({ name: i.name, qty: i.qty, note: i.note || '' }));
+          const mockOrder = {
+            id: existingOrder.id,
+            number: existingOrder.number,
+            tableName: existingOrder.tableName,
+            timeLabel: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            createdByName: existingOrder.createdByName || 'Staff',
+            notes: 'ADD - New Items',
+            items: itemsToAdd,
+          };
+          const html = kitchenTicketHtml('Kitchen Ticket (Add)', mockOrder, lines);
+          const printWindow = window.open('', 'kitchen_print_add', 'width=600,height=800,scrollbars=yes');
+          if (printWindow) {
+            printWindow.document.write(html);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+              try { printWindow.print(); } catch {}
+            }, 500);
+          }
+        }, 100);
+        
+      } finally {
+        setAddingOrder(false);
+      }
+      return;
+    }
+    
+    // No existing order - create new order
+    setAddingOrder(true);
+    try {
+      sendAdditionalOrderToKitchen(selectedTableId, '', draftOrderType);
+    } finally {
+      setAddingOrder(false);
+    }
   };
 
   const handleSendOrder = async () => {
@@ -484,10 +563,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     }, 300);
   };
 
-  // Determine available actions based on order state
-  const canVoid = openOrder && !['Paid', 'Billing', 'Refunded', 'Voided'].includes(openOrder.status);
-  const canRefund = openOrder?.status === 'Paid';
-  const isOrderLocked = openOrder?.status === 'Paid' || openOrder?.status === 'Refunded' || openOrder?.status === 'Voided';
+  // Determine available actions based on order state - check ALL orders
+  const hasUnpaidOrders = tableOrders.length > 0;
+  const firstUnpaidOrder = tableOrders[0] || null;
+  const canVoid = firstUnpaidOrder && !['Paid', 'Billing', 'Refunded', 'Voided'].includes(firstUnpaidOrder.status);
+  const canRefund = firstUnpaidOrder?.status === 'Paid';
+  const isOrderLocked = firstUnpaidOrder?.status === 'Paid' || firstUnpaidOrder?.status === 'Refunded' || firstUnpaidOrder?.status === 'Voided';
   
   // Refund state
   const [showRefundModal, setShowRefundModal] = useState(false);
@@ -685,6 +766,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               })();
               // Recalculate total without tax for display
               const displayTotal = isOccupied ? (calcOrderTotalNoTax(order) || t.currentTotal || 0) : 0;
+              // Get multiple orders count
+              const orderCount = t.openOrderIds?.length || (t.openOrderId ? 1 : 0);
 
               return (
                 <div
@@ -705,13 +788,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                     )}>
                       {t.name.replace(/^T-?/i, '')}
                     </span>
-                    <div className={cn(
-                      'px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold uppercase tracking-wider whitespace-nowrap flex-shrink-0',
-                      isFree
-                        ? 'bg-card text-muted-foreground'
-                        : order?.status === 'Billing' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-primary/10 text-primary border border-primary/20'
-                    )}>
-                      {isFree ? 'Free' : order?.status === 'Billing' ? 'Billing' : order?.status ?? 'Occupied'}
+                    <div className="flex items-center gap-1">
+                      {orderCount > 1 && (
+                        <div className="px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-blue-500 text-white whitespace-nowrap">
+                          {orderCount} Orders
+                        </div>
+                      )}
+                      <div className={cn(
+                        'px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold uppercase tracking-wider whitespace-nowrap flex-shrink-0',
+                        isFree
+                          ? 'bg-card text-muted-foreground'
+                          : order?.status === 'Billing' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-primary/10 text-primary border border-primary/20'
+                      )}>
+                        {isFree ? 'Free' : order?.status === 'Billing' ? 'Billing' : order?.status ?? 'Occupied'}
+                      </div>
                     </div>
                   </div>
 
@@ -880,9 +970,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               <div>
                 <h2 className="font-bold text-xl text-foreground">{selectedTable ? selectedTable.name : 'Select Table'}</h2>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 font-medium">
-                  <span>Order #{selectedTable?.openOrderId ? String(selectedTable.openOrderId).slice(-6) : 'New'}</span>
-                  <span className="size-1 rounded-full bg-muted-foreground/50"></span>
-                  <span>{selectedTable?.openOrderId ? 'Active' : 'Draft'}</span>
+                  {tableOrders.length > 0 ? (
+                    <>
+                      <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded">{tableOrders.length} Orders</span>
+                      <span className="size-1 rounded-full bg-muted-foreground/50"></span>
+                      <span>{tableOrders.map(o => o.status).join(', ')}</span>
+                    </>
+                  ) : cartItems.length > 0 ? (
+                    <span className="text-blue-600">New Order (Draft)</span>
+                  ) : (
+                    <span>No Active Order</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -973,191 +1071,242 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             </div>
           )}
 
-          {cartItems.length === 0 && !((editingOrder || isBilling || openOrder) && openOrder?.items?.length > 0) ? (
+          {cartItems.length === 0 && tableOrders.length === 0 ? (
             <div className="text-muted-foreground text-sm text-center py-8">
-              {editingOrder ? 'No items to edit' : 'No items in cart'}
+              No orders or items
             </div>
           ) : (
             <>
-              {/* Show order items when there's an open order, or cart items for drafts */}
-              {(openOrder?.items && !cartItems.length ? openOrder.items : (editingOrder || isBilling) && openOrder?.items ? openOrder.items : cartItems).map((item, index, arr) => {
-                const isLastItem = arr.length === 1;
-                const itemsToRender = (editingOrder || isBilling) && openOrder?.items ? openOrder.items : cartItems;
-                const preventEmptyServedEdit = Boolean(editingOrder && openOrder && String(openOrder.status || '').trim() === 'Served');
-                const canRemove = !preventEmptyServedEdit || itemsToRender.length > 1 || item.qty > 1;
-                const isViewOnly = openOrder && !editingOrder && !isBilling;
-                return (
-                <div key={item.productId} className="bg-secondary p-2.5 rounded-xl shadow-sm border border-border group relative">
-                  <div className="flex gap-3 items-start">
-                    <div
-                      className="w-12 h-12 rounded-lg bg-cover bg-center flex-none shadow-inner bg-muted"
-                      style={{ backgroundImage: `url('${products.find((p) => p.id === item.productId)?.image ?? ''}')` }}
-                    />
-                    <div className="flex-1 min-w-0 pt-0.5">
-                      <div className="flex justify-between items-start mb-0.5">
-                        <p className="font-bold text-foreground truncate text-[15px]">{item.name}</p>
-                        <p className="font-bold text-foreground text-[14px]">ETB {(item.unitPrice * item.qty).toFixed(2)}</p>
+              {/* Show all table orders */}
+              {tableOrders.length > 0 && (
+                <div className="space-y-4">
+                  {tableOrders.map((order, orderIndex) => (
+                <div key={`${order.id}-${order.items.length}-${order.total}`} className="mb-6 border border-border rounded-xl p-3 bg-secondary/50">
+                  {/* Order Header */}
+                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-foreground">Order {orderIndex + 1}</span>
+                      <span className="text-[10px] text-muted-foreground">{order.number}</span>
+                      {order.orderType === 'takeaway' && (
+                        <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                          Takeaway {order.takeawayFee ? `(+${order.takeawayFee.toFixed(0)} ETB)` : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "text-[10px] px-2 py-0.5 rounded-full font-bold",
+                        order.status === 'Served' && "bg-green-100 text-green-700",
+                        order.status === 'Billing' && "bg-amber-100 text-amber-700",
+                        order.status === 'Pending' && "bg-blue-100 text-blue-700",
+                        order.status === 'Cooking' && "bg-orange-100 text-orange-700",
+                        order.status === 'Ready' && "bg-purple-100 text-purple-700"
+                      )}>
+                        {order.status}
+                      </span>
+                      <span className="text-xs font-bold text-foreground">ETB {order.total.toFixed(0)}</span>
+                    </div>
+                  </div>
+
+                  {/* Order Type Selector - Only when editing this specific order */}
+                  {editingOrder && (order.status === 'Pending' || order.status === 'Served') && (
+                    <div className="mb-3 p-2 bg-amber-50 rounded-lg border border-amber-200">
+                      <div className="text-[10px] text-amber-700 font-bold uppercase tracking-wider mb-2">Order Type</div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setOrderType(order.id, 'dine_in', 0)}
+                          className={cn(
+                            'flex-1 h-8 rounded-lg border text-xs font-bold',
+                            order.orderType === 'dine_in' || !order.orderType
+                              ? 'bg-primary border-primary text-primary-foreground'
+                              : 'bg-card border-border text-muted-foreground hover:text-foreground'
+                          )}
+                        >
+                          Dine-in
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOrderType(order.id, 'takeaway', order.takeawayFee || 50)}
+                          className={cn(
+                            'flex-1 h-8 rounded-lg border text-xs font-bold',
+                            order.orderType === 'takeaway'
+                              ? 'bg-primary border-primary text-primary-foreground'
+                              : 'bg-card border-border text-muted-foreground hover:text-foreground'
+                          )}
+                        >
+                          Takeaway
+                        </button>
                       </div>
-                      <div className="text-[12px] text-muted-foreground space-y-0.5">
-                        <p className="leading-none">{`x${item.qty}`}</p>
-                        {item.note?.trim() ? <p className="text-[11px] text-amber-600 font-medium truncate">{item.note.trim()}</p> : null}
+                      {order.orderType === 'takeaway' && (
+                        <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-blue-700 font-medium">Takeaway Fee</span>
+                            <span className="text-foreground font-bold">ETB {(order.takeawayFee || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground">Change fee:</span>
+                            <input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={order.takeawayFee || 0}
+                              onChange={(e) => {
+                                const newFee = Math.max(0, Number(e.target.value) || 0);
+                                setOrderType(order.id, 'takeaway', newFee);
+                              }}
+                              className="w-20 h-6 text-xs px-2 border border-blue-200 rounded bg-white"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Order Items */}
+                  <div className="space-y-2">
+                    {order.items.map((item) => (
+                      <div key={`${order.id}-${item.productId}`} className="flex gap-2 items-start bg-card p-2 rounded-lg">
+                        <div
+                          className="w-10 h-10 rounded bg-cover bg-center flex-none bg-muted"
+                          style={{ backgroundImage: `url('${products.find((p) => p.id === item.productId)?.image ?? ''}')` }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start">
+                            <p className="font-medium text-foreground text-sm truncate">{item.name}</p>
+                            <p className="font-medium text-foreground text-sm">ETB {(item.unitPrice * item.qty).toFixed(0)}</p>
+                          </div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-xs text-muted-foreground">Qty: {item.qty}</span>
+                            {item.note?.trim() && (
+                              <span className="text-[10px] text-amber-600 truncate">{item.note.trim()}</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      {/* Note input for cart items */}
-                      {!editingOrder && selectedTableId && (
-                        <div className="mt-2">
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+              {/* Show cart items for new/additional order */}
+              {cartItems.length > 0 && (
+                <div className="mb-6 border border-dashed border-blue-300 rounded-xl p-3 bg-blue-50/50">
+                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-blue-200">
+                    <span className="text-xs font-bold text-blue-700">New Order (Cart)</span>
+                    <span className="text-xs text-blue-600">{cartItems.length} items</span>
+                  </div>
+                  <div className="space-y-2">
+                    {cartItems.map((item) => (
+                      <div key={`cart-${item.productId}`} className="flex gap-2 items-start bg-white p-2 rounded-lg border border-blue-100">
+                        <div
+                          className="w-10 h-10 rounded bg-cover bg-center flex-none bg-muted"
+                          style={{ backgroundImage: `url('${products.find((p) => p.id === item.productId)?.image ?? ''}')` }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start">
+                            <p className="font-medium text-foreground text-sm truncate">{item.name}</p>
+                            <p className="font-medium text-foreground text-sm">ETB {(item.unitPrice * item.qty).toFixed(0)}</p>
+                          </div>
+                          <div className="flex justify-between items-center mt-1">
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => {
+                                  if (!selectedTableId) return;
+                                  setCartQty(selectedTableId, item.productId, Math.max(0, item.qty - 1));
+                                }}
+                                className="w-5 h-5 rounded bg-blue-100 text-blue-600 flex items-center justify-center text-xs"
+                              >
+                                -
+                              </button>
+                              <span className="text-xs text-muted-foreground w-4 text-center">{item.qty}</span>
+                              <button
+                                onClick={() => {
+                                  if (!selectedTableId) return;
+                                  setCartQty(selectedTableId, item.productId, item.qty + 1);
+                                }}
+                                className="w-5 h-5 rounded bg-blue-100 text-blue-600 flex items-center justify-center text-xs"
+                              >
+                                +
+                              </button>
+                            </div>
+                            {item.note?.trim() && (
+                              <span className="text-[10px] text-amber-600 truncate">{item.note.trim()}</span>
+                            )}
+                          </div>
                           <input
                             type="text"
-                            placeholder="Add note (e.g. no sugar)"
+                            placeholder="Add note"
                             value={item.note || ''}
                             onChange={(e) => {
                               if (!selectedTableId) return;
                               setCartItemNote(selectedTableId, item.productId, e.target.value);
                             }}
-                            className="w-full h-7 bg-card border border-border rounded px-2 text-[11px] text-foreground placeholder:text-muted-foreground/50"
+                            className="mt-1 w-full h-6 bg-white border border-blue-200 rounded px-2 text-[10px] text-foreground"
                           />
                         </div>
-                      )}
-                      {/* Note input for edit mode */}
-                      {editingOrder && openOrder && (
-                        <div className="mt-2">
-                          <input
-                            type="text"
-                            placeholder="Add note (e.g. no sugar)"
-                            value={item.note || ''}
-                            onChange={(e) => {
-                              setPendingOrderItemNote(openOrder.id, item.productId, e.target.value);
-                            }}
-                            className="w-full h-7 bg-card border border-border rounded px-2 text-[11px] text-foreground placeholder:text-muted-foreground/50"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-2.5 flex items-center justify-between pl-14">
-                    {isViewOnly ? (
-                      // View-only mode: just show quantity, no controls
-                      <span className="text-[13px] text-muted-foreground">Qty: {item.qty}</span>
-                    ) : editingOrder && openOrder ? (
-                      // Edit mode: use setPendingOrderItemQty for order items
-                      <>
-                        <button
-                          onClick={() => {
-                            if (item.qty > 1) {
-                              setPendingOrderItemQty(openOrder.id, item.productId, item.qty - 1);
-                            } else if (!canRemove) {
-                              alert('Cannot remove last item. Order must have at least 1 item.');
-                            } else {
-                              setPendingOrderItemQty(openOrder.id, item.productId, 0);
-                            }
-                          }}
-                          className="h-8 w-8 rounded-lg border border-border bg-card text-red-300 hover:text-foreground hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center disabled:opacity-30"
-                          title={item.qty > 1 ? 'Decrease' : canRemove ? 'Remove' : 'Cannot remove last item'}
-                          type="button"
-                          disabled={!canRemove && item.qty <= 1}
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                          </svg>
-                        </button>
-                        <span className="font-bold text-[13px] text-foreground">{item.qty}</span>
-                        <button
-                          onClick={() => {
-                            setPendingOrderItemQty(openOrder.id, item.productId, item.qty + 1);
-                          }}
-                          className="h-8 w-8 rounded-lg border border-border bg-card text-primary hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
-                          title="Increase"
-                          type="button"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                        </button>
-                        {/* Replace/Swap button */}
-                        <button
-                          onClick={() => {
-                            setShowProductSwapModal({ orderId: openOrder.id, productId: item.productId, currentName: item.name });
-                          }}
-                          className="h-8 px-2 rounded-lg border border-border bg-card text-amber-500 hover:bg-amber-500 hover:text-white transition-colors flex items-center gap-1 text-[11px] font-bold"
-                          title="Replace with different product"
-                          type="button"
-                        >
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                          </svg>
-                          Swap
-                        </button>
-                      </>
-                    ) : (
-                      // Normal cart mode: use setCartQty
-                      <>
-                        <button
-                          onClick={() => {
-                            if (!selectedTableId) return;
-                            setCartQty(selectedTableId, item.productId, 0);
-                          }}
-                          className="h-8 w-8 rounded-lg border border-border bg-card text-red-300 hover:text-foreground hover:border-red-400/40 hover:bg-red-900/20 transition-colors flex items-center justify-center"
-                          title="Remove"
-                          type="button"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                        <div className="flex items-center bg-card rounded-lg border border-border h-8 overflow-hidden">
-                          <button
-                            onClick={() => {
-                              if (!selectedTableId) return;
-                              setCartQty(selectedTableId, item.productId, Math.max(0, item.qty - 1));
-                            }}
-                            className="w-8 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                            </svg>
-                          </button>
-                          <span className="w-7 text-center font-bold text-[13px] text-foreground bg-secondary h-full flex items-center justify-center border-x border-border">{item.qty}</span>
-                          <button
-                            onClick={() => {
-                              if (!selectedTableId) return;
-                              setCartQty(selectedTableId, item.productId, item.qty + 1);
-                            }}
-                            className="w-8 h-full flex items-center justify-center text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                          </button>
-                        </div>
-                      </>
-                    )}
+                      </div>
+                    ))}
                   </div>
                 </div>
-                );
-              })}
+              )}
             </>
           )}
         </ScrollArea>
 
         <div className="p-3 pb-8 bg-card border-t border-border z-30 flex-shrink-0">
-          <div className="space-y-2 mb-4">
-            <div className="flex justify-between text-sm text-muted-foreground font-medium">
-              <span>Subtotal</span>
-              <span className="text-foreground">ETB {subtotal.toFixed(2)}</span>
-            </div>
-            {takeawayFee > 0.0001 && (
-              <div className="flex justify-between text-sm text-muted-foreground font-medium">
-                <span>Takeaway Fee</span>
-                <span className="text-foreground">ETB {takeawayFee.toFixed(2)}</span>
+          {/* Show totals for all orders */}
+          {tableOrders.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {tableOrders.map((order, idx) => (
+                <div key={order.id} className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Order {idx + 1} {order.orderType === 'takeaway' && '(Takeaway)'}
+                  </span>
+                  <span className="text-foreground font-medium">ETB {order.total.toFixed(0)}</span>
+                </div>
+              ))}
+              {cartItems.length > 0 && (
+                <div className="flex justify-between text-sm text-blue-600">
+                  <span>New Order (Cart)</span>
+                  <span className="font-medium">ETB {subtotal.toFixed(0)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-end pt-3 border-t border-dashed border-border mt-2">
+                <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">
+                  {tableOrders.length > 1 ? `${tableOrders.length} Orders Total` : 'Total Due'}
+                </span>
+                <span className="font-bold text-2xl text-foreground">
+                  ETB {tableOrders.reduce((sum, o) => sum + o.total, 0).toFixed(0)}
+                </span>
               </div>
-            )}
-            <div className="flex justify-between items-end pt-3 border-t border-dashed border-border mt-2">
-              <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Due</span>
-              <span className="font-bold text-2xl text-foreground">ETB {finalTotal.toFixed(2)}</span>
             </div>
-          </div>
+          )}
+
+          {/* Show cart-only total if no orders yet */}
+          {tableOrders.length === 0 && cartItems.length > 0 && (
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between text-sm text-muted-foreground font-medium">
+                <span>Subtotal</span>
+                <span className="text-foreground">ETB {subtotal.toFixed(2)}</span>
+              </div>
+              {takeawayFee > 0.0001 && (
+                <div className="flex justify-between text-sm text-muted-foreground font-medium">
+                  <span>Takeaway Fee</span>
+                  <span className="text-foreground">ETB {takeawayFee.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-end pt-3 border-t border-dashed border-border mt-2">
+                <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Due</span>
+                <span className="font-bold text-2xl text-foreground">ETB {finalTotal.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-4 gap-2">
-            {/* Send Button - Only show when there's a cart (draft) */}
-            {!openOrder && (
+            {/* Send Button - Only show when there's a cart (draft) and no existing orders */}
+            {tableOrders.length === 0 && cartItems.length > 0 && (
               <button
                 onClick={() => void handleSendOrder()}
                 disabled={!selectedTableId || cartItems.length === 0 || sending}
@@ -1167,35 +1316,177 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                 <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Ctrl+S</span>
               </button>
             )}
-            
-            {/* Pay/Billing Button - Show for Served (enter billing) or Billing (open payment) */}
-            {openOrder && (canEnterBilling || isBilling) && !isOrderLocked && (
+
+            {/* Add Order Button - Single click: adds items, prints ticket, clears cart */}
+            {tableOrders.length > 0 && cartItems.length > 0 && !editingOrder && (
               <button
-                onClick={handlePay}
-                disabled={!canEnterBilling && !isBilling}
-                title={!openOrder ? 'No order' : (!canEnterBilling && !isBilling) ? 'Order must be Served first' : isBilling ? 'Open payment panel' : 'Enter Billing (Ctrl+P)'}
-                className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-primary text-primary rounded-xl hover:bg-primary hover:text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+                onClick={() => void handleAddAdditionalOrder()}
+                disabled={!selectedTableId || cartItems.length === 0 || addingOrder}
+                className="flex flex-col items-center justify-center py-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600 shadow-lg shadow-blue-500/20 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span className="text-base sm:text-lg font-black leading-tight">{isBilling ? 'Billing' : 'Pay'}</span>
-                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Ctrl+P</span>
+                <span className="text-base sm:text-lg font-black leading-tight">{addingOrder ? 'Adding...' : 'Add Order'}</span>
+                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">+{cartItems.length} items</span>
+              </button>
+            )}
+
+            {/* Add to Current Order Button - Show when EDITING and cart has items */}
+            {editingOrder && firstUnpaidOrder && cartItems.length > 0 && (
+              <button
+                onClick={() => {
+                  // Capture cart items immediately before any operations
+                  const itemsToAdd = [...cartItems];
+                  
+                  // Add cart items to the existing order being edited
+                  itemsToAdd.forEach(item => {
+                    setPendingOrderItemQty(firstUnpaidOrder.id, item.productId, 
+                      (firstUnpaidOrder.items.find(i => i.productId === item.productId)?.qty || 0) + item.qty
+                    );
+                    if (item.note) {
+                      setPendingOrderItemNote(firstUnpaidOrder.id, item.productId, item.note);
+                    }
+                  });
+                  // Clear cart using clearCart for atomic operation
+                  clearCart(selectedTableId!);
+                  
+                  // Print kitchen ticket for the new items
+                  const lines = itemsToAdd.map((i) => ({ name: i.name, qty: i.qty, note: i.note || '' }));
+                  const mockOrder = {
+                    id: firstUnpaidOrder.id,
+                    number: firstUnpaidOrder.number,
+                    tableName: firstUnpaidOrder.tableName,
+                    timeLabel: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                    createdByName: firstUnpaidOrder.createdByName || 'Staff',
+                    notes: 'ADD - New Items',
+                    items: itemsToAdd,
+                  };
+                  const html = kitchenTicketHtml('Kitchen Ticket (Add)', mockOrder, lines);
+                  const printWindow = window.open('', 'kitchen_print_add', 'width=600,height=800,scrollbars=yes');
+                  if (printWindow) {
+                    printWindow.document.write(html);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(() => {
+                      try { printWindow.print(); } catch {}
+                    }, 500);
+                  }
+                  
+                  // Exit edit mode
+                  setEditingOrder(false);
+                  setPreEditItems([]);
+                }}
+                disabled={!selectedTableId || cartItems.length === 0}
+                className="flex flex-col items-center justify-center py-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600 shadow-lg shadow-blue-500/20 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="text-base sm:text-lg font-black leading-tight">Add to Order</span>
+                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">+{cartItems.length} items</span>
               </button>
             )}
             
-            {/* Edit Button - Only for Pending or Served orders (pre-billing) */}
-            {openOrder && (openOrder.status === 'Pending' || openOrder.status === 'Served') && !isBilling && (
+            {/* Pay All Button - Show when there are multiple served orders */}
+            {tableOrders.length > 1 && tableOrders.every(o => o.status === 'Served' || o.status === 'Billing') && (
               <button
-                onClick={() => setEditingOrder(!editingOrder)}
-                className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-amber-500 text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+                onClick={() => {
+                  // Enter billing for all orders and open payment
+                  tableOrders.forEach(o => {
+                    if (o.status === 'Served') enterBillingMode(o.id);
+                  });
+                  setShowPaymentModal(true);
+                  setTenderedAmount(tableOrders.reduce((sum, o) => sum + o.total, 0).toFixed(2));
+                }}
+                className="flex flex-col items-center justify-center py-2 px-1 bg-primary text-white rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all font-bold"
+              >
+                <span className="text-base sm:text-lg font-black leading-tight">Pay All</span>
+                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">{tableOrders.length} orders</span>
+              </button>
+            )}
+            
+            {/* Pay Single Order Button - Show when there's only one order */}
+            {tableOrders.length === 1 && firstUnpaidOrder && (firstUnpaidOrder.status === 'Served' || firstUnpaidOrder.status === 'Billing') && (
+              <button
+                onClick={() => {
+                  if (firstUnpaidOrder.status === 'Served') {
+                    enterBillingMode(firstUnpaidOrder.id);
+                  }
+                  setShowPaymentModal(true);
+                  setTenderedAmount(firstUnpaidOrder.total.toFixed(2));
+                }}
+                className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-primary text-primary rounded-xl hover:bg-primary hover:text-primary-foreground font-bold"
+              >
+                <span className="text-base sm:text-lg font-black leading-tight">{firstUnpaidOrder.status === 'Billing' ? 'Billing' : 'Pay'}</span>
+                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Ctrl+P</span>
+              </button>
+            )}
+
+            {/* Edit Button - Only for editing existing order items */}
+            {firstUnpaidOrder && (firstUnpaidOrder.status === 'Pending' || firstUnpaidOrder.status === 'Served') && cartItems.length === 0 && (
+              <button
+                onClick={() => {
+                  if (editingOrder) {
+                    // Exiting edit mode - auto-save changes and print delta
+                    const currentItems = firstUnpaidOrder.items;
+                    const originalItems = preEditItems;
+                    const deltaItems = currentItems.map(item => {
+                      const original = originalItems.find(o => o.productId === item.productId);
+                      const originalQty = original ? original.qty : 0;
+                      const diffQty = item.qty - originalQty;
+                      if (diffQty > 0) {
+                        return { ...item, qty: diffQty, note: item.note || original?.note };
+                      }
+                      return null;
+                    }).filter(Boolean) as PosOrderItem[];
+                    
+                    if (deltaItems.length > 0) {
+                      const lines = deltaItems.map((i) => ({ name: i.name, qty: i.qty, note: i.note || '' }));
+                      const mockOrder = {
+                        id: firstUnpaidOrder.id,
+                        number: firstUnpaidOrder.number,
+                        tableName: firstUnpaidOrder.tableName,
+                        timeLabel: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                        createdByName: firstUnpaidOrder.createdByName || 'Staff',
+                        notes: 'EDIT - Additional Items',
+                        items: deltaItems,
+                      };
+                      const html = kitchenTicketHtml('Kitchen Ticket (Edit)', mockOrder, lines);
+                      const printWindow = window.open('', 'kitchen_print_edit', 'width=600,height=800,scrollbars=yes');
+                      if (printWindow) {
+                        printWindow.document.write(html);
+                        printWindow.document.close();
+                        printWindow.focus();
+                        setTimeout(() => {
+                          try { printWindow.print(); } catch {}
+                        }, 500);
+                      }
+                    }
+                    setEditingOrder(false);
+                    setPreEditItems([]);
+                  } else {
+                    // Entering edit mode
+                    setEditingOrder(true);
+                    setPreEditItems(firstUnpaidOrder.items.map(i => ({ ...i })));
+                  }
+                }}
+                className={cn(
+                  'flex flex-col items-center justify-center py-2 px-1 border-2 rounded-xl font-bold transition-all',
+                  editingOrder
+                    ? 'bg-green-500 text-white border-green-500 hover:bg-green-600'
+                    : 'bg-card border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-white'
+                )}
               >
                 <span className="text-base sm:text-lg font-black leading-tight">{editingOrder ? 'Done' : 'Edit'}</span>
-                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Order</span>
+                <span className="text-[9px] font-bold opacity-70 uppercase tracking-widest">{editingOrder ? 'Save' : 'Order'}</span>
               </button>
             )}
             
             {/* Cancel/Void Button - Only when order can be voided */}
-            {canVoid && (
+            {canVoid && firstUnpaidOrder && (
               <button
-                onClick={handleCancelOrder}
+                onClick={() => {
+                  if (!firstUnpaidOrder) return;
+                  if (!confirm('Are you sure you want to cancel this order?')) return;
+                  voidOrder(firstUnpaidOrder.id, 'Cancelled by user');
+                  setEditingOrder(false);
+                  setTimeout(() => void refreshFromServer(), 300);
+                }}
                 className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-destructive text-destructive rounded-xl hover:bg-destructive hover:text-destructive-foreground disabled:opacity-50 disabled:cursor-not-allowed font-bold"
               >
                 <span className="text-base sm:text-lg font-black leading-tight">Cancel</span>

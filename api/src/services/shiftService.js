@@ -619,6 +619,20 @@ const validateShiftClose = async ({ shiftId }) => {
   const totalTips = paidOrders.reduce((sum, o) => sum + Number(o.tip || 0), 0);
   const totalDiscounts = paidOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
 
+  // Get staff performance with tips
+  const staffPerformance = await db()
+    .from({ o: 'orders' })
+    .where({ 'o.shift_id': shiftId, 'o.status': 'Paid' })
+    .select([
+      db().raw("COALESCE(NULLIF(TRIM(o.created_by_staff_id), ''), 'unknown') as staff_id"),
+      db().raw("COALESCE(NULLIF(TRIM(o.created_by_name), ''), 'Unknown') as staff_name"),
+      db().raw('COUNT(*) as order_count'),
+      db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as total_sales'),
+      db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as total_tips'),
+    ])
+    .groupBy('staff_id', 'staff_name')
+    .orderBy(db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0)'), 'desc');
+
   return {
     canClose: true,
     expectedCash,
@@ -639,6 +653,13 @@ const validateShiftClose = async ({ shiftId }) => {
       openingCash: Number(shift.opening_cash_etb || 0),
       cashReceived,
       expectedCash,
+      staffTips: staffPerformance.map(s => ({
+        staffId: s.staff_id,
+        staffName: s.staff_name,
+        orderCount: Number(s.order_count || 0),
+        totalSales: Number(s.total_sales || 0),
+        totalTips: Number(s.total_tips || 0),
+      })).filter(s => s.totalTips > 0),
     },
   };
 };

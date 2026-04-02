@@ -67,6 +67,13 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
       openingCash: number;
       cashReceived: number;
       expectedCash: number;
+      staffTips: Array<{
+        staffId: string;
+        staffName: string;
+        orderCount: number;
+        totalSales: number;
+        totalTips: number;
+      }>;
     };
   } | null>(null);
 
@@ -434,6 +441,23 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                       </div>
                     </div>
 
+                    {/* Payment Breakdown */}
+                    <div className="p-3 bg-muted rounded-lg">
+                      <h4 className="font-semibold text-sm mb-2">Payment Breakdown</h4>
+                      <div className="space-y-1 text-xs">
+                        {Object.entries(closePreview.breakdowns.paymentBreakdown || {}).length > 0 ? (
+                          Object.entries(closePreview.breakdowns.paymentBreakdown).map(([method, amount]) => (
+                            <div key={method} className="flex justify-between">
+                              <span className="text-muted-foreground capitalize">{method.replace(/_/g, ' ')}</span>
+                              <span className="font-medium">ETB {(Number(amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-muted-foreground text-xs">No payment data available</p>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Cash Summary */}
                     <div className="p-3 bg-muted rounded-lg">
                       <h4 className="font-semibold text-sm mb-2">Cash Summary</h4>
@@ -452,6 +476,28 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                         </div>
                       </div>
                     </div>
+
+                    {/* Waiter Tips */}
+                    {(closePreview.breakdowns.staffTips?.length || 0) > 0 && (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h4 className="font-semibold text-sm mb-2 text-blue-700">Waiter Tips to Pay Out</h4>
+                        <div className="space-y-2">
+                          {closePreview.breakdowns.staffTips.map((staff) => (
+                            <div key={staff.staffId} className="flex justify-between items-center text-xs bg-white p-2 rounded">
+                              <div>
+                                <span className="font-medium">{staff.staffName}</span>
+                                <span className="text-muted-foreground ml-2">({staff.orderCount} orders)</span>
+                              </div>
+                              <span className="font-bold text-blue-600">ETB {(staff.totalTips || 0).toFixed(2)}</span>
+                            </div>
+                          ))}
+                          <div className="flex justify-between border-t border-blue-200 pt-2 mt-2">
+                            <span className="font-semibold text-blue-700">Total Tips</span>
+                            <span className="font-bold text-blue-700">ETB {closePreview.breakdowns.staffTips.reduce((sum, s) => sum + (s.totalTips || 0), 0).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
