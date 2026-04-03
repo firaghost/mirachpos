@@ -48,33 +48,19 @@ const RecipeBuilder = React.lazy(() => import('./screens/manager/RecipeBuilder')
 const MenuBuilder = React.lazy(() => import('./screens/manager/MenuBuilder').then((m) => ({ default: m.MenuBuilder })));
 const ManagerCustomers = React.lazy(() => import('./screens/manager/ManagerCustomers').then((m) => ({ default: m.ManagerCustomers })));
 
-const WaiterDashboard = React.lazy(() => import('./screens/waiter/WaiterDashboard').then((m) => ({ default: m.WaiterDashboard })));
-const WaiterMenu = React.lazy(() => import('./screens/waiter/WaiterMenu').then((m) => ({ default: m.WaiterMenu })));
-const WaiterOrderV2 = React.lazy(() => import('./screens/waiter2/WaiterOrderV2').then((m) => ({ default: m.WaiterOrderV2 })));
-const WaiterOrderReview = React.lazy(() => import('./screens/waiter/WaiterOrderReview').then((m) => ({ default: m.WaiterOrderReview })));
-const WaiterPayment = React.lazy(() => import('./screens/waiter/WaiterPayment').then((m) => ({ default: m.WaiterPayment })));
-const WaiterReceipt = React.lazy(() => import('./screens/waiter/WaiterReceipt').then((m) => ({ default: m.WaiterReceipt })));
-const WaiterActiveOrders = React.lazy(() => import('./screens/waiter/WaiterActiveOrders').then((m) => ({ default: m.WaiterActiveOrders })));
-const WaiterOrderStatus = React.lazy(() => import('./screens/waiter/WaiterOrderStatus').then((m) => ({ default: m.WaiterOrderStatus })));
-const WaiterKDS = React.lazy(() => import('./screens/waiter/WaiterKDS').then((m) => ({ default: m.WaiterKDS })));
+const Workspace = React.lazy(() => import('./screens/workspace/Workspace').then((m) => ({ default: m.Workspace })));
+
 const KitchenBoard = React.lazy(() => import('./screens/waiter/KitchenBoard').then((m) => ({ default: m.KitchenBoard })));
 const ExpoBoard = React.lazy(() => import('./screens/waiter/ExpoBoard').then((m) => ({ default: m.ExpoBoard })));
 const WaiterHistory = React.lazy(() => import('./screens/waiter/WaiterHistory').then((m) => ({ default: m.WaiterHistory })));
 const WaiterNotifications = React.lazy(() => import('./screens/waiter/WaiterNotifications').then((m) => ({ default: m.WaiterNotifications })));
-const WaiterSystemStatus = React.lazy(() => import('./screens/waiter/WaiterSystemStatus').then((m) => ({ default: m.WaiterSystemStatus })));
-const WaiterSettings = React.lazy(() => import('./screens/waiter/WaiterSettings').then((m) => ({ default: m.WaiterSettings })));
 const WaiterShiftReport = React.lazy(() => import('./screens/waiter/WaiterShiftReport').then((m) => ({ default: m.WaiterShiftReport })));
-
-const ServiceWorkspace = React.lazy(() => import('./screens/waiter/ServiceWorkspace').then((m) => ({ default: m.ServiceWorkspace })));
-const Workspace = React.lazy(() => import('./screens/workspace/Workspace').then((m) => ({ default: m.Workspace })));
 
 const Inventory = React.lazy(() => import('./screens/Inventory').then((m) => ({ default: m.Inventory })));
 const Finance = React.lazy(() => import('./screens/Finance').then((m) => ({ default: m.Finance })));
 const Settings = React.lazy(() => import('./screens/Settings').then((m) => ({ default: m.Settings })));
 const ManagerTeam = React.lazy(() => import('./screens/manager/ManagerTeam').then((m) => ({ default: m.ManagerTeam })));
 const MenuManagement = React.lazy(() => import('./screens/MenuManagement').then((m) => ({ default: m.MenuManagement })));
-const Guests = React.lazy(() => import('./screens/Guests').then((m) => ({ default: m.Guests })));
-const TableAssignment = React.lazy(() => import('./screens/TableAssignment').then((m) => ({ default: m.TableAssignment })));
 const BranchSelect = React.lazy(() => import('./screens/BranchSelect').then((m) => ({ default: m.BranchSelect })));
 
 const SA_Overview = React.lazy(() => import('./screens/superadmin/Overview').then((m) => ({ default: m.SA_Overview })));
@@ -254,8 +240,8 @@ const AppContent: React.FC = () => {
                   : (roleRaw as any);
 
       const initialScreen = (() => {
-        if (mappedRole === UserRole.WAITER) return Screen.WAITER_DASHBOARD;
-        if (mappedRole === UserRole.WAITER_MANAGER) return Screen.WAITER_DASHBOARD;
+        if (mappedRole === UserRole.WAITER) return Screen.WAITER_WORKSPACE;
+        if (mappedRole === UserRole.WAITER_MANAGER) return Screen.WAITER_WORKSPACE;
         if (mappedRole === UserRole.BRANCH_MANAGER) return Screen.MANAGER_DASHBOARD;
         if (mappedRole === UserRole.SUPER_ADMIN) return Screen.SA_OVERVIEW;
         if (mappedRole === UserRole.CAFE_OWNER) return Screen.OWNER_DASHBOARD;
@@ -626,15 +612,7 @@ const AppContent: React.FC = () => {
   const [paywallPlansError, setPaywallPlansError] = useState<string | null>(null);
 
   const isServiceWorkspaceRoute = (() => {
-    if (currentScreen === Screen.POS_FLOOR) return true;
-    if (currentScreen === Screen.POS_MENU) return true;
-    if (currentScreen === Screen.WAITER_DASHBOARD) return true;
-    if (currentScreen === Screen.WAITER_MENU) return true;
-    if (currentScreen === Screen.WAITER_REVIEW) return true;
-    if (currentScreen === Screen.WAITER_PAYMENT) return true;
-    if (currentScreen === Screen.WAITER_RECEIPT) return true;
-    if (currentScreen === Screen.WAITER_ACTIVE_ORDERS) return true;
-    if (currentScreen === Screen.WAITER_STATUS) return true;
+    if (currentScreen === Screen.WAITER_WORKSPACE) return true;
     if (currentScreen === Screen.WAITER_KDS) return true;
     if (currentScreen === Screen.WAITER_KITCHEN) return true;
     if (currentScreen === Screen.WAITER_EXPO) return true;
@@ -897,7 +875,7 @@ const AppContent: React.FC = () => {
     setUserRole(role);
     // Redirect based on role
     if (role === UserRole.WAITER || role === UserRole.WAITER_MANAGER) {
-      navigate(Screen.WAITER_DASHBOARD);
+      navigate(Screen.WAITER_WORKSPACE);
     } else if (role === UserRole.SUPER_ADMIN) {
       navigate(Screen.SA_OVERVIEW);
     } else if (role === UserRole.CAFE_OWNER) {
@@ -1239,68 +1217,20 @@ const AppContent: React.FC = () => {
         <Suspense fallback={<ScreenFallback />}>
           {/* SHARED / OLDER SCREENS */}
           {currentScreen === Screen.DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Dashboard role={userRole!} />}
-          {currentScreen === Screen.POS_FLOOR && (!serviceWorkspaceEnabled || !(userRole === UserRole.WAITER || userRole === UserRole.WAITER_MANAGER)) &&
-            canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDashboard onNavigate={navigate} />}
           {currentScreen === Screen.ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Orders />}
-          {currentScreen === Screen.TABLE_ASSIGNMENT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <TableAssignment onNavigate={navigate} />}
-          {currentScreen === Screen.GUESTS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Guests />}
 
-          {/* WAITER SPECIFIC SCREENS */}
-          {serviceWorkspaceEnabled && (userRole === UserRole.WAITER || userRole === UserRole.WAITER_MANAGER) && isServiceWorkspaceRoute &&
+          {/* WAITER SPECIFIC SCREENS (Consolidated Into Workspace) */}
+          {(userRole === UserRole.WAITER || userRole === UserRole.WAITER_MANAGER) && 
+            currentScreen === Screen.WAITER_WORKSPACE &&
             canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && (
-              waiterWorkspaceV2Enabled ? (
-                currentScreen === Screen.WAITER_REVIEW ? (
-                  <WaiterOrderReview onNavigate={navigate} />
-                ) : currentScreen === Screen.WAITER_PAYMENT ? (
-                  <WaiterPayment onNavigate={navigate} />
-                ) : currentScreen === Screen.WAITER_RECEIPT ? (
-                  <WaiterReceipt onNavigate={navigate} />
-                ) : (currentScreen === Screen.WAITER_STATUS || currentScreen === Screen.WAITER_KDS || currentScreen === Screen.WAITER_KITCHEN) ? (
-                  <KitchenBoard onNavigate={navigate} />
-                ) : currentScreen === Screen.WAITER_EXPO ? (
-                  expoEnabled ? <ExpoBoard onNavigate={navigate} /> : <KitchenBoard onNavigate={navigate} />
-                ) : (
-                  <Workspace
-                    currentScreen={currentScreen}
-                    onNavigate={navigate}
-                    posUiV2Enabled={posUiV2Enabled}
-                  />
-                )
-              ) : (
-                <ServiceWorkspace
-                  currentScreen={currentScreen}
-                  onNavigate={navigate}
-                  posUiV2Enabled={posUiV2Enabled}
-                  expoEnabled={expoEnabled}
-                  inlineReviewEnabled={serviceInlineReviewEnabled}
-                  inlineActiveEnabled={serviceInlineActiveEnabled}
-                  inlineKitchenEnabled={serviceInlineKitchenEnabled}
-                  inlineExpoEnabled={serviceInlineExpoEnabled}
-                  inlineNotificationsEnabled={serviceInlineNotificationsEnabled}
-                  inlineSystemEnabled={serviceInlineSystemEnabled}
-                  inlineSecurityEnabled={serviceInlineSecurityEnabled}
-                />
-              )
-            )}
-
-          {(!serviceWorkspaceEnabled || !isServiceWorkspaceRoute) && (
-            <>
-              {currentScreen === Screen.WAITER_DASHBOARD && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterDashboard onNavigate={navigate} />}
-              {currentScreen === Screen.WAITER_MENU && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) &&
-                (posUiV2Enabled ? <WaiterOrderV2 onNavigate={navigate} /> : <WaiterMenu onNavigate={navigate} />)}
-              {currentScreen === Screen.WAITER_REVIEW && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterOrderReview onNavigate={navigate} />}
-              {currentScreen === Screen.WAITER_PAYMENT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterPayment onNavigate={navigate} />}
-              {currentScreen === Screen.WAITER_RECEIPT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterReceipt onNavigate={navigate} />}
-              {currentScreen === Screen.WAITER_ACTIVE_ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterActiveOrders onNavigate={navigate} />}
-              {(currentScreen === Screen.WAITER_STATUS || currentScreen === Screen.WAITER_KDS) && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <KitchenBoard onNavigate={navigate} />}
-              {currentScreen === Screen.WAITER_KITCHEN && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <KitchenBoard onNavigate={navigate} />}
-              {currentScreen === Screen.WAITER_EXPO && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && (expoEnabled ? <ExpoBoard onNavigate={navigate} /> : <KitchenBoard onNavigate={navigate} />)}
-            </>
+              <Workspace currentScreen={currentScreen} onNavigate={navigate} posUiV2Enabled={posUiV2Enabled} />
           )}
+          
+          {(currentScreen === Screen.WAITER_KDS || currentScreen === Screen.WAITER_KITCHEN) && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <KitchenBoard onNavigate={navigate} />}
+          {currentScreen === Screen.WAITER_EXPO && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && (expoEnabled ? <ExpoBoard onNavigate={navigate} /> : <KitchenBoard onNavigate={navigate} />)}
+          
           {currentScreen === Screen.WAITER_HISTORY && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterHistory onNavigate={navigate} />}
           {currentScreen === Screen.WAITER_NOTIFICATIONS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterNotifications onNavigate={navigate} />}
-          {currentScreen === Screen.WAITER_SYSTEM && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterSystemStatus onNavigate={navigate} />}
-          {currentScreen === Screen.WAITER_SETTINGS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterSettings onNavigate={navigate} />}
           {currentScreen === Screen.WAITER_SHIFT_REPORT && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <WaiterShiftReport onNavigate={navigate} />}
           {currentScreen === Screen.WAITER_SCHEDULE && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <ShiftSchedule readOnly />}
 

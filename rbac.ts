@@ -60,8 +60,8 @@ const normalizedModules = (subscription: SubscriptionInfo | null | undefined): s
 };
 
 export const homeForRole = (role: UserRole): Screen => {
-  if (role === UserRole.WAITER) return Screen.WAITER_DASHBOARD;
-  if (role === UserRole.WAITER_MANAGER) return Screen.WAITER_DASHBOARD;
+  if (role === UserRole.WAITER) return Screen.WAITER_WORKSPACE;
+  if (role === UserRole.WAITER_MANAGER) return Screen.WAITER_WORKSPACE;
   if (role === UserRole.BRANCH_MANAGER) return Screen.MANAGER_DASHBOARD;
   if (role === UserRole.CAFE_OWNER) return Screen.OWNER_DASHBOARD;
   return Screen.SA_OVERVIEW;
@@ -83,24 +83,14 @@ export const canAccessScreen = (role: UserRole, screen: Screen): boolean => {
 
   if (role === UserRole.WAITER || role === UserRole.WAITER_MANAGER) {
     return (
-      screen === Screen.WAITER_DASHBOARD ||
-      screen === Screen.WAITER_MENU ||
-      screen === Screen.WAITER_REVIEW ||
-      screen === Screen.WAITER_PAYMENT ||
-      screen === Screen.WAITER_RECEIPT ||
-      screen === Screen.WAITER_ACTIVE_ORDERS ||
-      screen === Screen.WAITER_STATUS ||
+      screen === Screen.WAITER_WORKSPACE ||
       screen === Screen.WAITER_KDS ||
       screen === Screen.WAITER_KITCHEN ||
       screen === Screen.WAITER_EXPO ||
       screen === Screen.WAITER_HISTORY ||
       screen === Screen.WAITER_NOTIFICATIONS ||
-      screen === Screen.WAITER_SYSTEM ||
-      screen === Screen.WAITER_SETTINGS ||
       screen === Screen.WAITER_SHIFT_REPORT ||
-      screen === Screen.WAITER_SCHEDULE ||
-      screen === Screen.POS_FLOOR ||
-      screen === Screen.POS_MENU
+      screen === Screen.WAITER_SCHEDULE
     );
   }
 
@@ -121,9 +111,6 @@ export const canAccessScreen = (role: UserRole, screen: Screen): boolean => {
       screen === Screen.MANAGER_SETTINGS ||
       screen === Screen.MANAGER_FINANCE ||
       screen === Screen.MANAGER_REPORTS ||
-      screen === Screen.WAITER_SETTINGS ||
-      screen === Screen.TABLE_ASSIGNMENT ||
-      screen === Screen.GUESTS ||
       screen === Screen.SUPPORT_REQUEST
     );
   }
@@ -156,9 +143,6 @@ export const canAccessScreen = (role: UserRole, screen: Screen): boolean => {
       screen === Screen.MANAGER_SETTINGS ||
       screen === Screen.MANAGER_FINANCE ||
       screen === Screen.MANAGER_REPORTS ||
-      screen === Screen.WAITER_SETTINGS ||
-      screen === Screen.TABLE_ASSIGNMENT ||
-      screen === Screen.GUESTS ||
       screen === Screen.OWNER_BILLING
     );
   }
@@ -192,24 +176,14 @@ const screenRequiredModule = (screen: Screen): string | null => {
     case Screen.BRANCH_SELECT:
       return 'branches';
 
-    case Screen.WAITER_DASHBOARD:
-    case Screen.WAITER_MENU:
-    case Screen.WAITER_REVIEW:
-    case Screen.WAITER_PAYMENT:
-    case Screen.WAITER_RECEIPT:
-    case Screen.WAITER_ACTIVE_ORDERS:
-    case Screen.WAITER_STATUS:
+    case Screen.WAITER_WORKSPACE:
     case Screen.WAITER_KDS:
     case Screen.WAITER_KITCHEN:
     case Screen.WAITER_EXPO:
     case Screen.WAITER_HISTORY:
     case Screen.WAITER_NOTIFICATIONS:
-    case Screen.WAITER_SYSTEM:
-    case Screen.WAITER_SETTINGS:
     case Screen.WAITER_SHIFT_REPORT:
     case Screen.WAITER_SCHEDULE:
-    case Screen.POS_FLOOR:
-    case Screen.POS_MENU:
       return 'pos';
 
     case Screen.MANAGER_ORDERS:
@@ -219,11 +193,6 @@ const screenRequiredModule = (screen: Screen): string | null => {
 
     case Screen.MANAGER_FLOOR_MAP:
     case Screen.MANAGER_TABLE_DETAILS:
-    case Screen.TABLE_ASSIGNMENT:
-      return 'tables';
-
-    case Screen.GUESTS:
-      return 'guests';
 
     case Screen.OWNER_DASHBOARD:
       return 'owner_dashboard';
@@ -288,24 +257,14 @@ export const canAccessScreenWithSubscription = (
 const screenRequiredPermission = (screen: Screen): string | null => {
   switch (screen) {
     // Waiter core
-    case Screen.WAITER_DASHBOARD:
-    case Screen.WAITER_MENU:
-    case Screen.WAITER_REVIEW:
-    case Screen.WAITER_PAYMENT:
-    case Screen.WAITER_RECEIPT:
-    case Screen.WAITER_ACTIVE_ORDERS:
-    case Screen.WAITER_STATUS:
+    case Screen.WAITER_WORKSPACE:
     case Screen.WAITER_KDS:
     case Screen.WAITER_KITCHEN:
     case Screen.WAITER_EXPO:
     case Screen.WAITER_HISTORY:
     case Screen.WAITER_NOTIFICATIONS:
-    case Screen.WAITER_SYSTEM:
-    case Screen.WAITER_SETTINGS:
     case Screen.WAITER_SHIFT_REPORT:
     case Screen.WAITER_SCHEDULE:
-    case Screen.POS_FLOOR:
-    case Screen.POS_MENU:
       return 'orders.read';
 
     // Manager
@@ -325,8 +284,6 @@ const screenRequiredPermission = (screen: Screen): string | null => {
     case Screen.MANAGER_SETTINGS:
       return 'manager.settings.read';
     case Screen.MANAGER_CUSTOMERS:
-    case Screen.GUESTS:
-      return 'orders.read';
 
     // Owner
     case Screen.OWNER_DASHBOARD:

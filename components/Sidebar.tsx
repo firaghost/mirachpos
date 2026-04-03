@@ -416,9 +416,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
         {(role === UserRole.WAITER || role === UserRole.WAITER_MANAGER) && (
           <>
             <Section title="Live Operations">
-              {showWaiterFeature('waiter_floor') ? <NavItem screen={Screen.WAITER_DASHBOARD} icon="grid_view" label="Floor Map" /> : null}
-              {showWaiterFeature('waiter_menu') ? <NavItem screen={Screen.WAITER_MENU} icon="restaurant_menu" label="Order Builder" /> : null}
-              {showWaiterFeature('waiter_orders_active') ? <NavItem screen={Screen.WAITER_ACTIVE_ORDERS} icon="receipt_long" label="Active Orders" /> : null}
+              <NavItem screen={Screen.WAITER_WORKSPACE} icon="grid_view" label="Workspace" />
             </Section>
 
             <Section title="Kitchen">
@@ -433,8 +431,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
               {showWaiterFeature('waiter_shift_report') ? <NavItem screen={Screen.WAITER_SHIFT_REPORT} icon="assessment" label="Shift Report" /> : null}
               {showWaiterFeature('waiter_account') ? <NavItem screen={Screen.WAITER_SCHEDULE} icon="schedule" label="Schedule" /> : null}
               {showWaiterFeature('waiter_notifications') ? <NavItem screen={Screen.WAITER_NOTIFICATIONS} icon="notifications" label="Notifications" badge={unreadBadge > 0 ? String(unreadBadge) : undefined} /> : null}
-              {showWaiterFeature('waiter_system_status') ? <NavItem screen={Screen.WAITER_SYSTEM} icon="wifi" label="Network" /> : null}
-              {showWaiterFeature('waiter_account') ? <NavItem screen={Screen.WAITER_SETTINGS} icon="lock" label="Security" /> : null}
             </Section>
           </>
         )}
@@ -445,11 +441,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
               <NavItem screen={Screen.MANAGER_DASHBOARD} icon="dashboard" label="Dashboard" />
               <NavItem screen={Screen.DESKTOP_DRAFT_INBOX} icon="inbox" label="Draft Orders" />
               <NavItem screen={Screen.MANAGER_ORDERS} icon="receipt_long" label="Orders" />
-              <NavItem screen={Screen.TABLE_ASSIGNMENT} icon="table_restaurant" label="Floor Plan" />
             </Section>
 
             <Section title="Resources">
-              <NavItem screen={Screen.GUESTS} icon="contacts" label="Guests" />
               <NavItem screen={Screen.MANAGER_CUSTOMERS} icon="person" label="Customers" />
               <NavItem screen={Screen.MANAGER_INVENTORY} icon="inventory" label="Inventory" badge={poBadgeCount > 0 ? String(poBadgeCount) : undefined} />
               {showItem(Screen.MANAGER_MENU_BUILDER) && <NavItem screen={Screen.MANAGER_MENU_BUILDER} icon="restaurant_menu" label="Menu Management" />}
@@ -462,7 +456,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
               <NavItem screen={Screen.MANAGER_REPORTS} icon="analytics" label="Reports" />
               <NavItem screen={Screen.MANAGER_SETTINGS} icon="settings" label="Settings" />
               <NavItem screen={Screen.SUPPORT_REQUEST} icon="support_agent" label="Support" />
-              <NavItem screen={Screen.WAITER_SETTINGS} icon="lock" label="Security" />
             </Section>
 
             {ownerActsAsManager && (

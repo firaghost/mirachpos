@@ -19,30 +19,17 @@ export enum Screen {
   DASHBOARD = 'DASHBOARD',
   ORDERS = 'ORDERS',
 
-  // Waiter Specific
-  WAITER_DASHBOARD = 'WAITER_DASHBOARD', // Floor View
-  WAITER_MENU = 'WAITER_MENU',            // Order Builder
-  WAITER_REVIEW = 'WAITER_REVIEW',        // Order Review
-  WAITER_PAYMENT = 'WAITER_PAYMENT',      // Payment
-  WAITER_RECEIPT = 'WAITER_RECEIPT',      // Receipt / Print
-  WAITER_ACTIVE_ORDERS = 'WAITER_ACTIVE_ORDERS', // Active Orders
-  WAITER_STATUS = 'WAITER_STATUS',        // Kitchen Status (Simple)
+  // Waiter Specific (Merged FOH Flow)
+  WAITER_WORKSPACE = 'WAITER_WORKSPACE',  // Merged Table, Menu, Cart
+
+  // Remaining specialized Waiter screens
   WAITER_KDS = 'WAITER_KDS',              // Full KDS View
   WAITER_KITCHEN = 'WAITER_KITCHEN',      // KDS 2.0 Kitchen Board
   WAITER_EXPO = 'WAITER_EXPO',            // KDS 2.0 Expo Board
-  WAITER_HISTORY = 'WAITER_HISTORY',      // Order History
+  WAITER_HISTORY = 'WAITER_HISTORY',      // Order History (For Waiter Manager/Owner)
   WAITER_NOTIFICATIONS = 'WAITER_NOTIFICATIONS',
-  WAITER_SYSTEM = 'WAITER_SYSTEM',        // Connectivity
-  WAITER_DRAFT_SIM = 'WAITER_DRAFT_SIM',  // Simulate Mobile Draft
-  WAITER_SETTINGS = 'WAITER_SETTINGS',
   WAITER_SHIFT_REPORT = 'WAITER_SHIFT_REPORT',
   WAITER_SCHEDULE = 'WAITER_SCHEDULE',
-
-  // Legacy/Shared (Keep for compatibility if needed, otherwise rely on WAITER_*)
-  POS_FLOOR = 'POS_FLOOR',
-  POS_MENU = 'POS_MENU',
-  TABLE_ASSIGNMENT = 'TABLE_ASSIGNMENT',
-  GUESTS = 'GUESTS',
 
   // Cafe Owner (Global) Screens
   OWNER_DASHBOARD = 'OWNER_DASHBOARD',
