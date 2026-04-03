@@ -596,31 +596,42 @@ describe('services/reportAggregationService', () => {
 
   it('aggregateHourlySales upserts hourly summaries (mocked rows)', async () => {
     const state = global.__MIRACHPOS_DB_MOCK__?.state;
-    // DB mock doesn't evaluate raw EXTRACT(); seed rows with expected aggregate keys.
+    // Mock orders with paid_at timestamps that will be parsed by JS
     state.tables.orders = [
       {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: '2026-02-01 10:00:00',
-        hour: 10,
-        order_count: 2,
-        net_sales: 90,
-        total_collected: 100,
+        paid_at: '2026-02-01T10:00:00.000Z',
+        total: 100,
+        tax: 5,
+        tip: 0,
+      },
+      {
+        tenant_id: 't_test',
+        branch_id: 'b_1',
+        status: 'Paid',
+        paid_at: '2026-02-01T10:30:00.000Z',
+        total: 50,
+        tax: 0,
+        tip: 0,
       },
     ];
 
     const res = await aggregateHourlySales({ tenantId: 't_test', branchId: 'b_1', date: '2026-02-01' });
-    expect(res.hoursProcessed).toBe(1);
-    expect(state.tables.hourly_sales_summary).toHaveLength(1);
-    expect(state.tables.hourly_sales_summary[0]).toMatchObject({
+    expect(res.hoursProcessed).toBe(1); // Only hour 10 has data
+    // New implementation creates 24 rows (one for each hour)
+    expect(state.tables.hourly_sales_summary).toHaveLength(24);
+    // Check that hour 10 has the correct aggregated data
+    const hour10 = state.tables.hourly_sales_summary.find(h => h.hour === 10);
+    expect(hour10).toMatchObject({
       tenant_id: 't_test',
       branch_id: 'b_1',
       report_date: '2026-02-01',
       hour: 10,
       order_count: 2,
-      net_sales_etb: 90,
-      total_collected_etb: 100,
+      net_sales_etb: 145, // (100-5) + (50-0) = 95 + 50 = 145
+      total_collected_etb: 150, // 100 + 50
     });
   });
 
@@ -673,6 +684,7 @@ describe('services/reportAggregationService', () => {
       {
         tenant_id: 't_test',
         branch_id: 'b_1',
+        status: 'Paid',
         paid_at: '2026-02-01 09:00:00',
         total: 100,
         tax: 5,
@@ -686,6 +698,7 @@ describe('services/reportAggregationService', () => {
       {
         tenant_id: 't_test',
         branch_id: 'b_1',
+        status: 'Paid',
         paid_at: '2026-02-01 10:00:00',
         total: 50,
         tax: 0,
