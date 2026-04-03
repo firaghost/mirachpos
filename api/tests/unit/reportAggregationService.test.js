@@ -684,6 +684,7 @@ describe('services/reportAggregationService', () => {
       {
         tenant_id: 't_test',
         branch_id: 'b_1',
+
         status: 'Paid',
         paid_at: '2026-02-01 09:00:00',
         total: 100,
