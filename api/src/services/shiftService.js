@@ -694,24 +694,25 @@ const logShiftAudit = async ({ tenantId, branchId, shiftId, action, actorStaffId
   }
 };
 
-/**
- * Get business date based on time (business day starts at 07:00)
- * @param {Date} date
- * @returns {string} Business date in YYYY-MM-DD format
- */
 const getBusinessDate = (date) => {
   const d = new Date(date);
-  const hour = d.getHours();
+  
+  // Ethiopian time is UTC+3. Explicitly construct an EAT-shifted epoch to reliably 
+  // extract the local hour without relying on the physical server's timezone
+  const eatMs = d.getTime() + (3 * 60 * 60 * 1000);
+  const eatDate = new Date(eatMs);
+  
+  const hour = eatDate.getUTCHours();
 
-  // Business day starts at 07:00 (7 AM).
+  // Business day starts at 07:00 (7 AM) EAT.
   // Hours 0-6 belong to the PREVIOUS business day.
   if (hour < 7) {
-    d.setDate(d.getDate() - 1);
+    eatDate.setUTCDate(eatDate.getUTCDate() - 1);
   }
 
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
+  const yyyy = eatDate.getUTCFullYear();
+  const mm = String(eatDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(eatDate.getUTCDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 };
 

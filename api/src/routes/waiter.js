@@ -641,14 +641,12 @@ const makeWaiterRouter = () => {
     const day = parseIsoDateOnly(date);
     if (!day) return { ok: false, error: 'invalid_range' };
 
-    const dFrom = new Date(`${day}T07:00:00`);
-    const dTo = new Date(dFrom.getTime() + 24 * 60 * 60 * 1000 - 1);
-    
-    const fromIso = dFrom.toISOString();
-    const toIso = dTo.toISOString();
+    // Strict EAT bounds (UTC+3). 07:00 AM local is exactly 04:00 AM UTC.
+    const fromIso = `${day}T04:00:00.000Z`;
+    const dFromUtc = new Date(fromIso);
+    const dToUtc = new Date(dFromUtc.getTime() + 24 * 60 * 60 * 1000 - 1);
+    const toIso = dToUtc.toISOString();
     const pad = (n) => String(n).padStart(2, '0');
-    const fromDt = `${dFrom.getFullYear()}-${pad(dFrom.getMonth()+1)}-${pad(dFrom.getDate())} ${pad(dFrom.getHours())}:${pad(dFrom.getMinutes())}:${pad(dFrom.getSeconds())}`;
-    const toDt = `${dTo.getFullYear()}-${pad(dTo.getMonth()+1)}-${pad(dTo.getDate())} ${pad(dTo.getHours())}:${pad(dTo.getMinutes())}:${pad(dTo.getSeconds())}`;
 
     // Validate hour range
     const hFrom = (fromHour !== null && fromHour !== undefined) ? Math.max(0, Math.min(23, Number(fromHour))) : null;
@@ -661,27 +659,25 @@ const makeWaiterRouter = () => {
     const applyDateFilter = (qb, tableAlias) => {
       const alias = tableAlias ? `${tableAlias}.` : '';
       
-      // Default boundary is the full business day (dFrom to dTo)
-      let currentFrom = fromDt;
-      let currentTo = toDt;
       let currentFromIso = fromIso;
       let currentToIso = toIso;
 
       // If hourly filter is provided, shrink the boundary
       if (hasHourFilter) {
-        const dHFrom = new Date(dFrom);
-        dHFrom.setHours(hFrom, 0, 0, 0);
+        // Since hFrom is EAT (UTC+3), subtracting 3 gives UTC hours.
+        const utcHourFrom = hFrom - 3;
+        const dHFrom = new Date(fromIso);
+        dHFrom.setUTCHours(utcHourFrom, 0, 0, 0);
         
-        let dHTo = new Date(dFrom);
-        dHTo.setHours(hTo, 59, 59, 999);
+        const utcHourTo = hTo - 3;
+        const dHTo = new Date(fromIso);
+        dHTo.setUTCHours(utcHourTo, 59, 59, 999);
 
         // If across midnight (e.g. 10 PM to 2 AM), dHTo belongs to next calendar day
         if (hTo < hFrom) {
-          dHTo.setDate(dHTo.getDate() + 1);
+          dHTo.setUTCDate(dHTo.getUTCDate() + 1);
         }
 
-        currentFrom = `${dHFrom.getFullYear()}-${pad(dHFrom.getMonth()+1)}-${pad(dHFrom.getDate())} ${pad(dHFrom.getHours())}:${pad(dHFrom.getMinutes())}:${pad(dHFrom.getSeconds())}`;
-        currentTo = `${dHTo.getFullYear()}-${pad(dHTo.getMonth()+1)}-${pad(dHTo.getDate())} ${pad(dHTo.getHours())}:${pad(dHTo.getMinutes())}:${pad(dHTo.getSeconds())}`;
         currentFromIso = dHFrom.toISOString();
         currentToIso = dHTo.toISOString();
       }
@@ -691,9 +687,8 @@ const makeWaiterRouter = () => {
         if (shiftIds.length > 0 && !hasHourFilter) {
           this.whereIn(`${alias}shift_id`, shiftIds);
         }
-        // Fallback or override with time boundaries (handles orders without shift_id or specific hourly ranges)
-        this.orWhereBetween(`${alias}paid_at`, [currentFrom, currentTo])
-            .orWhereBetween(`${alias}paid_at`, [currentFromIso, currentToIso]);
+        // Always fallback to UTC boundary comparison natively via ISO strings
+        this.orWhereBetween(`${alias}paid_at`, [currentFromIso, currentToIso]);
       });
     };
 
@@ -807,6 +802,7 @@ const makeWaiterRouter = () => {
       .groupBy('product_name', 'category', 'oi.product_id');
 
     // Products by Shift - DAY vs NIGHT breakdown
+    // LEFT JOIN shifts so orders with no shift_id (unlinked) are still captured as 'ALL'
     let productsByShiftRaw = [];
     try {
       productsByShiftRaw = await db()
@@ -816,7 +812,7 @@ const makeWaiterRouter = () => {
             .andOn('o.tenant_id', '=', 'oi.tenant_id')
             .andOn('o.branch_id', '=', 'oi.branch_id');
         })
-        .innerJoin({ s: 'shifts' }, function () {
+        .leftJoin({ s: 'shifts' }, function () {
           this.on('s.id', '=', 'o.shift_id')
             .andOn('s.tenant_id', '=', 'o.tenant_id')
             .andOn('s.branch_id', '=', 'o.branch_id');
@@ -827,49 +823,43 @@ const makeWaiterRouter = () => {
             .andOn('p.branch_id', '=', 'oi.branch_id');
         })
         .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
-        .andWhere((qb) => {
-          qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
-        })
-        .whereIn('s.shift_type', ['DAY', 'NIGHT'])
+        .andWhere((qb) => applyDateFilter(qb, 'o'))  // respects hour filter
         .select([
-          's.shift_type',
+          db().raw("COALESCE(NULLIF(TRIM(s.shift_type), ''), 'ALL') as shift_type"),
           db().raw('COALESCE(NULLIF(TRIM(oi.name), \'\'), \'Unknown\') as product_name'),
           db().raw('COALESCE(NULLIF(TRIM(p.category), \'\'), \'Uncategorized\') as category'),
           db().raw('SUM(COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) as qty_sold'),
           db().raw('SUM((COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) * COALESCE(oi.unit_price, 0)) as revenue_etb'),
           db().raw('COALESCE(oi.product_id, \'\') as product_id'),
         ])
-        .groupBy('s.shift_type', 'product_name', 'category', 'oi.product_id');
+        .groupBy('shift_type', 'product_name', 'category', 'oi.product_id');
     } catch (err) {
       console.error('productsByShift query failed:', err.message);
       productsByShiftRaw = [];
     }
 
-    // Staff performance by Shift - who sold what on each shift
+    // Staff performance by Shift - LEFT JOIN so unlinked orders fall into 'ALL' bucket
     let staffByShiftRaw = [];
     try {
       staffByShiftRaw = await db()
         .from({ o: 'orders' })
-        .innerJoin({ s: 'shifts' }, function () {
+        .leftJoin({ s: 'shifts' }, function () {
           this.on('s.id', '=', 'o.shift_id')
             .andOn('s.tenant_id', '=', 'o.tenant_id')
             .andOn('s.branch_id', '=', 'o.branch_id');
         })
         .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
-        .andWhere((qb) => {
-          qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
-        })
-        .whereIn('s.shift_type', ['DAY', 'NIGHT'])
+        .andWhere((qb) => applyDateFilter(qb, 'o'))  // respects hour filter
         .select([
-          's.shift_type',
+          db().raw("COALESCE(NULLIF(TRIM(s.shift_type), ''), 'ALL') as shift_type"),
           db().raw("COALESCE(NULLIF(TRIM(o.created_by_staff_id), ''), 'unknown') as staff_id"),
           db().raw("COALESCE(NULLIF(TRIM(o.created_by_name), ''), 'Unknown') as staff_name"),
           db().raw('COUNT(*) as order_count'),
           db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as total_sales'),
           db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as total_tips'),
         ])
-        .groupBy('s.shift_type', 'staff_id', 'staff_name')
-        .orderBy('s.shift_type')
+        .groupBy('shift_type', 'staff_id', 'staff_name')
+        .orderBy('shift_type')
         .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0'), 'desc');
     } catch (err) {
       console.error('staffByShift query failed:', err.message);
@@ -1121,8 +1111,9 @@ const makeWaiterRouter = () => {
 
       const fromDateOnly = parseIsoDate(fromRaw);
       const toDateOnly = parseIsoDate(toRaw);
-      const fromIso = fromDateOnly ? `${fromDateOnly}T00:00:00.000Z` : parseIsoDateTime(fromRaw);
-      const toIso = toDateOnly ? `${toDateOnly}T23:59:59.999Z` : parseIsoDateTime(toRaw);
+      // Ensure Waiter History strictly bounds starting at 07:00 EAT (04:00 UTC) 
+      const fromIso = fromDateOnly ? `${fromDateOnly}T04:00:00.000Z` : parseIsoDateTime(fromRaw);
+      const toIso = toDateOnly ? new Date(new Date(`${toDateOnly}T04:00:00.000Z`).getTime() + 24*3600*1000 - 1).toISOString() : parseIsoDateTime(toRaw);
 
       const base = db().from('orders').where({ tenant_id: req.tenant.id, branch_id: branchId });
       if (status) {
@@ -1136,20 +1127,21 @@ const makeWaiterRouter = () => {
       // Filter by shift type (DAY or NIGHT) or exact shiftId
       let shiftBoundaries = null;
       if (shift && (shift === 'DAY' || shift === 'NIGHT')) {
-        const baseDate = fromDateOnly ? new Date(`${fromDateOnly}T07:00:00`) : new Date(fromIso);
+        const baseIso = fromDateOnly ? `${fromDateOnly}T04:00:00.000Z` : fromIso;
+        const baseDateUtc = new Date(baseIso);
         let startGate, endGate;
         if (shift === 'DAY') {
-          startGate = new Date(baseDate); 
-          endGate = new Date(baseDate); endGate.setHours(18, 59, 59, 999);
+          // 07:00 to 18:59:59 EAT (04:00 to 15:59:59 UTC)
+          startGate = new Date(baseDateUtc); 
+          endGate = new Date(baseDateUtc); endGate.setUTCHours(15, 59, 59, 999);
         } else {
-          startGate = new Date(baseDate); startGate.setHours(19, 0, 0, 0);
-          endGate = new Date(baseDate); endGate.setDate(endGate.getDate() + 1); endGate.setHours(6, 59, 59, 999);
+          // 19:00 to 06:59:59 EAT (16:00 to 03:59:59 UTC+1d)
+          startGate = new Date(baseDateUtc); startGate.setUTCHours(16, 0, 0, 0);
+          endGate = new Date(baseDateUtc); endGate.setUTCDate(endGate.getUTCDate() + 1); endGate.setUTCHours(3, 59, 59, 999);
         }
         shiftBoundaries = {
           sIso: startGate.toISOString(),
           eIso: endGate.toISOString(),
-          sDt: `${startGate.getFullYear()}-${pad(startGate.getMonth()+1)}-${pad(startGate.getDate())} ${pad(startGate.getHours())}:${pad(startGate.getMinutes())}:${pad(startGate.getSeconds())}`,
-          eDt: `${endGate.getFullYear()}-${pad(endGate.getMonth()+1)}-${pad(endGate.getDate())} ${pad(endGate.getHours())}:${pad(endGate.getMinutes())}:${pad(endGate.getSeconds())}`
         };
       }
 
@@ -1159,9 +1151,7 @@ const makeWaiterRouter = () => {
             this.whereExists(function() {
               this.select('*').from('shifts').whereRaw('shifts.id = orders.shift_id').andWhere('shifts.shift_type', shift);
             })
-            .orWhereBetween('paid_at', [shiftBoundaries.sDt, shiftBoundaries.eDt])
             .orWhereBetween('paid_at', [shiftBoundaries.sIso, shiftBoundaries.eIso])
-            .orWhereBetween('created_at', [shiftBoundaries.sDt, shiftBoundaries.eDt])
             .orWhereBetween('created_at', [shiftBoundaries.sIso, shiftBoundaries.eIso]);
           });
         } else {
@@ -1218,9 +1208,7 @@ const makeWaiterRouter = () => {
         if (shiftBoundaries) {
           baseWithJoin.andWhere(function() {
             this.where('shifts.shift_type', shift)
-              .orWhereBetween('orders.paid_at', [shiftBoundaries.sDt, shiftBoundaries.eDt])
               .orWhereBetween('orders.paid_at', [shiftBoundaries.sIso, shiftBoundaries.eIso])
-              .orWhereBetween('orders.created_at', [shiftBoundaries.sDt, shiftBoundaries.eDt])
               .orWhereBetween('orders.created_at', [shiftBoundaries.sIso, shiftBoundaries.eIso]);
           });
         } else {
@@ -1607,16 +1595,16 @@ const makeWaiterRouter = () => {
         { key: 'voidQty', width: 12 },
       ];
 
+      // Always draw All Products first so every order is guaranteed to appear
+      drawProductSection('All Products', agg.products);
+
+      // Additionally draw per-shift breakdowns when shift data is available
       if (agg.productsByShift && agg.productsByShift.length > 0) {
-        // Draw separate tables for DAY and NIGHT
         const dayProducts = agg.productsByShift.filter(p => String(p.shiftType || '').toUpperCase() === 'DAY');
         const nightProducts = agg.productsByShift.filter(p => String(p.shiftType || '').toUpperCase() === 'NIGHT');
 
-        if (dayProducts.length > 0) drawProductSection('Day Shift Products', dayProducts);
-        if (nightProducts.length > 0) drawProductSection('Night Shift Products', nightProducts);
-      } else {
-        // Fallback: draw all products in one block if no shift data is available
-        drawProductSection('All Products', agg.products);
+        if (dayProducts.length > 0) drawProductSection('☀ Day Shift Products', dayProducts);
+        if (nightProducts.length > 0) drawProductSection('🌙 Night Shift Products', nightProducts);
       }
 
       // Payment Methods sheet with Tips and Sales breakdown
@@ -1861,6 +1849,34 @@ const makeWaiterRouter = () => {
           prodShiftSheet.addRow(['Night Shift Total', '', nightProducts.reduce((sum, p) => sum + Number(p.qtySold || 0), 0), nightProducts.reduce((sum, p) => sum + Number(p.revenue || 0), 0).toFixed(2)]);
           prodShiftSheet.getRow(currentRow).font = { bold: true, color: { argb: '3730A3' } };
           prodShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E0E7FF' } };
+          currentRow++;
+          prodShiftSheet.addRow([]);
+          currentRow++;
+        }
+
+        // Unlinked products (ALL)
+        const unlinkedProducts = agg.productsByShift.filter(p => p.shiftType === 'ALL');
+        if (unlinkedProducts.length > 0) {
+          prodShiftSheet.addRow(['❓ UNLINKED SHIFT PRODUCTS']);
+          prodShiftSheet.getRow(currentRow).font = { bold: true, size: 12, color: { argb: '065F46' } };
+          prodShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'D1FAE5' } };
+          currentRow++;
+          
+          const unlinkedHeaders = ['Product', 'Category', 'Qty Sold', 'Revenue (ETB)'];
+          prodShiftSheet.addRow(unlinkedHeaders);
+          prodShiftSheet.getRow(currentRow).font = { bold: true };
+          prodShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'A7F3D0' } };
+          currentRow++;
+
+          unlinkedProducts.forEach((p) => {
+            prodShiftSheet.addRow([p.name, p.category, p.qtySold, Number(p.revenue || 0).toFixed(2)]);
+            currentRow++;
+          });
+          
+          // Unlinked shift total
+          prodShiftSheet.addRow(['Unlinked Total', '', unlinkedProducts.reduce((sum, p) => sum + Number(p.qtySold || 0), 0), unlinkedProducts.reduce((sum, p) => sum + Number(p.revenue || 0), 0).toFixed(2)]);
+          prodShiftSheet.getRow(currentRow).font = { bold: true, color: { argb: '065F46' } };
+          prodShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'D1FAE5' } };
         }
 
         prodShiftSheet.columns = [
@@ -1949,6 +1965,34 @@ const makeWaiterRouter = () => {
           staffShiftSheet.addRow(['Night Shift Total', nightStaff.reduce((sum, s) => sum + Number(s.orderCount || 0), 0), nightStaff.reduce((sum, s) => sum + Number(s.totalSales || 0), 0).toFixed(2), nightStaff.reduce((sum, s) => sum + Number(s.totalTips || 0), 0).toFixed(2)]);
           staffShiftSheet.getRow(currentRow).font = { bold: true, color: { argb: '3730A3' } };
           staffShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E0E7FF' } };
+          currentRow++;
+          staffShiftSheet.addRow([]);
+          currentRow++;
+        }
+
+        // Unlinked Shift Staff (ALL)
+        const unlinkedStaff = agg.staffByShift.filter(s => s.shiftType === 'ALL');
+        if (unlinkedStaff.length > 0) {
+          staffShiftSheet.addRow(['❓ UNLINKED SHIFT STAFF']);
+          staffShiftSheet.getRow(currentRow).font = { bold: true, size: 12, color: { argb: '065F46' } };
+          staffShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'D1FAE5' } };
+          currentRow++;
+          
+          const unlinkedHeaders = ['Staff Name', 'Orders', 'Sales (ETB)', 'Tips (ETB)'];
+          staffShiftSheet.addRow(unlinkedHeaders);
+          staffShiftSheet.getRow(currentRow).font = { bold: true };
+          staffShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'A7F3D0' } };
+          currentRow++;
+
+          unlinkedStaff.forEach((s) => {
+            staffShiftSheet.addRow([s.staffName, s.orderCount, Number(s.totalSales || 0).toFixed(2), Number(s.totalTips || 0).toFixed(2)]);
+            currentRow++;
+          });
+          
+          // Unlinked shift total
+          staffShiftSheet.addRow(['Unlinked Total', unlinkedStaff.reduce((sum, s) => sum + Number(s.orderCount || 0), 0), unlinkedStaff.reduce((sum, s) => sum + Number(s.totalSales || 0), 0).toFixed(2), unlinkedStaff.reduce((sum, s) => sum + Number(s.totalTips || 0), 0).toFixed(2)]);
+          staffShiftSheet.getRow(currentRow).font = { bold: true, color: { argb: '065F46' } };
+          staffShiftSheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'D1FAE5' } };
         }
 
         staffShiftSheet.columns = [
@@ -2122,6 +2166,25 @@ const makeWaiterRouter = () => {
             })),
           });
         }
+        
+        const unlinkedProducts = agg.productsByShift.filter(p => p.shiftType === 'ALL');
+        if (unlinkedProducts.length > 0) {
+          additionalSections.push({
+            title: '❓ Unlinked Shift Products',
+            columns: [
+              { header: 'Product', key: 'name', width: 180 },
+              { header: 'Category', key: 'category', width: 100 },
+              { header: 'Qty', key: 'qtySold', width: 60, align: 'right' },
+              { header: 'Revenue (ETB)', key: 'revenue', width: 100, align: 'right', format: (n) => Number(n).toFixed(2) },
+            ],
+            rows: unlinkedProducts.map((p) => ({
+              name: p.name,
+              category: p.category,
+              qtySold: p.qtySold,
+              revenue: p.revenue,
+            })),
+          });
+        }
       }
 
       // Staff by Shift section - separated DAY vs NIGHT
@@ -2157,6 +2220,25 @@ const makeWaiterRouter = () => {
               { header: 'Tips (ETB)', key: 'totalTips', width: 90, align: 'right', format: (n) => Number(n).toFixed(2) },
             ],
             rows: nightStaff.map((s) => ({
+              staffName: s.staffName,
+              orderCount: s.orderCount,
+              totalSales: s.totalSales,
+              totalTips: s.totalTips,
+            })),
+          });
+        }
+
+        const unlinkedStaff = agg.staffByShift.filter(s => s.shiftType === 'ALL');
+        if (unlinkedStaff.length > 0) {
+          additionalSections.push({
+            title: '❓ Unlinked Shift Staff Performance',
+            columns: [
+              { header: 'Staff', key: 'staffName', width: 150 },
+              { header: 'Orders', key: 'orderCount', width: 60, align: 'right' },
+              { header: 'Sales (ETB)', key: 'totalSales', width: 90, align: 'right', format: (n) => Number(n).toFixed(2) },
+              { header: 'Tips (ETB)', key: 'totalTips', width: 90, align: 'right', format: (n) => Number(n).toFixed(2) },
+            ],
+            rows: unlinkedStaff.map((s) => ({
               staffName: s.staffName,
               orderCount: s.orderCount,
               totalSales: s.totalSales,
