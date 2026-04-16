@@ -210,7 +210,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
                     onClick={() => {
                       setActionErr('');
                       selectOrder(o.id);
-                      onNavigate(Screen.WAITER_RECEIPT);
+                      onNavigate(Screen.DASHBOARD);
                     }}
                     className="bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground p-2 rounded-lg transition-colors"
                     title="Print Receipt"
@@ -332,7 +332,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
                     <button
                       onClick={() => {
                         selectOrder(o.id);
-                        onNavigate(Screen.WAITER_RECEIPT);
+                        onNavigate(Screen.DASHBOARD);
                       }}
                       className="flex-1 bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground font-bold py-2 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
                     >
@@ -402,7 +402,7 @@ export const WaiterOrderStatus: React.FC<Props> = ({ onNavigate }) => {
                     <button
                       onClick={() => {
                         selectOrder(o.id);
-                        onNavigate(Screen.WAITER_RECEIPT);
+                        onNavigate(Screen.DASHBOARD);
                       }}
                       className="w-full bg-secondary hover:bg-secondary/80 text-foreground font-bold text-sm py-3 rounded-lg flex items-center justify-center gap-2 uppercase tracking-wide border border-border"
                     >

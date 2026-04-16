@@ -142,7 +142,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
                                 markNotificationRead(n.id, true);
                                 if (n.orderId) {
                                   selectOrder(n.orderId);
-                                  onNavigate(Screen.WAITER_REVIEW);
+                                  onNavigate(Screen.DASHBOARD);
                                 }
                               }}
                               className="text-xs font-bold text-primary hover:text-foreground uppercase tracking-wide"
@@ -158,7 +158,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
                                 markNotificationRead(n.id, true);
                                 if (n.orderId) {
                                   selectOrder(n.orderId);
-                                  onNavigate(Screen.WAITER_RECEIPT);
+                                  onNavigate(Screen.DASHBOARD);
                                 }
                               }}
                               className="text-xs font-bold text-green-400 hover:text-foreground uppercase tracking-wide"
@@ -172,7 +172,7 @@ export const WaiterNotifications: React.FC<Props> = ({ onNavigate }) => {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 markNotificationRead(n.id, true);
-                                onNavigate(Screen.WAITER_SYSTEM);
+                                onNavigate(Screen.DASHBOARD);
                               }}
                               className="text-xs font-bold text-orange-300 hover:text-foreground uppercase tracking-wide"
                             >

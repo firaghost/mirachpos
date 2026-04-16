@@ -123,10 +123,10 @@ export const ActiveOrdersPanel: React.FC<ActiveOrdersPanelProps> = ({ onNavigate
                 const tbl = tables.find((t) => t.id === o.tableId) ?? null;
                 const tableStatus = tbl ? String((tbl as any)?.status || '').trim() : '';
                 if (o.status === 'Served' || tableStatus === 'Payment') {
-                  onNavigate(Screen.WAITER_PAYMENT);
+                  onNavigate(Screen.DASHBOARD);
                   return;
                 }
-                onNavigate(Screen.WAITER_REVIEW);
+                onNavigate(Screen.DASHBOARD);
               }}
             >
               <div className="flex items-start justify-between gap-3">

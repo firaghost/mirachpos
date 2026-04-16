@@ -355,7 +355,7 @@ export const ManagerFloorMap: React.FC<Props> = ({ onNavigate }) => {
                   Add Table
                 </button>
               )}
-              <button onClick={() => onNavigate(Screen.TABLE_ASSIGNMENT)} className="h-11 px-5 rounded-lg bg-background border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 flex items-center gap-2 text-sm font-semibold">
+              <button onClick={() => onNavigate(Screen.MANAGER_TABLE_DETAILS)} className="h-11 px-5 rounded-lg bg-background border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 flex items-center gap-2 text-sm font-semibold">
                 <AppIcon name="arrow_back" className="text-[18px]" size={18} />
                 Back to Assign
               </button>

@@ -151,7 +151,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
 
   const openTable = (id: string) => {
     selectTable(id);
-    onNavigate(Screen.WAITER_MENU);
+    onNavigate(Screen.WAITER_WORKSPACE);
   };
 
   const openWaiterFloor = (staffId: string) => {

@@ -29,6 +29,7 @@
   "exclude": [
     "dist/**",
     "functions/**",
-    "mobile/**"
+    "mobile/**",
+    "App_backup.tsx"
   ]
 }

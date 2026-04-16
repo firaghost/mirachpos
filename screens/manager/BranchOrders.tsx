@@ -92,7 +92,7 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
              <AppIcon name="receipt_long" className="text-primary text-2xl" size={24} />
              <h2 className="text-xl font-bold">Orders Management</h2>
          </div>
-         <button onClick={() => onNavigate(Screen.TABLE_ASSIGNMENT)} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2">
+         <button onClick={() => onNavigate(Screen.MANAGER_FLOOR_MAP)} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2">
             <AppIcon name="add" className="text-lg" size={18} /> New Order
          </button>
       </header>

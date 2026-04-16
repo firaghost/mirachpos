@@ -293,8 +293,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               : (role as any);
 
       const initialScreen = (() => {
-        if (mappedRole === UserRole.WAITER) return Screen.WAITER_DASHBOARD;
-        if (mappedRole === UserRole.WAITER_MANAGER) return Screen.WAITER_DASHBOARD;
+        if (mappedRole === UserRole.WAITER) return Screen.WAITER_WORKSPACE;
+        if (mappedRole === UserRole.WAITER_MANAGER) return Screen.WAITER_WORKSPACE;
         if (mappedRole === UserRole.BRANCH_MANAGER) return Screen.MANAGER_DASHBOARD;
         if (mappedRole === UserRole.SUPER_ADMIN) return Screen.SA_OVERVIEW;
         if (mappedRole === UserRole.CAFE_OWNER) return Screen.OWNER_DASHBOARD;

@@ -33,7 +33,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
 
   const openOrder = (orderId: string) => {
     selectOrder(orderId);
-    onNavigate(canRefundFromHere ? Screen.MANAGER_ORDER_DETAILS : Screen.WAITER_RECEIPT);
+    onNavigate(canRefundFromHere ? Screen.MANAGER_ORDER_DETAILS : Screen.DASHBOARD);
   };
 
   // ---------- Business Date Logic (7 AM Cutoff) ----------

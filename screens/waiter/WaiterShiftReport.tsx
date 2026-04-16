@@ -85,7 +85,7 @@ export const WaiterShiftReport: React.FC<Props> = ({ onNavigate }) => {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => onNavigate(Screen.WAITER_DASHBOARD)}
+            onClick={() => onNavigate(Screen.WAITER_WORKSPACE)}
             className="h-10 px-4 rounded-lg border border-border bg-background hover:bg-secondary text-muted-foreground font-bold"
           >
             Back
