@@ -878,15 +878,15 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               </div>
             </div>
           )}
-          <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+          <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
             {filteredProducts.map((p) => {
               // Disable menu if: no table, out of stock, billing mode, terminal status, or existing order not in edit
               const isExistingOrderLocked = openOrder && !editingOrder && openOrder.status !== 'Pending' && openOrder.status !== 'Draft';
               const isDisabled = !selectedTableId || p.stock <= 0 || isBilling || isOrderTerminal || isExistingOrderLocked;
-              const statusLabel = p.stock <= 0 ? 'Sold Out' : isBilling ? 'Billing' : isOrderTerminal ? 'Closed' : isExistingOrderLocked ? 'View Only' : 'In Stock';
-              const statusClass = p.stock <= 0 || isBilling || isOrderTerminal || isExistingOrderLocked
-                ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                : 'bg-green-500/20 text-green-400 border-green-500/30';
+              const isLowStock = p.stock > 0 && p.stock <= 5;
+
+              const imgUrl = (p as any).image;
+              const hasImage = imgUrl && typeof imgUrl === 'string' && imgUrl.trim().length > 0;
 
               return (
                 <button
@@ -894,47 +894,48 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                   disabled={isDisabled}
                   onClick={() => handleAddItem(p.id)}
                   className={cn(
-                    'group bg-card rounded-xl overflow-hidden border border-border hover:border-primary transition-all duration-200 text-left flex flex-col relative',
-                    isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                    'group relative flex flex-col justify-between bg-card rounded-xl border-2 border-border hover:border-primary hover:shadow-md transition-all duration-100 text-left overflow-hidden',
+                    isDisabled ? 'opacity-50 cursor-not-allowed bg-muted' : 'cursor-pointer active:scale-95'
                   )}
                 >
-                  <div className="absolute top-2 right-2 z-10">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusClass}`}>{statusLabel}</span>
-                  </div>
-
-                  <div className="h-24 w-full bg-cover bg-center group-hover:opacity-90 transition-opacity bg-secondary relative">
-                    {p.image ? (
+                  {/* Top: Product image (if exists) + Stock warning */}
+                  <div className="flex items-center justify-between px-3 pt-2 pb-1 min-h-[40px]">
+                    {hasImage ? (
                       <img
-                        src={p.image}
-                        alt={p.name}
-                        loading="lazy"
-                        className="h-full w-full object-cover"
+                        src={imgUrl}
+                        alt=""
+                        className="w-8 h-8 rounded-md object-cover flex-shrink-0"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                       />
                     ) : (
-                      <div className="h-full w-full flex items-center justify-center bg-muted">
-                        <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
+                      <div className="w-8 h-8" />
+                    )}
+                    {(p.stock <= 0 || isLowStock) && (
+                      <span className={cn(
+                        'text-[10px] font-bold px-1.5 py-0.5 rounded-full',
+                        p.stock <= 0 ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'
+                      )}>
+                        {p.stock <= 0 ? 'OUT' : p.stock}
+                      </span>
                     )}
                   </div>
 
-                  <div className="p-2.5 flex flex-col min-h-[90px]">
-                    <h3 className="font-bold text-foreground text-sm leading-tight mb-1 line-clamp-2 min-h-[2.5rem]">{p.name}</h3>
-                    <p className="text-muted-foreground text-[10px] mb-2">{(p as any).category || 'Item'}</p>
-                    <div className="mt-auto flex items-center justify-between pt-1">
-                      <span className="text-sm font-bold text-primary">ETB {Number(p.price || 0).toFixed(0)}</span>
-                      <div
-                        className={cn(
-                          'size-7 rounded-lg flex items-center justify-center shadow-lg transition-transform',
-                          isDisabled ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground shadow-primary/20 group-hover:scale-105'
-                        )}
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                      </div>
-                    </div>
+                  {/* Middle: Product name with tooltip for long names */}
+                  <div className="px-3 flex-1 min-h-[2.8rem]">
+                    <h3
+                      className="font-semibold text-foreground text-sm leading-tight line-clamp-3 break-words"
+                      title={p.name}
+                    >
+                      {p.name}
+                    </h3>
+                  </div>
+
+                  {/* Bottom: Price bar */}
+                  <div className="mt-2 bg-primary/10 px-3 py-2">
+                    <span className="text-xl font-bold text-primary">
+                      {Number(p.price || 0).toFixed(0)}
+                    </span>
+                    <span className="text-xs text-primary/70 ml-0.5">ETB</span>
                   </div>
                 </button>
               );
@@ -946,8 +947,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
       {/* RIGHT - CART - Responsive */}
       <div className={cn(
         "flex-col bg-card overflow-hidden flex-shrink-0 h-full",
-        "hidden sm:flex sm:w-[280px] md:w-[320px] lg:w-[360px]",
-        mobileTab === 'cart' && 'flex w-full sm:w-[360px]'
+        "hidden sm:flex sm:w-[320px] md:w-[380px] lg:w-[420px] xl:w-[460px]",
+        mobileTab === 'cart' && 'flex w-full sm:w-[420px]'
       )}>
         {/* Mobile header */}
         <div className="sm:hidden flex items-center justify-between p-3 border-b flex-shrink-0">

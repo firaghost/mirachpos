@@ -2415,6 +2415,13 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               // PUT failed too, fall through to outbox
             }
           }
+          // Check for table_assigned_to_other error - this is a permission issue, not a retry-able error
+          if (postRes.status === 403) {
+            const errorJson = (await postRes.json().catch(() => null)) as any;
+            if (errorJson?.error === 'table_assigned_to_other') {
+              throw new Error('table_assigned_to_other');
+            }
+          }
           // For other errors, enqueue for retry
           void enqueueOutboxHttp({
             url: withBranchQuery('/api/pos/orders'),
@@ -2423,7 +2430,11 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             headers: { 'Content-Type': 'application/json' },
           });
           return false;
-        } catch {
+        } catch (e) {
+          // If it's a table_assigned_to_other error, re-throw so caller can handle it
+          if (e instanceof Error && e.message === 'table_assigned_to_other') {
+            throw e;
+          }
           void enqueueOutboxHttp({
             url: withBranchQuery('/api/pos/orders'),
             method: 'POST',
@@ -2654,13 +2665,23 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Persist unsynced orders to DB (so owner dashboard reflects them).
         const unsyncedOrders = snapshot.orders.filter((o) => o.syncedToServer === false).slice(0, 10);
         for (const o of unsyncedOrders) {
-          const ok = await persistOrder(o);
-          if (!ok) continue;
-          const now = new Date().toISOString();
-          setState((s) => ({
-            ...s,
-            orders: s.orders.map((x) => (x.id === o.id ? { ...x, syncedToServer: true, syncedAt: now } : x)),
-          }));
+          try {
+            const ok = await persistOrder(o);
+            if (!ok) continue;
+            const now = new Date().toISOString();
+            setState((s) => ({
+              ...s,
+              orders: s.orders.map((x) => (x.id === o.id ? { ...x, syncedToServer: true, syncedAt: now } : x)),
+            }));
+          } catch (e) {
+            // Handle table assignment conflict - skip this order in background sync
+            // (user will be alerted when they try to create the order directly)
+            if (e instanceof Error && e.message === 'table_assigned_to_other') {
+              continue;
+            }
+            // For other errors, continue trying other orders
+            continue;
+          }
         }
 
         // Note: We no longer persist whole POS JSON state to the server.
@@ -2711,10 +2732,19 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   const persistOrderNow = useCallback(
-    (orderId: string) => {
+    async (orderId: string) => {
       const order = state.orders.find((o) => o.id === orderId);
       if (!order) return;
-      void persistOrder(order);
+      try {
+        await persistOrder(order);
+      } catch (e) {
+        // Handle table assignment conflict - alert the user
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot modify orders for this table.');
+        }
+        // ignore other errors
+      }
     },
     [persistOrder, state.orders],
   );
@@ -3224,8 +3254,14 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...s,
           orders: s.orders.map((o) => (o.id === orderId ? { ...o, syncedToServer: true, syncedAt: nowIso } : o)),
         }));
-      } catch {
-        // ignore
+      } catch (e) {
+        // Handle table assignment conflict - alert the user
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot create orders for this table.');
+          return;
+        }
+        // ignore other errors
       }
     })();
 
@@ -3239,8 +3275,12 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         void (async () => {
           try {
             await persistOrder(order);
-          } catch {
-            // ignore
+          } catch (e) {
+            // Handle table assignment conflict silently - user already alerted earlier
+            if (e instanceof Error && e.message === 'table_assigned_to_other') {
+              return;
+            }
+            // ignore other errors
           }
 
           if (separateDrinkTickets && hasBarRoute) {
@@ -3380,8 +3420,14 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...s,
           orders: s.orders.map((o) => (o.id === orderId ? { ...o, syncedToServer: true, syncedAt: nowIso } : o)),
         }));
-      } catch {
-        // ignore
+      } catch (e) {
+        // Handle table assignment conflict - alert the user
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot create orders for this table.');
+          return;
+        }
+        // ignore other errors
       }
     })();
 
@@ -3395,8 +3441,12 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         void (async () => {
           try {
             await persistOrder(order);
-          } catch {
-            // ignore
+          } catch (e) {
+            // Handle table assignment conflict silently - user already alerted earlier
+            if (e instanceof Error && e.message === 'table_assigned_to_other') {
+              return;
+            }
+            // ignore other errors
           }
 
           if (separateDrinkTickets && hasBarRoute) {
@@ -3471,8 +3521,13 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       await persistOrder(order);
-    } catch {
-      // ignore
+    } catch (e) {
+      // Handle table assignment conflict
+      if (e instanceof Error && e.message === 'table_assigned_to_other') {
+        // eslint-disable-next-line no-alert
+        window.alert('This table is assigned to another waiter. You cannot print orders for this table.');
+      }
+      // ignore other errors
     }
 
     try {
@@ -3599,16 +3654,21 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       try {
         try {
           upsertLocalOrderBundle(newOrder);
         } catch {
           // ignore
         }
-        void persistOrder(newOrder);
-      } catch {
-        // ignore
+        await persistOrder(newOrder);
+      } catch (e) {
+        // Handle table assignment conflict
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot create orders for this table.');
+        }
+        // ignore other errors
       }
     });
 
@@ -3988,7 +4048,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       try {
         if (!updatedOrder) return;
 
@@ -4023,16 +4083,29 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // Fallback: order might not exist yet, attempt full persist.
                 await persistOrder(updatedOrder!);
               }
-            } catch {
-              // ignore
+            } catch (e) {
+              // Handle table assignment conflict
+              if (e instanceof Error && e.message === 'table_assigned_to_other') {
+                // eslint-disable-next-line no-alert
+                window.alert('This table is assigned to another waiter. You cannot modify orders for this table.');
+              }
+              // ignore other errors
             }
           })();
           return;
         }
 
-        void persistOrder(updatedOrder).then(() => {
+        try {
+          await persistOrder(updatedOrder);
           void refreshFromServer();
-        });
+        } catch (e) {
+          // Handle table assignment conflict
+          if (e instanceof Error && e.message === 'table_assigned_to_other') {
+            // eslint-disable-next-line no-alert
+            window.alert('This table is assigned to another waiter. You cannot modify orders for this table.');
+          }
+          // ignore other errors
+        }
       } catch {
         // ignore
       }
@@ -4104,14 +4177,19 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       try {
         if (updatedOrder) {
           upsertLocalOrderBundle(updatedOrder);
-          void persistOrder(updatedOrder);
+          await persistOrder(updatedOrder);
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        // Handle table assignment conflict
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot modify orders for this table.');
+        }
+        // ignore other errors
       }
     });
 
@@ -4199,14 +4277,19 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       try {
         if (updatedOrder) {
           upsertLocalOrderBundle(updatedOrder);
-          void persistOrder(updatedOrder);
+          await persistOrder(updatedOrder);
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        // Handle table assignment conflict
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot modify orders for this table.');
+        }
+        // ignore other errors
       }
     });
 
@@ -4312,14 +4395,19 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       try {
         if (updatedOrder) {
           upsertLocalOrderBundle(updatedOrder);
-          void persistOrder(updatedOrder);
+          await persistOrder(updatedOrder);
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        // Handle table assignment conflict
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot modify orders for this table.');
+        }
+        // ignore other errors
       }
     });
 
@@ -4518,7 +4606,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       try {
         if (updatedOrder) {
           try {
@@ -4526,16 +4614,18 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } catch {
             // ignore
           }
-          void persistOrder(updatedOrder).then(() => {
-            // Refresh from server after payment to ensure table status is synced
-            void refreshFromServer();
-          }).catch(() => {
-            // Still try to refresh even if persist failed
-            void refreshFromServer();
-          });
+          await persistOrder(updatedOrder);
+          // Refresh from server after payment to ensure table status is synced
+          void refreshFromServer();
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        // Handle table assignment conflict - alert the user
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot modify orders for this table.');
+        }
+        // Still try to refresh even if persist failed
+        void refreshFromServer();
       }
     });
   };
@@ -4563,14 +4653,19 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { ...s, orders: nextOrders };
     });
 
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       try {
         if (updatedOrder) {
           upsertLocalOrderBundle(updatedOrder);
-          void persistOrder(updatedOrder);
+          await persistOrder(updatedOrder);
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        // Handle table assignment conflict - alert the user
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot modify orders for this table.');
+        }
+        // ignore other errors
       }
     });
 
@@ -4640,14 +4735,19 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       try {
         if (updatedOrder) {
           upsertLocalOrderBundle(updatedOrder);
-          void persistOrder(updatedOrder);
+          await persistOrder(updatedOrder);
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        // Handle table assignment conflict
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot modify orders for this table.');
+        }
+        // ignore other errors
       }
     });
 
@@ -4680,14 +4780,19 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { ...s, orders: nextOrders };
     });
 
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       try {
         if (updatedOrder) {
           upsertLocalOrderBundle(updatedOrder);
-          void persistOrder(updatedOrder);
+          await persistOrder(updatedOrder);
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        // Handle table assignment conflict
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot modify orders for this table.');
+        }
+        // ignore other errors
       }
     });
 
@@ -4708,14 +4813,19 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { ...s, orders: nextOrders };
     });
 
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       try {
         if (updatedOrder) {
           upsertLocalOrderBundle(updatedOrder);
-          void persistOrder(updatedOrder);
+          await persistOrder(updatedOrder);
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        // Handle table assignment conflict
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot modify orders for this table.');
+        }
+        // ignore other errors
       }
     });
 
@@ -4750,14 +4860,19 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { ...s, orders: nextOrders };
     });
 
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       try {
         if (updatedOrder) {
           upsertLocalOrderBundle(updatedOrder);
-          void persistOrder(updatedOrder);
+          await persistOrder(updatedOrder);
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        // Handle table assignment conflict
+        if (e instanceof Error && e.message === 'table_assigned_to_other') {
+          // eslint-disable-next-line no-alert
+          window.alert('This table is assigned to another waiter. You cannot modify orders for this table.');
+        }
+        // ignore other errors
       }
     });
 

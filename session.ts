@@ -129,12 +129,14 @@ export const updateSession = (patch: Record<string, any>) => {
 };
 
 export const clearSession = () => {
+  // Read session BEFORE clearing to get role for clearing role-scoped legacy key
+  const cur = readSession<any>();
   safeRemove(getSessionStore(), SESSION_KEY);
   const legacy = getLegacyStore();
   safeRemove(legacy, SESSION_KEY);
   try {
-    const cur = readSession<any>() || {};
     safeRemove(legacy, legacyKeyForRole(cur?.role));
+    safeRemove(legacy, LAST_ROLE_KEY);
   } catch {
     // ignore
   }

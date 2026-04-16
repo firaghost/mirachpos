@@ -143,6 +143,36 @@ let serverOffsetMs = 0;
 
 export const serverNowMs = () => Date.now() + serverOffsetMs;
 
+// Helper to append branchId to API URLs for branch-scoped routes
+export const withBranchQuery = (path: string): string => {
+  const needsBranch = path.startsWith('/api/pos/') || path.startsWith('/api/manager/');
+  if (!needsBranch) return path;
+  if (path.includes('branchId=')) return path;
+
+  const s = readSession<any>();
+  const role = typeof s?.role === 'string' ? s.role : '';
+  const needsExplicitBranch =
+    role === 'Cafe Owner' ||
+    role === 'Branch Manager' ||
+    role === 'Waiter Manager' ||
+    role === 'Waiter';
+
+  if (!needsExplicitBranch) return path;
+
+  const selected =
+    (localStorage.getItem('mirachpos.owner.selectedBranchId.v1') ||
+      localStorage.getItem('mirachpos.manager.selectedBranchId.v1') ||
+      localStorage.getItem('mirachpos.waiter.selectedBranchId.v1') ||
+      '')
+      .trim();
+
+  if (!selected || selected === 'global') return path;
+
+  return path.includes('?')
+    ? `${path}&branchId=${encodeURIComponent(selected)}`
+    : `${path}?branchId=${encodeURIComponent(selected)}`;
+};
+
 export const apiFetch = async (input: RequestInfo | URL, init: ApiFetchOptions = {}) => {
   const { auth = true, headers, ...rest } = init;
   const mergedHeaders: Record<string, string> = { ...(headers || {}) };
