@@ -878,7 +878,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               </div>
             </div>
           )}
-          <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
+          <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             {filteredProducts.map((p) => {
               // Disable menu if: no table, out of stock, billing mode, terminal status, or existing order not in edit
               const isExistingOrderLocked = openOrder && !editingOrder && openOrder.status !== 'Pending' && openOrder.status !== 'Draft';
@@ -921,9 +921,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                   </div>
 
                   {/* Middle: Product name with tooltip for long names */}
-                  <div className="px-3 flex-1 min-h-[2.8rem]">
+                  <div className="px-3 flex-1 min-h-[2.8rem] flex items-center">
                     <h3
-                      className="font-semibold text-foreground text-sm leading-tight line-clamp-3 break-words"
+                      className="font-semibold text-foreground text-sm leading-snug line-clamp-2 text-pretty"
                       title={p.name}
                     >
                       {p.name}
@@ -931,11 +931,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                   </div>
 
                   {/* Bottom: Price bar */}
-                  <div className="mt-2 bg-primary/10 px-3 py-2">
-                    <span className="text-xl font-bold text-primary">
+                  <div className="mt-auto bg-primary/10 px-3 py-2 flex items-baseline justify-center gap-1">
+                    <span className="text-lg font-bold text-primary tracking-tight">
                       {Number(p.price || 0).toFixed(0)}
                     </span>
-                    <span className="text-xs text-primary/70 ml-0.5">ETB</span>
+                    <span className="text-xs font-medium text-primary/60 uppercase">ETB</span>
                   </div>
                 </button>
               );
