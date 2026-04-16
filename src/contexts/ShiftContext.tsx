@@ -61,6 +61,24 @@ interface ShiftContextType {
   }>;
   closeAllShifts: (closingCash: number, notes?: string, force?: boolean) => Promise<{ closed: number; errors: string[] }>;
 
+  /**
+   * Bulk force-pay all open orders for current shift (emergency shift close).
+   * Marks all unpaid orders as Paid with the specified payment method.
+   * Requires manager role. Returns count of processed orders.
+   */
+  bulkForcePayOrders: (paymentMethod: string, pin?: string) => Promise<{
+    processed: number;
+    failed: number;
+    paymentMethod: string;
+    results: Array<{
+      orderId: string;
+      displayNumber: string;
+      status: 'paid' | 'error';
+      amount?: number;
+      error?: string;
+    }>;
+  }>;
+
   // Utility
   formatBusinessDate: (date: string) => string;
   getShiftLabel: (shiftType: ShiftType) => string;
@@ -194,6 +212,48 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const bulkForcePayOrders = useCallback(async (
+    paymentMethod: string = 'cash',
+    pin?: string
+  ): Promise<{
+    processed: number;
+    failed: number;
+    paymentMethod: string;
+    results: Array<{
+      orderId: string;
+      displayNumber: string;
+      status: 'paid' | 'error';
+      amount?: number;
+      error?: string;
+    }>;
+  }> => {
+    if (!currentShift?.id) {
+      throw new Error('No active shift');
+    }
+
+    const res = await apiFetch('/api/pos/orders/bulk-force-pay', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shiftId: currentShift.id,
+        paymentMethod,
+        pin,
+      }),
+    });
+    const data = (await res.json().catch(() => null)) as any;
+
+    if (!data?.ok) {
+      throw new Error(data?.error || 'Failed to force-pay orders');
+    }
+
+    return {
+      processed: data.processed || 0,
+      failed: data.failed || 0,
+      paymentMethod: data.paymentMethod || paymentMethod,
+      results: data.results || [],
+    };
+  }, [currentShift]);
+
   const formatBusinessDate = useCallback((date: string): string => {
     if (!date) return '';
     const d = new Date(date);
@@ -226,6 +286,7 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
     closeShift,
     verifyCloseShift,
     closeAllShifts,
+    bulkForcePayOrders,
     formatBusinessDate,
     getShiftLabel,
   };

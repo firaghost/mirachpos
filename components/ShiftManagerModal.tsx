@@ -34,6 +34,7 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
     getShiftLabel,
     formatBusinessDate,
     refreshShift,
+    bulkForcePayOrders,
   } = useShift();
 
   const [activeTab, setActiveTab] = useState<'current' | 'close' | 'closeAll' | 'new'>('current');
@@ -44,6 +45,12 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forceClose, setForceClose] = useState(false);
+  const [isForcePaying, setIsForcePaying] = useState(false);
+  const [forcePayResult, setForcePayResult] = useState<{
+    processed: number;
+    failed: number;
+    show: boolean;
+  } | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -159,6 +166,8 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
       setNotes('');
       setError(null);
       setClosePreview(null);
+      setForcePayResult(null);
+      setForceClose(false);
       setLastRefresh(new Date());
       // Initial data load - only once when modal opens
       refreshShift();
@@ -226,6 +235,30 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to close all shifts');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleForcePayAll = async () => {
+    if (!closePreview?.openOrders.length) return;
+
+    setIsForcePaying(true);
+    setError(null);
+    setForcePayResult(null);
+
+    try {
+      const result = await bulkForcePayOrders('cash');
+      setForcePayResult({
+        processed: result.processed,
+        failed: result.failed,
+        show: true,
+      });
+      // Refresh preview after force pay
+      await loadClosePreview();
+      await refreshShift();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to force-pay orders');
+    } finally {
+      setIsForcePaying(false);
     }
   };
 
@@ -412,7 +445,7 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                       <span className="font-medium text-sm">Open Orders Detected</span>
                     </div>
                     <ul className="text-xs text-amber-600 space-y-1">
-                      {closePreview.openOrders.map((order) => (
+                      {closePreview.openOrders.slice(0, 5).map((order) => (
                         <li key={order.id} className="flex items-center gap-2">
                           <span>Order #{order.displayNumber} - {order.status}</span>
                           <button
@@ -426,7 +459,42 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                           </button>
                         </li>
                       ))}
+                      {closePreview.openOrders.length > 5 && (
+                        <li className="text-xs text-amber-500 italic">
+                          ...and {closePreview.openOrders.length - 5} more orders
+                        </li>
+                      )}
                     </ul>
+
+                    {/* Force Pay All Button */}
+                    <div className="mt-3 pt-2 border-t border-amber-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleForcePayAll}
+                          disabled={isForcePaying}
+                          className="text-amber-700 border-amber-300 hover:bg-amber-100"
+                        >
+                          {isForcePaying ? (
+                            <>
+                              <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            <>Force Pay All ({closePreview.openOrders.length})</>
+                          )}
+                        </Button>
+                        <span className="text-xs text-amber-600">Auto-pay all as Cash</span>
+                      </div>
+
+                      {forcePayResult?.show && (
+                        <div className={`text-xs p-2 rounded ${forcePayResult.failed > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                          {forcePayResult.processed} orders paid, {forcePayResult.failed} failed
+                        </div>
+                      )}
+                    </div>
+
                     <div className="mt-3 pt-2 border-t border-amber-200">
                       <label className="flex items-center gap-2 text-xs text-amber-800 cursor-pointer">
                         <input

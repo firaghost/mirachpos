@@ -2669,6 +2669,139 @@ const makePosOrdersRouter = ({
     },
   );
 
+  /**
+   * POST /pos/orders/bulk-force-pay
+   * Bulk force-pay all open orders for a shift (emergency shift close)
+   */
+  r.post(
+    '/pos/orders/bulk-force-pay',
+    tenantMiddleware,
+    requireAuth,
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    loadEntitlements,
+    requireModule('pos'),
+    async (req, res, next) => {
+      try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) {
+          return res.status(400).json({ error: 'branch_required' });
+        }
+
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const shiftId = String(body?.shiftId || '').trim();
+        const paymentMethod = String(body?.paymentMethod || 'cash').trim().toLowerCase();
+        const pin = String(body?.pin || '').trim();
+
+        if (!shiftId) {
+          return res.status(400).json({ error: 'shift_id_required' });
+        }
+
+        // TODO: Validate manager PIN if required by settings
+
+        const staffId = req.auth?.staffId ? String(req.auth.staffId) : '';
+        const staffName = req.auth?.staffName || req.auth?.email || 'Manager';
+
+        // Get all open orders for this shift
+        const openOrders = await db()
+          .select(['id', 'total', 'tax', 'status', 'display_number'])
+          .from('orders')
+          .where({
+            tenant_id: req.tenant.id,
+            branch_id: branchId,
+            shift_id: shiftId,
+          })
+          .whereNotIn('status', ['Paid', 'Voided', 'Refunded']);
+
+        if (openOrders.length === 0) {
+          return res.json({
+            ok: true,
+            processed: 0,
+            message: 'No open orders to process',
+          });
+        }
+
+        const results = [];
+        const now = new Date().toISOString();
+
+        for (const order of openOrders) {
+          try {
+            const orderId = order.id;
+            const total = Number(order.total || 0);
+
+            // Update order status to Paid
+            await db()
+              .from('orders')
+              .where({ id: orderId, tenant_id: req.tenant.id })
+              .update({
+                status: 'Paid',
+                paid_at: now,
+                updated_at: now,
+              });
+
+            // Record payment event
+            await db().from('order_payments').insert({
+              id: uid(),
+              tenant_id: req.tenant.id,
+              branch_id: branchId,
+              order_id: orderId,
+              shift_id: shiftId,
+              method: paymentMethod,
+              amount: total,
+              status: 'Completed',
+              reference: `bulk-force-pay-${now}`,
+              created_at: now,
+              updated_at: now,
+            });
+
+            // Log audit
+            await logAudit({
+              tenantId: req.tenant.id,
+              branchId,
+              staffId,
+              action: 'order.force_paid',
+              entityType: 'order',
+              entityId: orderId,
+              message: `Order force-paid via bulk operation (${paymentMethod})`,
+              meta: {
+                paymentMethod,
+                amount: total,
+                previousStatus: order.status,
+                shiftId,
+              },
+            });
+
+            results.push({
+              orderId,
+              displayNumber: order.display_number,
+              status: 'paid',
+              amount: total,
+            });
+          } catch (err) {
+            results.push({
+              orderId: order.id,
+              displayNumber: order.display_number,
+              status: 'error',
+              error: err.message,
+            });
+          }
+        }
+
+        // Update shift metrics after bulk pay
+        await updateShiftMetrics({ tenantId: req.tenant.id, branchId, shiftId });
+
+        return res.json({
+          ok: true,
+          processed: results.filter((r) => r.status === 'paid').length,
+          failed: results.filter((r) => r.status === 'error').length,
+          paymentMethod,
+          results,
+        });
+      } catch (e) {
+        return next(e);
+      }
+    },
+  );
+
   return r;
 };
 
