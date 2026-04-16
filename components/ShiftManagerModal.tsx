@@ -43,6 +43,7 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forceClose, setForceClose] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -197,8 +198,9 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
 
     try {
       const cash = parseFloat(closingCash) || 0;
-      await closeShift(currentShift.id, cash, notes);
+      await closeShift(currentShift.id, cash, notes, forceClose);
       await refreshShift();
+      setForceClose(false);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to close shift');
@@ -411,11 +413,36 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                     </div>
                     <ul className="text-xs text-amber-600 space-y-1">
                       {closePreview.openOrders.map((order) => (
-                        <li key={order.id}>
-                          Order #{order.displayNumber} - {order.status}
+                        <li key={order.id} className="flex items-center gap-2">
+                          <span>Order #{order.displayNumber} - {order.status}</span>
+                          <button
+                            onClick={() => {
+                              onClose();
+                              window.location.href = `/orders/${order.id}`;
+                            }}
+                            className="text-blue-600 hover:text-blue-800 underline"
+                          >
+                            Pay Now →
+                          </button>
                         </li>
                       ))}
                     </ul>
+                    <div className="mt-3 pt-2 border-t border-amber-200">
+                      <label className="flex items-center gap-2 text-xs text-amber-800 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={forceClose}
+                          onChange={(e) => setForceClose(e.target.checked)}
+                          className="rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        <span className="font-medium">Force close anyway (manager override)</span>
+                      </label>
+                      {forceClose && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Warning: This will close the shift with unpaid orders. Only use if you know what you're doing.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -546,10 +573,10 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                   </Button>
                   <Button
                     onClick={handleCloseShift}
-                    disabled={isSubmitting || (!closePreview.canClose && closingCash === '')}
+                    disabled={isSubmitting || (!closePreview.canClose && !forceClose && closingCash === '')}
                     className="flex-1 h-9 bg-red-600 hover:bg-red-700"
                   >
-                    {isSubmitting ? 'Closing...' : 'Close Shift'}
+                    {isSubmitting ? 'Closing...' : forceClose ? 'Force Close Shift' : 'Close Shift'}
                   </Button>
                 </div>
               </>
