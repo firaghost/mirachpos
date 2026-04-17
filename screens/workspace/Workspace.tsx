@@ -728,7 +728,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
       {/* LEFT - TABLES - Responsive */}
       <div className={cn(
         "border-r bg-card flex flex-col overflow-hidden flex-shrink-0",
-        "w-full lg:w-[40%] xl:w-[35%]",
+        "w-full lg:w-[28%] xl:w-[25%]",
         mobileTab !== 'tables' && 'hidden lg:flex'
       )}>
         {/* Mobile header */}
@@ -749,7 +749,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
           </div>
         </div>
         <div className="flex-1 min-h-0 overflow-auto p-3 sm:p-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {filteredTables.map((t) => {
               const active = selectedTableId === t.id;
               const order = t.openOrderId ? orders.find(o => o.id === t.openOrderId) : null;
@@ -947,8 +947,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
       {/* RIGHT - CART - Responsive */}
       <div className={cn(
         "flex-col bg-card overflow-hidden flex-shrink-0 h-full",
-        "hidden sm:flex sm:w-[320px] md:w-[380px] lg:w-[420px] xl:w-[460px]",
-        mobileTab === 'cart' && 'flex w-full sm:w-[420px]'
+        "hidden sm:flex sm:w-[280px] md:w-[320px] lg:w-[340px] xl:w-[360px]",
+        mobileTab === 'cart' && 'flex w-full sm:w-[340px]'
       )}>
         {/* Mobile header */}
         <div className="sm:hidden flex items-center justify-between p-3 border-b flex-shrink-0">

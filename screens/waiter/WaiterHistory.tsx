@@ -156,7 +156,13 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
   };
 
   const rows = useMemo(() =>
-    rowsRaw.map((o) => {
+    [...rowsRaw]
+      .sort((a, b) => {
+        const aTime = new Date(a?.paidAt || a?.createdAt || 0).getTime();
+        const bTime = new Date(b?.paidAt || b?.createdAt || 0).getTime();
+        return bTime - aTime; // Newest first
+      })
+      .map((o) => {
       const paidAt = typeof o?.paidAt === 'string' ? o.paidAt : '';
       const createdAt = typeof o?.createdAt === 'string' ? o.createdAt : '';
       const dt = formatDeviceDateTime(paidAt || createdAt, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
