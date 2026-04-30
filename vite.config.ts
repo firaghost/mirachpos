@@ -32,11 +32,48 @@ export default defineConfig(({ mode }) => {
             changeOrigin: true,
           },
         },
+        watch: {
+          ignored: [
+            '**/api/**',
+            '**/docs/**',
+            '**/functions/**',
+            '**/mobile/**',
+            '**/electron/**',
+            '**/*.md',
+            '**/node_modules/**',
+            '**/.git/**',
+          ],
+        },
       },
       resolve: {
         alias: {
-          '@': path.resolve(__dirname, '.'),
+          '@': path.resolve(__dirname, './src'),
         },
+      },
+      optimizeDeps: {
+        force: true,
+        include: [
+          'react',
+          'react-dom',
+          'firebase/app',
+          'firebase/auth',
+          'firebase/firestore',
+          'firebase/messaging',
+          'recharts',
+          'jspdf',
+          'jspdf-autotable',
+          'html2canvas',
+          'lucide-react',
+          '@grafana/faro-web-sdk',
+          '@grafana/faro-web-tracing',
+        ],
+        esbuildOptions: {
+          target: 'es2020',
+        },
+      },
+      esbuild: {
+        target: 'es2020',
+        logOverride: { 'this-is-undefined-in-esm': 'silent' },
       },
       build: {
         rollupOptions: {

@@ -441,6 +441,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
               <NavItem screen={Screen.MANAGER_DASHBOARD} icon="dashboard" label="Dashboard" />
               <NavItem screen={Screen.DESKTOP_DRAFT_INBOX} icon="inbox" label="Draft Orders" />
               <NavItem screen={Screen.MANAGER_ORDERS} icon="receipt_long" label="Orders" />
+              <NavItem screen={Screen.MANAGER_FLOOR_MAP} icon="table_restaurant" label="Floor Map" />
             </Section>
 
             <Section title="Resources">
