@@ -1788,7 +1788,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // 1) Refresh tables from DB
       try {
-        const tres = await apiFetch(withBranchQuery('/api/pos/tables'));
+        const tres = await apiFetch(withBranchQuery('/api/pos/tables'), { auth: true });
         const tjson = (await tres.json().catch(() => null)) as any;
         if (tres.ok) {
           const rows = Array.isArray(tjson?.tables) ? (tjson.tables as any[]) : [];
@@ -1798,8 +1798,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (scopeKey && incomingTables.length) void persistTablesToElectron(scopeKey, incomingTables);
         } else {
           // If tables are missing, try initialize then re-fetch.
-          await apiFetch(withBranchQuery('/api/pos/initialize'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
-          const tres2 = await apiFetch(withBranchQuery('/api/pos/tables'));
+          await apiFetch(withBranchQuery('/api/pos/initialize'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}), auth: true });
+          const tres2 = await apiFetch(withBranchQuery('/api/pos/tables'), { auth: true });
           const tjson2 = (await tres2.json().catch(() => null)) as any;
           if (tres2.ok) {
             const rows2 = Array.isArray(tjson2?.tables) ? (tjson2.tables as any[]) : [];
@@ -1816,7 +1816,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // 1b) Refresh authoritative menu products for waiter/manager ordering UI.
       // (POS state may not include full menu catalog; this keeps waiter menu in sync with manager-created items.)
       try {
-        const res = await apiFetch(withBranchQuery('/api/pos/menu/products?limit=500'));
+        const res = await apiFetch(withBranchQuery('/api/pos/menu/products?limit=500'), { auth: true });
         const json = (await res.json().catch(() => null)) as any;
         if (res.ok) {
           const rows = Array.isArray(json?.products) ? (json.products as any[]) : [];
@@ -1879,7 +1879,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // 2) Refresh authoritative orders list from DB
       try {
-        const res = await apiFetch(withBranchQuery('/api/pos/orders?limit=200&light=1'));
+        const res = await apiFetch(withBranchQuery('/api/pos/orders?limit=200&light=1'), { auth: true });
         if (!res.ok) return;
         const json = (await res.json().catch(() => null)) as any;
         const rows = Array.isArray(json?.orders) ? (json.orders as any[]) : [];

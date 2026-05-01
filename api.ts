@@ -291,7 +291,7 @@ export const apiFetch = async (input: RequestInfo | URL, init: ApiFetchOptions =
       const cloned = res.clone();
       const json = (await cloned.json().catch(() => null)) as any;
       const err = String(json?.error || json?.message || '').trim().toLowerCase();
-      if (err === 'invalid_token' || err === 'token_expired' || err === 'jwt_expired') {
+      if (err === 'invalid_token' || err === 'token_expired' || err === 'jwt_expired' || err === 'unauthorized') {
         logoutAndReload();
         return res;
       }
