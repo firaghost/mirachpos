@@ -469,10 +469,12 @@ export const OwnerDashboard: React.FC = () => {
                 <div className="p-2 bg-muted rounded-lg text-foreground">
                   <AppIcon name="store" />
                 </div>
+{data.kpis.activeBranches > 0 && (
                 <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-500 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                  <AppIcon name="trending_up" className="text-[14px]" size={14} />
-                  2%
+                  <AppIcon name="check_circle" className="text-[14px]" size={14} />
+                  Live
                 </span>
+                )}
               </div>
               <div className="mt-3">
                 <p className="text-muted-foreground text-sm font-medium">Active Branches</p>
@@ -574,9 +576,9 @@ export const OwnerDashboard: React.FC = () => {
                     const val = h.status === 'Good' ? 'text-emerald-600 dark:text-emerald-500' : h.status === 'Warn' ? 'text-muted-foreground' : 'text-destructive';
                     return (
                       <div key={h.label} className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`size-2 rounded-full ${dot}`}></div>
-                          <AppIcon name="settings" className="text-[18px]" size={18} />
+                        <div className="flex items-center gap-2">
+                          <div className={`size-2 rounded-full shrink-0 ${dot}`}></div>
+                          <span className="text-xs text-foreground font-medium">{h.label}</span>
                         </div>
                         <span className={`text-xs font-mono ${val}`}>{h.value}</span>
                       </div>
