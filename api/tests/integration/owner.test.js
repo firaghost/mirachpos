@@ -17,8 +17,8 @@ describe('Owner API Endpoints', () => {
       
       expect([200, 401, 403, 404, 402]).toContain(res.status);
       if (res.status === 200) {
-        expect(res.body).toHaveProperty('revenue');
-        expect(res.body).toHaveProperty('orders');
+        expect(res.body).toHaveProperty('kpis');
+        expect(res.body).toHaveProperty('branches');
       }
     });
     

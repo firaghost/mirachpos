@@ -128,8 +128,8 @@ const state = {
     },
 };
 
-const buildQuery = () => {
-    const ctx = {
+const buildQuery = (initialCtx) => {
+    const ctx = initialCtx || {
         table: '',
         where: {},
         whereMulti: {}, // col -> Set
@@ -369,7 +369,31 @@ const buildQuery = () => {
         innerJoin: jest.fn(() => q),
         join: jest.fn(() => q),
         leftJoin: jest.fn(() => q),
-        clone: jest.fn(() => q),
+        clone: jest.fn(() => {
+            const multi = {};
+            for (const [k, v] of Object.entries(ctx.whereMulti)) multi[k] = new Set(v);
+
+            const newCtx = {
+                table: ctx.table,
+                where: JSON.parse(JSON.stringify(ctx.where)),
+                whereMulti: multi,
+                whereOps: JSON.parse(JSON.stringify(ctx.whereOps)),
+                whereIn: ctx.whereIn ? JSON.parse(JSON.stringify(ctx.whereIn)) : null,
+                whereBetween: JSON.parse(JSON.stringify(ctx.whereBetween)),
+                whereNullSet: new Set(ctx.whereNullSet),
+                orGroups: JSON.parse(JSON.stringify(ctx.orGroups)),
+                orderBy: ctx.orderBy ? JSON.parse(JSON.stringify(ctx.orderBy)) : null,
+                limit: ctx.limit,
+                offset: ctx.offset,
+                count: ctx.count,
+                sum: ctx.sum ? JSON.parse(JSON.stringify(ctx.sum)) : null,
+                groupBy: ctx.groupBy,
+                first: ctx.first,
+                pendingInsertRow: ctx.pendingInsertRow ? JSON.parse(JSON.stringify(ctx.pendingInsertRow)) : null,
+                pendingMergePatch: ctx.pendingMergePatch ? JSON.parse(JSON.stringify(ctx.pendingMergePatch)) : null,
+            };
+            return buildQuery(newCtx);
+        }),
         modify: jest.fn((fn) => {
             if (typeof fn === 'function') fn(q);
             return q;
