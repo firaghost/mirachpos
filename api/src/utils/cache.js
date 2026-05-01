@@ -41,12 +41,16 @@ const getCachedJson = async (key) => {
   if (!k) return null;
   const redis = await getRedisClient();
   if (redis) {
-    const raw = await redis.get(k);
-    if (!raw) return null;
     try {
-      return JSON.parse(raw);
-    } catch {
-      return null;
+      const raw = await redis.get(k);
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    } catch (err) {
+      return getMemory(k);
     }
   }
   return getMemory(k);
@@ -57,8 +61,12 @@ const deleteCachedKey = async (key) => {
   if (!k) return;
   const redis = await getRedisClient();
   if (redis) {
-    await redis.del(k);
-    return;
+    try {
+      await redis.del(k);
+      return;
+    } catch (err) {
+      // fallback to memory below
+    }
   }
   memoryCache.delete(k);
 };
@@ -72,8 +80,12 @@ const deleteCachedKeys = async (keys) => {
 
   const redis = await getRedisClient();
   if (redis) {
-    await redis.del(normalized);
-    return;
+    try {
+      await redis.del(normalized);
+      return;
+    } catch (err) {
+      // fallback to memory below
+    }
   }
 
   for (const k of normalized) {
@@ -143,8 +155,12 @@ const setCachedJson = async (key, value, ttlSeconds) => {
   const ttl = getTtlSeconds(ttlSeconds);
   const redis = await getRedisClient();
   if (redis) {
-    await redis.set(k, JSON.stringify(value), { EX: ttl });
-    return;
+    try {
+      await redis.set(k, JSON.stringify(value), { EX: ttl });
+      return;
+    } catch (err) {
+      // fallback to memory below
+    }
   }
   setMemory(k, value, ttl);
 };

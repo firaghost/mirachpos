@@ -60,6 +60,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rowsRaw, setRowsRaw] = useState<any[]>([]);
+  const [isOfflineMode, setIsOfflineMode] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
   const [page, setPage] = useState(() => {
     const n = Number(getUiPref<number>('waiter.history.page', 1));
     return Number.isFinite(n) && n > 0 ? Math.trunc(n) : 1;
@@ -90,6 +91,111 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
   useEffect(() => { setPage(1); }, [query, statusFilter, dateFilter, customDate]);
   useEffect(() => { setUiPref('waiter.history.query', query); }, [query, setUiPref]);
 
+  // Track online/offline status
+  useEffect(() => {
+    const onOnline = () => setIsOfflineMode(false);
+    const onOffline = () => setIsOfflineMode(true);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
+  const isElectron = typeof window !== 'undefined' && Boolean((window as any)?.mirachpos?.pos);
+
+  // Load offline orders from Electron SQLite and convert to history rows
+  const loadOfflineOrders = useCallback(async (day: string): Promise<{ orders: any[]; total: number }> => {
+    try {
+      const pos = (window as any).mirachpos.pos;
+      if (!pos?.listOrders) return { orders: [], total: 0 };
+
+      // Determine scope key from session
+      const s = readSession<any>();
+      const tenantId = typeof s?.tenantId === 'string' ? s.tenantId : '';
+      const role = typeof s?.role === 'string' ? s.role : '';
+      const rawBranch = typeof s?.branchId === 'string' ? s.branchId : '';
+      const normBranch = rawBranch && rawBranch !== 'global' ? rawBranch : (() => {
+        try {
+          // Prioritize based on role so each role picks the right persisted selection
+          if (role === 'Cafe Owner') {
+            return localStorage.getItem('mirachpos.owner.selectedBranchId.v1') ||
+              localStorage.getItem('mirachpos.manager.selectedBranchId.v1') ||
+              localStorage.getItem('mirachpos.waiter.selectedBranchId.v1') || '';
+          }
+          if (role === 'Branch Manager') {
+            return localStorage.getItem('mirachpos.manager.selectedBranchId.v1') ||
+              localStorage.getItem('mirachpos.waiter.selectedBranchId.v1') || '';
+          }
+          return localStorage.getItem('mirachpos.waiter.selectedBranchId.v1') ||
+            localStorage.getItem('mirachpos.manager.selectedBranchId.v1') ||
+            localStorage.getItem('mirachpos.owner.selectedBranchId.v1') || '';
+        } catch { return ''; }
+      })();
+
+      if (!tenantId || !normBranch) return { orders: [], total: 0 };
+      const scopeKey = `tenant:${tenantId}:branch:${normBranch}:pos_ui_v1`;
+
+
+      const rawOrders: any[] = await pos.listOrders({ scopeKey, limit: 1000 });
+      if (!Array.isArray(rawOrders)) return { orders: [], total: 0 };
+
+      // Filter by business date (day string)
+      const dayStart = new Date(`${day}T07:00:00`).getTime();
+      const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+
+      let filtered = rawOrders.filter((o: any) => {
+        const t = new Date(o.created_at || o.createdAt || 0).getTime();
+        return t >= dayStart && t < dayEnd;
+      });
+
+      // Apply status filter
+      if (statusParam) {
+        filtered = filtered.filter((o: any) => {
+          const st = String(o.status || '').toLowerCase();
+          return st === statusParam.toLowerCase();
+        });
+      }
+
+      // Apply text search
+      if (query.trim()) {
+        const q = query.trim().toLowerCase();
+        filtered = filtered.filter((o: any) =>
+          String(o.table_name || '').toLowerCase().includes(q) ||
+          String(o.display_number || '').toLowerCase().includes(q) ||
+          String(o.id || '').toLowerCase().includes(q)
+        );
+      }
+
+      // Convert SQLite snake_case rows to API-compatible camelCase objects
+      const orders = filtered.map((o: any) => ({
+        id: o.id,
+        number: o.display_number || o.id?.slice(-6) || '',
+        tableName: o.table_name || '',
+        createdAt: o.created_at || '',
+        paidAt: o.paid_at || null,
+        createdByName: o.created_by_name || '',
+        status: o.status || 'Pending',
+        subtotal: Number(o.subtotal || 0),
+        tax: Number(o.tax || 0),
+        tip: Number(o.tip || 0),
+        discount: Number(o.discount || 0),
+        total: Number(o.total || 0),
+        items: [],
+        shiftType: '',
+        _offline: true,
+      }));
+
+      // Paginate client-side
+      const pageStart = (page - 1) * pageSize;
+      const paged = orders.slice(pageStart, pageStart + pageSize);
+      return { orders: paged, total: orders.length };
+    } catch {
+      return { orders: [], total: 0 };
+    }
+  }, [page, query, statusParam]);
+
   // Main Fetch
   useEffect(() => {
     let mounted = true;
@@ -98,22 +204,30 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
       setError(null);
       try {
         const { day } = getDateRange();
-        const params = new URLSearchParams();
-        if (query.trim()) params.set('q', query.trim());
-        if (statusParam) params.set('status', statusParam);
-        
-        
-        params.set('from', day);
-        params.set('to', day);
-        params.set('page', String(page));
-        params.set('pageSize', String(pageSize));
-        
-        const res = await apiFetch(`/api/waiter/history?${params.toString()}`);
-        const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || 'Failed to fetch history');
-        if (!mounted) return;
-        setRowsRaw(Array.isArray(json?.orders) ? json.orders : []);
-        setTotal(Number(json?.total) || 0);
+        const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+        if (offline && isElectron) {
+          const { orders, total: t } = await loadOfflineOrders(day);
+          if (!mounted) return;
+          setRowsRaw(orders);
+          setTotal(t);
+        } else {
+          // ── Online path: call remote API ──
+          const params = new URLSearchParams();
+          if (query.trim()) params.set('q', query.trim());
+          if (statusParam) params.set('status', statusParam);
+          params.set('from', day);
+          params.set('to', day);
+          params.set('page', String(page));
+          params.set('pageSize', String(pageSize));
+
+          const res = await apiFetch(`/api/waiter/history?${params.toString()}`);
+          const json = await res.json();
+          if (!res.ok) throw new Error(json?.error || 'Failed to fetch history');
+          if (!mounted) return;
+          setRowsRaw(Array.isArray(json?.orders) ? json.orders : []);
+          setTotal(Number(json?.total) || 0);
+        }
       } catch (e) {
         if (!mounted) return;
         setError(e instanceof Error ? e.message : 'Error');
@@ -122,7 +236,7 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
     };
     run();
     return () => { mounted = false; };
-  }, [getDateRange, page, query, statusParam]);
+  }, [getDateRange, page, query, statusParam, isElectron, loadOfflineOrders]);
 
   const handleExport = async (hourlyOverride: boolean = false) => {
     setIsExporting(true);
@@ -192,6 +306,13 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
+      {/* Offline Banner */}
+      {isOfflineMode && isElectron && (
+        <div className="flex items-center gap-2 px-8 py-2 bg-amber-500/10 border-b border-amber-500/20 text-amber-600">
+          <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+          <span className="text-xs font-black uppercase tracking-widest">Offline Mode — Showing local orders only</span>
+        </div>
+      )}
       {/* Header */}
       <div className="px-8 pt-6 pb-2">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">

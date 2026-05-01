@@ -120,7 +120,9 @@ export const authHeader = (): Record<string, string> => {
   initTabSession();
   const sess = readSession();
   const token = typeof sess?.token === 'string' ? sess.token : '';
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  // Never send the offline placeholder token to the remote API
+  if (!token || token === 'offline') return {};
+  return { Authorization: `Bearer ${token}` };
 };
 
 export const superadminAuthHeader = (): Record<string, string> => {
@@ -291,7 +293,9 @@ export const apiFetch = async (input: RequestInfo | URL, init: ApiFetchOptions =
       const cloned = res.clone();
       const json = (await cloned.json().catch(() => null)) as any;
       const err = String(json?.error || json?.message || '').trim().toLowerCase();
-      if (err === 'invalid_token' || err === 'token_expired' || err === 'jwt_expired' || err === 'unauthorized') {
+      // Only logout on token-specific errors, NOT on generic 'unauthorized'
+      // to avoid logout loops caused by business-rule 401s
+      if (err === 'invalid_token' || err === 'token_expired' || err === 'jwt_expired') {
         logoutAndReload();
         return res;
       }

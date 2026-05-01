@@ -17,15 +17,29 @@ const normalizePermissions = (raw) => {
   return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
 };
 
+
+// Default permissions for built-in roles when no custom role row exists in DB
+const BUILTIN_ROLE_PERMISSIONS = {
+  'Waiter': ['orders.read', 'orders.write', 'orders.void', 'payments.write'],
+  'Waiter Manager': ['orders.read', 'orders.write', 'orders.void', 'payments.write', 'manager.settings.write', 'manager.read'],
+  'Branch Manager': ['*'],
+  'Cafe Owner': ['*'],
+  'Manager': ['*'],
+};
+
 const readRolePermissions = async ({ tenantId, roleName }) => {
   const tn = String(tenantId || '').trim();
   const rn = String(roleName || '').trim();
   if (!tn || !rn) return [];
 
   const row = await db().select(['permissions']).from('roles').where({ tenant_id: tn, name: rn }).first();
-  if (!row) return [];
+  if (!row) {
+    // Fall back to built-in defaults so fresh tenants still work without DB seed
+    return BUILTIN_ROLE_PERMISSIONS[rn] || [];
+  }
   return normalizePermissions(row.permissions);
 };
+
 
 const deny = async (req, res, { permission, role, reason }) => {
   await logAudit({

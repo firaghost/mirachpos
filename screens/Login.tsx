@@ -53,6 +53,19 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [mode, setMode] = useState<'email' | 'pin'>('email');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isOfflineMode, setIsOfflineMode] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
+  const isElectronApp = typeof window !== 'undefined' && Boolean((window as any)?.mirachpos?.auth);
+
+  useEffect(() => {
+    const onOnline = () => setIsOfflineMode(false);
+    const onOffline = () => setIsOfflineMode(true);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
   const [showForgot, setShowForgot] = useState(false);
   const [fpStep, setFpStep] = useState<'request' | 'confirm'>('request');
   const [fpEmail, setFpEmail] = useState('');
@@ -261,15 +274,71 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         // ignore
       }
 
-      const res = await apiFetch(mode === 'pin' ? '/api/auth/login-pin' : '/api/auth/login', {
-        auth: false,
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Tenant': ws },
-        body: JSON.stringify(mode === 'pin' ? { code: cd, pin: pn } : { email: em, password: pw }),
-      });
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      const isElectron = typeof window !== 'undefined' && Boolean((window as any)?.mirachpos?.auth);
+      
+      let json: any = null;
 
-      const json = (await res.json().catch(() => null)) as any;
-      if (!res.ok) throw new Error(String(json?.error || res.status));
+      if (isOffline && isElectron) {
+        // Attempt offline login via Electron bridge
+        const auth = (window as any).mirachpos.auth;
+        const result = await (mode === 'pin' 
+          ? auth.offlineLoginByCode({ workspace: ws, staffCode: cd, pin: pn })
+          : auth.offlineLogin({ workspace: ws, email: em, password: pw }));
+
+        if (!result || !result.ok) {
+          throw new Error(result?.error === 'offline_login_not_seeded' 
+            ? 'You must login online at least once before offline login is available.' 
+            : 'Invalid credentials or offline login failed.');
+        }
+
+        // Mock a successful JSON response using the cached offline session
+        const session = result.session;
+        json = {
+          token: session.token,
+          role: session.role,
+          tenantId: session.tenantId,
+          staffId: session.staffId,
+          branchId: session.branchId,
+          staffName: session.staffName || 'Offline User',
+          permissions: [], // Permissions can be restricted in offline mode or fetched from local cache if we had them
+          subscription: null,
+          billing: null,
+          features: [],
+        };
+      } else {
+        const res = await apiFetch(mode === 'pin' ? '/api/auth/login-pin' : '/api/auth/login', {
+          auth: false,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Tenant': ws },
+          body: JSON.stringify(mode === 'pin' ? { code: cd, pin: pn } : { email: em, password: pw }),
+        });
+
+        json = (await res.json().catch(() => null)) as any;
+        if (!res.ok) throw new Error(String(json?.error || res.status));
+        
+        // If we successfully logged in online via Electron, cache the credentials for future offline use
+        if (isElectron) {
+          try {
+            const auth = (window as any).mirachpos.auth;
+            const cachePayload = {
+              workspace: ws,
+              role: json.role,
+              tenantId: json.tenantId,
+              branchId: typeof json.branchId === 'string' ? json.branchId : 'global',
+              staffId: json.staffId,
+              staffName: json.staffName,
+            };
+            if (mode === 'pin') {
+              await auth.cacheStaffCode({ ...cachePayload, staffCode: cd, pin: pn });
+            } else {
+              await auth.cacheStaff({ ...cachePayload, email: em, password: pw });
+            }
+          } catch (e) {
+            // ignore credential caching errors
+          }
+        }
+      }
 
       const token = typeof json?.token === 'string' ? json.token : '';
       const role = typeof json?.role === 'string' ? json.role : '';
@@ -350,8 +419,18 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
         <div className="p-6 border-b border-border">
-          <div className="text-2xl font-black tracking-tight">MirachPOS</div>
-          <div className="text-sm text-muted-foreground mt-1">Sign in to your workspace</div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-2xl font-black tracking-tight">MirachPOS</div>
+              <div className="text-sm text-muted-foreground mt-1">Sign in to your workspace</div>
+            </div>
+            {isOfflineMode && isElectronApp && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Offline</span>
+              </div>
+            )}
+          </div>
         </div>
 
         <form

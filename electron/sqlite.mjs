@@ -67,10 +67,16 @@ export const openKvDb = (dbDir) => {
       offlineLogin: (args) => {
         const ws = String(args?.workspace || '').trim() || 'default';
         const email = String(args?.email || '').trim().toLowerCase();
-        const role = String(args?.role || '').trim();
         const password = String(args?.password || '');
-        if (!email || !role || !password) return { ok: false, error: 'invalid_credentials' };
-        const row = memStaff.get(`${ws}|${email}|${role}`);
+        if (!email || !password) return { ok: false, error: 'invalid_credentials' };
+        
+        let row = null;
+        for (const v of memStaff.values()) {
+          if (v.workspace === ws && v.email === email) {
+            row = v;
+            break;
+          }
+        }
         if (!row) return { ok: false, error: 'offline_login_not_seeded' };
         const actual = pbkdf2Hash(password, row.password_salt, row.password_iters);
         if (actual !== row.password_hash) return { ok: false, error: 'invalid_credentials' };
@@ -117,10 +123,16 @@ export const openKvDb = (dbDir) => {
       offlineLoginByCode: (args) => {
         const ws = String(args?.workspace || '').trim() || 'default';
         const staffCode = String(args?.staffCode || '').trim().toLowerCase();
-        const role = String(args?.role || '').trim();
         const pin = String(args?.pin || '');
-        if (!staffCode || !role || !pin) return { ok: false, error: 'invalid_credentials' };
-        const row = memStaffCode.get(`${ws}|${staffCode}|${role}`);
+        if (!staffCode || !pin) return { ok: false, error: 'invalid_credentials' };
+        
+        let row = null;
+        for (const v of memStaffCode.values()) {
+          if (v.workspace === ws && v.staff_code === staffCode) {
+            row = v;
+            break;
+          }
+        }
         if (!row) return { ok: false, error: 'offline_login_not_seeded' };
         const actual = pbkdf2Hash(pin, row.pin_salt, row.pin_iters);
         if (actual !== row.pin_hash) return { ok: false, error: 'invalid_credentials' };
@@ -373,7 +385,7 @@ export const openKvDb = (dbDir) => {
   );
 
   const stmtStaffGet = db.prepare(
-    'SELECT workspace,email,role,tenant_id,branch_id,staff_id,staff_name,password_salt,password_hash,password_iters FROM auth_staff WHERE workspace=? AND email=? AND role=?',
+    'SELECT workspace,email,role,tenant_id,branch_id,staff_id,staff_name,password_salt,password_hash,password_iters FROM auth_staff WHERE workspace=? AND email=? LIMIT 1',
   );
 
   const stmtStaffCodeUpsert = db.prepare(
@@ -393,7 +405,7 @@ export const openKvDb = (dbDir) => {
   );
 
   const stmtStaffCodeGet = db.prepare(
-    'SELECT workspace,staff_code,role,tenant_id,branch_id,staff_id,staff_name,pin_salt,pin_hash,pin_iters FROM auth_staff_code WHERE workspace=? AND staff_code=? AND role=?',
+    'SELECT workspace,staff_code,role,tenant_id,branch_id,staff_id,staff_name,pin_salt,pin_hash,pin_iters FROM auth_staff_code WHERE workspace=? AND staff_code=? LIMIT 1',
   );
 
   const stmtPosGet = db.prepare('SELECT value FROM pos_state WHERE scope_key = ?');
@@ -582,17 +594,44 @@ export const openKvDb = (dbDir) => {
     offlineLogin: (args) => {
       const ws = String(args?.workspace || '').trim() || 'default';
       const email = String(args?.email || '').trim().toLowerCase();
-      const role = String(args?.role || '').trim();
       const password = String(args?.password || '');
-      if (!email || !role || !password) return { ok: false, error: 'invalid_credentials' };
+      if (!email || !password) return { ok: false, error: 'invalid_credentials' };
 
-      const row = stmtStaffGet.get(ws, email, role);
+      const row = stmtStaffGet.get(ws, email);
       if (!row) return { ok: false, error: 'offline_login_not_seeded' };
 
       const expected = String(row.password_hash || '');
       const salt = String(row.password_salt || '');
       const iters = Number(row.password_iters || 120000);
       const actual = pbkdf2Hash(password, salt, iters);
+      if (!expected || actual !== expected) return { ok: false, error: 'invalid_credentials' };
+
+      const session = {
+        token: 'offline',
+        role: row.role,
+        tenantId: row.tenant_id,
+        branchId: row.branch_id,
+        staffId: row.staff_id,
+        offline: true,
+      };
+      const now = new Date().toISOString();
+      stmtSessionSet.run('last_session', JSON.stringify(session), now);
+      return { ok: true, session };
+    },
+
+    offlineLoginByCode: (args) => {
+      const ws = String(args?.workspace || '').trim() || 'default';
+      const staffCode = String(args?.staffCode || '').trim().toLowerCase();
+      const pin = String(args?.pin || '');
+      if (!staffCode || !pin) return { ok: false, error: 'invalid_credentials' };
+
+      const row = stmtStaffCodeGet.get(ws, staffCode);
+      if (!row) return { ok: false, error: 'offline_login_not_seeded' };
+
+      const expected = String(row.pin_hash || '');
+      const salt = String(row.pin_salt || '');
+      const iters = Number(row.pin_iters || 120000);
+      const actual = pbkdf2Hash(pin, salt, iters);
       if (!expected || actual !== expected) return { ok: false, error: 'invalid_credentials' };
 
       const session = {

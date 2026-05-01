@@ -1057,8 +1057,6 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         if (!scopeKey) return;
         if (!electronApis.posUpsertTables) return;
-        // eslint-disable-next-line no-console
-        console.log('[DEBUG PERSIST] Saving tables to Electron:', tables.map((t: any) => ({ id: t.id, shiftType: t.shiftType, shift_type: t.shift_type })));
         await electronApis.posUpsertTables({ scopeKey, tables });
       } catch {
         // ignore
