@@ -39,19 +39,26 @@ export default defineConfig(({ mode }) => {
             '**/functions/**',
             '**/mobile/**',
             '**/electron/**',
+            '**/server/**',
+            '**/scripts/**',
             '**/*.md',
+            '**/*.log',
             '**/node_modules/**',
             '**/.git/**',
+            '**/dist/**',
+            '**/release/**',
           ],
+        },
+        fs: {
+          strict: false,
         },
       },
       resolve: {
         alias: {
-          '@': path.resolve(__dirname, './src'),
+          '@': path.resolve(__dirname, '.'),
         },
       },
       optimizeDeps: {
-        force: true,
         include: [
           'react',
           'react-dom',
