@@ -311,7 +311,8 @@ const updateShiftMetrics = async ({ trx, shiftId, orderData }) => {
       order_count: Number(shift.order_count || 0) + 1,
       gross_sales_etb: Number(shift.gross_sales_etb || 0) + (orderData.subtotal || 0),
       discounts_etb: Number(shift.discounts_etb || 0) + (orderData.discount || 0),
-      net_sales_etb: Number(shift.net_sales_etb || 0) + (orderData.total || 0),
+      // Net sales = total collected minus tax and tips (what the business actually earned)
+      net_sales_etb: Number(shift.net_sales_etb || 0) + Math.max(0, (orderData.total || 0) - (orderData.tax || 0) - (orderData.tip || 0)),
       tax_etb: Number(shift.tax_etb || 0) + (orderData.tax || 0),
       tips_etb: Number(shift.tips_etb || 0) + (orderData.tip || 0),
       payment_breakdown_json: JSON.stringify(paymentBreakdown),
@@ -637,6 +638,7 @@ const validateShiftClose = async ({ shiftId }) => {
     canClose: true,
     expectedCash,
     orderCount: shift.order_count,
+    openOrders: [],
     breakdowns: {
       summary: {
         totalOrders: orders.length,
@@ -647,7 +649,8 @@ const validateShiftClose = async ({ shiftId }) => {
         totalTax,
         totalTips,
         totalDiscounts,
-        netSales: totalSales - totalDiscounts,
+        // Net sales = gross minus tax, tips, and discounts
+        netSales: totalSales - totalTax - totalTips - totalDiscounts,
       },
       paymentBreakdown,
       openingCash: Number(shift.opening_cash_etb || 0),

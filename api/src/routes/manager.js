@@ -1053,42 +1053,45 @@ const makeManagerRouter = () => {
           }
         };
 
+        // Query the live `shifts` table (shift_reports is a legacy/unused table)
         const rows = await db()
-          .from('shift_reports')
-          .where({ tenant_id: req.tenant.id, branch_id: branchId })
-          .andWhere('opened_at', '>=', from)
-          .andWhere('opened_at', '<=', to)
-          .orderBy('opened_at', 'desc')
+          .from({ s: 'shifts' })
+          .leftJoin({ st: 'staff' }, 'st.id', 's.opened_by')
+          .where({ 's.tenant_id': req.tenant.id, 's.branch_id': branchId })
+          .andWhere('s.opened_at', '>=', from)
+          .andWhere('s.opened_at', '<=', to)
+          .orderBy('s.opened_at', 'desc')
           .limit(limit)
           .select([
-            'id',
-            'staff_id',
-            'staff_name',
-            'status',
-            'opened_at',
-            'closed_at',
-            'opening_cash_etb',
-            'closing_cash_etb',
-            'expected_cash_etb',
-            'cash_difference_etb',
-            'order_count',
-            'gross_sales_etb',
-            'discounts_etb',
-            'net_sales_etb',
-            'tax_etb',
-            'tips_etb',
-            'payment_breakdown_json',
-            'void_count',
-            'void_amount_etb',
-            'refund_count',
-            'refund_amount_etb',
-            'notes',
+            's.id',
+            's.shift_type',
+            's.business_date',
+            's.status',
+            's.opened_at',
+            's.closed_at',
+            's.opened_by',
+            's.closed_by',
+            's.opening_cash_etb',
+            's.closing_cash_etb',
+            's.expected_cash_etb',
+            's.cash_difference_etb',
+            's.order_count',
+            's.gross_sales_etb',
+            's.discounts_etb',
+            's.net_sales_etb',
+            's.tax_etb',
+            's.tips_etb',
+            's.payment_breakdown_json',
+            's.notes',
+            db().raw("COALESCE(st.name, '') as opener_name"),
           ]);
 
         const shifts = rows.map((r) => ({
           id: String(r.id),
-          staffId: r.staff_id ? String(r.staff_id) : '',
-          staffName: String(r.staff_name || ''),
+          shiftType: String(r.shift_type || ''),
+          businessDate: String(r.business_date || ''),
+          staffId: r.opened_by ? String(r.opened_by) : '',
+          staffName: String(r.opener_name || ''),
           status: String(r.status || ''),
           openedAt: r.opened_at ? new Date(r.opened_at).toISOString() : null,
           closedAt: r.closed_at ? new Date(r.closed_at).toISOString() : null,
@@ -1100,13 +1103,11 @@ const makeManagerRouter = () => {
           grossSales: Number(r.gross_sales_etb || 0) || 0,
           discounts: Number(r.discounts_etb || 0) || 0,
           netSales: Number(r.net_sales_etb || 0) || 0,
+          // totalCollected is an alias for netSales used by the frontend ShiftAggRow type
+          totalCollected: Number(r.net_sales_etb || 0) || 0,
           tax: Number(r.tax_etb || 0) || 0,
           tips: Number(r.tips_etb || 0) || 0,
           paymentBreakdown: safeJsonParse(r.payment_breakdown_json, {}),
-          voidCount: Number(r.void_count || 0) || 0,
-          voidAmount: Number(r.void_amount_etb || 0) || 0,
-          refundCount: Number(r.refund_count || 0) || 0,
-          refundAmount: Number(r.refund_amount_etb || 0) || 0,
           notes: String(r.notes || ''),
         }));
 
