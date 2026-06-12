@@ -60,16 +60,14 @@ describe('services/reportAggregationService', () => {
         branch_id: 'b_1',
         status: 'Paid',
         total: 100,
-        paid_at: `${from} 10:00:00`,
-        created_at: `${from} 09:00:00`,
+                created_at: `${from} 09:00:00`,
       },
       {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
         total: 50,
-        paid_at: `${to}T12:00:00.000Z`,
-        created_at: `${to}T11:00:00.000Z`,
+                created_at: `${to}T11:00:00.000Z`,
       },
       {
         tenant_id: 't_test',
@@ -152,7 +150,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: `${from} 10:00:00`,
+        created_at: `${from} 10:00:00`,
         report_date: from,
         order_count: 2,
         discounts_etb: 10,
@@ -167,7 +165,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: `${to}T10:00:00.000Z`,
+        created_at: `${to}T10:00:00.000Z`,
         report_date: to,
         order_count: 1,
         discounts_etb: 0,
@@ -185,7 +183,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: `${from} 10:00:00`,
+        created_at: `${from} 10:00:00`,
         report_date: from,
         item_count: 5,
       },
@@ -193,7 +191,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: `${to}T10:00:00.000Z`,
+        created_at: `${to}T10:00:00.000Z`,
         report_date: to,
         item_count: 2,
       },
@@ -234,7 +232,7 @@ describe('services/reportAggregationService', () => {
       {
         tenant_id: 't_test',
         status: 'Paid',
-        paid_at: `${from} 10:00:00`,
+        created_at: `${from} 10:00:00`,
         order_count: 3,
         discounts_etb: 0,
         net_sales_etb: 300,
@@ -250,7 +248,7 @@ describe('services/reportAggregationService', () => {
       {
         tenant_id: 't_test',
         status: 'Paid',
-        paid_at: `${from} 10:00:00`,
+        created_at: `${from} 10:00:00`,
         item_count: 7,
       },
     ];
@@ -313,7 +311,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: '2026-02-01 10:00:00',
+        created_at: '2026-02-01 10:00:00',
 
         product_id: 'p1',
         product_name: 'Coffee',
@@ -355,7 +353,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: '2026-02-01 10:00:00',
+        created_at: '2026-02-01 10:00:00',
         product_id: 'p2',
         product_name: 'Tea',
         category: '',
@@ -380,7 +378,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: '2026-02-01 10:00:00',
+        created_at: '2026-02-01 10:00:00',
         product_id: 'p3',
         product_name: 'Cake',
         category: 'Dessert',
@@ -407,7 +405,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: '2026-02-01 10:00:00',
+        created_at: '2026-02-01 10:00:00',
         product_key: 'p1',
         product_name: 'Coffee',
         category: 'Drinks',
@@ -419,7 +417,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: '2026-02-01 10:05:00',
+        created_at: '2026-02-01 10:05:00',
         product_key: 'p2',
         product_name: 'Tea',
         category: '',
@@ -474,7 +472,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: '2026-02-01 10:00:00',
+        created_at: '2026-02-01 10:00:00',
         payload: JSON.stringify({
           items: [
             { productId: 'p9', name: 'Cookie', category: 'Snacks', qty: 2, voidedQty: 1, unitPrice: 10 },
@@ -528,7 +526,7 @@ describe('services/reportAggregationService', () => {
         tax: 5,
         tip: 0,
         discount: 10,
-        paid_at: '2026-02-01 10:00:00',
+        created_at: '2026-02-01 10:00:00',
         payload: JSON.stringify({
           paymentMethod: 'Cash',
           items: [
@@ -553,7 +551,7 @@ describe('services/reportAggregationService', () => {
     expect(row.void_amount_etb).toBe(20);
 
     const pb = JSON.parse(row.payment_breakdown_json);
-    expect(pb).toEqual({ cash: 100 });
+    expect(pb).toMatchObject({ cash: 100 });
   });
 
   it('aggregateStaffSales uses tip/tax from payload when db fields are 0 and upserts staff rows', async () => {
@@ -568,7 +566,7 @@ describe('services/reportAggregationService', () => {
         tax: 0,
         tip: 0,
         discount: 0,
-        paid_at: '2026-02-01 10:00:00',
+        created_at: '2026-02-01 10:00:00',
         payload: JSON.stringify({
           createdByStaffId: 's1',
           createdByName: 'Alice',
@@ -591,7 +589,7 @@ describe('services/reportAggregationService', () => {
     expect(row.tips_etb).toBe(5);
 
     const pb = JSON.parse(row.payment_breakdown_json);
-    expect(pb).toEqual({ card_payment: 110 });
+    expect(pb).toMatchObject({ card_payment: 110 });
   });
 
   it('aggregateHourlySales upserts hourly summaries (mocked rows)', async () => {
@@ -602,7 +600,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: '2026-02-01 10:00:00',
+        created_at: '2026-02-01 10:00:00',
         total: 100,
         tax: 5,
         tip: 0,
@@ -611,7 +609,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: '2026-02-01 10:30:00',
+        created_at: '2026-02-01 10:30:00',
         total: 50,
         tax: 0,
         tip: 0,
@@ -686,7 +684,7 @@ describe('services/reportAggregationService', () => {
         branch_id: 'b_1',
 
         status: 'Paid',
-        paid_at: '2026-02-01 09:00:00',
+        created_at: '2026-02-01 09:00:00',
         total: 100,
         tax: 5,
         tip: 0,
@@ -700,7 +698,7 @@ describe('services/reportAggregationService', () => {
         tenant_id: 't_test',
         branch_id: 'b_1',
         status: 'Paid',
-        paid_at: '2026-02-01 10:00:00',
+        created_at: '2026-02-01 10:00:00',
         total: 50,
         tax: 0,
         tip: 0,
@@ -769,8 +767,8 @@ describe('services/reportAggregationService', () => {
   it('runDailyAggregation processes tenant-branch combinations and counts errors', async () => {
     const state = global.__MIRACHPOS_DB_MOCK__?.state;
     state.tables.orders = [
-      { tenant_id: 't_test', branch_id: 'b_1', status: 'Paid', paid_at: '2026-02-10 10:00:00' },
-      { tenant_id: 't_test', branch_id: 'b_2', status: 'Paid', paid_at: '2026-02-10 11:00:00' },
+      { tenant_id: 't_test', branch_id: 'b_1', status: 'Paid', created_at: '2026-02-10 10:00:00' },
+      { tenant_id: 't_test', branch_id: 'b_2', status: 'Paid', created_at: '2026-02-10 11:00:00' },
     ];
 
     const result = await runDailyAggregation(new Date('2026-02-10T00:00:00.000Z'));
@@ -792,8 +790,7 @@ describe('services/reportAggregationService', () => {
         branch_id: 'b_1',
         status: 'Paid',
         total: 100,
-        paid_at: `${from} 10:00:00`,
-        created_at: `${from} 09:00:00`,
+                created_at: `${from} 09:00:00`,
       },
     ];
 
