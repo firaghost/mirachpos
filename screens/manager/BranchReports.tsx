@@ -239,6 +239,7 @@ export const BranchReports: React.FC = () => {
   const [voidAgg, setVoidAgg] = useState<VoidRefundEvent[]>([]);
   const [staffAgg, setStaffAgg] = useState<StaffAggRow[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
+  const [selectedMethod, setSelectedMethod] = useState<string>('');
   const [period, setPeriod] = useState<Period>('Daily');
   const [showAll, setShowAll] = useState(false);
   const [dateMode, setDateMode] = useState<DateMode>('Period');
@@ -658,14 +659,18 @@ export const BranchReports: React.FC = () => {
   const cashSessions = useMemo(() => (remote?.cashSessions && Array.isArray(remote.cashSessions) ? remote.cashSessions : []), [remote]);
 
   const paymentsScoped = useMemo(() => {
-    if (!selectedStaffId) return payments;
-    return payments.filter((p) => String(p.createdByStaffId || '') === String(selectedStaffId));
-  }, [payments, selectedStaffId]);
+    let list = payments;
+    if (selectedStaffId) list = list.filter((p) => String(p.createdByStaffId || '') === String(selectedStaffId));
+    if (selectedMethod) list = list.filter((p) => String(p.method || '') === String(selectedMethod));
+    return list;
+  }, [payments, selectedStaffId, selectedMethod]);
 
   const paymentsPrevScoped = useMemo(() => {
-    if (!selectedStaffId) return paymentsPrev;
-    return paymentsPrev.filter((p) => String(p.createdByStaffId || '') === String(selectedStaffId));
-  }, [paymentsPrev, selectedStaffId]);
+    let list = paymentsPrev;
+    if (selectedStaffId) list = list.filter((p) => String(p.createdByStaffId || '') === String(selectedStaffId));
+    if (selectedMethod) list = list.filter((p) => String(p.method || '') === String(selectedMethod));
+    return list;
+  }, [paymentsPrev, selectedStaffId, selectedMethod]);
 
   const businessHeader = useMemo<BusinessHeader | null>(() => {
     const bh = remote?.businessHeader && typeof remote.businessHeader === 'object' ? (remote.businessHeader as any) : null;
@@ -1096,6 +1101,22 @@ export const BranchReports: React.FC = () => {
                           {s.staffName}
                         </option>
                       ))}
+                  </select>
+                </div>
+
+                <div className="hidden sm:flex items-center gap-2 h-10 px-3 rounded-lg border border-border bg-background">
+                  <span className="text-xs font-extrabold text-muted-foreground">Method</span>
+                  <select
+                    value={selectedMethod}
+                    onChange={(e) => setSelectedMethod(e.target.value)}
+                    className="h-8 rounded-md bg-background text-foreground text-sm font-bold outline-none"
+                  >
+                    <option value="">All</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Telebirr">Telebirr</option>
+                    <option value="Card">Card</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
                 {/* Export Dropdown Menu */}

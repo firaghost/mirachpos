@@ -688,7 +688,7 @@ const makeWaiterRouter = () => {
           this.whereIn(`${alias}shift_id`, shiftIds);
         }
         // Always fallback to UTC boundary comparison natively via ISO strings
-        this.orWhereBetween(`${alias}paid_at`, [currentFromIso, currentToIso]);
+        this.orWhereBetween(`${alias}created_at`, [currentFromIso, currentToIso]);
       });
     };
 
@@ -883,12 +883,19 @@ const makeWaiterRouter = () => {
       .from({ o: 'orders' })
       .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
       .andWhere((qb) => applyDateFilter(qb, 'o'))
-      .select(['o.paid_at', 'o.total', 'o.tax', 'o.tip']);
+      .select(['o.created_at', 'o.total', 'o.tax', 'o.tip', 'o.payload']);
       
     const hourlyBreakdownMap = {};
+    let takeawayFeeTotal = 0;
     for (const ord of hourlyOrdersRaw) {
-      if (!ord.paid_at) continue;
-      const dt = new Date(ord.paid_at);
+      if (ord.payload) {
+        try {
+          const p = typeof ord.payload === 'string' ? JSON.parse(ord.payload) : ord.payload;
+          takeawayFeeTotal += Number(p.takeawayFee || 0);
+        } catch {}
+      }
+      if (!ord.created_at) continue;
+      const dt = new Date(ord.created_at);
       if (isNaN(dt.getTime())) continue;
       const h = pad(dt.getHours());
       const label = `${h}:00`;
@@ -908,7 +915,7 @@ const makeWaiterRouter = () => {
     const tax = Number(orderAgg?.tax_etb || 0) || 0;
     const tips = Number(orderAgg?.tips_etb || 0) || 0;
     const totalCollected = Number(orderAgg?.total_collected_etb || 0) || 0;
-    const netSales = Number(orderAgg?.net_sales_etb || 0) || 0;
+    const netSales = Math.max(0, (Number(orderAgg?.net_sales_etb || 0) || 0) - takeawayFeeTotal);
     const grossSales = netSales + discounts;
     const avgOrderValue = Number(orderAgg?.avg_order_value || 0) || 0;
 
@@ -967,6 +974,7 @@ const makeWaiterRouter = () => {
       grossSales,
       discounts,
       netSales,
+      takeawayFeeTotal,
       tax,
       tips,
       totalCollected,
@@ -1403,6 +1411,7 @@ const makeWaiterRouter = () => {
       summary.addRow(['Discounts (ETB)', Number(agg.discounts || 0).toFixed(2)]);
       summary.addRow(['Net Sales (ETB)', Number(agg.netSales || 0).toFixed(2)]);
       summary.addRow(['Tax (ETB)', Number(agg.tax || 0).toFixed(2)]);
+      summary.addRow(['Takeaway Fee (ETB)', Number(agg.takeawayFeeTotal || 0).toFixed(2)]);
       summary.addRow(['Tips (ETB)', Number(agg.tips || 0).toFixed(2)]);
       summary.addRow(['Total Collected (ETB)', Number(agg.totalCollected || 0).toFixed(2)]);
       
@@ -1440,7 +1449,8 @@ const makeWaiterRouter = () => {
         ['Total Orders:', agg.orderCount || 0, 'Gross Sales:', `ETB ${(Number(agg.grossSales || 0)).toFixed(2)}`],
         ['Net Sales:', `ETB ${(Number(agg.netSales || 0)).toFixed(2)}`, 'Discounts:', `ETB ${(Number(agg.discounts || 0)).toFixed(2)}`],
         ['Tax:', `ETB ${(Number(agg.tax || 0)).toFixed(2)}`, 'Tips:', `ETB ${(Number(agg.tips || 0)).toFixed(2)}`],
-        ['Total Collected:', `ETB ${(Number(agg.totalCollected || 0)).toFixed(2)}`, 'Avg Order:', `ETB ${(Number(agg.avgOrderValue || 0)).toFixed(2)}`],
+        ['Takeaway Fee:', `ETB ${(Number(agg.takeawayFeeTotal || 0)).toFixed(2)}`, 'Avg Order:', `ETB ${(Number(agg.avgOrderValue || 0)).toFixed(2)}`],
+        ['Total Collected:', `ETB ${(Number(agg.totalCollected || 0)).toFixed(2)}`, '', ''],
       ];
       
       summaryData.forEach((row, idx) => {

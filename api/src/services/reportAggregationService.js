@@ -92,7 +92,7 @@ const getOrderStatusSummary = async ({ tenantId, branchId, fromDate, toDate }) =
             .from('orders')
             .where(scopePaid)
             .andWhere((qb) => {
-                qb.whereBetween('paid_at', [mysqlStart, mysqlEnd]).orWhereBetween('paid_at', [isoStart, isoEnd]);
+                qb.whereBetween('created_at', [mysqlStart, mysqlEnd]).orWhereBetween('created_at', [isoStart, isoEnd]);
             })
             .sum({ total: 'total' })
             .count({ count: '*' })
@@ -164,7 +164,7 @@ const listTenantBranchesWithOrdersOnDate = async ({ tenantId, date }) => {
         .from('orders')
         .where({ tenant_id: tenantId, status: 'Paid' })
         .andWhere((qb) => {
-            qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
+            qb.whereBetween('created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('created_at', [b.isoStart, b.isoEnd]);
         })
         .groupBy(['branch_id']);
     return rows.map((r) => String(r.branch_id || '').trim()).filter(Boolean);
@@ -293,11 +293,11 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
 
     // Get orders for the day
     const orders = await db()
-        .select(['id', 'total', 'tax', 'tip', 'discount', 'paid_at', 'payload'])
+        .select(['id', 'total', 'tax', 'tip', 'discount', 'created_at', 'payload'])
         .from('orders')
         .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
         .andWhere((qb) => {
-            qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
+            qb.whereBetween('created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('created_at', [b.isoStart, b.isoEnd]);
         });
 
     if (orders.length === 0) {
@@ -357,7 +357,8 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
         const orderDiscount = Number(order.discount || 0) || 0;
 
         // order.total includes tax + tip (and service charge). To avoid double-counting:
-        const net = Math.max(0, total - orderTax - orderTip);
+        const takeawayFee = Number(safeJsonParse(order.payload, {}).takeawayFee || 0);
+        const net = Math.max(0, total - orderTax - orderTip - takeawayFee);
         const gross = net + Math.max(0, orderDiscount);
 
         grossSales += gross;
@@ -367,9 +368,9 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
         totalCollected += total;
 
         // Track first/last order
-        const paidAt = order.paid_at;
-        if (!firstOrderAt || (paidAt && paidAt < firstOrderAt)) firstOrderAt = paidAt;
-        if (!lastOrderAt || (paidAt && paidAt > lastOrderAt)) lastOrderAt = paidAt;
+        const createdAt = order.created_at;
+        if (!firstOrderAt || (createdAt && createdAt < firstOrderAt)) firstOrderAt = createdAt;
+        if (!lastOrderAt || (createdAt && createdAt > lastOrderAt)) lastOrderAt = createdAt;
 
         // Parse payload for items and payment method
         const payload = safeJsonParse(order.payload, {});
@@ -390,6 +391,7 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
         const paymentMethod = String(payload.paymentMethod || payload.method || payload.tender || 'Other').trim();
         const pmKey = normalizePaymentKey(paymentMethod);
         paymentBreakdown[pmKey] = (paymentBreakdown[pmKey] || 0) + total;
+        paymentBreakdown['_takeawayFeeTotal'] = (paymentBreakdown['_takeawayFeeTotal'] || 0) + Number(safeJsonParse(order.payload, {}).takeawayFee || 0);
     }
 
     const netSales = Math.max(0, grossSales - discounts);
@@ -435,11 +437,11 @@ const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
     const nowIso = new Date().toISOString();
 
     const orders = await db()
-        .select(['id', 'total', 'tax', 'tip', 'discount', 'paid_at', 'payload'])
+        .select(['id', 'total', 'tax', 'tip', 'discount', 'created_at', 'payload'])
         .from('orders')
         .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
         .andWhere((qb) => {
-            qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
+            qb.whereBetween('created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('created_at', [b.isoStart, b.isoEnd]);
         });
 
     const byStaff = new Map();
@@ -453,7 +455,7 @@ const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
         const orderTaxDb = Number(order.tax || 0) || 0;
         const orderTipDb = Number(order.tip || 0) || 0;
         const orderDiscount = Number(order.discount || 0) || 0;
-        const paidAt = order.paid_at;
+        const createdAt = order.created_at;
 
         // Tip is stored in orders.tip, but some historical payloads may keep it in payload.
         const tipFromPayload = Number(payload?.tip ?? payload?.tipAmount ?? payload?.tip_etb ?? payload?.tipETB ?? 0) || 0;
@@ -461,7 +463,8 @@ const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
         const orderTip = orderTipDb > 0 ? orderTipDb : tipFromPayload;
         const orderTax = orderTaxDb > 0 ? orderTaxDb : taxFromPayload;
 
-        const net = Math.max(0, total - orderTax - orderTip);
+        const takeawayFee = Number(safeJsonParse(order.payload, {}).takeawayFee || 0);
+        const net = Math.max(0, total - orderTax - orderTip - takeawayFee);
         const gross = net + Math.max(0, orderDiscount);
 
         const pmKey = normalizePaymentKey(payload?.paymentMethod || payload?.method || payload?.tender);
@@ -489,9 +492,10 @@ const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
         cur.tips += orderTip;
         cur.totalCollected += total;
         cur.paymentBreakdown[pmKey] = (cur.paymentBreakdown[pmKey] || 0) + total;
+        cur.paymentBreakdown['_takeawayFeeTotal'] = (cur.paymentBreakdown['_takeawayFeeTotal'] || 0) + Number(safeJsonParse(order.payload, {}).takeawayFee || 0);
 
-        if (!cur.firstOrderAt || (paidAt && paidAt < cur.firstOrderAt)) cur.firstOrderAt = paidAt;
-        if (!cur.lastOrderAt || (paidAt && paidAt > cur.lastOrderAt)) cur.lastOrderAt = paidAt;
+        if (!cur.firstOrderAt || (createdAt && createdAt < cur.firstOrderAt)) cur.firstOrderAt = createdAt;
+        if (!cur.lastOrderAt || (createdAt && createdAt > cur.lastOrderAt)) cur.lastOrderAt = createdAt;
 
         if (!cur.staffName && staffName) cur.staffName = staffName;
 
@@ -549,20 +553,20 @@ const aggregateHourlySales = async ({ tenantId, branchId, date }) => {
     // Get orders grouped by hour using raw query for DB compatibility
     // Fallback: fetch all orders and aggregate in JS to ensure all orders are counted
     const orders = await db()
-        .select(['paid_at', 'total', 'tax', 'tip'])
+        .select(['created_at', 'total', 'tax', 'tip'])
         .from('orders')
         .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
         .andWhere((qb) => {
-            qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
+            qb.whereBetween('created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('created_at', [b.isoStart, b.isoEnd]);
         });
 
     // Aggregate by hour in JS to ensure all orders are counted
     const hourlyMap = new Map();
     for (const order of orders) {
-        const paidAt = order.paid_at;
-        if (!paidAt) continue;
+        const createdAt = order.created_at;
+        if (!createdAt) continue;
         
-        const d = new Date(paidAt);
+        const d = new Date(createdAt);
         if (Number.isNaN(d.getTime())) continue;
         
         const hour = d.getHours(); // 0-23
@@ -628,7 +632,7 @@ const aggregateProductSales = async ({ tenantId, branchId, date }) => {
             })
             .where({ 'oi.tenant_id': tenantId, 'oi.branch_id': branchId, 'o.status': 'Paid' })
             .andWhere((qb) => {
-                qb.whereBetween('o.paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('o.paid_at', [b.isoStart, b.isoEnd]);
+                qb.whereBetween('o.created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('o.created_at', [b.isoStart, b.isoEnd]);
             })
             .select([
                 db().raw("COALESCE(NULLIF(TRIM(oi.product_id), ''), NULLIF(TRIM(oi.product_code), ''), TRIM(oi.name)) as product_key"),
@@ -654,7 +658,7 @@ const aggregateProductSales = async ({ tenantId, branchId, date }) => {
                 })
                 .where({ 'oi.tenant_id': tenantId, 'oi.branch_id': branchId, 'o.status': 'Paid' })
                 .andWhere((qb) => {
-                    qb.whereBetween('o.paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('o.paid_at', [b.isoStart, b.isoEnd]);
+                    qb.whereBetween('o.created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('o.created_at', [b.isoStart, b.isoEnd]);
                 })
                 .select([
                     db().raw("COALESCE(NULLIF(TRIM(oi.product_id), ''), NULLIF(TRIM(oi.product_code), ''), TRIM(oi.name)) as product_key"),
@@ -703,7 +707,7 @@ const aggregateProductSales = async ({ tenantId, branchId, date }) => {
             .from('orders')
             .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
             .andWhere((qb) => {
-                qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
+                qb.whereBetween('created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('created_at', [b.isoStart, b.isoEnd]);
             });
 
         for (const order of orders) {
@@ -858,10 +862,10 @@ const buildShiftReport = async ({ shiftId }) => {
         .select(['id', 'total', 'tax', 'tip', 'discount', 'payload'])
         .from('orders')
         .where({ tenant_id: shift.tenant_id, branch_id: shift.branch_id, status: 'Paid' })
-        .andWhere('paid_at', '>=', shift.opened_at)
+        .andWhere('created_at', '>=', shift.opened_at)
         .andWhere(function () {
             if (shift.closed_at) {
-                this.andWhere('paid_at', '<=', shift.closed_at);
+                this.andWhere('created_at', '<=', shift.closed_at);
             }
         });
 
@@ -941,7 +945,7 @@ const runDailyAggregation = async (date = null) => {
         .from('orders')
         .where({ status: 'Paid' })
         .andWhere((qb) => {
-            qb.whereBetween('paid_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('paid_at', [b.isoStart, b.isoEnd]);
+            qb.whereBetween('created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('created_at', [b.isoStart, b.isoEnd]);
         })
         .groupBy(['tenant_id', 'branch_id']);
 
@@ -977,7 +981,7 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate, mode
         .from({ o: 'orders' })
         .where({ 'o.tenant_id': tenantId, 'o.status': 'Paid' })
         .andWhere((qb) => {
-            qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+            qb.whereBetween('o.created_at', [fromDt, toDt]).orWhereBetween('o.created_at', [fromIso, toIso]);
         });
 
     if (branchId) ordersQ = ordersQ.andWhere({ 'o.branch_id': branchId });
@@ -999,7 +1003,7 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate, mode
     } else {
         orderAgg = await ordersQ
             .select([
-                db().raw('DATE(o.paid_at) as report_date'),
+                db().raw('DATE(o.created_at) as report_date'),
                 'o.branch_id',
                 db().raw('COUNT(*) as order_count'),
                 db().raw('COALESCE(SUM(COALESCE(o.discount, 0)), 0) as discounts_etb'),
@@ -1021,7 +1025,7 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate, mode
         })
         .where({ 'o.tenant_id': tenantId, 'o.status': 'Paid' })
         .andWhere((qb) => {
-            qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+            qb.whereBetween('o.created_at', [fromDt, toDt]).orWhereBetween('o.created_at', [fromIso, toIso]);
         });
 
     if (branchId) itemsQ = itemsQ.andWhere({ 'o.branch_id': branchId });
@@ -1036,7 +1040,7 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate, mode
     } else {
         itemAgg = await itemsQ
             .select([
-                db().raw('DATE(o.paid_at) as report_date'),
+                db().raw('DATE(o.created_at) as report_date'),
                 'o.branch_id',
                 db().raw('COALESCE(SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0))), 0) as item_count'),
             ])
@@ -1059,10 +1063,10 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate, mode
         .from({ o: 'orders' })
         .where({ 'o.tenant_id': tenantId, 'o.status': 'Paid' })
         .andWhere((qb) => {
-            qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+            qb.whereBetween('o.created_at', [fromDt, toDt]).orWhereBetween('o.created_at', [fromIso, toIso]);
         })
         .select([
-            db().raw('DATE(o.paid_at) as report_date'),
+            db().raw('DATE(o.created_at) as report_date'),
             'o.branch_id',
             'o.total',
             'o.payload',
@@ -1169,7 +1173,7 @@ const getProductPerformance = async ({ tenantId, branchId, fromDate, toDate, lim
         })
         .where({ 'o.tenant_id': tenantId, 'o.status': 'Paid' })
         .andWhere((qb) => {
-            qb.whereBetween('o.paid_at', [fromDt, toDt]).orWhereBetween('o.paid_at', [fromIso, toIso]);
+            qb.whereBetween('o.created_at', [fromDt, toDt]).orWhereBetween('o.created_at', [fromIso, toIso]);
         });
 
     if (branchId) q = q.andWhere({ 'o.branch_id': branchId });
