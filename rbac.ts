@@ -193,6 +193,7 @@ const screenRequiredModule = (screen: Screen): string | null => {
 
     case Screen.MANAGER_FLOOR_MAP:
     case Screen.MANAGER_TABLE_DETAILS:
+      return 'tables';
 
     case Screen.OWNER_DASHBOARD:
       return 'owner_dashboard';
@@ -284,6 +285,7 @@ const screenRequiredPermission = (screen: Screen): string | null => {
     case Screen.MANAGER_SETTINGS:
       return 'manager.settings.read';
     case Screen.MANAGER_CUSTOMERS:
+      return null;
 
     // Owner
     case Screen.OWNER_DASHBOARD:
