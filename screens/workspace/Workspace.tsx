@@ -52,10 +52,12 @@ const kitchenTicketHtml = (title: string, order: any, lines: Array<{ name: strin
   const table = escapeHtml(order.tableName ?? '');
   const number = escapeHtml(order.number ?? '');
   const time = escapeHtml(order.timeLabel ?? now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+  const fullTimestamp = escapeHtml(now.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
   const placedBy = escapeHtml(order.createdByName ?? order.createdByStaffId ?? 'Staff');
   const notes = order.notes ? `<div class="notes">${escapeHtml(order.notes)}</div>` : '';
   // Add EDITED label if order has been edited
   const editedLabel = order.isEdited ? `<div class="edited-banner">EDITED - Updated at ${escapeHtml(order.editedAt ? new Date(order.editedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }))}</div>` : '';
+  const takeawayTag = order.orderType === 'takeaway' ? `<div style="background:#000;color:#fff;padding:8px 12px;font-size:18px;font-weight:900;text-align:center;margin:8px 0;border-radius:4px;letter-spacing:2px;">TAKEAWAY</div>` : '';
   const items = lines
     .map((l) => {
       const note = l.note?.trim() ? `<div class="note">${escapeHtml(l.note)}</div>` : '';
@@ -102,9 +104,11 @@ const kitchenTicketHtml = (title: string, order: any, lines: Array<{ name: strin
         </div>
         <div class="meta">
           <div>${time}</div>
+          <div style="font-size:12px;color:#555;margin-top:4px;">${fullTimestamp}</div>
         </div>
       </div>
       ${editedLabel}
+      ${takeawayTag}
       ${notes}
       <div class="hr"></div>
       ${items}
@@ -544,6 +548,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
       const tip = parseFloat(tipAmount) || 0;
       confirmPayment(orderId, paymentMethod, tendered, undefined, paymentReference.trim() || undefined, tip);
       setShowPaymentModal(false);
+      setTipAmount('');
+      if (selectedTableId) {
+        setDraftOrderMeta(selectedTableId, {});
+      }
       selectTable(null);
     } finally {
       setProcessingPayment(false);
@@ -588,6 +596,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   const [reconcilePassword, setReconcilePassword] = useState('');
   const [reconcileResult, setReconcileResult] = useState<{ difference: number; status: 'balanced' | 'short' | 'over' } | null>(null);
   const [processingReconcile, setProcessingReconcile] = useState(false);
+  
+  // Cancel Order Modal State
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   const handleRefund = async () => {
     if (!openOrder) return;
@@ -1482,11 +1493,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             {canVoid && firstUnpaidOrder && (
               <button
                 onClick={() => {
-                  if (!firstUnpaidOrder) return;
-                  if (!confirm('Are you sure you want to cancel this order?')) return;
-                  voidOrder(firstUnpaidOrder.id, 'Cancelled by user');
-                  setEditingOrder(false);
-                  setTimeout(() => void refreshFromServer(), 300);
+                  if (tableOrders.length > 1) {
+                    setShowCancelModal(true);
+                  } else {
+                    if (!confirm('Are you sure you want to cancel this order?')) return;
+                    voidOrder(firstUnpaidOrder.id, 'Cancelled by user');
+                    setEditingOrder(false);
+                    setTimeout(() => void refreshFromServer(), 300);
+                  }
                 }}
                 className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-destructive text-destructive rounded-xl hover:bg-destructive hover:text-destructive-foreground disabled:opacity-50 disabled:cursor-not-allowed font-bold"
               >
@@ -1913,6 +1927,66 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                 onClick={() => setShowProductSwapModal(null)}
               >
                 Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CANCEL ORDER MODAL */}
+      {showCancelModal && tableOrders.length > 1 && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-card rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="bg-destructive text-destructive-foreground p-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold">Select Order to Cancel</h2>
+                <p className="text-sm opacity-90">Table has multiple orders</p>
+              </div>
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="text-destructive-foreground hover:opacity-80 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4 space-y-3 max-h-[60vh]">
+              {tableOrders.map((order, idx) => (
+                <div key={order.id} className="border border-border rounded-lg p-3 hover:border-destructive/50 transition-colors bg-background">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h3 className="font-bold">Order {idx + 1} {order.orderType === 'takeaway' && <span className="text-xs bg-muted px-1 py-0.5 rounded ml-1">Takeaway</span>}</h3>
+                      <p className="text-xs text-muted-foreground">{order.items.length} items • {order.timeLabel}</p>
+                    </div>
+                    <span className="font-bold">ETB {order.total.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-end mt-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        if (!confirm(`Are you sure you want to cancel Order ${idx + 1}?`)) return;
+                        voidOrder(order.id, 'Cancelled by user');
+                        setShowCancelModal(false);
+                        setEditingOrder(false);
+                        setTimeout(() => void refreshFromServer(), 300);
+                      }}
+                    >
+                      Cancel This Order
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-4 border-t bg-muted/30">
+              <Button
+                variant="outline"
+                className="w-full h-12 font-semibold"
+                onClick={() => setShowCancelModal(false)}
+              >
+                Close
               </Button>
             </div>
           </div>

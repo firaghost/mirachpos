@@ -683,12 +683,19 @@ const makeWaiterRouter = () => {
       }
 
       qb.where(function() {
-        // If we have specific shift associations, use them as primary
-        if (shiftIds.length > 0 && !hasHourFilter) {
-          this.whereIn(`${alias}shift_id`, shiftIds);
+        if (hasHourFilter) {
+          this.whereBetween(`${alias}created_at`, [currentFromIso, currentToIso]);
+        } else if (shiftIds.length > 0) {
+          this.where(function() {
+            this.whereIn(`${alias}shift_id`, shiftIds);
+            this.orWhere(function() {
+              this.whereNull(`${alias}shift_id`);
+              this.whereBetween(`${alias}created_at`, [currentFromIso, currentToIso]);
+            });
+          });
+        } else {
+          this.whereBetween(`${alias}created_at`, [currentFromIso, currentToIso]);
         }
-        // Always fallback to UTC boundary comparison natively via ISO strings
-        this.orWhereBetween(`${alias}created_at`, [currentFromIso, currentToIso]);
       });
     };
 
@@ -717,6 +724,8 @@ const makeWaiterRouter = () => {
         db().raw("COALESCE(NULLIF(TRIM(o.payment_method), ''), 'Other') as payment_method"),
         db().raw('COUNT(*) as count'),
         db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0))), 0) as total'),
+        db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as total_tips'),
+        db().raw("COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(o.payload, '$.takeawayFee')) AS DECIMAL(10,2))), 0) as total_takeaway"),
       ])
       .groupBy('payment_method');
 
@@ -924,6 +933,8 @@ const makeWaiterRouter = () => {
       method: String(p.payment_method || 'Other'),
       count: Number(p.count || 0),
       total: Number(p.total || 0),
+      totalTips: Number(p.total_tips || 0),
+      totalTakeaway: Number(p.total_takeaway || 0),
     }));
 
     // Format staff performance
@@ -1471,7 +1482,11 @@ const makeWaiterRouter = () => {
       if (agg.paymentMethods && agg.paymentMethods.length > 0) {
         agg.paymentMethods.forEach((pm, idx) => {
           const rowNum = 11 + idx;
-          summarySheet.addRow([`${pm.method}:`, `${pm.count} orders`, `ETB ${Number(pm.total || 0).toFixed(2)}`, '']);
+          let notes = [];
+          if (pm.totalTips > 0) notes.push(`Tip: ${pm.totalTips.toFixed(2)}`);
+          if (pm.totalTakeaway > 0) notes.push(`Takeaway: ${pm.totalTakeaway.toFixed(2)}`);
+          let detailStr = notes.length > 0 ? ` (includes ${notes.join(', ')})` : '';
+          summarySheet.addRow([`${pm.method}:`, `${pm.count} orders`, `ETB ${Number(pm.total || 0).toFixed(2)}${detailStr}`, '']);
           summarySheet.getRow(rowNum).font = { size: 11 };
           summarySheet.getRow(rowNum).getCell(1).font = { bold: true, size: 11 };
         });

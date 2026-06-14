@@ -292,12 +292,14 @@ export const Finance: React.FC = () => {
   const totalRevenue = useMemo(() => payments.reduce((s, p) => s + (p.total ?? 0), 0), [payments]);
 
   const paymentBreakdown = useMemo(() => {
-    const m = new Map<string, { sum: number; count: number }>();
+    const m = new Map<string, { sum: number; count: number; tipSum: number; takeawaySum: number }>();
     for (const p of payments) {
       const key = p.method || 'Unknown';
-      const cur = m.get(key) ?? { sum: 0, count: 0 };
+      const cur = m.get(key) ?? { sum: 0, count: 0, tipSum: 0, takeawaySum: 0 };
       cur.sum += p.total ?? 0;
       cur.count += 1;
+      cur.tipSum += p.tip ?? 0;
+      cur.takeawaySum += Number((p as any).takeawayFee ?? 0);
       m.set(key, cur);
     }
     return Array.from(m.entries());
@@ -431,8 +433,8 @@ export const Finance: React.FC = () => {
     // 2) Payment breakdown
     downloadCsv(
       `finance-payments-${day}.csv`,
-      ['method', 'amount', 'count', 'rangeStart', 'rangeEnd'],
-      paymentBreakdown.map(([method, v]) => [method, Number(v.sum || 0).toFixed(2), String(v.count), rangeWindow.start.toISOString(), rangeWindow.end.toISOString()]),
+      ['method', 'amount', 'tip', 'takeaway', 'count', 'rangeStart', 'rangeEnd'],
+      paymentBreakdown.map(([method, v]) => [method, Number(v.sum || 0).toFixed(2), Number(v.tipSum || 0).toFixed(2), Number(v.takeawaySum || 0).toFixed(2), String(v.count), rangeWindow.start.toISOString(), rangeWindow.end.toISOString()]),
     );
 
     // 3) Cash sessions
@@ -484,7 +486,7 @@ export const Finance: React.FC = () => {
     sessions: CashSession[];
     expensesRows: Expense[];
     totals: { revenue: number; expenses: number; net: number };
-    payment: Array<[string, { sum: number; count: number }]>;
+    payment: Array<[string, { sum: number; count: number; tipSum: number; takeawaySum: number }]>;
     paymentsRows: PaymentTx[];
   }) => {
     const esc = (s: string) =>
@@ -574,10 +576,14 @@ export const Finance: React.FC = () => {
 
     const paymentRows = opts.payment
       .map(([method, v]) => {
+        const details = [];
+        if (v.tipSum > 0) details.push(`Tip: ${formatMoney(v.tipSum)}`);
+        if (v.takeawaySum > 0) details.push(`Takeaway: ${formatMoney(v.takeawaySum)}`);
+        const detailStr = details.length > 0 ? ` (includes ${details.join(', ')})` : '';
         return `
           <tr>
             <td>${esc(method)}</td>
-            <td style="text-align:right">${esc(formatMoney(v.sum))}</td>
+            <td style="text-align:right">${esc(formatMoney(v.sum))}<div class="sub muted" style="margin-top:2px;">${esc(detailStr)}</div></td>
             <td style="text-align:right">${esc(String(v.count))}</td>
           </tr>`;
       })
@@ -842,15 +848,17 @@ export const Finance: React.FC = () => {
         };
         totals.net = totals.revenue - totals.expenses;
 
-        const m = new Map<string, { sum: number; count: number }>();
+        const m = new Map<string, { sum: number; count: number; tipSum: number; takeawaySum: number }>();
         for (const p of out.payments) {
           const key = p.method || 'Unknown';
-          const cur = m.get(key) ?? { sum: 0, count: 0 };
+          const cur = m.get(key) ?? { sum: 0, count: 0, tipSum: 0, takeawaySum: 0 };
           cur.sum += p.total ?? 0;
           cur.count += 1;
+          cur.tipSum += p.tip ?? 0;
+          cur.takeawaySum += Number((p as any).takeawayFee ?? 0);
           m.set(key, cur);
         }
-        const paymentRows: Array<[string, { sum: number; count: number }]> = Array.from(m.entries());
+        const paymentRows: Array<[string, { sum: number; count: number; tipSum: number; takeawaySum: number }]> = Array.from(m.entries());
 
         const sessionsTotal = out.cashSessions.length;
         const sessionsActive = out.cashSessions.filter((s) => s.status === 'Active').length;

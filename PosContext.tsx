@@ -300,8 +300,11 @@ const kitchenTicketHtml = (title: string, order: PosOrder, lines: Array<{ name: 
   const table = escapeHtml(order.tableName ?? '');
   const number = escapeHtml(order.number ?? '');
   const time = escapeHtml(order.timeLabel ?? formatTime(now));
-  const placedBy = escapeHtml(order.createdByName ?? order.createdByStaffId ?? ' ”');
+  const fullTimestamp = escapeHtml(now.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+  const placedBy = escapeHtml(order.createdByName ?? order.createdByStaffId ?? 'Staff');
   const notes = order.notes ? `<div class="notes">${escapeHtml(order.notes)}</div>` : '';
+  const takeawayTag = order.orderType === 'takeaway' ? `<div style="background:#000;color:#fff;padding:6px 12px;font-size:16px;font-weight:900;text-align:center;margin:8px 0;border-radius:4px;letter-spacing:2px;">TAKEAWAY</div>` : '';
+  
   const items = lines
     .map((l) => {
       const note = l.note?.trim() ? `<div class="note">${escapeHtml(l.note)}</div>` : '';
@@ -347,8 +350,10 @@ const kitchenTicketHtml = (title: string, order: PosOrder, lines: Array<{ name: 
         </div>
         <div class="meta">
           <div>${time}</div>
+          <div style="font-size:10px;color:#555;margin-top:4px;">${fullTimestamp}</div>
         </div>
       </div>
+      ${takeawayTag}
       ${notes}
       <div class="hr"></div>
       ${items}

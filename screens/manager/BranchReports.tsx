@@ -397,6 +397,7 @@ export const BranchReports: React.FC = () => {
               total: Number(p.total ?? 0) || 0,
               tax: Number(p.tax ?? 0) || 0,
               tip: Number(p.tip ?? 0) || 0,
+              takeawayFee: Number(p.takeawayFee ?? 0) || 0,
               discount: Number(p.discount ?? 0) || 0,
               discountPct: p.discountPct == null ? undefined : Number(p.discountPct ?? 0) || 0,
               createdAt: typeof p.createdAt === 'string' ? p.createdAt : null,
@@ -742,25 +743,29 @@ export const BranchReports: React.FC = () => {
 
   const paymentBreakdown = useMemo(() => {
     if (selectedStaffId) {
-      const m = new Map<string, { sum: number; count: number }>();
+      const m = new Map<string, { sum: number; count: number; tipSum: number; takeawaySum: number }>();
       for (const p of paymentsScoped) {
         const key = p.method || 'Unknown';
-        const cur = m.get(key) ?? { sum: 0, count: 0 };
+        const cur = m.get(key) ?? { sum: 0, count: 0, tipSum: 0, takeawaySum: 0 };
         cur.sum += p.total ?? 0;
         cur.count += 1;
+        cur.tipSum += p.tip ?? 0;
+        cur.takeawaySum += Number((p as any).takeawayFee ?? 0);
         m.set(key, cur);
       }
       return Array.from(m.entries()).sort((a, b) => b[1].sum - a[1].sum);
     }
 
-    const agg = new Map<string, { sum: number; count: number }>();
+    const agg = new Map<string, { sum: number; count: number; tipSum: number; takeawaySum: number }>();
     for (const d of dailyAgg) {
       const pb = d.paymentBreakdown && typeof d.paymentBreakdown === 'object' ? d.paymentBreakdown : null;
       if (!pb) continue;
       for (const [k, raw] of Object.entries(pb)) {
         const key = String(k || '').trim() || 'Unknown';
+        // Note: dailyAgg's paymentBreakdown is just sum (or an object if we update it). For now, it's just a number.
+        // If we want it to support tip and takeaway, we'd need to change dailyAgg schema. We will skip for dailyAgg (which is only used if no payments).
         const amount = Number(raw ?? 0) || 0;
-        const cur = agg.get(key) ?? { sum: 0, count: 0 };
+        const cur = agg.get(key) ?? { sum: 0, count: 0, tipSum: 0, takeawaySum: 0 };
         cur.sum += amount;
         cur.count += amount !== 0 ? 1 : 0;
         agg.set(key, cur);
@@ -768,12 +773,14 @@ export const BranchReports: React.FC = () => {
     }
     if (agg.size > 0) return Array.from(agg.entries()).sort((a, b) => b[1].sum - a[1].sum);
 
-    const m = new Map<string, { sum: number; count: number }>();
+    const m = new Map<string, { sum: number; count: number; tipSum: number; takeawaySum: number }>();
     for (const p of paymentsScoped) {
       const key = p.method || 'Unknown';
-      const cur = m.get(key) ?? { sum: 0, count: 0 };
+      const cur = m.get(key) ?? { sum: 0, count: 0, tipSum: 0, takeawaySum: 0 };
       cur.sum += p.total ?? 0;
       cur.count += 1;
+      cur.tipSum += p.tip ?? 0;
+      cur.takeawaySum += Number((p as any).takeawayFee ?? 0);
       m.set(key, cur);
     }
     return Array.from(m.entries()).sort((a, b) => b[1].sum - a[1].sum);
@@ -1555,7 +1562,15 @@ export const BranchReports: React.FC = () => {
                       <div key={method} className="flex flex-col gap-2">
                         <div className="flex justify-between text-sm">
                           <span className="text-foreground font-medium truncate">{method}</span>
-                          <span className="text-muted-foreground font-mono">{formatMoney(v.sum)}</span>
+                          <div className="flex flex-col text-right">
+                            <span className="text-muted-foreground font-mono">{formatMoney(v.sum)}</span>
+                            {(v.tipSum > 0 || v.takeawaySum > 0) && (
+                              <span className="text-xs text-muted-foreground/70">
+                                {v.tipSum > 0 ? `Tip: ${formatMoney(v.tipSum)} ` : ''}
+                                {v.takeawaySum > 0 ? `Takeaway: ${formatMoney(v.takeawaySum)}` : ''}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="h-2 w-full bg-muted rounded-full overflow-hidden border border-border">
                           <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />

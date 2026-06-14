@@ -272,8 +272,8 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
   const rows = useMemo(() =>
     [...rowsRaw]
       .sort((a, b) => {
-        const aTime = new Date(a?.paidAt || a?.createdAt || 0).getTime();
-        const bTime = new Date(b?.paidAt || b?.createdAt || 0).getTime();
+        const aTime = new Date(a?.createdAt || 0).getTime();
+        const bTime = new Date(b?.createdAt || 0).getTime();
         return bTime - aTime; // Newest first
       })
       .map((o) => {
