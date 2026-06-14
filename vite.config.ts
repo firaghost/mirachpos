@@ -74,23 +74,16 @@ export default defineConfig(({ mode }) => {
         '@grafana/faro-web-sdk',
         '@grafana/faro-web-tracing',
       ],
-      esbuildOptions: {
-        target: 'es2020',
-      },
     },
-    esbuild: {
-      target: 'es2020',
-      logOverride: { 'this-is-undefined-in-esm': 'silent' },
-    } as any,
     build: {
       rollupOptions: {
         output: {
-          manualChunks: {
-            charts: ['recharts'],
-            pdf: ['jspdf', 'jspdf-autotable', 'html2canvas'],
-            icons: ['lucide-react'],
+          manualChunks(id: string) {
+            if (id.includes('recharts')) return 'charts';
+            if (id.includes('jspdf') || id.includes('html2canvas')) return 'pdf';
+            if (id.includes('lucide-react')) return 'icons';
           },
-        } as any,
+        },
       },
     },
   };
