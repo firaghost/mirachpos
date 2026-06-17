@@ -274,6 +274,8 @@ const normalizeOrderColsFromPayload = ({ payload, status, nowIso }) => {
     display_number: typeof p?.number === 'string' && p.number.trim() ? String(p.number).trim() : null,
     table_id: typeof p?.tableId === 'string' && p.tableId.trim() ? String(p.tableId).trim() : null,
     table_name: typeof p?.tableName === 'string' && p.tableName.trim() ? String(p.tableName).trim() : null,
+    order_type: typeof p?.orderType === 'string' && p.orderType.trim() ? String(p.orderType).trim() : null,
+    takeaway_fee: p?.takeawayFee != null ? num(p.takeawayFee, null) : null,
     created_by_staff_id: typeof p?.createdByStaffId === 'string' && p.createdByStaffId.trim() ? String(p.createdByStaffId).trim() : null,
     created_by_name: typeof p?.createdByName === 'string' && p.createdByName.trim() ? String(p.createdByName).trim() : null,
     paid_by_staff_id: typeof p?.paidByStaffId === 'string' && p.paidByStaffId.trim() ? String(p.paidByStaffId).trim() : null,
@@ -359,6 +361,10 @@ const hydratePayloadFromNormalized = ({ orderRow, payloadFallback, itemRows, spl
   if (tableId) p.tableId = tableId;
   const tableName = orderRow?.table_name ? String(orderRow.table_name) : '';
   if (tableName) p.tableName = tableName;
+
+  const orderType = orderRow?.order_type ? String(orderRow.order_type) : '';
+  if (orderType) p.orderType = orderType;
+  if (orderRow?.takeaway_fee != null) p.takeawayFee = Number(orderRow.takeaway_fee);
 
   const createdByStaffId = orderRow?.created_by_staff_id ? String(orderRow.created_by_staff_id) : '';
   const createdByName = orderRow?.created_by_name ? String(orderRow.created_by_name) : '';
@@ -902,6 +908,7 @@ const makeKitchenTicketPayload = ({ title, orderRow, lines, beep }) => {
   const tableName = String(payload?.tableName || payload?.table || '').trim();
   const placedBy = String(payload?.createdByName || payload?.createdByStaffId || '').trim();
   const notes = String(payload?.notes || '').trim();
+  const orderType = String(payload?.orderType || payload?.order_type || orderRow?.order_type || '').trim().toLowerCase();
   const createdAt = payload?.createdAt || orderRow?.created_at || null;
   const t = createdAt ? new Date(createdAt) : new Date();
 
@@ -919,6 +926,14 @@ const makeKitchenTicketPayload = ({ title, orderRow, lines, beep }) => {
   out.push(escBoldOff);
   out.push(nl());
   out.push(nl());
+  
+  if (orderType === 'takeaway') {
+    out.push(escBoldOn);
+    out.push(txt('--- TAKEAWAY ---'));
+    out.push(escBoldOff);
+    out.push(nl());
+    out.push(nl());
+  }
 
   out.push(escAlignLeft);
   out.push(escBoldOn);

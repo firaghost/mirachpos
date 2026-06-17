@@ -3,6 +3,7 @@ import type { InventoryItem, PosOrder, PosOrderItem, PosTable, Product, Recipe }
 import { apiFetch, serverNowMs } from './api';
 import { readSession, updateSession } from './session';
 import { formatDeviceDate, formatDeviceTime } from './datetime';
+import { escapeHtml, openPrintWindow as openPrintWindowUtil } from './printUtils';
 
 type PaymentMethod = 'Cash' | 'Card' | 'Telebirr' | 'Bank Transfer' | 'Loyalty';
 
@@ -229,52 +230,7 @@ const toPosTables = (rows: any[]): PosTable[] => {
     .filter(Boolean) as PosTable[];
 };
 
-const escapeHtml = (s: string) =>
-  s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-
-const openPrintWindow = (html: string) => {
-  try {
-    const w = window.open('', '_blank', 'width=420,height=700');
-    if (!w) return false;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    let didPrint = false;
-    const tryPrint = () => {
-      if (didPrint) return;
-      didPrint = true;
-      try {
-        w.focus();
-        w.print();
-      } catch {
-        // ignore
-      }
-    };
-
-    try {
-      w.addEventListener('load', tryPrint);
-    } catch {
-      // ignore
-    }
-
-    const t = w.setTimeout(tryPrint, 900);
-    w.addEventListener('beforeunload', () => {
-      try {
-        w.clearTimeout(t);
-      } catch {
-        // ignore
-      }
-    });
-    return true;
-  } catch {
-    return false;
-  }
-};
+const openPrintWindow = openPrintWindowUtil;
 
 const readKitchenPrintSettings = (): { autoKitchen: boolean; separateDrinkTickets: boolean; hasBarRoute: boolean; beep: boolean } => {
   try {

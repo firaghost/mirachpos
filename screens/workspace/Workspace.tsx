@@ -7,6 +7,7 @@ import { readSession } from '../../session';
 import { apiFetch } from '../../api';
 import { ShiftIndicator } from '../../components/ShiftIndicator';
 import { ShiftManagerModal } from '../../components/ShiftManagerModal';
+import { escapeHtml, openPrintWindow } from '../../printUtils';
 
 import { cn } from '@/components/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,14 +40,6 @@ const calcOrderTotalNoTax = (order: any): number => {
 
 // Kitchen ticket HTML generator for full-page print
 const kitchenTicketHtml = (title: string, order: any, lines: Array<{ name: string; qty: number; note?: string }>) => {
-  const escapeHtml = (s: string) =>
-    s
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  
   const now = new Date();
   const header = `${escapeHtml(title)}`;
   const table = escapeHtml(order.tableName ?? '');

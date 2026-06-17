@@ -277,9 +277,8 @@ export const WaiterHistory: React.FC<Props> = ({ onNavigate }) => {
         return bTime - aTime; // Newest first
       })
       .map((o) => {
-      const paidAt = typeof o?.paidAt === 'string' ? o.paidAt : '';
       const createdAt = typeof o?.createdAt === 'string' ? o.createdAt : '';
-      const dt = formatDeviceDateTime(paidAt || createdAt, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const dt = formatDeviceDateTime(createdAt, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
       return {
         id: String(o?.id || ''),
         number: String(o?.number || ''),

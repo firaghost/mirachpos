@@ -4,6 +4,7 @@ import { Screen } from '../../types';
 import { Modal } from '../../components/Modal';
 import { formatDeviceTime } from '../../datetime';
 import { readSession } from '../../session';
+import { escapeHtml, openPrintWindow } from '../../printUtils';
 
 import { AppIcon } from '@/components/ui/app-icon';
 type SettingsTab = 'hardware' | 'general' | 'branch' | 'hours' | 'taxes' | 'integrations' | 'addons';
@@ -278,33 +279,7 @@ const deepEqual = (a: unknown, b: unknown) => {
   }
 };
 
-const escapeHtml = (s: string) =>
-  s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 
-const openPrintWindow = (html: string) => {
-  try {
-    const w = window.open('', '_blank', 'width=420,height=700');
-    if (!w) return;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    w.setTimeout(() => {
-      try {
-        w.focus();
-        w.print();
-      } catch {
-        // ignore
-      }
-    }, 250);
-  } catch {
-    // ignore
-  }
-};
 
 const receiptHtml = (params: {
   businessName: string;

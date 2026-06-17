@@ -147,7 +147,7 @@ export const BranchOrders: React.FC<Props> = ({ onNavigate }) => {
                         <tr key={i} onClick={() => openOrder(order.id)} className={`hover:bg-secondary transition-colors cursor-pointer ${order.status === 'Voided' ? 'bg-red-950/10' : ''}`}>
                             <td className="px-6 py-4 font-mono font-bold">{order.number}</td>
                             <td className="px-6 py-4 text-muted-foreground">{formatDeviceDate(order.createdAt, { year: 'numeric', month: 'short', day: '2-digit' })}</td>
-                            <td className="px-6 py-4 text-muted-foreground">{formatDeviceTime((order as any).paidAt || order.createdAt, { hour: '2-digit', minute: '2-digit' })}</td>
+                            <td className="px-6 py-4 text-muted-foreground">{formatDeviceTime(order.createdAt, { hour: '2-digit', minute: '2-digit' })}</td>
                             <td className="px-6 py-4">
                               <div className="flex flex-col">
                                 <span>{order.tableName}</span>

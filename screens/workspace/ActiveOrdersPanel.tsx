@@ -18,7 +18,7 @@ export const ActiveOrdersPanel: React.FC<ActiveOrdersPanelProps> = ({ onNavigate
   const [query, setQuery] = useState('');
 
   const counts = useMemo(() => {
-    const base = orders.filter((o) => o.status !== 'Paid');
+    const base = orders.filter((o) => o.status !== 'Paid' && o.status !== 'Refunded');
     return {
       Pending: base.filter((o) => o.status === 'Pending').length,
       Cooking: base.filter((o) => o.status === 'Cooking').length,
@@ -30,7 +30,7 @@ export const ActiveOrdersPanel: React.FC<ActiveOrdersPanelProps> = ({ onNavigate
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const base = orders.filter((o) => o.status !== 'Paid');
+    const base = orders.filter((o) => o.status !== 'Paid' && o.status !== 'Refunded');
 
     return base.filter((o) => {
       const matchesStatus = filter === 'All' ? true : o.status === filter;
@@ -71,6 +71,7 @@ export const ActiveOrdersPanel: React.FC<ActiveOrdersPanelProps> = ({ onNavigate
               { k: 'Pending', label: `Sent (${counts.Pending})` },
               { k: 'Cooking', label: `Preparing (${counts.Cooking})` },
               { k: 'Ready', label: `Ready (${counts.Ready})` },
+              { k: 'Served', label: `Served (${counts.Served})` },
               { k: 'Voided', label: `Voided (${counts.Voided})` },
             ] as const
           ).map((x) => (
