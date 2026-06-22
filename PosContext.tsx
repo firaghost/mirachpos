@@ -2345,12 +2345,6 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const offline = typeof navigator !== 'undefined' && !navigator.onLine;
       if (offline) {
-        void enqueueOutboxHttp({
-          url: shouldCreate ? withBranchQuery('/api/pos/orders') : withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`),
-          method: shouldCreate ? 'POST' : 'PUT',
-          body: payload,
-          headers: { 'Content-Type': 'application/json' },
-        });
         return false;
       }
       if (!remoteReady) return false;
@@ -2384,25 +2378,13 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               throw new Error('table_assigned_to_other');
             }
           }
-          // For other errors, enqueue for retry
-          void enqueueOutboxHttp({
-            url: withBranchQuery('/api/pos/orders'),
-            method: 'POST',
-            body: payload,
-            headers: { 'Content-Type': 'application/json' },
-          });
+          // For other errors, we return false so trySync will retry it later
           return false;
         } catch (e) {
           // If it's a table_assigned_to_other error, re-throw so caller can handle it
           if (e instanceof Error && e.message === 'table_assigned_to_other') {
             throw e;
           }
-          void enqueueOutboxHttp({
-            url: withBranchQuery('/api/pos/orders'),
-            method: 'POST',
-            body: payload,
-            headers: { 'Content-Type': 'application/json' },
-          });
           return false;
         }
       }
@@ -2416,12 +2398,6 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (putRes.ok) return true;
         if (putRes.status !== 404) return false;
       } catch {
-        void enqueueOutboxHttp({
-          url: withBranchQuery('/api/pos/orders'),
-          method: 'POST',
-          body: payload,
-          headers: { 'Content-Type': 'application/json' },
-        });
         return false;
       }
 
@@ -2433,12 +2409,6 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         return postRes.ok;
       } catch {
-        void enqueueOutboxHttp({
-          url: withBranchQuery('/api/pos/orders'),
-          method: 'POST',
-          body: payload,
-          headers: { 'Content-Type': 'application/json' },
-        });
         return false;
       }
     },
