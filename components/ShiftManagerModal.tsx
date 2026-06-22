@@ -59,6 +59,7 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
     expectedCash: number;
     orderCount: number;
     openOrders: Array<{ id: string; status: string; displayNumber: string }>;
+    error?: string;
     breakdowns?: {
       summary: {
         totalOrders: number;
@@ -75,7 +76,7 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
       openingCash: number;
       cashReceived: number;
       expectedCash: number;
-      staffTips: Array<{
+      staffTips?: Array<{
         staffId: string;
         staffName: string;
         orderCount: number;

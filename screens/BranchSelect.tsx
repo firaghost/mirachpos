@@ -5,6 +5,7 @@ import { clearSession, readSession, updateSession } from '../session';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
+
 import { Badge } from '../components/ui/badge';
 import { Modal } from '../components/ui/modal';
 import { Label } from '../components/ui/label';
@@ -38,7 +39,7 @@ export const BranchSelect: React.FC = () => {
   const [query, setQuery] = useState('');
   const [chip, setChip] = useState<'All' | 'Open' | 'Closed' | 'Maintenance'>('All');
   const [branches, setBranches] = useState<
-    Array<{ id: string; name: string; managerName: string; city: string; address: string; phone: string; status: string; rating: number }>
+    Array<{ id: string; name: string; managerName: string; city?: string; address?: string; phone?: string; status: string; rating: number }>
   >([]);
   const [creating, setCreating] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -337,18 +338,12 @@ export const BranchSelect: React.FC = () => {
       </div>
 
       <Modal
-        open={createOpen}
-        onOpenChange={(v) => !creating && setCreateOpen(v)}
+        isOpen={createOpen}
+        onClose={() => !creating && setCreateOpen(false)}
         title="Create New Branch"
-        description="Add a new location to your network."
-        footer={
-          <div className="flex justify-end gap-3 w-full">
-            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</Button>
-            <Button onClick={createBranch} disabled={creating}>{creating ? 'Creating...' : 'Create Branch'}</Button>
-          </div>
-        }
       >
-        <div className="grid gap-4 py-4">
+        <p className="text-muted-foreground text-sm mb-4">Add a new location to your network.</p>
+        <div className="flex flex-col h-full">
           {error && <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md border border-destructive/20">{error}</div>}
 
           <div className="grid grid-cols-2 gap-4">
@@ -381,17 +376,21 @@ export const BranchSelect: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label>Status</Label>
-              <Select value={createForm.status} onChange={e => setCreateForm({ ...createForm, status: e.target.value as any })}>
+              <select value={createForm.status} onChange={e => setCreateForm({ ...createForm, status: e.target.value as any })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                 <option value="Open">Open</option>
                 <option value="Closed">Closed</option>
                 <option value="Maintenance">Maintenance</option>
-              </Select>
+              </select>
             </div>
             <div className="grid gap-2">
               <Label>Rating (0-5)</Label>
               <Input type="number" min={0} max={5} step={0.1} value={createForm.rating} onChange={e => setCreateForm({ ...createForm, rating: e.target.value })} />
             </div>
           </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-3 w-full">
+          <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</Button>
+          <Button onClick={createBranch} disabled={creating}>{creating ? 'Creating...' : 'Create Branch'}</Button>
         </div>
       </Modal>
     </div>

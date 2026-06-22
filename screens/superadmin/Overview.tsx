@@ -41,7 +41,7 @@ type OverviewPayload = {
   alerts?: Array<{ id: string; severity: string; message: string; status: string; createdAt: string }>;
 };
 
-export const SA_Overview: React.FC = () => {
+export const SA_Overview: React.FC<{ onNavigate?: (screen: any) => void }> = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('30d');

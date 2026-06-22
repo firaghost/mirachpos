@@ -583,7 +583,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
             </ScrollArea>
 
             {/* Payment Modal */}
-            <Modal open={payModalOpen} onClose={() => setPayModalOpen(false)} title="Complete Payment">
+            <Modal isOpen={payModalOpen} onClose={() => setPayModalOpen(false)} title="Complete Payment">
                 <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-6 p-1">
                     {error && (
                         <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive flex justify-between items-start gap-3">
@@ -698,7 +698,7 @@ export const OwnerBilling: React.FC<{ embedded?: boolean }> = ({ embedded = fals
                 </div>
             </Modal>
 
-            <Modal open={planModalOpen} onClose={() => setPlanModalOpen(false)} title="Change Plan">
+            <Modal isOpen={planModalOpen} onClose={() => setPlanModalOpen(false)} title="Change Plan">
                 <div className="space-y-5 p-1">
                     <div className="space-y-2">
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Billing Cycle</Label>

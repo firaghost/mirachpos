@@ -7,7 +7,7 @@ import { readSession } from '../session';
 import { formatDeviceDate, formatDeviceDateTime, formatDeviceTime } from '../datetime';
 
 import { AppIcon } from '@/components/ui/app-icon';
-type RangeKey = 'Today' | 'Yesterday' | '7 Days' | 'This Month';
+type RangeKey = 'Today' | 'Yesterday' | '7 Days' | 'This Month' | 'Last Month';
 
 type CashSession = {
   id: string;

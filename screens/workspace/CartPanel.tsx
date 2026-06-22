@@ -208,11 +208,7 @@ export const CartPanel: React.FC<CartPanelProps> = ({ selectedTableId, onOrderSe
             try {
               const id = sendOrderToKitchen(selectedTableId, notes);
               if (id) {
-                try {
-                  setOrderStatus(id, 'Served');
-                } catch {
-                  // ignore
-                }
+                // Order is created as Pending by default, no need to override status
                 try {
                   const attemptPrint = (attempt: number) => {
                     try {

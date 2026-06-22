@@ -86,6 +86,8 @@ export interface Product {
   image: string;
   description?: string;
   stock: number;
+  available?: boolean;
+  unavailableReason?: string;
 }
 
 export interface Ingredient {

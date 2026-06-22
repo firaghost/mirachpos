@@ -179,7 +179,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
     <div className="flex flex-col h-full overflow-hidden bg-background text-foreground font-display">
       <Header title="Floor & Tables" subtitle="Assign tables to waiters and manage the floor" />
 
-      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete table" size="sm">
+      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete table">
         <div className="flex flex-col gap-4">
           <div className="text-sm text-muted-foreground">This removes the table from the floor. You can re-create it later.</div>
           <div className="flex items-center justify-end gap-2">
@@ -553,7 +553,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                             const seats = Number.parseInt(newTableSeats, 10);
                             if (!newTableName.trim() || !Number.isFinite(seats) || seats <= 0) return;
                             const area = newTableArea.trim();
-                            addTable({ name: newTableName.trim(), seats, area: area ? area : undefined, shiftType: newTableShiftType });
+                            addTable({ name: newTableName.trim(), seats, area: area ? area as any : undefined, shiftType: newTableShiftType });
                             setAddOpen(false);
                             setNewTableName('');
                             setNewTableSeats('4');
@@ -639,7 +639,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
                                   id: t.id, 
                                   name: newTableName.trim(), 
                                   seats, 
-                                  area: area ? area : undefined, 
+                                  area: area ? area as any : undefined, 
                                   shiftType: newTableShiftType,
                                   assignedStaffId: t.assignedStaffId,
                                   assignedStaffName: t.assignedStaffName

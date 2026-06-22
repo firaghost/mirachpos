@@ -314,14 +314,9 @@ export const SA_Audit: React.FC = () => {
       </ScrollArea>
 
       <Modal
-        open={Boolean(selected)}
+        isOpen={Boolean(selected)}
         title="Audit Event"
         onClose={() => setSelectedId(null)}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setSelectedId(null)}>Close</Button>
-          </>
-        }
       >
         {selected && (
           <div className="space-y-4">
@@ -336,7 +331,7 @@ export const SA_Audit: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Actor</div>
-                <div className="font-bold">{selected.actorName || ' ”'}</div>
+                <div className="font-bold">{selected.actorName || ' "'}</div>
                 <div className="text-muted-foreground">{selected.actorEmail || selected.actorRole || ''}</div>
               </div>
               <div className="space-y-1">
@@ -347,7 +342,7 @@ export const SA_Audit: React.FC = () => {
 
             <div className="space-y-1">
               <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Summary</div>
-              <div className="text-sm font-bold">{selected.summary || ' ”'}</div>
+              <div className="text-sm font-bold">{selected.summary || ' "'}</div>
             </div>
 
             <div className="space-y-1">
@@ -361,6 +356,9 @@ export const SA_Audit: React.FC = () => {
                   }
                 })()}
               </pre>
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setSelectedId(null)}>Close</Button>
             </div>
           </div>
         )}

@@ -366,6 +366,8 @@ type PosContextType = {
   }) => string;
   setPendingOrderItemQty: (orderId: string, productId: string, qty: number) => void;
   setPendingOrderItemNote: (orderId: string, productId: string, note: string) => void;
+  /** Atomically apply multiple item qty/note updates to one order in a single state update (BUG-09) */
+  addItemsToOrder: (orderId: string, items: Array<{ productId: string; qty: number; note?: string }>) => void;
   swapOrderItem: (orderId: string, oldProductId: string, newProductId: string, newProductName: string, newProductPrice: number) => void;
   setOrderStatus: (orderId: string, status: PosOrder['status']) => void;
   voidOrder: (orderId: string, reason?: string) => void;
@@ -2339,11 +2341,13 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         },
       };
 
+      const shouldCreate = order.syncedToServer === false;
+
       const offline = typeof navigator !== 'undefined' && !navigator.onLine;
       if (offline) {
         void enqueueOutboxHttp({
-          url: withBranchQuery('/api/pos/orders'),
-          method: 'POST',
+          url: shouldCreate ? withBranchQuery('/api/pos/orders') : withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`),
+          method: shouldCreate ? 'POST' : 'PUT',
           body: payload,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -2351,7 +2355,6 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       if (!remoteReady) return false;
 
-      const shouldCreate = order.syncedToServer === false;
       if (shouldCreate) {
         try {
           const postRes = await apiFetch(withBranchQuery('/api/pos/orders'), {
@@ -2403,19 +2406,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return false;
         }
       }
-      // For updates (syncedToServer === true), use PUT
-      try {
-        const putRes = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (putRes.ok) return true;
-        if (putRes.status !== 404) return false;
-      } catch {
-        // ignore
-      }
-
+      // For updates (syncedToServer === true), use PUT. Falls through to POST if 404 (server lost the record).
       try {
         const putRes = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(order.id)}`), {
           method: 'PUT',
@@ -2577,6 +2568,37 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                       headers: hdrs,
                       body: hasBody ? JSON.stringify(body ?? null) : undefined,
                     });
+
+                    // Handle 400/409 Conflicts for POST by falling back to PUT
+                    if (!res.ok && (res.status === 400 || res.status === 409) && method === 'POST' && url.includes('/api/pos/orders')) {
+                      const orderId = body?.id;
+                      if (orderId) {
+                        try {
+                          const putRes = await apiFetch(withBranchQuery(`/api/pos/orders/${encodeURIComponent(orderId)}`), {
+                            method: 'PUT',
+                            headers: hdrs,
+                            body: hasBody ? JSON.stringify(body ?? null) : undefined,
+                          });
+                          if (putRes.ok) res = putRes;
+                        } catch {
+                          // ignore
+                        }
+                      }
+                    }
+
+                    // Handle 404 Not Found for PUT by falling back to POST
+                    if (!res.ok && res.status === 404 && method === 'PUT' && url.includes('/api/pos/orders/')) {
+                      try {
+                        const postRes = await apiFetch(withBranchQuery('/api/pos/orders'), {
+                          method: 'POST',
+                          headers: hdrs,
+                          body: hasBody ? JSON.stringify(body ?? null) : undefined,
+                        });
+                        if (postRes.ok) res = postRes;
+                      } catch {
+                        // ignore
+                      }
+                    }
                   } else if (kind === 'print.html') {
                     const html = typeof payload?.html === 'string' ? payload.html : '';
                     const deviceName = typeof payload?.deviceName === 'string' ? payload.deviceName : '';
@@ -2924,7 +2946,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState((s) => {
       const product = s.products.find((p) => p.id === productId);
       if (!product || product.stock <= 0) return s;
-      if ((product as any)?.available === false) return s;
+      if (product?.available === false) return s;
 
       const existing = s.cartByTableId[tableId] ?? [];
       const idx = existing.findIndex((i) => i.productId === productId);
@@ -2994,7 +3016,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const product = s.products.find((p) => p.id === productId);
       if (!product) return s;
-      if ((product as any)?.available === false) {
+      if (product?.available === false) {
         const nextItems = existing.filter((i) => i.productId !== productId);
         const nextCartByTableId = { ...s.cartByTableId, [tableId]: nextItems };
         const nextTables = updateTableComputed(s.tables, nextCartByTableId, s.draftMetaByTableId);
@@ -3142,7 +3164,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tax,
       serviceCharge,
       total,
-      status: 'Served',
+      status: 'Pending',
       createdAt: now.toISOString(),
       timeLabel: formatTime(now),
       inventoryDeducted: true,
@@ -3302,7 +3324,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tax,
       serviceCharge,
       total,
-      status: 'Served',
+      status: 'Pending',
       createdAt: now.toISOString(),
       timeLabel: formatTime(now),
       inventoryDeducted: true,
@@ -3843,6 +3865,53 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  /** Atomically merge multiple cart items into an existing order in one setState (BUG-09) */
+  const addItemsToOrder = (orderId: string, items: Array<{ productId: string; qty: number; note?: string }>) => {
+    if (!items.length) return;
+    let updatedOrder: PosOrder | null = null;
+    setState((s) => {
+      const order = s.orders.find((o) => o.id === orderId);
+      if (!order || (order.status !== 'Pending' && order.status !== 'Served')) return s;
+
+      const nextOrders = s.orders.map((o) => {
+        if (o.id !== orderId) return o;
+        let nextItems = [...o.items];
+        for (const { productId, qty, note } of items) {
+          const idx = nextItems.findIndex((i) => i.productId === productId);
+          if (idx >= 0) {
+            nextItems[idx] = { ...nextItems[idx], qty: nextItems[idx].qty + qty, ...(note ? { note } : {}) };
+          } else {
+            const p = s.products.find((x) => x.id === productId);
+            if (p) nextItems.push({ productId, name: p.name, unitPrice: p.price, qty, note: note || '' });
+          }
+        }
+        const subtotal = calcSubtotalEffective(nextItems);
+        const pricing = readPricingSettings();
+        const tax = pricing.vatEnabled ? subtotal * (pricing.vatRate / 100) : 0;
+        const serviceCharge = pricing.serviceEnabled ? subtotal * (pricing.serviceRate / 100) : 0;
+        const takeawayFee = Math.max(0, Number((o as any).takeawayFee ?? 0) || 0);
+        const total = subtotal + tax + serviceCharge + takeawayFee;
+        return { ...o, items: nextItems, subtotal, tax, serviceCharge, total, syncedToServer: false };
+      });
+
+      updatedOrder = nextOrders.find((o) => o.id === orderId) || null;
+      return { ...s, orders: nextOrders };
+    });
+
+    queueMicrotask(() => {
+      void (async () => {
+        try {
+          if (updatedOrder) {
+            upsertLocalOrderBundle(updatedOrder);
+            await persistOrder(updatedOrder);
+          }
+        } catch {
+          // ignore
+        }
+      })();
+    });
+  };
+
   const swapOrderItem = (orderId: string, oldProductId: string, newProductId: string, newProductName: string, newProductPrice: number) => {
     let updatedOrder: PosOrder | null = null;
     setState((s) => {
@@ -3994,8 +4063,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const nextTables = s.tables.map((t) => {
         if (t.openOrderId !== orderId) return t;
-        if (status === 'Served') return { ...t, status: 'Payment' };
-        if (status === 'Pending') return { ...t, status: 'Occupied' };
+        if (status === 'Served') return { ...t, status: 'Payment' as const };
+        if (status === 'Pending') return { ...t, status: 'Occupied' as const };
         return t;
       });
 
@@ -4031,7 +4100,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               void refreshFromServer();
               if (res.ok) {
                 // FAST AUTO-PRINT: Fire and forget if enabled
-                if (updatedOrder.status === 'Cooking' && state.settings.printerPrefs.autoPrintKitchenTickets && state.settings.defaultKitchenPrinterId) {
+                if (updatedOrder.status === 'Cooking' && readKitchenPrintSettings().autoKitchen) {
                   const allLines = updatedOrder.items.map((i) => ({ name: i.name, qty: i.qty, note: i.note }));
                   setKitchenPrintStatus({ orderId: updatedOrder.id, status: 'queued', message: 'Queued (retrying)' });
                   void attemptKitchenAutoPrint({ order: updatedOrder, lines: allLines, title: 'Kitchen Ticket' });
@@ -4107,7 +4176,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const hasOtherOrders = remainingIds.length > 0;
         return {
           ...t,
-          status: hasOtherOrders ? 'Occupied' : 'Free',
+          status: hasOtherOrders ? ('Occupied' as const) : ('Free' as const),
           openOrderId: hasOtherOrders ? remainingIds[remainingIds.length - 1] : null,
           openOrderIds: remainingIds,
           lastOrderId: orderId,
@@ -4207,7 +4276,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const hasOtherOrders = remainingIds.length > 0;
         return {
           ...t,
-          status: hasOtherOrders ? 'Occupied' : 'Free',
+          status: hasOtherOrders ? ('Occupied' as const) : ('Free' as const),
           openOrderId: hasOtherOrders ? remainingIds[remainingIds.length - 1] : null,
           openOrderIds: remainingIds,
           lastOrderId: orderId,
@@ -4292,7 +4361,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const takeawayFee = Math.max(0, Number((o as any).takeawayFee ?? 0) || 0);
         const total = subtotal + tax + serviceCharge + takeawayFee;
 
-        const nextStatus = nextItems.every((it) => effectiveQty(it) === 0) ? 'Voided' : o.status;
+        const nextStatus = (nextItems.every((it) => effectiveQty(it) === 0) ? 'Voided' : o.status) as import('./types').PosOrderStatus;
         return {
           ...o,
           items: nextItems,
@@ -4315,7 +4384,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const hasOtherOrders = remainingIds.length > 0;
           return {
             ...t,
-            status: hasOtherOrders ? 'Occupied' : 'Free',
+            status: hasOtherOrders ? ('Occupied' as const) : ('Free' as const),
             openOrderId: hasOtherOrders ? remainingIds[remainingIds.length - 1] : null,
             openOrderIds: remainingIds,
           };
@@ -4455,7 +4524,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return {
             ...o,
             splits: nextSplits as any,
-            status: 'Paid',
+            status: 'Paid' as const,
             paidAt: now.toISOString(),
             paymentMethod,
             tenderedAmount,
@@ -4472,7 +4541,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const nextSplits = (o.splits || []).map((sp) =>
           sp.id === splitId
-            ? { ...sp, status: 'Paid', paidAt: now.toISOString(), paymentMethod, tenderedAmount, paymentReference }
+            ? { ...sp, status: 'Paid' as const, paidAt: now.toISOString(), paymentMethod, tenderedAmount, paymentReference }
             : sp,
         );
         const allPaid = nextSplits.length > 0 && nextSplits.every((sp) => sp.status === 'Paid');
@@ -4491,7 +4560,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return {
           ...o,
           splits: nextSplits,
-          status: allPaid ? 'Paid' : o.status,
+          status: (allPaid ? 'Paid' : o.status) as import('./types').PosOrderStatus,
           paidAt: allPaid ? now.toISOString() : o.paidAt,
           paymentMethod: allPaid ? paymentMethod : o.paymentMethod,
           tenderedAmount: allPaid ? tenderedAmount : o.tenderedAmount,
@@ -4526,7 +4595,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const hasOtherOrders = remainingIds.length > 0;
         return {
           ...t,
-          status: hasOtherOrders ? 'Occupied' : 'Free',
+          status: hasOtherOrders ? ('Occupied' as const) : ('Free' as const),
           openOrderId: hasOtherOrders ? remainingIds[remainingIds.length - 1] : null,
           openOrderIds: remainingIds,
           lastOrderId: orderId,
@@ -4565,14 +4634,18 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    queueMicrotask(async () => {
+    // Write to local SQLite synchronously (before async persist) so offline state is always saved.
+    if (updatedOrder) {
+      try {
+        upsertLocalOrderBundle(updatedOrder);
+      } catch {
+        // ignore
+      }
+    }
+
+    void (async () => {
       try {
         if (updatedOrder) {
-          try {
-            upsertLocalOrderBundle(updatedOrder);
-          } catch {
-            // ignore
-          }
           await persistOrder(updatedOrder);
           // Refresh from server after payment to ensure table status is synced
           void refreshFromServer();
@@ -4586,7 +4659,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Still try to refresh even if persist failed
         void refreshFromServer();
       }
-    });
+    })();
   };
 
   const enterBillingMode = (orderId: string) => {
@@ -4596,8 +4669,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
 
-      // Only allow entering billing from Served status
-      if (order.status !== 'Served') return s;
+      // Only allow entering billing from Pending status
+      if (order.status !== 'Pending') return s;
 
       const now = new Date();
 
@@ -4963,6 +5036,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     importDraftToKitchenOrder,
     setPendingOrderItemQty,
     setPendingOrderItemNote,
+    addItemsToOrder,
     swapOrderItem,
     setOrderStatus,
     voidOrder,

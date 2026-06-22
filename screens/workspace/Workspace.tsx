@@ -149,6 +149,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     setDraftOrderMeta,
     setPendingOrderItemQty,
     setPendingOrderItemNote,
+    addItemsToOrder,
     swapOrderItem,
     voidOrder,
     refundOrder,
@@ -211,26 +212,28 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     [getCartItems, selectedTableId]
   );
 
-  const openOrder = useMemo(() => {
-    if (!selectedTable?.openOrderId) return null;
-    return orders.find((o) => o.id === selectedTable.openOrderId) ?? null;
-  }, [selectedTable, orders]);
-
-  // Get ALL orders for this table (for multi-order support)
+  // Get ALL orders for this table (for multi-order support) - compute first so openOrder can derive from it
   const tableOrders = useMemo(() => {
     if (!selectedTable) return [];
     const orderIds = selectedTable.openOrderIds || (selectedTable.openOrderId ? [selectedTable.openOrderId] : []);
     const filtered = orders.filter((o) => orderIds.includes(o.id) && o.status !== 'Paid' && o.status !== 'Voided' && o.status !== 'Refunded');
-    // Sort to ensure consistent order
+    // Sort newest-first so tableOrders[0] is always the most recently created unpaid order
     return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [selectedTable, orders]);
 
   const hasMultipleOrders = tableOrders.length > 1;
 
+  // openOrder derives from tableOrders so it stays in sync with multi-order state (BUG-05/12)
+  const openOrder = useMemo(() => {
+    if (tableOrders.length > 0) return tableOrders[0];
+    if (!selectedTable?.openOrderId) return null;
+    return orders.find((o) => o.id === selectedTable.openOrderId) ?? null;
+  }, [tableOrders, selectedTable, orders]);
+
   // Unified Workspace State Checks
   const isBilling = openOrder?.status === 'Billing';
-  const canEditOrder = openOrder && ['Pending', 'Cooking', 'Ready', 'Served'].includes(openOrder.status);
-  const canEnterBilling = openOrder?.status === 'Served';
+  const canEditOrder = openOrder && ['Pending', 'Cooking', 'Ready'].includes(openOrder.status);
+  const canEnterBilling = openOrder?.status === 'Pending';
   const isOrderPaid = openOrder?.status === 'Paid';
   const isOrderTerminal = openOrder && ['Paid', 'Voided', 'Refunded'].includes(openOrder.status);
 
@@ -332,18 +335,11 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     const itemsToAdd = [...cartItems];
     const existingOrder = tableOrders[0];
     
-    if (existingOrder && (existingOrder.status === 'Pending' || existingOrder.status === 'Served')) {
+    if (existingOrder && existingOrder.status === 'Pending') {
       setAddingOrder(true);
       try {
-        // First add items to the order
-        itemsToAdd.forEach(item => {
-          const existingItem = existingOrder.items.find(i => i.productId === item.productId);
-          const newQty = (existingItem?.qty || 0) + item.qty;
-          setPendingOrderItemQty(existingOrder.id, item.productId, newQty);
-          if (item.note) {
-            setPendingOrderItemNote(existingOrder.id, item.productId, item.note);
-          }
-        });
+        // Atomically add all cart items to the existing order in one state update (BUG-09)
+        addItemsToOrder(existingOrder.id, itemsToAdd.map(item => ({ productId: item.productId, qty: item.qty, note: item.note })));
         
         // Clear cart immediately using clearCart
         clearCart(selectedTableId);
@@ -441,7 +437,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   };
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Telebirr' | 'Bank'>('Cash');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Telebirr' | 'Bank Transfer'>('Cash');
   const [tenderedAmount, setTenderedAmount] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [tipAmount, setTipAmount] = useState('');
@@ -508,9 +504,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
       setTenderedAmount(openOrder.total.toFixed(2));
       return;
     }
-    // Must be in 'Served' status to enter billing
+    // Must be in 'Pending' status to enter billing
     if (!canEnterBilling) {
-      alert('Order must be marked as Served before payment (Ctrl+P enters billing)');
+      alert('Order must be in Pending status before payment');
       return;
     }
     // Enter billing mode first (this changes order status to 'Billing')
@@ -533,8 +529,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     if (!openOrder) return;
     // Capture order ID synchronously to avoid stale closure issues
     const orderId = openOrder.id;
-    // Use subtotal (without tax) for payment amount - tax is disabled
-    const paymentAmount = openOrder.subtotal || openOrder.total;
+    // Always use the full total (includes any tax/service/takeaway fees) as the payment amount
+    const paymentAmount = openOrder.total;
     setProcessingPayment(true);
     try {
       const tendered = parseFloat(tenderedAmount) || paymentAmount;
@@ -558,10 +554,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     voidOrder(openOrder.id, 'Cancelled by user');
     // Clear editing mode if active
     setEditingOrder(false);
-    // Refresh after a delay to sync with server
-    setTimeout(() => {
-      void refreshFromServer();
-    }, 300);
+    void refreshFromServer();
   };
 
   // Determine available actions based on order state - check ALL orders
@@ -610,10 +603,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
       setShowRefundModal(false);
       setRefundReason('');
       setManagerPin('');
-      // Refresh after refund
-      setTimeout(() => {
-        void refreshFromServer();
-      }, 300);
+      void refreshFromServer();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Refund failed');
     } finally {
@@ -638,10 +628,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
       setShowUnlockModal(false);
       setUnlockReason('');
       setUnlockPin('');
-      // Refresh after unlock
-      setTimeout(() => {
-        void refreshFromServer();
-      }, 300);
+      void refreshFromServer();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Unlock failed');
     } finally {
@@ -720,7 +707,6 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
 
   // Shift modal handler
   const handleOpenShiftModal = useCallback(() => {
-    console.log('[DEBUG] handleOpenShiftModal called, setting shiftModalOpen to true');
     setShiftModalOpen(true);
   }, []);
 
@@ -885,7 +871,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
           <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             {filteredProducts.map((p) => {
               // Disable menu if: no table, out of stock, billing mode, terminal status, or existing order not in edit
-              const isExistingOrderLocked = openOrder && !editingOrder && openOrder.status !== 'Pending' && openOrder.status !== 'Draft';
+              const isExistingOrderLocked = openOrder && !editingOrder && openOrder.status !== 'Pending';
               const isDisabled = !selectedTableId || p.stock <= 0 || isBilling || isOrderTerminal || isExistingOrderLocked;
               const isLowStock = p.stock > 0 && p.stock <= 5;
 
@@ -1114,7 +1100,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                   </div>
 
                   {/* Order Type Selector - Only when editing this specific order */}
-                  {editingOrder && (order.status === 'Pending' || order.status === 'Served') && (
+                  {editingOrder && order.status === 'Pending' && (
                     <div className="mb-3 p-2 bg-amber-50 rounded-lg border border-amber-200">
                       <div className="text-[10px] text-amber-700 font-bold uppercase tracking-wider mb-2">Order Type</div>
                       <div className="flex gap-2">
@@ -1387,13 +1373,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
               </button>
             )}
             
-            {/* Pay All Button - Show when there are multiple served orders */}
-            {tableOrders.length > 1 && tableOrders.every(o => o.status === 'Served' || o.status === 'Billing') && (
+            {/* Pay All Button - Show when there are multiple pending orders */}
+            {tableOrders.length > 1 && tableOrders.every(o => o.status === 'Pending' || o.status === 'Billing') && (
               <button
                 onClick={() => {
                   // Enter billing for all orders and open payment
                   tableOrders.forEach(o => {
-                    if (o.status === 'Served') enterBillingMode(o.id);
+                    if (o.status === 'Pending') enterBillingMode(o.id);
                   });
                   setShowPaymentModal(true);
                   setTenderedAmount(tableOrders.reduce((sum, o) => sum + o.total, 0).toFixed(2));
@@ -1406,10 +1392,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             )}
             
             {/* Pay Single Order Button - Show when there's only one order */}
-            {tableOrders.length === 1 && firstUnpaidOrder && (firstUnpaidOrder.status === 'Served' || firstUnpaidOrder.status === 'Billing') && (
+            {tableOrders.length === 1 && firstUnpaidOrder && (firstUnpaidOrder.status === 'Pending' || firstUnpaidOrder.status === 'Billing') && (
               <button
                 onClick={() => {
-                  if (firstUnpaidOrder.status === 'Served') {
+                  if (firstUnpaidOrder.status === 'Pending') {
                     enterBillingMode(firstUnpaidOrder.id);
                   }
                   setShowPaymentModal(true);
@@ -1492,7 +1478,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                     if (!confirm('Are you sure you want to cancel this order?')) return;
                     voidOrder(firstUnpaidOrder.id, 'Cancelled by user');
                     setEditingOrder(false);
-                    setTimeout(() => void refreshFromServer(), 300);
+                    void refreshFromServer();
                   }
                 }}
                 className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-destructive text-destructive rounded-xl hover:bg-destructive hover:text-destructive-foreground disabled:opacity-50 disabled:cursor-not-allowed font-bold"
@@ -1624,21 +1610,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                 </div>
               </div>
 
-              {/* Totals - recalculate to exclude tax for old orders */}
+              {/* Totals */}
               <div className="border-t pt-3 space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="text-foreground">{openOrder.subtotal?.toFixed(2) || '0.00'} ETB</span>
-                </div>
+                {openOrder.subtotal != null && openOrder.subtotal !== openOrder.total && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-foreground">{openOrder.subtotal.toFixed(2)} ETB</span>
+                  </div>
+                )}
                 {(openOrder.tax > 0 || openOrder.serviceCharge > 0) && (
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Tax/Service (included in old order)</span>
+                    <span>Tax/Service</span>
                     <span>{((openOrder.tax || 0) + (openOrder.serviceCharge || 0)).toFixed(2)} ETB</span>
                   </div>
                 )}
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span className="text-foreground">Total</span>
-                  <span className="text-primary">{openOrder.subtotal?.toFixed(2) || openOrder.total.toFixed(2)} ETB</span>
+                  <span className="text-primary">{openOrder.total.toFixed(2)} ETB</span>
                 </div>
               </div>
             </div>
@@ -1647,7 +1635,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             <div className="border-t p-4 bg-muted/30">
               <label className="text-sm font-medium mb-2 block text-foreground">Payment Method</label>
               <div className="flex gap-2 mb-4">
-                {(['Cash', 'Telebirr', 'Bank'] as const).map((method) => (
+                {(['Cash', 'Telebirr', 'Bank Transfer'] as const).map((method) => (
                   <button
                     key={method}
                     onClick={() => setPaymentMethod(method)}
@@ -1658,7 +1646,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                         : 'bg-card text-foreground border-border hover:border-primary'
                     )}
                   >
-                    {method}
+                    {method === 'Bank Transfer' ? 'Bank' : method}
                   </button>
                 ))}
               </div>
@@ -1715,7 +1703,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                 </div>
               )}
 
-              {paymentMethod === 'Bank' && (
+              {paymentMethod === 'Bank Transfer' && (
                 <div className="mb-4 space-y-3">
                   {/* TIP Section */}
                   <div className="bg-card p-4 rounded-xl border border-border">
@@ -1764,10 +1752,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">ETB</span>
                   </div>
-                  {parseFloat(tenderedAmount) > (openOrder.subtotal || openOrder.total) && (
+                  {parseFloat(tenderedAmount) > openOrder.total && (
                     <div className="flex justify-between text-sm mt-2 p-2 bg-green-100 text-green-800 rounded">
                       <span>Change Due:</span>
-                      <span className="font-bold">{(parseFloat(tenderedAmount) - (openOrder.subtotal || openOrder.total)).toFixed(2)} ETB</span>
+                      <span className="font-bold">{(parseFloat(tenderedAmount) - openOrder.total).toFixed(2)} ETB</span>
                     </div>
                   )}
                 </div>
@@ -1785,7 +1773,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                 <Button
                   className="flex-1 h-12 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                   onClick={handleConfirmPayment}
-                  disabled={processingPayment || (paymentMethod === 'Cash' && parseFloat(tenderedAmount) < (openOrder.subtotal || openOrder.total))}
+                  disabled={processingPayment || (paymentMethod === 'Cash' && parseFloat(tenderedAmount) < openOrder.total)}
                 >
                   {processingPayment ? 'Processing...' : `Confirm ${paymentMethod}`}
                 </Button>
@@ -1963,7 +1951,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                         voidOrder(order.id, 'Cancelled by user');
                         setShowCancelModal(false);
                         setEditingOrder(false);
-                        setTimeout(() => void refreshFromServer(), 300);
+                        void refreshFromServer();
                       }}
                     >
                       Cancel This Order
