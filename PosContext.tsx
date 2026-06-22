@@ -4639,8 +4639,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const order = s.orders.find((o) => o.id === orderId);
       if (!order) return s;
 
-      // Only allow entering billing from Pending status
-      if (order.status !== 'Pending') return s;
+      // Allow entering billing from Pending or Served status (for backward compatibility)
+      if (order.status !== 'Pending' && order.status !== 'Served') return s;
 
       const now = new Date();
 

@@ -233,7 +233,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   // Unified Workspace State Checks
   const isBilling = openOrder?.status === 'Billing';
   const canEditOrder = openOrder && ['Pending', 'Cooking', 'Ready'].includes(openOrder.status);
-  const canEnterBilling = openOrder?.status === 'Pending';
+  const canEnterBilling = openOrder?.status === 'Pending' || openOrder?.status === 'Served';
   const isOrderPaid = openOrder?.status === 'Paid';
   const isOrderTerminal = openOrder && ['Paid', 'Voided', 'Refunded'].includes(openOrder.status);
 
@@ -506,7 +506,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     }
     // Must be in 'Pending' status to enter billing
     if (!canEnterBilling) {
-      alert('Order must be in Pending status before payment');
+      alert('Order must be in Pending or Served status before payment');
       return;
     }
     // Enter billing mode first (this changes order status to 'Billing')
@@ -1374,12 +1374,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             )}
             
             {/* Pay All Button - Show when there are multiple pending orders */}
-            {tableOrders.length > 1 && tableOrders.every(o => o.status === 'Pending' || o.status === 'Billing') && (
+            {tableOrders.length > 1 && tableOrders.every(o => o.status === 'Pending' || o.status === 'Served' || o.status === 'Billing') && (
               <button
                 onClick={() => {
                   // Enter billing for all orders and open payment
                   tableOrders.forEach(o => {
-                    if (o.status === 'Pending') enterBillingMode(o.id);
+                    if (o.status === 'Pending' || o.status === 'Served') enterBillingMode(o.id);
                   });
                   setShowPaymentModal(true);
                   setTenderedAmount(tableOrders.reduce((sum, o) => sum + o.total, 0).toFixed(2));
@@ -1392,10 +1392,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             )}
             
             {/* Pay Single Order Button - Show when there's only one order */}
-            {tableOrders.length === 1 && firstUnpaidOrder && (firstUnpaidOrder.status === 'Pending' || firstUnpaidOrder.status === 'Billing') && (
+            {tableOrders.length === 1 && firstUnpaidOrder && (firstUnpaidOrder.status === 'Pending' || firstUnpaidOrder.status === 'Served' || firstUnpaidOrder.status === 'Billing') && (
               <button
                 onClick={() => {
-                  if (firstUnpaidOrder.status === 'Pending') {
+                  if (firstUnpaidOrder.status === 'Pending' || firstUnpaidOrder.status === 'Served') {
                     enterBillingMode(firstUnpaidOrder.id);
                   }
                   setShowPaymentModal(true);
