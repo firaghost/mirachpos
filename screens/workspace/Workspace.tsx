@@ -85,7 +85,7 @@ const kitchenTicketHtml = (title: string, order: any, lines: Array<{ name: strin
         .note{margin-top:4px; font-size:14px; font-weight:600; color:#333;}
         .notes{margin-top:12px; padding:12px; border:1px dashed #777; font-size:14px; font-weight:700;}
         .edited-banner{background:#f59e0b; color:#fff; padding:8px 12px; font-size:14px; font-weight:900; text-align:center; margin:8px 0; border-radius:4px;}
-        @media print{body{padding:0} .no-print{display:none}}
+        @media print{ @page { margin: 0; } body{padding:0} .no-print{display:none}}
       </style>
     </head>
     <body>
@@ -355,6 +355,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             createdByName: existingOrder.createdByName || 'Staff',
             notes: 'ADD - New Items',
             items: itemsToAdd,
+            orderType: existingOrder.orderType,
           };
           const html = kitchenTicketHtml('Kitchen Ticket (Add)', mockOrder, lines);
           const printWindow = window.open('', 'kitchen_print_add', 'width=600,height=800,scrollbars=yes');
@@ -402,6 +403,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             createdByName: selectedTable?.assignedStaffName || actor.staffName || 'Staff',
             notes: '',
             items: cartItems,
+            orderType: draftOrderType,
           };
           const html = kitchenTicketHtml('Kitchen Ticket', mockOrder, lines);
           // Open as full page window - MUST specify dimensions for popup to work
@@ -442,6 +444,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   const [paymentReference, setPaymentReference] = useState('');
   const [tipAmount, setTipAmount] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
+
+  // Keep tendered amount in sync with the live order total (handles async state updates after modal opens)
+  useEffect(() => {
+    if (!showPaymentModal || !openOrder) return;
+    setTenderedAmount(getOrderPayTotal(openOrder).toFixed(2));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPaymentModal, openOrder?.total, (openOrder as any)?.takeawayFee]);
 
   // Fetch POS settings for payment QR codes
   useEffect(() => {
@@ -493,15 +502,24 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     }
   };
 
+  const getOrderPayTotal = (order: typeof openOrder) => {
+    if (!order) return 0;
+    const sub = order.subtotal ?? 0;
+    const tax = order.tax ?? 0;
+    const svc = order.serviceCharge ?? 0;
+    const fee = (order as any).takeawayFee ?? 0;
+    const computed = sub + tax + svc + fee;
+    return Math.max(computed, order.total);
+  };
+
   const handlePay = () => {
     if (!openOrder) {
       alert('No open order to pay for');
       return;
     }
-    // Already in billing mode - just open payment modal
+    // Already in billing mode - just open payment modal (tenderedAmount synced via useEffect)
     if (isBilling) {
       setShowPaymentModal(true);
-      setTenderedAmount(openOrder.total.toFixed(2));
       return;
     }
     // Must be in 'Pending' status to enter billing
@@ -511,9 +529,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
     }
     // Enter billing mode first (this changes order status to 'Billing')
     enterBillingMode(openOrder.id);
-    // Show payment modal
+    // Show payment modal (tenderedAmount synced via useEffect)
     setShowPaymentModal(true);
-    setTenderedAmount(openOrder.total.toFixed(2));
   };
 
   const handleClosePayment = () => {
@@ -527,10 +544,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
 
   const handleConfirmPayment = async () => {
     if (!openOrder) return;
-    // Capture order ID synchronously to avoid stale closure issues
     const orderId = openOrder.id;
-    // Always use the full total (includes any tax/service/takeaway fees) as the payment amount
-    const paymentAmount = openOrder.total;
+    const paymentAmount = getOrderPayTotal(openOrder);
     setProcessingPayment(true);
     try {
       const tendered = parseFloat(tenderedAmount) || paymentAmount;
@@ -1349,6 +1364,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                     createdByName: firstUnpaidOrder.createdByName || 'Staff',
                     notes: 'ADD - New Items',
                     items: itemsToAdd,
+                    orderType: firstUnpaidOrder.orderType,
                   };
                   const html = kitchenTicketHtml('Kitchen Ticket (Add)', mockOrder, lines);
                   const printWindow = window.open('', 'kitchen_print_add', 'width=600,height=800,scrollbars=yes');
@@ -1382,7 +1398,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                     if (o.status === 'Pending' || o.status === 'Served') enterBillingMode(o.id);
                   });
                   setShowPaymentModal(true);
-                  setTenderedAmount(tableOrders.reduce((sum, o) => sum + o.total, 0).toFixed(2));
+                  setTenderedAmount(tableOrders.reduce((sum, o) => sum + getOrderPayTotal(o), 0).toFixed(2));
                 }}
                 className="flex flex-col items-center justify-center py-2 px-1 bg-primary text-white rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all font-bold"
               >
@@ -1399,7 +1415,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                     enterBillingMode(firstUnpaidOrder.id);
                   }
                   setShowPaymentModal(true);
-                  setTenderedAmount(firstUnpaidOrder.total.toFixed(2));
+                  setTenderedAmount(getOrderPayTotal(firstUnpaidOrder).toFixed(2));
                 }}
                 className="flex flex-col items-center justify-center py-2 px-1 bg-card border-2 border-primary text-primary rounded-xl hover:bg-primary hover:text-primary-foreground font-bold"
               >
@@ -1436,6 +1452,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                         createdByName: firstUnpaidOrder.createdByName || 'Staff',
                         notes: 'EDIT - Additional Items',
                         items: deltaItems,
+                        orderType: firstUnpaidOrder.orderType,
                       };
                       const html = kitchenTicketHtml('Kitchen Ticket (Edit)', mockOrder, lines);
                       const printWindow = window.open('', 'kitchen_print_edit', 'width=600,height=800,scrollbars=yes');
@@ -1612,24 +1629,41 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
 
               {/* Totals */}
               <div className="border-t pt-3 space-y-1">
-                {openOrder.subtotal != null && openOrder.subtotal !== openOrder.total && (
+                {openOrder.subtotal != null && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
                     <span className="text-foreground">{openOrder.subtotal.toFixed(2)} ETB</span>
                   </div>
                 )}
-                {(openOrder.tax > 0 || openOrder.serviceCharge > 0) && (
+                {((openOrder.tax ?? 0) > 0 || (openOrder.serviceCharge ?? 0) > 0) && (
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Tax/Service</span>
                     <span>{((openOrder.tax || 0) + (openOrder.serviceCharge || 0)).toFixed(2)} ETB</span>
                   </div>
                 )}
+                {((openOrder as any).takeawayFee ?? 0) > 0 && (
+                  <div className="flex justify-between text-sm text-amber-700 font-semibold">
+                    <span>Takeaway Fee</span>
+                    <span>+{((openOrder as any).takeawayFee as number).toFixed(2)} ETB</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span className="text-foreground">Total</span>
-                  <span className="text-primary">{openOrder.total.toFixed(2)} ETB</span>
+                  <span className="text-primary">
+                    {(() => {
+                      const sub = openOrder.subtotal ?? 0;
+                      const tax = openOrder.tax ?? 0;
+                      const svc = openOrder.serviceCharge ?? 0;
+                      const fee = (openOrder as any).takeawayFee ?? 0;
+                      const computed = sub + tax + svc + fee;
+                      // Use computed if it differs from stored total (fee was added separately)
+                      return Math.max(computed, openOrder.total).toFixed(2);
+                    })()} ETB
+                  </span>
                 </div>
               </div>
             </div>
+
 
             {/* Payment Section */}
             <div className="border-t p-4 bg-muted/30">
@@ -1752,10 +1786,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">ETB</span>
                   </div>
-                  {parseFloat(tenderedAmount) > openOrder.total && (
+                  {parseFloat(tenderedAmount) > getOrderPayTotal(openOrder) && (
                     <div className="flex justify-between text-sm mt-2 p-2 bg-green-100 text-green-800 rounded">
                       <span>Change Due:</span>
-                      <span className="font-bold">{(parseFloat(tenderedAmount) - openOrder.total).toFixed(2)} ETB</span>
+                      <span className="font-bold">{(parseFloat(tenderedAmount) - getOrderPayTotal(openOrder)).toFixed(2)} ETB</span>
                     </div>
                   )}
                 </div>
@@ -1773,7 +1807,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                 <Button
                   className="flex-1 h-12 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                   onClick={handleConfirmPayment}
-                  disabled={processingPayment || (paymentMethod === 'Cash' && parseFloat(tenderedAmount) < openOrder.total)}
+                  disabled={processingPayment || (paymentMethod === 'Cash' && parseFloat(tenderedAmount) < getOrderPayTotal(openOrder))}
                 >
                   {processingPayment ? 'Processing...' : `Confirm ${paymentMethod}`}
                 </Button>

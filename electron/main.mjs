@@ -179,7 +179,20 @@ const createMainWindow = async () => {
   });
 
   if (isDev) {
-    await win.loadURL(DEV_SERVER_URL);
+    const loadWithRetry = async (retries = 5) => {
+      try {
+        await win.loadURL(DEV_SERVER_URL);
+      } catch (err) {
+        if (retries > 0) {
+          console.log(`[Electron] Failed to load ${DEV_SERVER_URL}, retrying in 1s...`);
+          await new Promise(r => setTimeout(r, 1000));
+          return loadWithRetry(retries - 1);
+        } else {
+          console.error(`[Electron] Could not load ${DEV_SERVER_URL}:`, err);
+        }
+      }
+    };
+    await loadWithRetry();
     win.webContents.openDevTools({ mode: 'detach' });
   } else {
     await win.loadFile(path.join(app.getAppPath(), 'dist', 'index.html'));

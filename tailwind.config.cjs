@@ -3,8 +3,13 @@ module.exports = {
     darkMode: ["class"],
     content: [
         './index.html',
-        './**/*.{ts,tsx}',
-        '!./node_modules/**'
+        './src/**/*.{ts,tsx}',
+        './components/**/*.{ts,tsx}',
+        './screens/**/*.{ts,tsx}',
+        './hooks/**/*.{ts,tsx}',
+        './utils/**/*.{ts,tsx}',
+        './electron/**/*.{ts,tsx}',
+        './*.{ts,tsx}'
     ],
     theme: {
         container: {

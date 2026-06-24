@@ -281,22 +281,28 @@ const kitchenTicketHtml = (title: string, order: PosOrder, lines: Array<{ name: 
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>${header}</title>
       <style>
-        *{box-sizing:border-box;}
-        body{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; margin:0; padding:16px; color:#111;}
-        .top{display:flex; justify-content:space-between; align-items:flex-start; gap:12px;}
-        .brand{font-size:14px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;}
-        .meta{font-size:12px; text-align:right;}
-        .by{margin-top:6px; font-size:12px; font-weight:800;}
-        .kds{margin-top:8px; font-size:22px; font-weight:900;}
-        .hr{border-top:2px dashed #444; margin:12px 0;}
-        .row{display:flex; gap:10px; padding:8px 0; border-bottom:1px dashed #bbb;}
-        .qty{width:48px; font-size:18px; font-weight:900;}
-        .name{flex:1; font-size:16px; font-weight:800;}
-        .note{margin-top:4px; font-size:12px; font-weight:600; color:#333;}
-        .notes{margin-top:8px; padding:8px; border:1px dashed #777; font-size:12px; font-weight:700;}
-        @media print{body{padding:0} .no-print{display:none}}
+        *{box-sizing:border-box;margin:0;padding:0;}
+        html,body{width:80mm;max-width:80mm;background:#fff;color:#111;}
+        body{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; padding:4mm 4mm 0 4mm;}
+        .top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+        .brand{font-size:13px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;}
+        .meta{font-size:11px; text-align:right;}
+        .by{margin-top:4px; font-size:11px; font-weight:800;}
+        .kds{margin-top:2px; font-size:20px; font-weight:900;}
+        .hr{border-top:2px dashed #444; margin:8px 0;}
+        .row{display:flex; gap:8px; padding:6px 0; border-bottom:1px dashed #bbb;}
+        .qty{width:36px; font-size:17px; font-weight:900; flex-shrink:0;}
+        .name{flex:1; font-size:15px; font-weight:800; word-break:break-word;}
+        .note{margin-top:3px; font-size:11px; font-weight:600; color:#333;}
+        .notes{margin-top:6px; padding:6px; border:1px dashed #777; font-size:11px; font-weight:700; word-break:break-word;}
+        @media print{
+          @page { size: 80mm auto; margin: 0; }
+          html,body{width:80mm;}
+          .no-print{display:none;}
+        }
       </style>
     </head>
+
     <body>
       <div class="top">
         <div>
@@ -2736,13 +2742,24 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const orderType = otRaw === 'takeaway' || otRaw === 'dine_in' ? otRaw : undefined;
     const takeawayFee = meta?.takeawayFee == null ? undefined : Math.max(0, Number(meta.takeawayFee) || 0);
 
+    // If clearing (no valid fields), remove the entry entirely
+    const isClearing = !orderType && takeawayFee == null;
+
     setState((s) => {
-      const prev = s.draftMetaByTableId?.[tid] || {};
-      const nextMeta = { ...prev, ...(orderType ? { orderType } : {}), ...(takeawayFee != null ? { takeawayFee } : {}) };
-      const nextDraft = { ...(s.draftMetaByTableId || {}), [tid]: nextMeta };
+      const prevDraft = s.draftMetaByTableId || {};
+      let nextDraft: typeof prevDraft;
+      if (isClearing) {
+        const { [tid]: _removed, ...rest } = prevDraft;
+        nextDraft = rest;
+      } else {
+        const prev = prevDraft[tid] || {};
+        const nextMeta = { ...prev, ...(orderType ? { orderType } : {}), ...(takeawayFee != null ? { takeawayFee } : {}) };
+        nextDraft = { ...prevDraft, [tid]: nextMeta };
+      }
       return { ...s, draftMetaByTableId: nextDraft, tables: updateTableComputed(s.tables, s.cartByTableId, nextDraft) };
     });
   };
+
 
   const addTable = (table: { id?: string; name: string; seats: number; area?: PosTable['area']; shiftType?: 'DAY' | 'NIGHT' | 'ALL'; assignedStaffId?: string | null; assignedStaffName?: string | null }) => {
     const id = table.id || generateId();
@@ -4594,11 +4611,17 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         meta: { paymentMethod, tenderedAmount: tenderedAmount ?? null, splitId: splitId ?? null, paymentReference: paymentReference ?? null },
       });
 
+      const paidTableId = afterOrder?.tableId ? String(afterOrder.tableId) : '';
+      const nextDraftMeta = (shouldCloseTable && paidTableId)
+        ? (() => { const { [paidTableId]: _r, ...rest } = s.draftMetaByTableId || {}; return rest; })()
+        : s.draftMetaByTableId;
+
       return {
         ...s,
         products: nextProducts,
         orders: nextOrders,
-        tables: updateTableComputed(nextTables, s.cartByTableId, s.draftMetaByTableId),
+        tables: updateTableComputed(nextTables, s.cartByTableId, nextDraftMeta),
+        draftMetaByTableId: nextDraftMeta,
         notifications: nextNotifications,
         selectedOrderId: orderId,
       };

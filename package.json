@@ -1,7 +1,7 @@
 {
   "name": "mirachpos",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "MirachPOS desktop point-of-sale application.",
   "author": "MirachPos",
   "repository": {
@@ -36,8 +36,8 @@
     "rebuild:electron": "electron-builder install-app-deps",
     "dev": "vite",
     "dev:api": "node api/src/index.js",
-    "dev:desktop": "concurrently -k -n API,VITE,ELECTRON -c yellow,cyan,magenta \"node api/src/index.js\" \"vite\" \"wait-on http://localhost:3001 && electron ./electron/main.mjs\"",
-    "dev:desktop:noapi": "concurrently -k -n VITE,ELECTRON -c cyan,magenta \"vite\" \"wait-on http://localhost:3001 && electron ./electron/main.mjs\"",
+    "dev:desktop": "concurrently -k -n API,VITE,ELECTRON -c yellow,cyan,magenta \"node api/src/index.js\" \"vite\" \"wait-on http://localhost:3001 tcp:127.0.0.1:5173 && electron ./electron/main.mjs\"",
+    "dev:desktop:noapi": "concurrently -k -n VITE,ELECTRON -c cyan,magenta \"vite\" \"wait-on tcp:127.0.0.1:5173 && electron ./electron/main.mjs\"",
     "build": "vite build",
     "build:desktop": "vite build --mode desktop",
     "dist:desktop": "npm run build:desktop && electron-builder",
