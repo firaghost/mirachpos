@@ -607,7 +607,7 @@ const validateShiftClose = async ({ shiftId }) => {
 
   // Get orders summary
   const orders = await db()
-    .select(['id', 'status', 'total', 'tax', 'tip', 'discount'])
+    .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'takeaway_fee'])
     .from('orders')
     .where({ shift_id: shiftId });
 
@@ -618,6 +618,7 @@ const validateShiftClose = async ({ shiftId }) => {
   const totalSales = paidOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
   const totalTax = paidOrders.reduce((sum, o) => sum + Number(o.tax || 0), 0);
   const totalTips = paidOrders.reduce((sum, o) => sum + Number(o.tip || 0), 0);
+  const totalTakeaway = paidOrders.reduce((sum, o) => sum + Number(o.takeaway_fee || 0), 0);
   const totalDiscounts = paidOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
 
   // Get staff performance with tips
@@ -648,9 +649,12 @@ const validateShiftClose = async ({ shiftId }) => {
         totalSales,
         totalTax,
         totalTips,
+        totalTakeaway,
         totalDiscounts,
         // Net sales = gross minus tax, tips, and discounts
         netSales: totalSales - totalTax - totalTips - totalDiscounts,
+        // Total collection usually means total sales in this context (including tips/tax) minus discounts
+        totalCollection: totalSales,
       },
       paymentBreakdown,
       openingCash: Number(shift.opening_cash_etb || 0),

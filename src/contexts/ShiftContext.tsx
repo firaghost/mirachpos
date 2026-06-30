@@ -50,8 +50,10 @@ interface ShiftContextType {
         totalSales: number;
         totalTax: number;
         totalTips: number;
+        totalTakeaway?: number;
         totalDiscounts: number;
         netSales: number;
+        totalCollection?: number;
       };
       paymentBreakdown: Record<string, number>;
       openingCash: number;

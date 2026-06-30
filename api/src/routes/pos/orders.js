@@ -1138,6 +1138,8 @@ const makePosOrdersRouter = ({
               display_number: normalizedCols.display_number,
               table_id: normalizedCols.table_id,
               table_name: normalizedCols.table_name,
+              order_type: normalizedCols.order_type,
+              takeaway_fee: normalizedCols.takeaway_fee,
               created_by_staff_id: normalizedCols.created_by_staff_id,
               created_by_name: normalizedCols.created_by_name,
               paid_by_staff_id: normalizedCols.paid_by_staff_id,
@@ -1162,6 +1164,8 @@ const makePosOrdersRouter = ({
               display_number: normalizedCols.display_number,
               table_id: normalizedCols.table_id,
               table_name: normalizedCols.table_name,
+              order_type: normalizedCols.order_type,
+              takeaway_fee: normalizedCols.takeaway_fee,
               created_by_staff_id: normalizedCols.created_by_staff_id,
               created_by_name: normalizedCols.created_by_name,
               paid_by_staff_id: normalizedCols.paid_by_staff_id,
@@ -1517,6 +1521,8 @@ const makePosOrdersRouter = ({
             patch.display_number = normalizedCols.display_number;
             patch.table_id = normalizedCols.table_id;
             patch.table_name = normalizedCols.table_name;
+            patch.order_type = normalizedCols.order_type;
+            patch.takeaway_fee = normalizedCols.takeaway_fee;
             patch.created_by_staff_id = normalizedCols.created_by_staff_id;
             patch.created_by_name = normalizedCols.created_by_name;
             patch.paid_by_staff_id = normalizedCols.paid_by_staff_id;

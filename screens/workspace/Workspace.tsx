@@ -50,7 +50,7 @@ const kitchenTicketHtml = (title: string, order: any, lines: Array<{ name: strin
   const notes = order.notes ? `<div class="notes">${escapeHtml(order.notes)}</div>` : '';
   // Add EDITED label if order has been edited
   const editedLabel = order.isEdited ? `<div class="edited-banner">EDITED - Updated at ${escapeHtml(order.editedAt ? new Date(order.editedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }))}</div>` : '';
-  const takeawayTag = order.orderType === 'takeaway' ? `<div style="background:#000;color:#fff;padding:8px 12px;font-size:18px;font-weight:900;text-align:center;margin:8px 0;border-radius:4px;letter-spacing:2px;">TAKEAWAY</div>` : '';
+  const takeawayTag = order.orderType === 'takeaway' ? `<div style="background:#fff;color:#000;border:3px solid #000;padding:8px 12px;font-size:18px;font-weight:900;text-align:center;margin:8px 0;border-radius:4px;letter-spacing:2px;">TAKEAWAY</div>` : '';
   const items = lines
     .map((l) => {
       const note = l.note?.trim() ? `<div class="note">${escapeHtml(l.note)}</div>` : '';

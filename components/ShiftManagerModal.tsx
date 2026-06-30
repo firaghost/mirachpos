@@ -69,8 +69,10 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
         totalSales: number;
         totalTax: number;
         totalTips: number;
+        totalTakeaway?: number;
         totalDiscounts: number;
         netSales: number;
+        totalCollection?: number;
       };
       paymentBreakdown: Record<string, number>;
       openingCash: number;
@@ -522,17 +524,25 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                     <div className="p-3 bg-muted rounded-lg">
                       <h4 className="font-semibold text-sm mb-2">Sales Summary</h4>
                       <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="flex justify-between">
+                        <div className="flex justify-between col-span-2">
                           <span className="text-muted-foreground">Total Orders</span>
                           <span className="font-medium">{closePreview.breakdowns.summary.totalOrders}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Paid Orders</span>
-                          <span className="font-medium text-green-600">{closePreview.breakdowns.summary.paidOrders}</span>
+                        <div className="flex justify-between col-span-2">
+                          <span className="text-muted-foreground">Net Sales</span>
+                          <span className="font-medium">ETB {(closePreview.breakdowns.summary.netSales ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between col-span-2">
+                          <span className="text-muted-foreground">Tips</span>
+                          <span className="font-medium">ETB {(closePreview.breakdowns.summary.totalTips ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between col-span-2">
+                          <span className="text-muted-foreground">Takeaway</span>
+                          <span className="font-medium">ETB {(closePreview.breakdowns.summary.totalTakeaway ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                         <div className="flex justify-between border-t pt-1 mt-1 col-span-2">
-                          <span className="font-semibold">Net Sales</span>
-                          <span className="font-bold">ETB {(closePreview.breakdowns.summary.netSales ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          <span className="font-semibold">Total collection</span>
+                          <span className="font-bold">ETB {(closePreview.breakdowns.summary.totalCollection ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                       </div>
                     </div>
@@ -559,38 +569,33 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                       <h4 className="font-semibold text-sm mb-2">Cash Summary</h4>
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Opening Cash</span>
-                          <span className="font-medium">ETB {(closePreview.breakdowns.openingCash ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          <span className="text-muted-foreground">Total cash collected</span>
+                          <span className="font-medium">ETB {(closePreview.breakdowns.cashReceived ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Cash Received</span>
-                          <span className="font-medium text-green-600">+ETB {(closePreview.breakdowns.cashReceived ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          <span className="text-muted-foreground">Total Tips Paid off</span>
+                          <span className="font-medium text-red-600">-ETB {(closePreview.breakdowns.summary.totalTips ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                         <div className="flex justify-between border-t pt-1">
-                          <span className="font-semibold">Expected Cash</span>
-                          <span className="font-bold">ETB {(closePreview.breakdowns.expectedCash ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          <span className="font-semibold">Net cash at hand</span>
+                          <span className="font-bold">ETB {((closePreview.breakdowns.cashReceived ?? 0) - (closePreview.breakdowns.summary.totalTips ?? 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Waiter Tips */}
+                    {/* Tips Breakdown */}
                     {(closePreview.breakdowns.staffTips?.length || 0) > 0 && (
                       <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h4 className="font-semibold text-sm mb-2 text-blue-700">Waiter Tips to Pay Out</h4>
+                        <h4 className="font-semibold text-sm mb-2 text-blue-700">Tips breakdown</h4>
                         <div className="space-y-2">
                           {closePreview.breakdowns.staffTips.map((staff) => (
                             <div key={staff.staffId} className="flex justify-between items-center text-xs bg-white p-2 rounded">
                               <div>
                                 <span className="font-medium">{staff.staffName}</span>
-                                <span className="text-muted-foreground ml-2">({staff.orderCount} orders)</span>
                               </div>
-                              <span className="font-bold text-blue-600">ETB {(staff.totalTips || 0).toFixed(2)}</span>
+                              <span className="font-bold text-blue-600">{(staff.totalTips || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                             </div>
                           ))}
-                          <div className="flex justify-between border-t border-blue-200 pt-2 mt-2">
-                            <span className="font-semibold text-blue-700">Total Tips</span>
-                            <span className="font-bold text-blue-700">ETB {closePreview.breakdowns.staffTips.reduce((sum, s) => sum + (s.totalTips || 0), 0).toFixed(2)}</span>
-                          </div>
                         </div>
                       </div>
                     )}

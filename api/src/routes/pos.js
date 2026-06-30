@@ -928,9 +928,11 @@ const makeKitchenTicketPayload = ({ title, orderRow, lines, beep }) => {
   out.push(nl());
   
   if (orderType === 'takeaway') {
+    out.push(escDoubleSizeOn);
     out.push(escBoldOn);
-    out.push(txt('--- TAKEAWAY ---'));
+    out.push(txt('*** TAKEAWAY ***'));
     out.push(escBoldOff);
+    out.push(escDoubleSizeOff);
     out.push(nl());
     out.push(nl());
   }
@@ -986,6 +988,8 @@ const escAlignCenter = Buffer.from([0x1b, 0x61, 0x01]);
 const escAlignLeft = Buffer.from([0x1b, 0x61, 0x00]);
 const escBoldOn = Buffer.from([0x1b, 0x45, 0x01]);
 const escBoldOff = Buffer.from([0x1b, 0x45, 0x00]);
+const escDoubleSizeOn = Buffer.from([0x1d, 0x21, 0x11]);
+const escDoubleSizeOff = Buffer.from([0x1d, 0x21, 0x00]);
 const escCut = Buffer.from([0x1d, 0x56, 0x00]);
 
 const txt = (s) => Buffer.from(String(s ?? ''), 'utf8');
