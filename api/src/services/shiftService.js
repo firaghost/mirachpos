@@ -370,7 +370,7 @@ const getShiftReport = async ({ shiftId }) => {
 
   // Get orders in this shift
   const orders = await db()
-    .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'created_at', 'paid_at'])
+    .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'takeaway_fee', 'created_at', 'paid_at'])
     .from('orders')
     .where({ shift_id: shiftId })
     .orderBy('created_at', 'desc');
@@ -396,6 +396,7 @@ const getShiftReport = async ({ shiftId }) => {
   const totalSales = paidOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
   const totalTax = paidOrders.reduce((sum, o) => sum + Number(o.tax || 0), 0);
   const totalTips = paidOrders.reduce((sum, o) => sum + Number(o.tip || 0), 0);
+  const totalTakeaway = paidOrders.reduce((sum, o) => sum + Number(o.takeaway_fee || 0), 0);
   const totalDiscounts = paidOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
 
   // Get staff performance breakdown
@@ -460,6 +461,7 @@ const getShiftReport = async ({ shiftId }) => {
       totalSales,
       totalTax,
       totalTips,
+      totalTakeaway,
       totalDiscounts,
       netSales: totalSales - totalDiscounts,
     },

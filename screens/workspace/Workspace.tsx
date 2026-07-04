@@ -85,7 +85,12 @@ const kitchenTicketHtml = (title: string, order: any, lines: Array<{ name: strin
         .note{margin-top:4px; font-size:14px; font-weight:600; color:#333;}
         .notes{margin-top:12px; padding:12px; border:1px dashed #777; font-size:14px; font-weight:700;}
         .edited-banner{background:#f59e0b; color:#fff; padding:8px 12px; font-size:14px; font-weight:900; text-align:center; margin:8px 0; border-radius:4px;}
-        @media print{ @page { margin: 0; } body{padding:0} .no-print{display:none}}
+        @media print{ 
+          @page { size: 80mm auto; margin: 0; } 
+          html,body{width:80mm; height:auto;} 
+          body{padding:0 4mm 0 4mm;} 
+          .no-print{display:none;}
+        }
       </style>
     </head>
     <body>

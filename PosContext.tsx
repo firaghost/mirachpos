@@ -282,7 +282,7 @@ const kitchenTicketHtml = (title: string, order: PosOrder, lines: Array<{ name: 
       <title>${header}</title>
       <style>
         *{box-sizing:border-box;margin:0;padding:0;}
-        html,body{width:80mm;max-width:80mm;background:#fff;color:#111;}
+        html,body{width:80mm;max-width:80mm;height:auto;background:#fff;color:#111;}
         body{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; padding:4mm 4mm 0 4mm;}
         .top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
         .brand{font-size:13px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;}
