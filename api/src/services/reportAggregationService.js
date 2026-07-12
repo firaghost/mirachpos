@@ -356,9 +356,11 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
         const orderTip = Number(order.tip || 0) || 0;
         const orderDiscount = Number(order.discount || 0) || 0;
 
-        // order.total includes tax + tip (and service charge). To avoid double-counting:
+        // order.total includes tax + tip (and service charge) + takeawayFee.
+        // TakeawayFee is revenue to the cafe, so it stays in net sales.
+        // Only tax + tip are stripped out for the pure-food "net" view.
         const takeawayFee = Number(safeJsonParse(order.payload, {}).takeawayFee || 0);
-        const net = Math.max(0, total - orderTax - orderTip - takeawayFee);
+        const net = Math.max(0, total - orderTax - orderTip);
         const gross = net + Math.max(0, orderDiscount);
 
         grossSales += gross;
@@ -464,7 +466,7 @@ const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
         const orderTax = orderTaxDb > 0 ? orderTaxDb : taxFromPayload;
 
         const takeawayFee = Number(safeJsonParse(order.payload, {}).takeawayFee || 0);
-        const net = Math.max(0, total - orderTax - orderTip - takeawayFee);
+        const net = Math.max(0, total - orderTax - orderTip);
         const gross = net + Math.max(0, orderDiscount);
 
         const pmKey = normalizePaymentKey(payload?.paymentMethod || payload?.method || payload?.tender);
@@ -997,7 +999,16 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate, mode
                 db().raw('COALESCE(SUM(COALESCE(o.tax, 0)), 0) as tax_etb'),
                 db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as tips_etb'),
                 db().raw('COALESCE(SUM(COALESCE(o.total, 0)), 0) as total_collected_etb'),
-                db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as net_sales_etb'),
+                // Net sales = items-revenue only.
+                // total = (subtotal - discount) + tax + tip + takeawayFee (tax/serviceCharge disabled by default).
+                // We strip tip + takeawayFee + tax so this column matches "items minus discount"
+                // i.e. the pure food revenue the cafe logged.
+                db().raw(`COALESCE(SUM(GREATEST(0,
+                    COALESCE(o.total, 0)
+                    - COALESCE(o.tip, 0)
+                    - COALESCE(o.tax, 0)
+                    - COALESCE((JSON_EXTRACT(o.payload, '$.takeawayFee')), 0)
+                )), 0) as net_sales_etb`),
             ]);
         orderAgg = row ? [row] : [];
     } else {
@@ -1010,7 +1021,12 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate, mode
                 db().raw('COALESCE(SUM(COALESCE(o.tax, 0)), 0) as tax_etb'),
                 db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as tips_etb'),
                 db().raw('COALESCE(SUM(COALESCE(o.total, 0)), 0) as total_collected_etb'),
-                db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as net_sales_etb'),
+                db().raw(`COALESCE(SUM(GREATEST(0,
+                    COALESCE(o.total, 0)
+                    - COALESCE(o.tip, 0)
+                    - COALESCE(o.tax, 0)
+                    - COALESCE((JSON_EXTRACT(o.payload, '$.takeawayFee')), 0)
+                )), 0) as net_sales_etb`),
             ])
             .groupBy(['report_date', 'o.branch_id'])
             .orderBy([{ column: db().raw('report_date'), order: 'asc' }, { column: 'o.branch_id', order: 'asc' }]);

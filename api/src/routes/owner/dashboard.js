@@ -366,7 +366,11 @@ const makeOwnerDashboardRouter = ({ requireOwnerAuth, clampInt }) => {
           tax: Number(sumRow?.tax || 0) || 0,
           tips: Number(sumRow?.tips || 0) || 0,
           discounts: Number(sumRow?.discounts || 0) || 0,
-          totalCollected: (Number(sumRow?.netSales || 0) || 0) + (Number(sumRow?.tax || 0) || 0) + (Number(sumRow?.tips || 0) || 0) - (Number(sumRow?.discounts || 0) || 0),
+          // orders.total already includes tax + tip + takeawayFee, so totalCollected
+          // should equal the SUM of total more than disounts that the customer
+          // actually paid (i.e. total - discount). Use SUM(total) directly to
+          // avoid double-counting tax/tip which are baked into total.
+          totalCollected: Number(sumRow?.netSales || 0) || 0,
         };
 
         const dailyRows = await base
