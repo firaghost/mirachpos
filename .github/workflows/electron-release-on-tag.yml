@@ -71,6 +71,17 @@ jobs:
 
       - run: npm ci
       - run: npm run build:desktop
+
+      - name: Ensure release tag exists in target repo
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG_NAME="v$VERSION"
+          echo "Ensuring tag $TAG_NAME exists in firaghost/mirachpos-releases..."
+          gh release create "$TAG_NAME" --repo firaghost/mirachpos-releases --title "$TAG_NAME" --notes "Desktop Release $TAG_NAME" || true
+
       - run: npx electron-builder --win nsis --publish always
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
