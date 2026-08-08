@@ -740,6 +740,8 @@ export const Settings: React.FC = () => {
       { id: 'cash', label: 'Cash', icon: 'payments' },
       { id: 'card', label: 'Card', icon: 'credit_card' },
       { id: 'mobile_money', label: 'Mobile Money', icon: 'smartphone' },
+      { id: 'telebirr', label: 'Telebirr', icon: 'smartphone' },
+      { id: 'mpesa', label: 'M-Pesa', icon: 'smartphone' },
       { id: 'bank_transfer', label: 'Bank Transfer', icon: 'account_balance' },
     ];
     return order.map((o) => {

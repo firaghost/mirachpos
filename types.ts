@@ -165,7 +165,7 @@ export interface PosOrder {
   notes?: string;
   paidAt?: string;
   billingStartedAt?: string;
-  paymentMethod?: 'Cash' | 'Card' | 'Telebirr' | 'Bank Transfer' | 'Loyalty';
+  paymentMethod?: 'Cash' | 'Card' | 'Telebirr' | 'M-Pesa' | 'Bank Transfer' | 'Loyalty';
   tenderedAmount?: number;
   paymentReference?: string;
   paidByStaffId?: string;
@@ -188,7 +188,7 @@ export interface PosOrder {
     discount?: number;
     total: number;
     paidAt?: string;
-    paymentMethod?: 'Cash' | 'Card' | 'Telebirr' | 'Bank Transfer' | 'Loyalty';
+    paymentMethod?: 'Cash' | 'Card' | 'Telebirr' | 'M-Pesa' | 'Bank Transfer' | 'Loyalty';
     tenderedAmount?: number;
     paymentReference?: string;
     paidByStaffId?: string;

@@ -5,7 +5,7 @@ import { readSession, updateSession } from './session';
 import { formatDeviceDate, formatDeviceTime } from './datetime';
 import { escapeHtml, openPrintWindow as openPrintWindowUtil } from './printUtils';
 
-type PaymentMethod = 'Cash' | 'Card' | 'Telebirr' | 'Bank Transfer' | 'Loyalty';
+type PaymentMethod = 'Cash' | 'Card' | 'Telebirr' | 'M-Pesa' | 'Bank Transfer' | 'Loyalty';
 
 type PosNotificationType = 'Kitchen' | 'Payments' | 'System';
 

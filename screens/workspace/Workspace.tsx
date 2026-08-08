@@ -444,7 +444,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
   };
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Telebirr' | 'Bank Transfer'>('Cash');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Telebirr' | 'M-Pesa' | 'Bank Transfer'>('Cash');
   const [tenderedAmount, setTenderedAmount] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [tipAmount, setTipAmount] = useState('');
@@ -1674,7 +1674,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
             <div className="border-t p-4 bg-muted/30">
               <label className="text-sm font-medium mb-2 block text-foreground">Payment Method</label>
               <div className="flex gap-2 mb-4">
-                {(['Cash', 'Telebirr', 'Bank Transfer'] as const).map((method) => (
+                {(['Cash', 'Telebirr', 'M-Pesa', 'Bank Transfer'] as const).map((method) => (
                   <button
                     key={method}
                     onClick={() => setPaymentMethod(method)}
@@ -1685,7 +1685,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                         : 'bg-card text-foreground border-border hover:border-primary'
                     )}
                   >
-                    {method === 'Bank Transfer' ? 'Bank' : method}
+                    {method === 'Bank Transfer' ? 'Bank' : method === 'M-Pesa' ? 'M-Pesa' : method}
                   </button>
                 ))}
               </div>
@@ -1774,6 +1774,41 @@ export const Workspace: React.FC<WorkspaceProps> = ({ currentScreen, onNavigate,
                       className="mt-2 w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground"
                     />
                     <p className="text-xs text-muted-foreground mt-1">Enter the transaction reference from the bank transfer</p>
+                  </div>
+                </div>
+              )}
+
+              {paymentMethod === 'M-Pesa' && (
+                <div className="mb-4 space-y-3">
+                  <div className="bg-card p-4 rounded-xl border border-border">
+                    <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Tip Amount (ETB)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={tipAmount}
+                      onChange={(e) => setTipAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="mt-2 w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Enter tip amount to be recorded for the assigned waiter</p>
+                    {parseFloat(tipAmount) > 0 && (
+                      <div className="mt-2 p-2 bg-primary/10 rounded text-xs text-primary font-medium">
+                        Tip: ETB {parseFloat(tipAmount).toFixed(2)} will be recorded for {selectedTable?.assignedStaffName || 'waiter'}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-card p-4 rounded-xl border border-border">
+                    <label className="text-xs text-muted-foreground font-bold uppercase tracking-wider">M-Pesa Transaction Reference</label>
+                    <input
+                      type="text"
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
+                      placeholder="Enter M-Pesa transaction ID"
+                      className="mt-2 w-full h-10 bg-background border border-border rounded-lg px-3 text-sm text-foreground"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Enter the transaction reference from the customer's M-Pesa payment</p>
                   </div>
                 </div>
               )}
