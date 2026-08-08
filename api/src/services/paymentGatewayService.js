@@ -1085,7 +1085,7 @@ const verifyPaymentGateway = async (gateway, reference) => {
 // Get available payment methods
 const getAvailablePaymentMethods = async () => {
     const row = await db()
-        .select(['chapa_config_json', 'telebirr_config_json', 'bank_details_json'])
+        .select(['chapa_config_json', 'telebirr_config_json', 'mpesa_config_json', 'bank_details_json'])
         .from('platform_payment_config')
         .where({ id: 1 })
         .first();
@@ -1095,6 +1095,7 @@ const getAvailablePaymentMethods = async () => {
             bankTransfer: { enabled: false },
             chapa: { enabled: false },
             telebirr: { enabled: false },
+            mpesa: { enabled: false },
         };
     }
 
@@ -1111,6 +1112,8 @@ const getAvailablePaymentMethods = async () => {
     if (process.env.TELEBIRR_MERCHANT_CODE) telebirr.merchantCode = process.env.TELEBIRR_MERCHANT_CODE;
     if (process.env.TELEBIRR_PRIVATE_KEY) telebirr.privateKey = process.env.TELEBIRR_PRIVATE_KEY;
     if (process.env.TELEBIRR_ENABLED) telebirr.enabled = process.env.TELEBIRR_ENABLED === 'true';
+
+    const mpesa = safeJsonParse(row.mpesa_config_json, { enabled: false });
 
     const santim = getSantimPayPlatformConfig();
 
@@ -1136,6 +1139,15 @@ const getAvailablePaymentMethods = async () => {
             ),
             name: 'Telebirr',
             description: 'Pay with Telebirr Mobile Money',
+        },
+        mpesa: {
+            enabled: Boolean(
+                mpesa.enabled &&
+                mpesa.appKey &&
+                mpesa.appSecret
+            ),
+            name: 'M-Pesa',
+            description: 'Pay with M-Pesa Mobile Money',
         },
         santimpay: {
             enabled: Boolean(santim.enabled && santim.merchantId && santim.privateKey),

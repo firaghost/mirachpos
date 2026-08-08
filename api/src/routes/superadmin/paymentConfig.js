@@ -21,6 +21,7 @@ const makeSuperadminPaymentConfigRouter = () => {
         bankDetails: cfg?.bankDetails || {},
         chapa: cfg?.chapa || { enabled: false },
         telebirr: cfg?.telebirr || { enabled: false },
+        mpesa: cfg?.mpesa || { enabled: false },
         sms: cfg?.sms || { enabled: false },
         fcm: cfg?.fcm || { enabled: false },
         settings: {
@@ -44,6 +45,7 @@ const makeSuperadminPaymentConfigRouter = () => {
       const bankDetails = body?.bankDetails && typeof body.bankDetails === 'object' ? body.bankDetails : {};
       const chapa = body?.chapa && typeof body.chapa === 'object' ? body.chapa : {};
       const telebirr = body?.telebirr && typeof body.telebirr === 'object' ? body.telebirr : {};
+      const mpesa = body?.mpesa && typeof body.mpesa === 'object' ? body.mpesa : {};
       const sms = body?.sms && typeof body.sms === 'object' ? body.sms : {};
       const settings = body?.settings && typeof body.settings === 'object' ? body.settings : {};
       const fcm = body?.fcm && typeof body.fcm === 'object' ? body.fcm : {};
@@ -54,6 +56,7 @@ const makeSuperadminPaymentConfigRouter = () => {
         bank_details_json: JSON.stringify(bankDetails),
         chapa_config_json: JSON.stringify(chapa),
         telebirr_config_json: JSON.stringify(telebirr),
+        mpesa_config_json: JSON.stringify(mpesa),
         sms_config_json: JSON.stringify(sms),
         fcm_config_json: JSON.stringify(fcm),
         default_grace_days: Number(settings.gracePeriodDays || 3) || 3,
@@ -63,6 +66,7 @@ const makeSuperadminPaymentConfigRouter = () => {
         bank_details_json: JSON.stringify(bankDetails),
         chapa_config_json: JSON.stringify(chapa),
         telebirr_config_json: JSON.stringify(telebirr),
+        mpesa_config_json: JSON.stringify(mpesa),
         sms_config_json: JSON.stringify(sms),
         fcm_config_json: JSON.stringify(fcm),
         default_grace_days: Number(settings.gracePeriodDays || 3) || 3,

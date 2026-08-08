@@ -64,6 +64,7 @@ type PaymentConfigState = {
   };
   chapa: GatewayConfig;
   telebirr: GatewayConfig;
+  mpesa: GatewayConfig;
   sms: { enabled: boolean; provider: string; username: string; apiKey: string; senderId: string };
   fcm: { enabled: boolean };
   settings: {
@@ -99,6 +100,7 @@ const defaultState: PaymentConfigState = {
   },
   chapa: { enabled: false, enabledForPos: false, publicKey: '', secretKey: '', webhookSecret: '', encryptionKey: '' },
   telebirr: { enabled: false, enabledForPos: false, appId: '', appKey: '', shortCode: '', baseUrl: '', fabricAppId: '', appSecret: '', merchantAppId: '', merchantCode: '', privateKey: '' },
+  mpesa: { enabled: false, enabledForPos: false, appId: '', appKey: '', shortCode: '', baseUrl: '', fabricAppId: '', appSecret: '', merchantAppId: '', merchantCode: '', privateKey: '' },
   sms: { enabled: false, provider: 'africas_talking', username: '', apiKey: '', senderId: '' },
   fcm: { enabled: false },
   settings: { environment: 'production', gracePeriodDays: 3, reportRetentionDays: 365, vatEnabled: true, starterPriceEtb: 500, growthPriceEtb: 1500 },
@@ -194,7 +196,7 @@ export const PaymentConfig: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<PaymentTab>('gateways');
 
-  const [configureOpen, setConfigureOpen] = useState<null | 'telebirr' | 'chapa'>(null);
+  const [configureOpen, setConfigureOpen] = useState<null | 'telebirr' | 'mpesa' | 'chapa'>(null);
   const [configureDraft, setConfigureDraft] = useState<any | null>(null);
 
   const [pricingMonthlyEnabled, setPricingMonthlyEnabled] = useState(true);
@@ -548,6 +550,7 @@ export const PaymentConfig: React.FC = () => {
         bankDetails: { ...defaultState.bankDetails, ...(cfg.bankDetails || {}) },
         chapa: { ...defaultState.chapa, ...(cfg.chapa || {}) },
         telebirr: { ...defaultState.telebirr, ...(cfg.telebirr || {}) },
+        mpesa: { ...defaultState.mpesa, ...(cfg.mpesa || {}) },
         sms: { ...defaultState.sms, ...(cfg.sms || {}) },
         settings: { ...defaultState.settings, ...(cfg.settings || {}) },
       };
@@ -608,7 +611,7 @@ export const PaymentConfig: React.FC = () => {
     setError(null);
   };
 
-  const openConfigure = (kind: 'telebirr' | 'chapa') => {
+  const openConfigure = (kind: 'telebirr' | 'mpesa' | 'chapa') => {
     setConfigureOpen(kind);
     setConfigureDraft({ ...(draft as any)[kind] });
   };
@@ -2985,6 +2988,47 @@ export const PaymentConfig: React.FC = () => {
                   <div className="p-5 rounded-xl bg-card border border-border hover:border-primary/50 transition-all shadow-lg relative">
                     <div className="flex items-start gap-4">
                       <div className="size-12 rounded-lg bg-white p-2 flex items-center justify-center flex-none">
+                        <div className="w-full h-full bg-green-500 rounded-md" />
+                      </div>
+                      <div className="flex flex-col flex-1">
+                        <div className="flex items-center justify-between gap-4">
+                          <h4 className="text-foreground font-bold text-lg">M-Pesa Integration</h4>
+                          <div className="flex flex-col items-end gap-1">
+                            <Toggle
+                              checked={draft.mpesa.enabled}
+                              onChange={(v) => setDraft((p) => ({ ...p, mpesa: { ...p.mpesa, enabled: v } }))}
+                              label="Billing"
+                            />
+                            <Toggle
+                              checked={!!draft.mpesa.enabledForPos}
+                              onChange={(v) => setDraft((p) => ({ ...p, mpesa: { ...p.mpesa, enabledForPos: v } }))}
+                              label="POS / Waiter"
+                            />
+                          </div>
+                        </div>
+                        <p className="text-muted-foreground text-sm mb-4">Mobile money integration via M-Pesa API.</p>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <div className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Short Code</div>
+                            <div className="font-mono text-sm text-foreground bg-muted/40 px-2 py-1 rounded border border-border truncate">{maskish(String(draft.mpesa.shortCode || ''))}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">App ID</div>
+                            <div className="font-mono text-sm text-foreground bg-muted/40 px-2 py-1 rounded border border-border truncate">{maskish(String(draft.mpesa.appId || ''))}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 mt-auto pt-3 border-t border-border">
+                          <button onClick={() => openConfigure('mpesa')} className="flex-1 h-9 rounded-lg bg-border hover:bg-accent text-foreground text-sm font-bold transition-colors" type="button">
+                            Configure
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-5 rounded-xl bg-card border border-border hover:border-primary/50 transition-all shadow-lg relative">
+                    <div className="flex items-start gap-4">
+                      <div className="size-12 rounded-lg bg-white p-2 flex items-center justify-center flex-none">
                         <div className="w-full h-full bg-green-600 rounded-md relative overflow-hidden">
                           <div className="absolute top-0 left-0 w-1/2 h-full bg-green-500 skew-x-12 transform -translate-x-1" />
                         </div>
@@ -3195,7 +3239,7 @@ export const PaymentConfig: React.FC = () => {
 
       <Modal
         open={!!configureOpen}
-        title={configureOpen === 'telebirr' ? 'Configure Telebirr' : 'Configure Chapa'}
+        title={configureOpen === 'telebirr' ? 'Configure Telebirr' : configureOpen === 'mpesa' ? 'Configure M-Pesa' : 'Configure Chapa'}
         onClose={() => {
           setConfigureOpen(null);
           setConfigureDraft(null);
@@ -3249,6 +3293,38 @@ export const PaymentConfig: React.FC = () => {
                 value={String(configureDraft?.privateKey || '')}
                 onChange={(e) => setConfigureDraft((p: any) => ({ ...(p || {}), privateKey: e.target.value }))}
                 placeholder="MIIEvgIBADANBgkqhki..."
+              />
+            </Field>
+          </div>
+        ) : null}
+
+        {configureOpen === 'mpesa' ? (
+          <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="App Key">
+                <Input value={String(configureDraft?.appKey || '')} onChange={(e) => setConfigureDraft((p: any) => ({ ...(p || {}), appKey: e.target.value }))} placeholder="App Key" />
+              </Field>
+              <Field label="App Secret">
+                <Input value={String(configureDraft?.appSecret || '')} onChange={(e) => setConfigureDraft((p: any) => ({ ...(p || {}), appSecret: e.target.value }))} placeholder="App Secret" />
+              </Field>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="Merchant ID (App ID)">
+                <Input value={String(configureDraft?.merchantAppId || '')} onChange={(e) => setConfigureDraft((p: any) => ({ ...(p || {}), merchantAppId: e.target.value }))} placeholder="Merchant App ID" />
+              </Field>
+              <Field label="Merchant Code (Short Code)">
+                <Input value={String(configureDraft?.merchantCode || '')} onChange={(e) => setConfigureDraft((p: any) => ({ ...(p || {}), merchantCode: e.target.value }))} placeholder="Merchant Code" />
+              </Field>
+            </div>
+            <Field label="Base URL" hint="M-Pesa API Base URL">
+              <Input value={String(configureDraft?.baseUrl || '')} onChange={(e) => setConfigureDraft((p: any) => ({ ...(p || {}), baseUrl: e.target.value }))} placeholder="https://api.safaricom.co.ke" />
+            </Field>
+            <Field label="Private Key" hint="Private Key / Certificate for requests if needed">
+              <Textarea
+                className="font-mono text-xs h-32"
+                value={String(configureDraft?.privateKey || '')}
+                onChange={(e) => setConfigureDraft((p: any) => ({ ...(p || {}), privateKey: e.target.value }))}
+                placeholder="..."
               />
             </Field>
           </div>

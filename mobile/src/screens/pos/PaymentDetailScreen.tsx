@@ -41,7 +41,7 @@ export function PaymentDetailScreen({ orderId, tableLabel, totalAmount, onBack }
   const [items, setItems] = useState<ItemRow[]>([])
   const receiptRef = useRef<View>(null)
 
-  const [method, setMethod] = useState<'cash' | 'telebirr' | 'bank'>('cash')
+  const [method, setMethod] = useState<'cash' | 'telebirr' | 'mpesa' | 'bank'>('cash')
   const [amount, setAmount] = useState('')
   const [reference, setReference] = useState('')
   const [split, setSplit] = useState(false)
@@ -59,7 +59,7 @@ export function PaymentDetailScreen({ orderId, tableLabel, totalAmount, onBack }
   const [successLabel, setSuccessLabel] = useState('Payment successful')
 
   // Split payments ledger
-  type PartialPay = { method: 'cash' | 'telebirr' | 'bank'; amount: number; reference?: string }
+  type PartialPay = { method: 'cash' | 'telebirr' | 'mpesa' | 'bank'; amount: number; reference?: string }
   const [partials, setPartials] = useState<PartialPay[]>([])
   const [pMethod, setPMethod] = useState<PartialPay['method']>('cash')
   const [pAmount, setPAmount] = useState('')
@@ -389,7 +389,7 @@ export function PaymentDetailScreen({ orderId, tableLabel, totalAmount, onBack }
             {/* Method snapshot */}
             <View style={[styles().card, { marginTop: 8, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between' }]}>
               <Text style={styles().subtle}>Method</Text>
-              <Text style={styles().bold}>{method === 'telebirr' ? 'Telebirr' : method.charAt(0).toUpperCase()+method.slice(1)}{reference?` · ${reference}`:''}</Text>
+              <Text style={styles().bold}>{method === 'telebirr' ? 'Telebirr' : method === 'mpesa' ? 'M-Pesa' : method.charAt(0).toUpperCase()+method.slice(1)}{reference?` · ${reference}`:''}</Text>
             </View>
           </View>
 
@@ -397,9 +397,9 @@ export function PaymentDetailScreen({ orderId, tableLabel, totalAmount, onBack }
             <>
               <Text style={[styles().sectionTitle, { marginTop: 12 }]}>PAYMENT OPTIONS</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                {(['cash','telebirr','bank'] as const).map((m) => (
+                {(['cash','telebirr','mpesa','bank'] as const).map((m) => (
                   <TouchableOpacity key={m} onPress={() => setMethod(m)} style={[styles().pill, method===m && styles().pillActive]}>
-                    <Text style={method===m ? styles().pillTextActive : styles().pillText}>{(m==='telebirr')?'Telebirr': m.charAt(0).toUpperCase()+m.slice(1)}</Text>
+                    <Text style={method===m ? styles().pillTextActive : styles().pillText}>{(m==='telebirr')?'Telebirr':(m==='mpesa')?'M-Pesa': m.charAt(0).toUpperCase()+m.slice(1)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -480,9 +480,9 @@ export function PaymentDetailScreen({ orderId, tableLabel, totalAmount, onBack }
             <View style={[styles().card, { marginTop: 12, paddingVertical: 8 }]}>
               <Text style={styles().sectionTitle}>Split payments</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 }}>
-                {(['cash','telebirr','bank'] as const).map((m) => (
+                {(['cash','telebirr','mpesa','bank'] as const).map((m) => (
                   <TouchableOpacity key={m} onPress={() => setPMethod(m)} style={[styles().pill, pMethod===m && styles().pillActive]}>
-                    <Text style={pMethod===m ? styles().pillTextActive : styles().pillText}>{(m==='telebirr')?'Telebirr': m.charAt(0).toUpperCase()+m.slice(1)}</Text>
+                    <Text style={pMethod===m ? styles().pillTextActive : styles().pillText}>{(m==='telebirr')?'Telebirr':(m==='mpesa')?'M-Pesa': m.charAt(0).toUpperCase()+m.slice(1)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>

@@ -43,6 +43,7 @@ const getPlatformPaymentConfig = async () => withCache(
             bankDetails: safeJsonParse(row.bank_details_json, {}),
             chapa: safeJsonParse(row.chapa_config_json, { enabled: false }),
             telebirr: safeJsonParse(row.telebirr_config_json, { enabled: false }),
+            mpesa: safeJsonParse(row.mpesa_config_json, { enabled: false }),
             sms: safeJsonParse(row.sms_config_json, { enabled: false }),
             fcm: safeJsonParse(row.fcm_config_json, { enabled: false }),
             defaultGraceDays: Number(row.default_grace_days || 3) || 3,
