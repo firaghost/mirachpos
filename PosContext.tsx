@@ -1593,6 +1593,8 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   serviceCharge: 0,
                   total: Number(o?.total ?? 0) || 0,
                   status: String(o?.status || 'Pending') as any,
+                  orderType: o?.order_type ? String(o.order_type) : undefined,
+                  takeawayFee: Number(o?.takeaway_fee ?? 0) || 0,
                   createdAt: String(o?.created_at || o?.createdAt || new Date().toISOString()),
                   paidAt: o?.paid_at ? String(o.paid_at) : undefined,
                   paymentMethod: o?.payment_method ? String(o.payment_method) : undefined,

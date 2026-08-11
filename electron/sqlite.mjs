@@ -168,6 +168,20 @@ export const openKvDb = (dbDir) => {
     // ignore - column might already exist or table doesn't exist yet
   }
 
+  // Migration: Add order_type and takeaway_fee columns to pos_orders if missing
+  try {
+    const colCheck = db.prepare(
+      "SELECT 1 FROM pragma_table_info('pos_orders') WHERE name = 'takeaway_fee'"
+    );
+    const hasCol = colCheck.get();
+    if (!hasCol) {
+      db.exec("ALTER TABLE pos_orders ADD COLUMN order_type TEXT NULL");
+      db.exec("ALTER TABLE pos_orders ADD COLUMN takeaway_fee REAL NOT NULL DEFAULT 0");
+    }
+  } catch {
+    // ignore - column might already exist or table doesn't exist yet
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS kv (
       key TEXT PRIMARY KEY,
@@ -257,6 +271,8 @@ export const openKvDb = (dbDir) => {
       display_number TEXT NULL,
       table_id TEXT NULL,
       table_name TEXT NULL,
+      order_type TEXT NULL,
+      takeaway_fee REAL NOT NULL DEFAULT 0,
       subtotal REAL NOT NULL DEFAULT 0,
       tax REAL NOT NULL DEFAULT 0,
       tip REAL NOT NULL DEFAULT 0,
@@ -456,18 +472,21 @@ export const openKvDb = (dbDir) => {
   const stmtPosOrderUpsert = db.prepare(
     `INSERT INTO pos_orders (
         scope_key, id, status, display_number, table_id, table_name,
+        order_type, takeaway_fee,
         subtotal, tax, tip, discount, total,
         created_at, paid_at,
         created_by_staff_id, created_by_name,
         paid_by_staff_id, paid_by_name,
         payment_method, payment_reference, tendered_amount,
         notes, synced_to_server, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(scope_key, id) DO UPDATE SET
         status=excluded.status,
         display_number=excluded.display_number,
         table_id=excluded.table_id,
         table_name=excluded.table_name,
+        order_type=excluded.order_type,
+        takeaway_fee=excluded.takeaway_fee,
         subtotal=excluded.subtotal,
         tax=excluded.tax,
         tip=excluded.tip,
@@ -766,6 +785,8 @@ export const openKvDb = (dbDir) => {
           order?.number ? String(order.number) : null,
           order?.tableId ? String(order.tableId) : null,
           order?.tableName ? String(order.tableName) : null,
+          order?.orderType ? String(order.orderType) : null,
+          Number(order?.takeawayFee || 0) || 0,
           Number(order?.subtotal || 0) || 0,
           Number(order?.tax || 0) || 0,
           Number(order?.tip || 0) || 0,

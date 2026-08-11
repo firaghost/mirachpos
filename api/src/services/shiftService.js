@@ -587,7 +587,7 @@ const validateShiftClose = async ({ shiftId }) => {
 
   // NOTE: order_payments has no 'status' column, do NOT filter by status.
   const payments = await db()
-    .select(['method', 'amount'])
+    .select(['method', 'amount', 'order_id'])
     .from('order_payments')
     .where({ shift_id: shiftId });
 
@@ -622,6 +622,26 @@ const validateShiftClose = async ({ shiftId }) => {
   const totalTips = paidOrders.reduce((sum, o) => sum + Number(o.tip || 0), 0);
   const totalTakeaway = paidOrders.reduce((sum, o) => sum + Number(o.takeaway_fee || 0), 0);
   const totalDiscounts = paidOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
+
+  const takeawayBreakdown = {};
+  for (const o of paidOrders) {
+    const fee = Number(o.takeaway_fee || 0);
+    if (fee > 0) {
+      const orderPayments = payments.filter(p => p.order_id === o.id);
+      const totalPaid = orderPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      
+      // If there are no payments but a fee exists (should be rare), attribute to 'other'
+      if (orderPayments.length === 0) {
+        takeawayBreakdown['other'] = (takeawayBreakdown['other'] || 0) + fee;
+      } else {
+        for (const p of orderPayments) {
+          const key = String(p.method || 'Other').toLowerCase().replace(/\s+/g, '_');
+          const weight = totalPaid > 0 ? (Number(p.amount || 0) / totalPaid) : 0;
+          takeawayBreakdown[key] = (takeawayBreakdown[key] || 0) + (fee * weight);
+        }
+      }
+    }
+  }
 
   // Get staff performance with tips
   const staffPerformance = await db()
@@ -659,6 +679,7 @@ const validateShiftClose = async ({ shiftId }) => {
         totalCollection: totalSales,
       },
       paymentBreakdown,
+      takeawayBreakdown,
       openingCash: Number(shift.opening_cash_etb || 0),
       cashReceived,
       expectedCash,

@@ -75,6 +75,7 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
         totalCollection?: number;
       };
       paymentBreakdown: Record<string, number>;
+      takeawayBreakdown?: Record<string, number>;
       openingCash: number;
       cashReceived: number;
       expectedCash: number;
@@ -547,20 +548,39 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Payment Breakdown */}
+                    {/* Payment Breakdown — amounts per method including takeaway fees so the total reconciles with totalCollection */}
                     <div className="p-3 bg-muted rounded-lg">
                       <h4 className="font-semibold text-sm mb-2">Payment Breakdown</h4>
                       <div className="space-y-1 text-xs">
-                        {Object.entries(closePreview.breakdowns.paymentBreakdown || {}).length > 0 ? (
-                          Object.entries(closePreview.breakdowns.paymentBreakdown).map(([method, amount]) => (
-                            <div key={method} className="flex justify-between">
-                              <span className="text-muted-foreground capitalize">{method.replace(/_/g, ' ')}</span>
-                              <span className="font-medium">ETB {(Number(amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-muted-foreground text-xs">No payment data available</p>
-                        )}
+                        {(() => {
+                          const paymentBreakdown = closePreview.breakdowns.paymentBreakdown || {};
+                          const takeawayBreakdown = closePreview.breakdowns.takeawayBreakdown || {};
+                          const allMethods = Array.from(new Set([...Object.keys(paymentBreakdown), ...Object.keys(takeawayBreakdown)]));
+                          if (allMethods.length === 0) {
+                            return <p className="text-muted-foreground">No payment data available</p>;
+                          }
+                          const reconciledTotal = allMethods.reduce(
+                            (runningTotal, method) => runningTotal + (Number(paymentBreakdown[method] || 0)) + (Number(takeawayBreakdown[method] || 0)),
+                            0
+                          );
+                          return (
+                            <>
+                              {allMethods.map((method) => {
+                                const collectedAmount = (Number(paymentBreakdown[method] || 0)) + (Number(takeawayBreakdown[method] || 0));
+                                return (
+                                  <div key={method} className="flex justify-between">
+                                    <span className="text-muted-foreground capitalize">{method.replace(/_/g, ' ')}</span>
+                                    <span className="font-medium">ETB {collectedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                  </div>
+                                );
+                              })}
+                              <div className="flex justify-between border-t pt-1 mt-1">
+                                <span className="font-semibold">Total</span>
+                                <span className="font-bold">ETB {reconciledTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
 
