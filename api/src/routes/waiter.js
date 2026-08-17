@@ -710,7 +710,7 @@ const makeWaiterRouter = () => {
         db().raw('COALESCE(SUM(COALESCE(o.tax, 0)), 0) as tax_etb'),
         db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as tips_etb'),
         db().raw('COALESCE(SUM(COALESCE(o.total, 0)), 0) as total_collected_etb'),
-        db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as net_sales_etb'),
+        db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0) as net_sales_etb'),
         db().raw('COALESCE(AVG(COALESCE(o.total, 0)), 0) as avg_order_value'),
       ])
       .first();
