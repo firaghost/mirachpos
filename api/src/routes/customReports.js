@@ -238,9 +238,9 @@ const makeCustomReportsRouter = () => {
             .clone()
             .select([
               db().raw('COUNT(*) as order_count'),
-              db().raw('COALESCE(SUM(COALESCE(total, 0) - COALESCE(tax, 0) - COALESCE(tip, 0) - COALESCE(takeaway_fee, 0)), 0) as net_sales'),
+              db().raw('COALESCE(SUM(COALESCE(total, 0) - COALESCE(tax, 0) - COALESCE(tip, 0)), 0) as net_sales'),
               db().raw('COALESCE(SUM(COALESCE(discount, 0)), 0) as discounts'),
-              db().raw('COALESCE(AVG(COALESCE(total, 0) - COALESCE(tax, 0) - COALESCE(tip, 0) - COALESCE(takeaway_fee, 0)), 0) as avg_ticket'),
+              db().raw('COALESCE(AVG(COALESCE(total, 0) - COALESCE(tax, 0) - COALESCE(tip, 0)), 0) as avg_ticket'),
             ])
             .first(),
           db()

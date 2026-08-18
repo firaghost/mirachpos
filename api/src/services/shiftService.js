@@ -51,7 +51,7 @@ const getCurrentShift = async ({ tenantId, branchId }) => {
   // Calculate actual metrics from orders for this shift
   const orderStats = await db()
     .count('id as order_count')
-    .sum({ net_sales: db().raw('GREATEST(0, COALESCE(total, 0) - COALESCE(tax, 0) - COALESCE(tip, 0) - COALESCE(takeaway_fee, 0))') })
+    .sum({ net_sales: db().raw('GREATEST(0, COALESCE(total, 0) - COALESCE(tax, 0) - COALESCE(tip, 0))') })
     .from('orders')
     .where({ shift_id: shift.id, status: 'Paid' })
     .first();
@@ -311,8 +311,8 @@ const updateShiftMetrics = async ({ trx, shiftId, orderData }) => {
       order_count: Number(shift.order_count || 0) + 1,
       gross_sales_etb: Number(shift.gross_sales_etb || 0) + (orderData.subtotal || 0),
       discounts_etb: Number(shift.discounts_etb || 0) + (orderData.discount || 0),
-      // Net sales = total collected minus tax, tips, and takeaway fees (pure product revenue)
-      net_sales_etb: Number(shift.net_sales_etb || 0) + Math.max(0, (orderData.total || 0) - (orderData.tax || 0) - (orderData.tip || 0) - (orderData.takeawayFee || orderData.takeaway_fee || 0)),
+      // Net sales = total collected minus tax and tips (what the business actually earned)
+      net_sales_etb: Number(shift.net_sales_etb || 0) + Math.max(0, (orderData.total || 0) - (orderData.tax || 0) - (orderData.tip || 0)),
       tax_etb: Number(shift.tax_etb || 0) + (orderData.tax || 0),
       tips_etb: Number(shift.tips_etb || 0) + (orderData.tip || 0),
       payment_breakdown_json: JSON.stringify(paymentBreakdown),
@@ -407,11 +407,11 @@ const getShiftReport = async ({ shiftId }) => {
       db().raw("COALESCE(NULLIF(TRIM(o.created_by_staff_id), ''), 'unknown') as staff_id"),
       db().raw("COALESCE(NULLIF(TRIM(o.created_by_name), ''), 'Unknown') as staff_name"),
       db().raw('COUNT(*) as order_count'),
-      db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0) as total_sales'),
+      db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as total_sales'),
       db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as total_tips'),
     ])
     .groupBy('staff_id', 'staff_name')
-    .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0)'), 'desc');
+    .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0)'), 'desc');
 
   // Get product sales breakdown
   const productSales = await db()
@@ -463,8 +463,7 @@ const getShiftReport = async ({ shiftId }) => {
       totalTips,
       totalTakeaway,
       totalDiscounts,
-      // Net sales = product sales after discounts (excluding tax, tips, and takeaway fees)
-      netSales: Math.max(0, totalSales - totalTax - totalTips - totalTakeaway),
+      netSales: totalSales - totalDiscounts,
     },
     paymentBreakdown,
     staffPerformance: staffPerformance.map(s => ({
@@ -652,7 +651,7 @@ const validateShiftClose = async ({ shiftId }) => {
       db().raw("COALESCE(NULLIF(TRIM(o.created_by_staff_id), ''), 'unknown') as staff_id"),
       db().raw("COALESCE(NULLIF(TRIM(o.created_by_name), ''), 'Unknown') as staff_name"),
       db().raw('COUNT(*) as order_count'),
-      db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0) as total_sales'),
+      db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as total_sales'),
       db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as total_tips'),
     ])
     .groupBy('staff_id', 'staff_name')
@@ -674,9 +673,9 @@ const validateShiftClose = async ({ shiftId }) => {
         totalTips,
         totalTakeaway,
         totalDiscounts,
-        // Net sales = product sales (total collection minus tax, tips, and takeaway fees)
-        netSales: Math.max(0, totalSales - totalTax - totalTips - totalTakeaway),
-        // Total collection = total money collected across all orders (products + takeaway + tips + tax)
+        // Net sales = gross minus tax, tips, and discounts
+        netSales: totalSales - totalTax - totalTips - totalDiscounts,
+        // Total collection usually means total sales in this context (including tips/tax) minus discounts
         totalCollection: totalSales,
       },
       paymentBreakdown,
