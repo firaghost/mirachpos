@@ -533,14 +533,24 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                           <span className="text-muted-foreground">Net Sales</span>
                           <span className="font-medium">ETB {(closePreview.breakdowns.summary.netSales ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
-                        <div className="flex justify-between col-span-2">
-                          <span className="text-muted-foreground">Tips</span>
-                          <span className="font-medium">ETB {(closePreview.breakdowns.summary.totalTips ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="flex justify-between col-span-2">
-                          <span className="text-muted-foreground">Takeaway</span>
-                          <span className="font-medium">ETB {(closePreview.breakdowns.summary.totalTakeaway ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                        </div>
+                        {(closePreview.breakdowns.summary.totalTax ?? 0) > 0 && (
+                          <div className="flex justify-between col-span-2">
+                            <span className="text-muted-foreground">Tax / VAT</span>
+                            <span className="font-medium">ETB {(closePreview.breakdowns.summary.totalTax ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        {(closePreview.breakdowns.summary.totalTakeaway ?? 0) > 0 && (
+                          <div className="flex justify-between col-span-2">
+                            <span className="text-muted-foreground">Takeaway Fee</span>
+                            <span className="font-medium">ETB {(closePreview.breakdowns.summary.totalTakeaway ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        {(closePreview.breakdowns.summary.totalTips ?? 0) > 0 && (
+                          <div className="flex justify-between col-span-2">
+                            <span className="text-muted-foreground">Tips</span>
+                            <span className="font-medium">ETB {(closePreview.breakdowns.summary.totalTips ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between border-t pt-1 mt-1 col-span-2">
                           <span className="font-semibold">Total collection</span>
                           <span className="font-bold">ETB {(closePreview.breakdowns.summary.totalCollection ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
@@ -586,19 +596,25 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
 
                     {/* Cash Summary */}
                     <div className="p-3 bg-muted rounded-lg">
-                      <h4 className="font-semibold text-sm mb-2">Cash Summary</h4>
+                      <h4 className="font-semibold text-sm mb-2">Cash Drawer Reconciliation</h4>
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Total cash collected</span>
-                          <span className="font-medium">ETB {(closePreview.breakdowns.cashReceived ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          <span className="text-muted-foreground">Opening Cash Float</span>
+                          <span className="font-medium">ETB {(closePreview.breakdowns.openingCash ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Total Tips Paid off</span>
-                          <span className="font-medium text-red-600">-ETB {(closePreview.breakdowns.summary.totalTips ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          <span className="text-muted-foreground">(+) Cash Collected</span>
+                          <span className="font-medium">ETB {(closePreview.breakdowns.cashReceived ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
-                        <div className="flex justify-between border-t pt-1">
-                          <span className="font-semibold">Net cash at hand</span>
-                          <span className="font-bold">ETB {((closePreview.breakdowns.cashReceived ?? 0) - (closePreview.breakdowns.summary.totalTips ?? 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        {(closePreview.breakdowns.summary.totalTips ?? 0) > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">(-) Tips Paid to Staff</span>
+                            <span className="font-medium text-red-600">-ETB {(closePreview.breakdowns.summary.totalTips ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t pt-1 font-semibold">
+                          <span>(=) Expected Cash in Drawer</span>
+                          <span className="font-bold">ETB {(closePreview.expectedCash ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                       </div>
                     </div>
@@ -606,14 +622,15 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                     {/* Tips Breakdown */}
                     {(closePreview.breakdowns.staffTips?.length || 0) > 0 && (
                       <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h4 className="font-semibold text-sm mb-2 text-blue-700">Tips breakdown</h4>
+                        <h4 className="font-semibold text-sm mb-2 text-blue-700">Tips Breakdown by Staff</h4>
                         <div className="space-y-2">
                           {closePreview.breakdowns.staffTips.map((staff) => (
                             <div key={staff.staffId} className="flex justify-between items-center text-xs bg-white p-2 rounded">
                               <div>
                                 <span className="font-medium">{staff.staffName}</span>
+                                <span className="text-muted-foreground ml-1">({staff.orderCount} orders)</span>
                               </div>
-                              <span className="font-bold text-blue-600">{(staff.totalTips || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                              <span className="font-bold text-blue-600">ETB {(staff.totalTips || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                             </div>
                           ))}
                         </div>
@@ -623,27 +640,38 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="closingCash" className="text-sm">Actual Cash Counted</Label>
+                  <Label htmlFor="closingCash" className="text-sm">Actual Cash Counted in Drawer</Label>
                   <Input
                     id="closingCash"
                     type="number"
                     value={closingCash}
                     onChange={(e) => setClosingCash(e.target.value)}
-                    placeholder="Enter actual cash amount"
+                    placeholder="Enter actual counted cash amount"
                     className="h-9"
                   />
-                  {closingCash && (
-                    <p className="text-xs">
-                      Difference:{' '}
-                      <span className={
-                        (parseFloat(closingCash) - closePreview.expectedCash) === 0
-                          ? 'text-green-600'
-                          : 'text-amber-600'
-                      }>
-                        ETB {(parseFloat(closingCash) - closePreview.expectedCash).toFixed(2)}
-                      </span>
-                    </p>
-                  )}
+                  {closingCash !== '' && !isNaN(parseFloat(closingCash)) && (() => {
+                    const diff = parseFloat(closingCash) - closePreview.expectedCash;
+                    const isBalanced = Math.abs(diff) < 0.01;
+                    const isShort = diff < -0.01;
+                    return (
+                      <p className="text-xs">
+                        Cash Variance:{' '}
+                        <span className={
+                          isBalanced
+                            ? 'text-green-600 font-semibold'
+                            : isShort
+                            ? 'text-red-600 font-semibold'
+                            : 'text-blue-600 font-semibold'
+                        }>
+                          {isBalanced
+                            ? 'Balanced (ETB 0.00)'
+                            : isShort
+                            ? `Short: -ETB ${Math.abs(diff).toFixed(2)}`
+                            : `Over: +ETB ${diff.toFixed(2)}`}
+                        </span>
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 <div className="space-y-2">

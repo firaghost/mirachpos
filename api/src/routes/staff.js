@@ -11,6 +11,19 @@ const { loadEntitlements, requireModule } = require('../middleware/entitlements'
 const { sanitizeText } = require('../utils/sanitize');
 const { requireRole, requirePermission } = require('../middleware/permissions');
 
+const toSqlDateTime = (v) => {
+  if (!v) return null;
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return null;
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const hours = String(d.getUTCHours()).padStart(2, '0');
+  const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 const makeStaffRouter = () => {
   const r = express.Router();
 
@@ -57,7 +70,7 @@ const makeStaffRouter = () => {
       if (newPin) patch.pin_hash = await bcrypt.hash(String(newPin), 10);
       if (Object.keys(patch).length === 0) return res.json({ ok: true });
 
-      await db().from('staff').where({ tenant_id: req.tenant.id, id: staffId }).update({ ...patch, updated_at: new Date().toISOString() });
+      await db().from('staff').where({ tenant_id: req.tenant.id, id: staffId }).update({ ...patch, updated_at: toSqlDateTime(new Date()) });
       return res.json({ ok: true });
     } catch (e) {
       return next(e);
@@ -97,7 +110,7 @@ const makeStaffRouter = () => {
         .where({ tenant_id: req.tenant.id, id: staffId })
         .update({ 
           preferences_json: JSON.stringify(preferences),
-          updated_at: new Date().toISOString() 
+          updated_at: toSqlDateTime(new Date()) 
         });
 
       return res.json({ ok: true });
@@ -180,7 +193,8 @@ const makeStaffRouter = () => {
       if (!s) return res.status(404).json({ error: 'staff_not_found' });
       if (String(s.branch_id || '') !== String(branchId)) return res.status(403).json({ error: 'forbidden' });
 
-      const at = new Date().toISOString();
+      const atSql = toSqlDateTime(new Date());
+      const atIso = new Date().toISOString();
 
       if (action === 'clock_in') {
         const open = await db()
@@ -196,12 +210,12 @@ const makeStaffRouter = () => {
           tenant_id: req.tenant.id,
           branch_id: branchId,
           staff_id: staffId,
-          clock_in_at: at,
+          clock_in_at: atSql,
           clock_out_at: null,
         };
         await db().from('shift_logs').insert(rec);
 
-        return res.status(201).json({ ok: true, branchId, log: { id: rec.id, staffId, clockInAt: at } });
+        return res.status(201).json({ ok: true, branchId, log: { id: rec.id, staffId, clockInAt: atIso } });
       }
 
       const open = await db()
@@ -213,9 +227,9 @@ const makeStaffRouter = () => {
         .first();
       if (!open) return res.status(409).json({ error: 'no_open_shift' });
 
-      await db().from('shift_logs').where({ tenant_id: req.tenant.id, id: String(open.id) }).update({ clock_out_at: at });
+      await db().from('shift_logs').where({ tenant_id: req.tenant.id, id: String(open.id) }).update({ clock_out_at: atSql });
 
-      return res.json({ ok: true, branchId, log: { id: String(open.id), staffId, clockInAt: new Date(open.clock_in_at).toISOString(), clockOutAt: at } });
+      return res.json({ ok: true, branchId, log: { id: String(open.id), staffId, clockInAt: new Date(open.clock_in_at).toISOString(), clockOutAt: atIso } });
     } catch (e) {
       return next(e);
     }

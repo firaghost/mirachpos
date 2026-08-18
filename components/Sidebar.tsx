@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Screen, UserRole } from '../types';
 import { useTheme } from '../ThemeContext';
 import { usePos } from '../PosContext';
-import { canAccessScreenWithPermissions } from '../rbac';
+import { canAccessScreenWithPermissions, normalizeRole } from '../rbac';
 import { apiFetch } from '../api';
 import { readSession, updateSession } from '../session';
 import { usePersistedState } from '../usePersistedState';
@@ -21,6 +21,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role, logout }) => {
+  const activeRole = normalizeRole(role);
   const { theme, toggleTheme } = useTheme();
   const { orders, notifications } = usePos();
 
@@ -215,11 +216,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
     ? (branding.platformName && branding.platformName.trim() ? branding.platformName.trim() : tenantName)
     : (businessName && businessName.trim() ? businessName.trim() : tenantName);
 
-  const readyBadge = role === UserRole.WAITER || role === UserRole.WAITER_MANAGER ? orders.filter((o) => o.status === 'Ready').length : 0;
-  const unreadBadge = role === UserRole.WAITER || role === UserRole.WAITER_MANAGER ? notifications.filter((n) => !n.read).length : 0;
+  const readyBadge = activeRole === UserRole.WAITER || activeRole === UserRole.WAITER_MANAGER ? orders.filter((o) => o.status === 'Ready').length : 0;
+  const unreadBadge = activeRole === UserRole.WAITER || activeRole === UserRole.WAITER_MANAGER ? notifications.filter((n) => !n.read).length : 0;
 
   const getRoleLabel = () => {
-    switch (role) {
+    switch (activeRole) {
       case UserRole.SUPER_ADMIN: return "Super Admin";
       case UserRole.CAFE_OWNER: return "Owner";
       case UserRole.BRANCH_MANAGER: return "Manager";
@@ -413,7 +414,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
       </div>
 
       <ScrollArea className={cn('flex-1 py-4', collapsed ? 'px-2' : 'px-4')}>
-        {(role === UserRole.WAITER || role === UserRole.WAITER_MANAGER) && (
+        {(activeRole === UserRole.WAITER || activeRole === UserRole.WAITER_MANAGER) && (
           <>
             <Section title="Live Operations">
               <NavItem screen={Screen.WAITER_WORKSPACE} icon="grid_view" label="Workspace" />
@@ -435,7 +436,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
           </>
         )}
 
-        {(role === UserRole.BRANCH_MANAGER || ownerActsAsManager) && (
+        {(activeRole === UserRole.BRANCH_MANAGER || ownerActsAsManager) && (
           <>
             <Section title="Local Branch">
               <NavItem screen={Screen.MANAGER_DASHBOARD} icon="dashboard" label="Dashboard" />
@@ -470,7 +471,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
           </>
         )}
 
-        {role === UserRole.CAFE_OWNER && !ownerActsAsManager && (
+        {activeRole === UserRole.CAFE_OWNER && !ownerActsAsManager && (
           <>
             <Section title="HQ Overview">
               <NavItem screen={Screen.OWNER_DASHBOARD} icon="dashboard" label="Dashboard" />
@@ -495,7 +496,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
           </>
         )}
 
-        {role === UserRole.SUPER_ADMIN && (
+        {activeRole === UserRole.SUPER_ADMIN && (
           <>
             <Section title="Platform">
               <NavItem screen={Screen.SA_OVERVIEW} icon="space_dashboard" label="Overview" />

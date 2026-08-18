@@ -23,11 +23,11 @@ const defaultModulesForTier = (tier: string): string[] => {
   const t = String(tier || '')
     .trim()
     .toLowerCase();
-  if (t === 'trial') return ['settings'];
-  if (t === 'basic') return ['pos', 'orders', 'tables', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'settings'];
-  if (t === 'pro') return ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'];
-  if (t === 'enterprise') return ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'];
-  return ['settings'];
+  if (t === 'trial') return ['pos', 'orders', 'tables', 'inventory', 'menu', 'staff', 'reports', 'settings'];
+  if (t === 'starter' || t === 'basic') return ['pos', 'orders', 'tables', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'settings'];
+  if (t === 'growth') return ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings', 'shifts', 'kds', 'loyalty'];
+  if (t === 'pro' || t === 'enterprise' || t === 'dev') return ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings', 'shifts', 'kds', 'loyalty', 'integrations'];
+  return ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings', 'shifts', 'kds', 'loyalty', 'integrations'];
 };
 
 const normalizeModuleKey = (m: unknown): string => {
@@ -44,7 +44,7 @@ const normalizeModuleKey = (m: unknown): string => {
 };
 
 const normalizedModules = (subscription: SubscriptionInfo | null | undefined): string[] => {
-  const tier = String(subscription?.tier || '').trim();
+  const tier = String(subscription?.tier || 'Pro').trim();
   const modsRaw = Array.isArray(subscription?.modules) ? subscription!.modules : [];
   const seen = new Set<string>();
   const mods = [] as string[];
@@ -55,7 +55,6 @@ const normalizedModules = (subscription: SubscriptionInfo | null | undefined): s
     mods.push(k);
   }
   if (mods.length) return mods;
-  if (!tier) return [];
   return defaultModulesForTier(tier);
 };
 
@@ -77,11 +76,21 @@ export const homeForRoleWithSubscription = (
   return Screen.OWNER_DASHBOARD;
 };
 
-export const canAccessScreen = (role: UserRole, screen: Screen): boolean => {
-  if (screen === Screen.LOGIN) return true;
-  if (screen === Screen.BRANCH_SELECT) return role === UserRole.CAFE_OWNER || role === UserRole.SUPER_ADMIN;
+export const normalizeRole = (role: unknown): UserRole => {
+  const r = String(role || '').trim().toLowerCase();
+  if (r.includes('super')) return UserRole.SUPER_ADMIN;
+  if (r.includes('owner')) return UserRole.CAFE_OWNER;
+  if (r.includes('waiter') && r.includes('manager')) return UserRole.WAITER_MANAGER;
+  if (r.includes('manager')) return UserRole.BRANCH_MANAGER;
+  return UserRole.WAITER;
+};
 
-  if (role === UserRole.WAITER || role === UserRole.WAITER_MANAGER) {
+export const canAccessScreen = (role: UserRole | string, screen: Screen): boolean => {
+  if (screen === Screen.LOGIN) return true;
+  const r = normalizeRole(role);
+  if (screen === Screen.BRANCH_SELECT) return r === UserRole.CAFE_OWNER || r === UserRole.SUPER_ADMIN;
+
+  if (r === UserRole.WAITER || r === UserRole.WAITER_MANAGER) {
     return (
       screen === Screen.WAITER_WORKSPACE ||
       screen === Screen.WAITER_KDS ||
@@ -94,7 +103,7 @@ export const canAccessScreen = (role: UserRole, screen: Screen): boolean => {
     );
   }
 
-  if (role === UserRole.BRANCH_MANAGER) {
+  if (r === UserRole.BRANCH_MANAGER) {
     return (
       screen === Screen.MANAGER_DASHBOARD ||
       screen === Screen.DESKTOP_DRAFT_INBOX ||
@@ -312,12 +321,14 @@ const screenRequiredPermission = (screen: Screen): string | null => {
 };
 
 export const canAccessScreenWithPermissions = (
-  role: UserRole,
+  role: UserRole | string,
   screen: Screen,
   subscription: SubscriptionInfo | null | undefined,
   permissions: unknown,
 ): boolean => {
-  if (!canAccessScreenWithSubscription(role, screen, subscription)) return false;
+  const r = normalizeRole(role);
+  if (!canAccessScreenWithSubscription(r, screen, subscription)) return false;
+  if (r === UserRole.WAITER || r === UserRole.WAITER_MANAGER) return true;
   const required = screenRequiredPermission(screen);
   if (!required) return true;
   return hasPermission(permissions, required);

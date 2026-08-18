@@ -295,7 +295,19 @@ export const OwnerStaffManagement: React.FC = () => {
 
   const roles = data?.roles || [];
   const branches = data?.branches || [];
-  const effectiveRoles = roles.length ? roles : rolesData;
+  const effectiveRoles = useMemo(() => {
+    const raw = roles.length ? roles : rolesData;
+    const seen = new Set<string>();
+    const out: ApiRole[] = [];
+    for (const r of raw) {
+      const key = String(r.name || '').trim().toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(r);
+      }
+    }
+    return out;
+  }, [roles, rolesData]);
 
   const defaultRoleId = useMemo(() => {
     const waiter = effectiveRoles.find((r) => String(r.name || '').toLowerCase() === 'waiter');

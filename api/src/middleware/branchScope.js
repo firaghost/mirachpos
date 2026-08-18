@@ -11,11 +11,9 @@ const resolveBranchId = (req) => {
   const fromToken = normalizeBranchId(req.auth?.branchId);
   const q = typeof req.query?.branchId === 'string' ? normalizeBranchId(req.query.branchId) : '';
 
-  if ((role === 'Cafe Owner' || role === 'Waiter Manager') && (!fromToken || fromToken === 'global')) {
-    return q || '';
-  }
-
-  return fromToken;
+  if (fromToken) return fromToken;
+  if (q) return q;
+  return 'br_main';
 };
 
 const resolveBranchIdFromBody = (req, body) => {

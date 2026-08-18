@@ -9,6 +9,26 @@ const { db } = require('../db');
 const { makeId } = require('../utils/ids');
 const { invalidateOwnerReports } = require('../utils/cache');
 
+const toSqlDateTime = (v) => {
+    if (!v) return null;
+    const d = v instanceof Date ? v : new Date(v);
+    if (isNaN(d.getTime())) return null;
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const hours = String(d.getUTCHours()).padStart(2, '0');
+    const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(d.getUTCSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+const getBranchVariants = (branchId) => {
+    const bid = String(branchId || '').trim();
+    if (!bid) return [];
+    const other = bid.startsWith('br_') ? `b_${bid.slice(3)}` : bid.startsWith('b_') ? `br_${bid.slice(2)}` : `br_${bid}`;
+    return [bid, other].filter(Boolean);
+};
+
 const safeJsonParse = (raw, fallback) => {
     try {
         if (!raw) return fallback;
@@ -289,13 +309,15 @@ const aggregateDailySales = async ({ tenantId, branchId, date }) => {
     const dateStr = toDateString(date);
     const b = getDayBounds(dateStr);
     if (!b) return { orderCount: 0 };
-    const nowIso = new Date().toISOString();
+    const nowIso = toSqlDateTime(new Date());
 
     // Get orders for the day
+    const branchVariants = getBranchVariants(branchId);
     const orders = await db()
         .select(['id', 'total', 'tax', 'tip', 'discount', 'created_at', 'payload'])
         .from('orders')
-        .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
+        .where({ tenant_id: tenantId, status: 'Paid' })
+        .whereIn('branch_id', branchVariants)
         .andWhere((qb) => {
             qb.whereBetween('created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('created_at', [b.isoStart, b.isoEnd]);
         });
@@ -436,10 +458,12 @@ const aggregateStaffSales = async ({ tenantId, branchId, date }) => {
     if (!b) return { staffCount: 0, orderCount: 0 };
     const nowIso = new Date().toISOString();
 
+    const branchVariants = getBranchVariants(branchId);
     const orders = await db()
         .select(['id', 'total', 'tax', 'tip', 'discount', 'created_at', 'payload'])
         .from('orders')
-        .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
+        .where({ tenant_id: tenantId, status: 'Paid' })
+        .whereIn('branch_id', branchVariants)
         .andWhere((qb) => {
             qb.whereBetween('created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('created_at', [b.isoStart, b.isoEnd]);
         });
@@ -548,14 +572,14 @@ const aggregateHourlySales = async ({ tenantId, branchId, date }) => {
     const dateStr = toDateString(date);
     const b = getDayBounds(dateStr);
     if (!b) return { hoursProcessed: 0 };
-    const nowIso = new Date().toISOString();
+    const nowIso = toSqlDateTime(new Date());
 
-    // Get orders grouped by hour using raw query for DB compatibility
-    // Fallback: fetch all orders and aggregate in JS to ensure all orders are counted
+    const branchVariants = getBranchVariants(branchId);
     const orders = await db()
         .select(['created_at', 'total', 'tax', 'tip'])
         .from('orders')
-        .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
+        .where({ tenant_id: tenantId, status: 'Paid' })
+        .whereIn('branch_id', branchVariants)
         .andWhere((qb) => {
             qb.whereBetween('created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('created_at', [b.isoStart, b.isoEnd]);
         });
@@ -610,27 +634,26 @@ const aggregateProductSales = async ({ tenantId, branchId, date }) => {
     const dateStr = toDateString(date);
     const b = getDayBounds(dateStr);
     if (!b) return { productsProcessed: 0 };
-    const nowIso = new Date().toISOString();
+    const nowIso = toSqlDateTime(new Date());
 
     const productMap = new Map();
+    const branchVariants = getBranchVariants(branchId);
 
     // Aggregate from normalized order_items instead of JSON payload.
-    // Some deployments might not have order_items dual-write populated, so we fall back to payload on error/empty.
     let itemRows = [];
     try {
         itemRows = await db()
             .from({ oi: 'order_items' })
             .innerJoin({ o: 'orders' }, function () {
                 this.on('o.id', '=', 'oi.order_id')
-                    .andOn('o.tenant_id', '=', 'oi.tenant_id')
-                    .andOn('o.branch_id', '=', 'oi.branch_id');
+                    .andOn('o.tenant_id', '=', 'oi.tenant_id');
             })
             .leftJoin({ p: 'menu_products' }, function () {
                 this.on('p.id', '=', 'oi.product_id')
-                    .andOn('p.tenant_id', '=', 'oi.tenant_id')
-                    .andOn('p.branch_id', '=', 'oi.branch_id');
+                    .andOn('p.tenant_id', '=', 'oi.tenant_id');
             })
-            .where({ 'oi.tenant_id': tenantId, 'oi.branch_id': branchId, 'o.status': 'Paid' })
+            .where({ 'oi.tenant_id': tenantId, 'o.status': 'Paid' })
+            .whereIn('oi.branch_id', branchVariants)
             .andWhere((qb) => {
                 qb.whereBetween('o.created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('o.created_at', [b.isoStart, b.isoEnd]);
             })
@@ -653,10 +676,10 @@ const aggregateProductSales = async ({ tenantId, branchId, date }) => {
                 .from({ oi: 'order_items' })
                 .innerJoin({ o: 'orders' }, function () {
                     this.on('o.id', '=', 'oi.order_id')
-                        .andOn('o.tenant_id', '=', 'oi.tenant_id')
-                        .andOn('o.branch_id', '=', 'oi.branch_id');
+                        .andOn('o.tenant_id', '=', 'oi.tenant_id');
                 })
-                .where({ 'oi.tenant_id': tenantId, 'oi.branch_id': branchId, 'o.status': 'Paid' })
+                .where({ 'oi.tenant_id': tenantId, 'o.status': 'Paid' })
+                .whereIn('oi.branch_id', branchVariants)
                 .andWhere((qb) => {
                     qb.whereBetween('o.created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('o.created_at', [b.isoStart, b.isoEnd]);
                 })
@@ -705,7 +728,8 @@ const aggregateProductSales = async ({ tenantId, branchId, date }) => {
         const orders = await db()
             .select(['payload'])
             .from('orders')
-            .where({ tenant_id: tenantId, branch_id: branchId, status: 'Paid' })
+            .where({ tenant_id: tenantId, status: 'Paid' })
+            .whereIn('branch_id', branchVariants)
             .andWhere((qb) => {
                 qb.whereBetween('created_at', [b.mysqlStart, b.mysqlEnd]).orWhereBetween('created_at', [b.isoStart, b.isoEnd]);
             });

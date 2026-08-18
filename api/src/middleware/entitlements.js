@@ -101,9 +101,12 @@ const loadEntitlements = async (req, res, next) => {
       req.entitlements = {
         ok: true,
         tenantId: String(req.tenant.id),
-        subscription: { tier: 'Dev', modules: ['pos', 'orders', 'tables', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings'] },
+        subscription: {
+          tier: 'Pro',
+          modules: ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings', 'kds', 'shifts', 'loyalty', 'integrations'],
+        },
         billing: { status: 'active', graceEndsAt: '' },
-        limits: {},
+        limits: { branchLimit: 999, staffLimit: 9999, maxUsers: 50, maxBranches: 10, maxDevices: 20, maxTables: 100 },
         features: [],
         computedAt: new Date().toISOString(),
       };
@@ -171,10 +174,10 @@ const isPastDueBlocked = (ent) => {
 
 const requireModule = (moduleKey) => (req, res, next) => {
   try {
+    if (config && config.devBypassAuth) return next();
+
     const ent = req.entitlements;
     if (!ent) return res.status(500).json({ error: 'entitlements_missing' });
-
-    if (config && config.devBypassAuth) return next();
 
     if (isPendingVerifyBlocked(ent)) return res.status(402).json({ error: 'subscription_pending_verify' });
     if (isPastDueBlocked(ent)) return res.status(402).json({ error: 'subscription_inactive' });
@@ -189,6 +192,8 @@ const requireModule = (moduleKey) => (req, res, next) => {
 
 const enforceBranchLimit = async (req, res, next) => {
   try {
+    if (config && config.devBypassAuth) return next();
+
     const ent = req.entitlements;
     if (!ent) return res.status(500).json({ error: 'entitlements_missing' });
 
@@ -211,6 +216,8 @@ const enforceBranchLimit = async (req, res, next) => {
 
 const enforceStaffLimit = async (req, res, next) => {
   try {
+    if (config && config.devBypassAuth) return next();
+
     const ent = req.entitlements;
     if (!ent) return res.status(500).json({ error: 'entitlements_missing' });
 

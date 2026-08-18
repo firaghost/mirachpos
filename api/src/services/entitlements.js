@@ -246,6 +246,32 @@ const computeTenantEntitlements = async ({ tenant, subscriptionRow = null }) => 
   const tenantId = String(tenant?.id || '').trim();
   if (!tenantId) return null;
 
+  if (config && config.devBypassAuth) {
+    const allMods = ['pos', 'orders', 'tables', 'guests', 'inventory', 'menu', 'staff', 'reports', 'finance', 'branches', 'owner_dashboard', 'settings', 'kds', 'shifts', 'loyalty', 'integrations'];
+    return {
+      ok: true,
+      tenantId,
+      subscription: {
+        tier: 'Pro',
+        modules: allMods,
+        trialStartAt: '',
+        trialEndsAt: '',
+      },
+      billing: {
+        cycle: 'Monthly',
+        status: 'active',
+        method: 'manual',
+        nextBillAt: '2099-01-01T00:00:00.000Z',
+        amountEtb: 0,
+        graceEndsAt: '',
+      },
+      limits: { branchLimit: 999, staffLimit: 9999, maxUsers: 50, maxBranches: 10, maxDevices: 20, maxTables: 100 },
+      features: ['all'],
+      pricing: { monthlyEtb: 0, yearlyEtb: 0 },
+      computedAt: new Date().toISOString(),
+    };
+  }
+
   const sub = subscriptionRow || (await getOrCreateTenantSubscription(tenant));
   const tier = normalizeTier(sub?.tier || 'Trial');
 
@@ -294,11 +320,25 @@ const computeTenantEntitlements = async ({ tenant, subscriptionRow = null }) => 
   };
 };
 
+const toSqlDateTime = (v) => {
+  if (!v) return null;
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return null;
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const hours = String(d.getUTCHours()).padStart(2, '0');
+  const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 const upsertTenantEntitlementsSnapshot = async ({ tenantId, entitlements }) => {
   const id = String(tenantId || '').trim();
   if (!id || !entitlements) return;
 
-  const nowIso = new Date().toISOString();
+  const nowSql = toSqlDateTime(new Date());
+  const graceEndsSql = toSqlDateTime(entitlements.billing?.graceEndsAt);
 
   await db()
     .from('tenant_entitlements')
@@ -308,8 +348,8 @@ const upsertTenantEntitlementsSnapshot = async ({ tenantId, entitlements }) => {
       modules_json: JSON.stringify(entitlements.subscription?.modules || []),
       limits_json: JSON.stringify(entitlements.limits || {}),
       status: String(entitlements.billing?.status || 'active'),
-      grace_ends_at: entitlements.billing?.graceEndsAt ? new Date(entitlements.billing.graceEndsAt).toISOString() : null,
-      computed_at: nowIso,
+      grace_ends_at: graceEndsSql,
+      computed_at: nowSql,
     })
     .onConflict('tenant_id')
     .merge({
@@ -317,8 +357,8 @@ const upsertTenantEntitlementsSnapshot = async ({ tenantId, entitlements }) => {
       modules_json: JSON.stringify(entitlements.subscription?.modules || []),
       limits_json: JSON.stringify(entitlements.limits || {}),
       status: String(entitlements.billing?.status || 'active'),
-      grace_ends_at: entitlements.billing?.graceEndsAt ? new Date(entitlements.billing.graceEndsAt).toISOString() : null,
-      computed_at: nowIso,
+      grace_ends_at: graceEndsSql,
+      computed_at: nowSql,
     });
 };
 

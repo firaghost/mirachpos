@@ -39,9 +39,9 @@ const enqueueJob = async ({ type, payload = {}, runAt = new Date() }) => {
         payload_json: JSON.stringify(payload),
         status: 'pending',
         attempts: 0,
-        run_at: runAt.toISOString(),
-        created_at: nowIso,
-        updated_at: nowIso,
+        run_at: runAt instanceof Date ? runAt : new Date(runAt),
+        created_at: new Date(),
+        updated_at: new Date(),
     });
 
     logger.info({ id, type }, 'Job enqueued');
@@ -53,7 +53,7 @@ const enqueueJob = async ({ type, payload = {}, runAt = new Date() }) => {
  */
 const processJobs = async () => {
     try {
-        const now = new Date().toISOString();
+        const now = new Date();
 
         // Find one pending job
         // Using forUpdate() to lock the row. verification showed skipLocked() availability is uncertain.
@@ -88,7 +88,7 @@ const processJobs = async () => {
             await db().from('jobs').where({ id: job.id }).update({
                 status: 'failed',
                 last_error: 'No handler registered',
-                updated_at: new Date().toISOString()
+                updated_at: new Date()
             });
             return;
         }
@@ -102,8 +102,8 @@ const processJobs = async () => {
 
             await db().from('jobs').where({ id: job.id }).update({
                 status: 'completed',
-                completed_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
+                completed_at: new Date(),
+                updated_at: new Date(),
                 last_error: null // Clear error if successful retry
             });
 
@@ -117,14 +117,14 @@ const processJobs = async () => {
             const newStatus = job.attempts < maxRetries ? 'pending' : 'failed';
             // Exponential backoff if retrying
             const nextRun = job.attempts < maxRetries
-                ? new Date(Date.now() + Math.pow(2, job.attempts) * 60000).toISOString()
+                ? new Date(Date.now() + Math.pow(2, job.attempts) * 60000)
                 : job.run_at;
 
             await db().from('jobs').where({ id: job.id }).update({
                 status: newStatus,
                 last_error: String(e.message).slice(0, 1000),
                 run_at: nextRun,
-                updated_at: new Date().toISOString()
+                updated_at: new Date()
             });
         }
     } catch (e) {

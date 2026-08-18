@@ -26,6 +26,19 @@ const { makePosOrdersRouter } = require('./pos/orders');
 const { makePosKdsRouter } = require('./pos/kds');
 const { makePosHardwareRouter } = require('./pos/hardware');
 
+const toSqlDateTime = (v, fallback = null) => {
+  if (!v) return fallback;
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return fallback;
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const hours = String(d.getUTCHours()).padStart(2, '0');
+  const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 const safeJsonParse = (raw, fallback) => {
   try {
     if (!raw) return fallback;
@@ -270,6 +283,7 @@ const toIso = (v, fallback = null) => {
 
 const normalizeOrderColsFromPayload = ({ payload, status, nowIso }) => {
   const p = payload && typeof payload === 'object' ? payload : {};
+  const sqlNow = toSqlDateTime(nowIso || new Date());
   return {
     display_number: typeof p?.number === 'string' && p.number.trim() ? String(p.number).trim() : null,
     table_id: typeof p?.tableId === 'string' && p.tableId.trim() ? String(p.tableId).trim() : null,
@@ -284,13 +298,14 @@ const normalizeOrderColsFromPayload = ({ payload, status, nowIso }) => {
     payment_reference: typeof p?.paymentReference === 'string' && p.paymentReference.trim() ? String(p.paymentReference).trim() : null,
     tendered_amount: p?.tenderedAmount != null ? num(p.tenderedAmount, null) : null,
     notes: typeof p?.notes === 'string' && p.notes.trim() ? String(p.notes).trim() : null,
-    updated_at: nowIso,
-    paid_at: status === 'Paid' ? nowIso : null,
+    updated_at: sqlNow,
+    paid_at: status === 'Paid' ? sqlNow : null,
   };
 };
 
 const normalizeItemsFromPayload = ({ tenantId, branchId, orderId, payload, nowIso }) => {
   const p = payload && typeof payload === 'object' ? payload : {};
+  const sqlNow = toSqlDateTime(nowIso || new Date());
   const items = Array.isArray(p?.items) ? p.items : [];
   return items
     .map((it) => {
@@ -313,8 +328,8 @@ const normalizeItemsFromPayload = ({ tenantId, branchId, orderId, payload, nowIs
         note: typeof it?.note === 'string' && it.note.trim() ? String(it.note).trim() : null,
         voided_qty: num(it?.voidedQty, 0),
         void_reason: typeof it?.voidReason === 'string' && it.voidReason.trim() ? String(it.voidReason).trim() : null,
-        created_at: nowIso,
-        updated_at: nowIso,
+        created_at: sqlNow,
+        updated_at: sqlNow,
       };
     })
     .filter(Boolean);
@@ -322,6 +337,7 @@ const normalizeItemsFromPayload = ({ tenantId, branchId, orderId, payload, nowIs
 
 const normalizeSplitsFromPayload = ({ tenantId, branchId, orderId, payload, nowIso }) => {
   const p = payload && typeof payload === 'object' ? payload : {};
+  const sqlNow = toSqlDateTime(nowIso || new Date());
   const splits = Array.isArray(p?.splits) ? p.splits : [];
 
   const out = [];
@@ -345,8 +361,8 @@ const normalizeSplitsFromPayload = ({ tenantId, branchId, orderId, payload, nowI
       tip: num(s?.tip, 0),
       discount: num(s?.discount, 0),
       total: num(s?.total, 0),
-      created_at: nowIso,
-      updated_at: nowIso,
+      created_at: sqlNow,
+      updated_at: sqlNow,
     });
   }
   return out;
@@ -387,45 +403,34 @@ const hydratePayloadFromNormalized = ({ orderRow, payloadFallback, itemRows, spl
 
   if (Array.isArray(itemRows) && itemRows.length > 0) {
     p.items = itemRows.map((r) => ({
-      productId: r.product_id ? String(r.product_id) : null,
-      code: r.product_code ? String(r.product_code) : null,
+      id: r.id,
+      productId: r.product_id ? String(r.product_id) : undefined,
+      code: r.product_code ? String(r.product_code) : undefined,
       name: String(r.name || ''),
-      unitPrice: Number(r.unit_price || 0) || 0,
-      qty: Number(r.qty || 0) || 0,
-      taxAmount: Number(r.tax_amount || 0) || 0,
-      discountAmount: Number(r.discount_amount || 0) || 0,
-      note: r.note ? String(r.note) : '',
-      voidedQty: Number(r.voided_qty || 0) || 0,
-      voidReason: r.void_reason ? String(r.void_reason) : null,
+      qty: Number(r.qty || 0),
+      unitPrice: Number(r.unit_price || 0),
+      taxAmount: r.tax_amount != null ? Number(r.tax_amount) : undefined,
+      discountAmount: r.discount_amount != null ? Number(r.discount_amount) : undefined,
+      note: r.note ? String(r.note) : undefined,
+      voidedQty: r.voided_qty != null ? Number(r.voided_qty) : undefined,
+      voidReason: r.void_reason ? String(r.void_reason) : undefined,
     }));
   }
 
   if (Array.isArray(splitRows) && splitRows.length > 0) {
-    const itemsBySplit = new Map();
-    if (Array.isArray(splitItemRows) && splitItemRows.length > 0) {
-      for (const si of splitItemRows) {
-        const sid = String(si.split_id || '').trim();
-        if (!sid) continue;
-        const list = itemsBySplit.get(sid) || [];
-        list.push(si);
-        itemsBySplit.set(sid, list);
-      }
-    }
-
     p.splits = splitRows.map((s) => {
-      const sid = String(s.id || '').trim();
-      const list = itemsBySplit.get(sid) || [];
+      const list = Array.isArray(splitItemRows) ? splitItemRows.filter((x) => String(x.split_id) === String(s.id)) : [];
       return {
-        id: sid,
-        label: s.label ? String(s.label) : null,
-        status: String(s.status || 'open'),
-        mode: String(s.mode || 'amount'),
-        amount: s.target_amount != null ? Number(s.target_amount) : null,
-        subtotal: Number(s.subtotal || 0) || 0,
-        tax: Number(s.tax || 0) || 0,
-        tip: Number(s.tip || 0) || 0,
-        discount: Number(s.discount || 0) || 0,
-        total: Number(s.total || 0) || 0,
+        id: s.id,
+        label: s.label ? String(s.label) : undefined,
+        status: s.status ? String(s.status) : 'open',
+        mode: s.mode ? String(s.mode) : undefined,
+        amount: s.target_amount != null ? Number(s.target_amount) : undefined,
+        subtotal: s.subtotal != null ? Number(s.subtotal) : undefined,
+        tax: s.tax != null ? Number(s.tax) : undefined,
+        tip: s.tip != null ? Number(s.tip) : undefined,
+        discount: s.discount != null ? Number(s.discount) : undefined,
+        total: s.total != null ? Number(s.total) : undefined,
         items: list.map((x) => ({ orderItemId: String(x.order_item_id || ''), qty: Number(x.qty || 0) || 0 })),
       };
     });
@@ -447,6 +452,7 @@ const hydratePayloadFromNormalized = ({ orderRow, payloadFallback, itemRows, spl
 
 const normalizeSplitItemsFromPayload = ({ tenantId, branchId, orderId, splitRows, orderItemRows, payload, nowIso }) => {
   const p = payload && typeof payload === 'object' ? payload : {};
+  const sqlNow = toSqlDateTime(nowIso || new Date());
   const splits = Array.isArray(p?.splits) ? p.splits : [];
 
   const bySplitId = new Map();
@@ -480,7 +486,7 @@ const normalizeSplitItemsFromPayload = ({ tenantId, branchId, orderId, splitRows
         split_id: splitId,
         order_item_id: match.id,
         qty,
-        created_at: nowIso,
+        created_at: sqlNow,
       });
     }
   }
@@ -489,6 +495,7 @@ const normalizeSplitItemsFromPayload = ({ tenantId, branchId, orderId, splitRows
 
 const normalizePaymentsFromPayload = ({ tenantId, branchId, orderId, shiftId, status, payload, nowIso }) => {
   const p = payload && typeof payload === 'object' ? payload : {};
+  const sqlNow = toSqlDateTime(nowIso || new Date());
   const out = [];
 
   if (status === 'Paid') {
@@ -519,11 +526,11 @@ const normalizePaymentsFromPayload = ({ tenantId, branchId, orderId, shiftId, st
           currency: 'ETB',
           reference: typeof s?.paymentReference === 'string' && s.paymentReference.trim() ? String(s.paymentReference).trim() : typeof p?.paymentReference === 'string' && p.paymentReference.trim() ? String(p.paymentReference).trim() : null,
           status: 'confirmed',
-          paid_at: toIso(s?.paidAt, nowIso) || nowIso,
+          paid_at: toSqlDateTime(s?.paidAt, sqlNow) || sqlNow,
           paid_by_staff_id: typeof p?.paidByStaffId === 'string' && p.paidByStaffId.trim() ? String(p.paidByStaffId).trim() : null,
           paid_by_name: typeof p?.paidByName === 'string' && p.paidByName.trim() ? String(p.paidByName).trim() : null,
-          created_at: nowIso,
-          updated_at: nowIso,
+          created_at: sqlNow,
+          updated_at: sqlNow,
         });
       }
     } else {
@@ -543,11 +550,11 @@ const normalizePaymentsFromPayload = ({ tenantId, branchId, orderId, shiftId, st
             currency: 'ETB',
             reference: typeof p?.paymentReference === 'string' && p.paymentReference.trim() ? String(p.paymentReference).trim() : null,
             status: 'confirmed',
-            paid_at: nowIso,
+            paid_at: toSqlDateTime(p?.paidAt, sqlNow) || sqlNow,
             paid_by_staff_id: typeof p?.paidByStaffId === 'string' && p.paidByStaffId.trim() ? String(p.paidByStaffId).trim() : null,
             paid_by_name: typeof p?.paidByName === 'string' && p.paidByName.trim() ? String(p.paidByName).trim() : null,
-            created_at: nowIso,
-            updated_at: nowIso,
+            created_at: sqlNow,
+            updated_at: sqlNow,
           });
         }
       }
@@ -630,7 +637,7 @@ const ensureRestaurantTableRow = async ({ trx, tenantId, branchId, tableId, name
     if (!tid || !bid || !tbl) return;
 
     const nm = String(name || '').trim() || tbl;
-    const at = String(nowIso || '').trim() || new Date().toISOString();
+    const at = toSqlDateTime(nowIso) || toSqlDateTime(new Date());
     const q = trx || db();
 
     await q('restaurant_tables')
@@ -692,7 +699,7 @@ const syncRestaurantTableForOrder = async ({ tenantId, branchId, tableId, orderI
 
         await trx('restaurant_tables')
           .where({ tenant_id: tid, branch_id: bid, id: tbl })
-          .update({ status: mapTableStatusFromOrderStatus(st), open_order_id: oid, last_order_id: oid, updated_at: nowIso });
+          .update({ status: mapTableStatusFromOrderStatus(st), open_order_id: oid, last_order_id: oid, updated_at: toSqlDateTime(nowIso) || toSqlDateTime(new Date()) });
       });
       return;
     }
@@ -710,7 +717,7 @@ const syncRestaurantTableForOrder = async ({ tenantId, branchId, tableId, orderI
         status: curOpen && curOpen !== oid ? undefined : 'Free',
         open_order_id: curOpen && curOpen !== oid ? undefined : null,
         last_order_id: oid,
-        updated_at: nowIso,
+        updated_at: toSqlDateTime(nowIso) || toSqlDateTime(new Date()),
       };
 
       const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
@@ -1870,7 +1877,7 @@ const makePosRouter = () => {
               last_order_id: null,
               assigned_staff_id: null,
               assigned_staff_name: null,
-              updated_at: nowIso,
+              updated_at: toSqlDateTime(new Date()),
             };
           });
           if (inserts.length) await db().from('restaurant_tables').insert(inserts);

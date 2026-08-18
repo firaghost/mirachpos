@@ -1002,18 +1002,20 @@ const makeWaiterRouter = () => {
     };
   };
 
+  const normalizeBranchId = (v) => {
+    const s = String(v || '').trim();
+    if (!s || s === 'global') return '';
+    if (s.startsWith('b_') && !s.startsWith('br_')) return `br_${s.slice(2)}`;
+    return s;
+  };
+
   const resolveBranchId = (req) => {
-    const role = String(req.auth?.role || '').trim();
-    const fromToken = String(req.auth?.branchId || '').trim();
-    const q = typeof req.query?.branchId === 'string' ? req.query.branchId.trim() : '';
+    const fromToken = normalizeBranchId(req.auth?.branchId);
+    const q = typeof req.query?.branchId === 'string' ? normalizeBranchId(req.query.branchId) : '';
 
-    if (role === 'Waiter Manager') {
-      if (fromToken && fromToken !== 'global') return fromToken;
-      if (q && q !== 'global') return q;
-      return '';
-    }
-
-    return fromToken;
+    if (fromToken) return fromToken;
+    if (q) return q;
+    return 'br_main';
   };
 
   const requireWaiter = (req, res) => {
@@ -1022,7 +1024,7 @@ const makeWaiterRouter = () => {
       return false;
     }
     const branchId = resolveBranchId(req);
-    if (!branchId || branchId === 'global') {
+    if (!branchId) {
       res.status(400).json({ error: 'branch_required' });
       return false;
     }
@@ -1130,11 +1132,13 @@ const makeWaiterRouter = () => {
 
       const fromDateOnly = parseIsoDate(fromRaw);
       const toDateOnly = parseIsoDate(toRaw);
-      // Ensure Waiter History strictly bounds starting at 07:00 EAT (04:00 UTC) 
-      const fromIso = fromDateOnly ? `${fromDateOnly}T04:00:00.000Z` : parseIsoDateTime(fromRaw);
-      const toIso = toDateOnly ? new Date(new Date(`${toDateOnly}T04:00:00.000Z`).getTime() + 24*3600*1000 - 1).toISOString() : parseIsoDateTime(toRaw);
+      const fromIso = fromDateOnly ? `${fromDateOnly} 00:00:00` : (fromRaw ? String(fromRaw) : null);
+      const toIso = toDateOnly ? `${toDateOnly} 23:59:59` : (toRaw ? String(toRaw) : null);
 
-      const base = db().from('orders').where({ tenant_id: req.tenant.id, branch_id: branchId });
+      const isManagerRole = role === 'Waiter Manager' || role === 'Branch Manager' || role === 'Cafe Owner';
+      const branchVariants = [branchId, branchId.startsWith('br_') ? `b_${branchId.slice(3)}` : `br_${branchId}`].filter(Boolean);
+
+      const base = db().from('orders').where({ tenant_id: req.tenant.id }).whereIn('branch_id', branchVariants);
       if (status) {
         if (status === 'Open') {
           base.whereNotIn('status', ['Paid', 'Voided']);
@@ -1143,39 +1147,8 @@ const makeWaiterRouter = () => {
         }
       }
 
-      // Filter by shift type (DAY or NIGHT) or exact shiftId
-      let shiftBoundaries = null;
-      if (shift && (shift === 'DAY' || shift === 'NIGHT')) {
-        const baseIso = fromDateOnly ? `${fromDateOnly}T04:00:00.000Z` : fromIso;
-        const baseDateUtc = new Date(baseIso);
-        let startGate, endGate;
-        if (shift === 'DAY') {
-          // 07:00 to 18:59:59 EAT (04:00 to 15:59:59 UTC)
-          startGate = new Date(baseDateUtc); 
-          endGate = new Date(baseDateUtc); endGate.setUTCHours(15, 59, 59, 999);
-        } else {
-          // 19:00 to 06:59:59 EAT (16:00 to 03:59:59 UTC+1d)
-          startGate = new Date(baseDateUtc); startGate.setUTCHours(16, 0, 0, 0);
-          endGate = new Date(baseDateUtc); endGate.setUTCDate(endGate.getUTCDate() + 1); endGate.setUTCHours(3, 59, 59, 999);
-        }
-        shiftBoundaries = {
-          sIso: startGate.toISOString(),
-          eIso: endGate.toISOString(),
-        };
-      }
-
       if (shift) {
-        if (shiftBoundaries) {
-          base.andWhere(function() {
-            this.whereExists(function() {
-              this.select('*').from('shifts').whereRaw('shifts.id = orders.shift_id').andWhere('shifts.shift_type', shift);
-            })
-            .orWhereBetween('paid_at', [shiftBoundaries.sIso, shiftBoundaries.eIso])
-            .orWhereBetween('created_at', [shiftBoundaries.sIso, shiftBoundaries.eIso]);
-          });
-        } else {
-          base.andWhere({ shift_id: shift });
-        }
+        base.andWhere({ shift_id: shift });
       }
 
       if (fromIso) {
@@ -1189,7 +1162,7 @@ const makeWaiterRouter = () => {
         });
       }
 
-      if (role !== 'Waiter Manager') {
+      if (!isManagerRole) {
         base.andWhere({ created_by_staff_id: staffId });
       }
 
@@ -1201,8 +1174,6 @@ const makeWaiterRouter = () => {
         });
       }
 
-      // The shift filter was already applied to base query above at lines 961-968
-      // Just clone and count - no need for additional filtering
       const countRow = await base
         .clone()
         .count({ total: '*' })
@@ -1212,9 +1183,9 @@ const makeWaiterRouter = () => {
       const baseWithJoin = db()
         .from('orders')
         .leftJoin('shifts', 'orders.shift_id', 'shifts.id')
-        .where({ 'orders.tenant_id': req.tenant.id, 'orders.branch_id': branchId });
+        .where({ 'orders.tenant_id': req.tenant.id })
+        .whereIn('orders.branch_id', branchVariants);
 
-      // Re-apply all filters to the join query
       if (status) {
         if (status === 'Open') {
           baseWithJoin.whereNotIn('orders.status', ['Paid', 'Voided']);
@@ -1224,15 +1195,7 @@ const makeWaiterRouter = () => {
       }
 
       if (shift) {
-        if (shiftBoundaries) {
-          baseWithJoin.andWhere(function() {
-            this.where('shifts.shift_type', shift)
-              .orWhereBetween('orders.paid_at', [shiftBoundaries.sIso, shiftBoundaries.eIso])
-              .orWhereBetween('orders.created_at', [shiftBoundaries.sIso, shiftBoundaries.eIso]);
-          });
-        } else {
-          baseWithJoin.andWhere('orders.shift_id', shift);
-        }
+        baseWithJoin.andWhere('orders.shift_id', shift);
       }
 
       if (fromIso) {
@@ -1246,7 +1209,7 @@ const makeWaiterRouter = () => {
         });
       }
 
-      if (role !== 'Waiter Manager') {
+      if (!isManagerRole) {
         baseWithJoin.andWhere({ 'orders.created_by_staff_id': staffId });
       }
 
@@ -2378,25 +2341,35 @@ const makeWaiterRouter = () => {
       const staffId = String(req.auth?.staffId || '');
       if (!staffId) return res.status(401).json({ error: 'unauthorized' });
 
-      if (role === 'Waiter Manager') {
-        const staff = await db().select(['id']).from('staff').where({ tenant_id: req.tenant.id, id: staffId }).first();
-        if (!staff) return res.status(404).json({ error: 'staff_not_found' });
+      const isManagerRole = role === 'Waiter Manager' || role === 'Branch Manager' || role === 'Cafe Owner';
+
+      const logsQuery = db()
+        .from('shift_logs')
+        .leftJoin('staff', function () {
+          this.on('staff.id', '=', 'shift_logs.staff_id')
+            .andOn('staff.tenant_id', '=', 'shift_logs.tenant_id');
+        })
+        .where({ 'shift_logs.tenant_id': req.tenant.id, 'shift_logs.branch_id': branchId });
+
+      if (!isManagerRole) {
+        logsQuery.andWhere({ 'shift_logs.staff_id': staffId });
       }
 
-      const logs = await db()
-        .select(['id', 'staff_id', 'clock_in_at', 'clock_out_at'])
-        .from('shift_logs')
-        .where({ tenant_id: req.tenant.id, branch_id: branchId, staff_id: staffId })
-        .orderBy('clock_in_at', 'desc')
+      const logs = await logsQuery
+        .select([
+          'shift_logs.id',
+          'shift_logs.staff_id',
+          'shift_logs.clock_in_at',
+          'shift_logs.clock_out_at',
+          'staff.name as staff_name',
+        ])
+        .orderBy('shift_logs.clock_in_at', 'desc')
         .limit(500);
-
-      const staff = await db().select(['name']).from('staff').where({ tenant_id: req.tenant.id, id: staffId }).first();
-      const staffName = staff ? String(staff.name || '') : '';
 
       const shiftLogs = logs.map((l) => ({
         id: String(l.id),
         staffId: String(l.staff_id),
-        staffName,
+        staffName: l.staff_name ? String(l.staff_name) : 'Staff',
         clockInAt: new Date(l.clock_in_at).toISOString(),
         clockOutAt: l.clock_out_at ? new Date(l.clock_out_at).toISOString() : undefined,
       }));

@@ -25,6 +25,19 @@ const {
   getBusinessDate,
 } = require('../../services/shiftService');
 
+const toSqlDateTime = (v) => {
+  if (!v) return null;
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return null;
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const hours = String(d.getUTCHours()).padStart(2, '0');
+  const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 const isMissingTableError = (e) => {
   const code = String(e?.code || '').trim().toUpperCase();
   if (code === 'ER_NO_SUCH_TABLE') return true;
@@ -1074,7 +1087,7 @@ const makePosOrdersRouter = ({
 
         const requestedId = typeof body?.id === 'string' ? body.id.trim() : '';
         const id = requestedId || uid('ord');
-        const nowIso = new Date().toISOString();
+        const nowIso = toSqlDateTime(new Date());
 
         // Get shift info if shift management is enabled
         let shiftId = null;
@@ -1341,7 +1354,7 @@ const makePosOrdersRouter = ({
 
         if (typeof body?.status === 'string' && body.status.trim()) {
           patch.status = body.status.trim();
-          if (patch.status === 'Paid') patch.paid_at = new Date().toISOString();
+          if (patch.status === 'Paid') patch.paid_at = toSqlDateTime(new Date());
         }
 
         // If a waiter is not the creator of the order, only allow status-only updates for KDS flow.
@@ -1558,7 +1571,7 @@ const makePosOrdersRouter = ({
         // Dual-write normalized tables only when we received a payload (so we can rebuild items/splits).
         if (incomingPayload && typeof patch.payload === 'string' && patch.payload.trim()) {
           try {
-            const nowIso = new Date().toISOString();
+            const nowIso = toSqlDateTime(new Date());
             const effectiveStatus = typeof patch.status === 'string' ? String(patch.status) : beforeStatus;
             const payloadObj = safeJsonParse(patch.payload, {}) || {};
 
@@ -1624,7 +1637,7 @@ const makePosOrdersRouter = ({
         })();
         const tableId = typeof afterPayload?.tableId === 'string' ? afterPayload.tableId.trim() : '';
         if (tableId && afterStatus !== beforeStatus) {
-          await syncRestaurantTableForOrder({ tenantId: req.tenant.id, branchId, tableId, orderId: id, nextStatus: afterStatus, nowIso: new Date().toISOString() });
+          await syncRestaurantTableForOrder({ tenantId: req.tenant.id, branchId, tableId, orderId: id, nextStatus: afterStatus, nowIso: toSqlDateTime(new Date()) });
         }
 
         if (afterStatus === 'Paid') {

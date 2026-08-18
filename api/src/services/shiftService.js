@@ -11,6 +11,7 @@
 
 const { uid } = require('../utils/ids');
 const { db } = require('../db');
+const { config } = require('../config');
 
 const ShiftType = {
   DAY: 'DAY',
@@ -71,13 +72,15 @@ const getCurrentShift = async ({ tenantId, branchId }) => {
  * @returns {Promise<boolean>}
  */
 const isShiftManagementEnabled = async ({ tenantId, branchId }) => {
+  if (config && config.devBypassAuth) return true;
   const branch = await db()
     .select(['enable_shift_management'])
     .from('branches')
     .where({ id: branchId, tenant_id: tenantId })
     .first();
 
-  return branch?.enable_shift_management === 1 || branch?.enable_shift_management === true;
+  if (!branch) return true;
+  return branch.enable_shift_management !== 0 && branch.enable_shift_management !== false;
 };
 
 /**
@@ -267,10 +270,19 @@ const calculateExpectedCash = async ({ shiftId }) => {
     .whereRaw("LOWER(method) = 'cash'")
     .first();
 
+  // Sum all tips to be distributed to staff
+  const tipsRow = await db()
+    .sum('tip as total')
+    .from('orders')
+    .where({ shift_id: shiftId, status: 'Paid' })
+    .first();
+
   const openingCash = Number(shift.opening_cash_etb || 0);
   const cashReceived = Number(cashPayments?.total || 0);
+  const totalTips = Number(tipsRow?.total || 0);
 
-  return openingCash + cashReceived;
+  // Expected drawer cash = starting float + cash received - staff tips paid out
+  return Math.max(0, openingCash + cashReceived - totalTips);
 };
 
 /**
@@ -288,11 +300,11 @@ const updateShiftMetrics = async ({ trx, shiftId, orderData }) => {
     .select(['*'])
     .from('shifts')
     .where({ id: shiftId });
-    
+
   if (trx) {
     shiftQuery = shiftQuery.forUpdate();
   }
-  
+
   const shift = await shiftQuery.first();
 
   if (!shift || shift.status !== ShiftStatus.OPEN) {
@@ -393,11 +405,13 @@ const getShiftReport = async ({ shiftId }) => {
   const voidedOrders = orders.filter((o) => o.status === 'Voided');
   const refundedOrders = orders.filter((o) => o.status === 'Refunded');
 
+  const grossSales = paidOrders.reduce((sum, o) => sum + Number(o.subtotal || (Number(o.total || 0) - Number(o.tax || 0) - Number(o.tip || 0) - Number(o.takeaway_fee || 0) + Number(o.discount || 0)) || 0), 0);
+  const totalDiscounts = paidOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
   const totalSales = paidOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
   const totalTax = paidOrders.reduce((sum, o) => sum + Number(o.tax || 0), 0);
   const totalTips = paidOrders.reduce((sum, o) => sum + Number(o.tip || 0), 0);
   const totalTakeaway = paidOrders.reduce((sum, o) => sum + Number(o.takeaway_fee || 0), 0);
-  const totalDiscounts = paidOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
+  const netSales = Math.max(0, grossSales - totalDiscounts);
 
   // Get staff performance breakdown
   const staffPerformance = await db()
@@ -609,7 +623,7 @@ const validateShiftClose = async ({ shiftId }) => {
 
   // Get orders summary
   const orders = await db()
-    .select(['id', 'status', 'total', 'tax', 'tip', 'discount', 'takeaway_fee'])
+    .select(['id', 'status', 'subtotal', 'total', 'tax', 'tip', 'discount', 'takeaway_fee'])
     .from('orders')
     .where({ shift_id: shiftId });
 
@@ -617,11 +631,16 @@ const validateShiftClose = async ({ shiftId }) => {
   const voidedOrders = orders.filter((o) => o.status === 'Voided');
   const refundedOrders = orders.filter((o) => o.status === 'Refunded');
 
+  const grossSales = paidOrders.reduce((sum, o) => sum + Number(o.subtotal || (Number(o.total || 0) - Number(o.tax || 0) - Number(o.tip || 0) - Number(o.takeaway_fee || 0) + Number(o.discount || 0)) || 0), 0);
+  const totalDiscounts = paidOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
   const totalSales = paidOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
   const totalTax = paidOrders.reduce((sum, o) => sum + Number(o.tax || 0), 0);
   const totalTips = paidOrders.reduce((sum, o) => sum + Number(o.tip || 0), 0);
   const totalTakeaway = paidOrders.reduce((sum, o) => sum + Number(o.takeaway_fee || 0), 0);
-  const totalDiscounts = paidOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
+
+  // Net sales = gross product sales minus discounts
+  const netSales = Math.max(0, grossSales - totalDiscounts);
+  const totalCollection = totalSales;
 
   const takeawayBreakdown = {};
   for (const o of paidOrders) {
@@ -629,7 +648,7 @@ const validateShiftClose = async ({ shiftId }) => {
     if (fee > 0) {
       const orderPayments = payments.filter(p => p.order_id === o.id);
       const totalPaid = orderPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-      
+
       // If there are no payments but a fee exists (should be rare), attribute to 'other'
       if (orderPayments.length === 0) {
         takeawayBreakdown['other'] = (takeawayBreakdown['other'] || 0) + fee;
@@ -640,6 +659,14 @@ const validateShiftClose = async ({ shiftId }) => {
           takeawayBreakdown[key] = (takeawayBreakdown[key] || 0) + (fee * weight);
         }
       }
+    }
+  }
+
+  // If historical payments were recorded without takeaway fee, merge takeaway breakdown to ensure sum equals totalCollection
+  const paymentsSum = Object.values(paymentBreakdown).reduce((sum, v) => sum + Number(v || 0), 0);
+  if (Math.abs(paymentsSum - totalCollection) > 0.01 && Object.keys(takeawayBreakdown).length > 0) {
+    for (const [method, fee] of Object.entries(takeawayBreakdown)) {
+      paymentBreakdown[method] = (paymentBreakdown[method] || 0) + Number(fee || 0);
     }
   }
 
@@ -668,15 +695,14 @@ const validateShiftClose = async ({ shiftId }) => {
         paidOrders: paidOrders.length,
         voidedOrders: voidedOrders.length,
         refundedOrders: refundedOrders.length,
+        grossSales,
         totalSales,
         totalTax,
         totalTips,
         totalTakeaway,
         totalDiscounts,
-        // Net sales = gross minus tax, tips, and discounts
-        netSales: totalSales - totalTax - totalTips - totalDiscounts,
-        // Total collection usually means total sales in this context (including tips/tax) minus discounts
-        totalCollection: totalSales,
+        netSales,
+        totalCollection,
       },
       paymentBreakdown,
       takeawayBreakdown,
@@ -726,12 +752,12 @@ const logShiftAudit = async ({ tenantId, branchId, shiftId, action, actorStaffId
 
 const getBusinessDate = (date) => {
   const d = new Date(date);
-  
+
   // Ethiopian time is UTC+3. Explicitly construct an EAT-shifted epoch to reliably 
   // extract the local hour without relying on the physical server's timezone
   const eatMs = d.getTime() + (3 * 60 * 60 * 1000);
   const eatDate = new Date(eatMs);
-  
+
   const hour = eatDate.getUTCHours();
 
   // Business day starts at 07:00 (7 AM) EAT.

@@ -1,11 +1,42 @@
 const knexLib = require('knex');
 const { logger } = require('./utils/logger');
 
+const ISO_DATETIME_REGEX = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})(?:\.\d+)?Z?$/;
+const sanitizeBinding = (val) => {
+  if (typeof val === 'string') {
+    const match = val.match(ISO_DATETIME_REGEX);
+    if (match) {
+      return `${match[1]} ${match[2]}`;
+    }
+  }
+  return val;
+};
+
 const makeKnex = () => {
   const env = process.env.NODE_ENV === 'production' ? 'production' : 'development';
   // eslint-disable-next-line global-require
   const knexfile = require('../knexfile');
   const knex = knexLib(knexfile[env]);
+
+  const ClientClass = knex.client.constructor;
+  if (ClientClass && ClientClass.prototype && !ClientClass.prototype._sanitizerInstalled) {
+    ClientClass.prototype._sanitizerInstalled = true;
+    const origPrototypeQuery = ClientClass.prototype._query;
+    ClientClass.prototype._query = function (connection, obj) {
+      if (obj && Array.isArray(obj.bindings)) {
+        obj.bindings = obj.bindings.map(sanitizeBinding);
+      }
+      return origPrototypeQuery.call(this, connection, obj);
+    };
+  }
+
+  const origQuery = knex.client.query.bind(knex.client);
+  knex.client.query = function (connection, obj) {
+    if (obj && Array.isArray(obj.bindings)) {
+      obj.bindings = obj.bindings.map(sanitizeBinding);
+    }
+    return origQuery(connection, obj);
+  };
 
   const slowQueryMs = () => Number(process.env.SLOW_QUERY_MS || 0) || 0;
   const queryStarts = new Map();
