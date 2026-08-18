@@ -710,7 +710,7 @@ const makeWaiterRouter = () => {
         db().raw('COALESCE(SUM(COALESCE(o.tax, 0)), 0) as tax_etb'),
         db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as tips_etb'),
         db().raw('COALESCE(SUM(COALESCE(o.total, 0)), 0) as total_collected_etb'),
-        db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as net_sales_etb'),
+        db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0) as net_sales_etb'),
         db().raw('COALESCE(AVG(COALESCE(o.total, 0)), 0) as avg_order_value'),
       ])
       .first();
@@ -738,11 +738,11 @@ const makeWaiterRouter = () => {
         db().raw("COALESCE(NULLIF(TRIM(o.created_by_staff_id), ''), 'unknown') as staff_id"),
         db().raw("COALESCE(NULLIF(TRIM(o.created_by_name), ''), 'Unknown') as staff_name"),
         db().raw('COUNT(*) as order_count'),
-        db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as total_sales'),
+        db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0) as total_sales'),
         db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as total_tips'),
       ])
       .groupBy('staff_id', 'staff_name')
-      .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0)'), 'desc');
+      .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0)'), 'desc');
 
     // Shift breakdown - aggregate sales by shift for the day
     const shiftSales = await db()
@@ -760,7 +760,7 @@ const makeWaiterRouter = () => {
         db().raw('MIN(s.opened_at) as opened_at'),
         db().raw('MAX(s.closed_at) as closed_at'),
         db().raw('COUNT(o.id) as order_count'),
-        db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as total'),
+        db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0) as total'),
       ])
       .groupBy('s.shift_type')
       .orderBy('s.shift_type');
@@ -864,12 +864,12 @@ const makeWaiterRouter = () => {
           db().raw("COALESCE(NULLIF(TRIM(o.created_by_staff_id), ''), 'unknown') as staff_id"),
           db().raw("COALESCE(NULLIF(TRIM(o.created_by_name), ''), 'Unknown') as staff_name"),
           db().raw('COUNT(*) as order_count'),
-          db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as total_sales'),
+          db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0) as total_sales'),
           db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as total_tips'),
         ])
         .groupBy('shift_type', 'staff_id', 'staff_name')
         .orderBy('shift_type')
-        .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0'), 'desc');
+        .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0'), 'desc');
     } catch (err) {
       console.error('staffByShift query failed:', err.message);
       staffByShiftRaw = [];
@@ -892,17 +892,19 @@ const makeWaiterRouter = () => {
       .from({ o: 'orders' })
       .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
       .andWhere((qb) => applyDateFilter(qb, 'o'))
-      .select(['o.created_at', 'o.total', 'o.tax', 'o.tip', 'o.payload']);
+      .select(['o.created_at', 'o.total', 'o.tax', 'o.tip', 'o.takeaway_fee', 'o.payload']);
       
     const hourlyBreakdownMap = {};
     let takeawayFeeTotal = 0;
     for (const ord of hourlyOrdersRaw) {
-      if (ord.payload) {
+      let ordTakeaway = Number(ord.takeaway_fee || 0);
+      if (!ordTakeaway && ord.payload) {
         try {
           const p = typeof ord.payload === 'string' ? JSON.parse(ord.payload) : ord.payload;
-          takeawayFeeTotal += Number(p.takeawayFee || 0);
+          ordTakeaway = Number(p.takeawayFee || 0);
         } catch {}
       }
+      takeawayFeeTotal += ordTakeaway;
       if (!ord.created_at) continue;
       const dt = new Date(ord.created_at);
       if (isNaN(dt.getTime())) continue;
@@ -913,20 +915,19 @@ const makeWaiterRouter = () => {
         hourlyBreakdownMap[label] = { hour: label, orders: 0, sales: 0 };
       }
       hourlyBreakdownMap[label].orders += 1;
-      const net = (Number(ord.total) || 0) - (Number(ord.tax) || 0) - (Number(ord.tip) || 0);
+      const net = (Number(ord.total) || 0) - (Number(ord.tax) || 0) - (Number(ord.tip) || 0) - ordTakeaway;
       hourlyBreakdownMap[label].sales += Math.max(0, net);
     }
     const hourlySales = Object.values(hourlyBreakdownMap).sort((a, b) => a.hour.localeCompare(b.hour));
-
 
     const orderCount = Number(orderAgg?.order_count || 0) || 0;
     const discounts = Number(orderAgg?.discounts_etb || 0) || 0;
     const tax = Number(orderAgg?.tax_etb || 0) || 0;
     const tips = Number(orderAgg?.tips_etb || 0) || 0;
     const totalCollected = Number(orderAgg?.total_collected_etb || 0) || 0;
-    const netSales = Math.max(0, (Number(orderAgg?.net_sales_etb || 0) || 0) - takeawayFeeTotal);
+    const netSales = Number(orderAgg?.net_sales_etb || 0) || 0;
     const grossSales = netSales + discounts;
-    const avgOrderValue = Number(orderAgg?.avg_order_value || 0) || 0;
+    const avgOrderValue = orderCount > 0 ? (netSales / orderCount) : 0;
 
     // Format payment methods
     const paymentBreakdown = paymentMethods.map((p) => ({

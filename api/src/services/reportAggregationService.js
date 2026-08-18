@@ -1021,7 +1021,7 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate, mode
                 db().raw('COALESCE(SUM(COALESCE(o.tax, 0)), 0) as tax_etb'),
                 db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as tips_etb'),
                 db().raw('COALESCE(SUM(COALESCE(o.total, 0)), 0) as total_collected_etb'),
-                db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as net_sales_etb'),
+                db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0) as net_sales_etb'),
             ]);
         orderAgg = row ? [row] : [];
     } else {
@@ -1034,7 +1034,7 @@ const getDailySalesSummary = async ({ tenantId, branchId, fromDate, toDate, mode
                 db().raw('COALESCE(SUM(COALESCE(o.tax, 0)), 0) as tax_etb'),
                 db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as tips_etb'),
                 db().raw('COALESCE(SUM(COALESCE(o.total, 0)), 0) as total_collected_etb'),
-                db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as net_sales_etb'),
+                db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0) as net_sales_etb'),
             ])
             .groupBy(['report_date', 'o.branch_id'])
             .orderBy([{ column: db().raw('report_date'), order: 'asc' }, { column: 'o.branch_id', order: 'asc' }]);

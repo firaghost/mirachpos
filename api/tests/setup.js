@@ -287,6 +287,11 @@ const buildQuery = (initialCtx) => {
             out = out.filter((r) => allowed.has(String(r?.[normalizeCol(ctx.whereIn.col)] ?? '')));
         }
 
+        if (ctx.whereNotIn && ctx.whereNotIn.col && Array.isArray(ctx.whereNotIn.values)) {
+            const forbidden = new Set(ctx.whereNotIn.values.map((v) => String(v ?? '')));
+            out = out.filter((r) => !forbidden.has(String(r?.[normalizeCol(ctx.whereNotIn.col)] ?? '')));
+        }
+
         if (Array.isArray(ctx.whereBetween) && ctx.whereBetween.length) {
             out = out.filter((r) => {
                 return ctx.whereBetween.every((b) => {
@@ -439,7 +444,10 @@ const buildQuery = (initialCtx) => {
             for (const v of arr) addCriteria(c, v);
             return q;
         }),
-        whereNotIn: jest.fn(() => q),
+        whereNotIn: jest.fn((col, values) => {
+            ctx.whereNotIn = { col: normalizeCol(col), values: Array.isArray(values) ? values : [] };
+            return q;
+        }),
         whereNotNull: jest.fn(() => q),
         whereBetween: jest.fn((col, range) => {
             const arr = Array.isArray(range) ? range : [];
@@ -518,7 +526,12 @@ const buildQuery = (initialCtx) => {
             return q;
         }),
         sum: jest.fn((obj) => {
-            if (obj && typeof obj === 'object') {
+            if (typeof obj === 'string') {
+                const parts = obj.split(/\s+as\s+/i);
+                const col = parts[0];
+                const alias = parts[1] || 'sum';
+                ctx.sum = { alias: String(alias).trim(), col: normalizeCol(col.trim()) };
+            } else if (obj && typeof obj === 'object') {
                 const entries = Object.entries(obj);
                 if (entries.length) {
                     const [alias, col] = entries[0];

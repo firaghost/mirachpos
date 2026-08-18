@@ -52,7 +52,7 @@ const getCurrentShift = async ({ tenantId, branchId }) => {
   // Calculate actual metrics from orders for this shift
   const orderStats = await db()
     .count('id as order_count')
-    .sum({ net_sales: db().raw('GREATEST(0, COALESCE(total, 0) - COALESCE(tax, 0) - COALESCE(tip, 0))') })
+    .sum({ net_sales: db().raw('GREATEST(0, COALESCE(total, 0) - COALESCE(tax, 0) - COALESCE(tip, 0) - COALESCE(takeaway_fee, 0))') })
     .from('orders')
     .where({ shift_id: shift.id, status: 'Paid' })
     .first();
@@ -267,22 +267,23 @@ const calculateExpectedCash = async ({ shiftId }) => {
     .sum('amount as total')
     .from('order_payments')
     .where({ shift_id: shiftId })
-    .whereRaw("LOWER(method) = 'cash'")
+    .whereIn('method', ['cash', 'Cash', 'CASH'])
     .first();
 
-  // Sum all tips to be distributed to staff
-  const tipsRow = await db()
+  // Sum only tips from orders where payment method is cash (only cash tips leave the physical drawer)
+  const cashTipsRow = await db()
     .sum('tip as total')
     .from('orders')
     .where({ shift_id: shiftId, status: 'Paid' })
+    .whereIn('payment_method', ['cash', 'Cash', 'CASH'])
     .first();
 
   const openingCash = Number(shift.opening_cash_etb || 0);
   const cashReceived = Number(cashPayments?.total || 0);
-  const totalTips = Number(tipsRow?.total || 0);
+  const cashTips = Number(cashTipsRow?.total || 0);
 
-  // Expected drawer cash = starting float + cash received - staff tips paid out
-  return Math.max(0, openingCash + cashReceived - totalTips);
+  // Expected drawer cash = starting float + cash received - staff cash tips paid out
+  return openingCash + cashReceived - cashTips;
 };
 
 /**
@@ -421,11 +422,11 @@ const getShiftReport = async ({ shiftId }) => {
       db().raw("COALESCE(NULLIF(TRIM(o.created_by_staff_id), ''), 'unknown') as staff_id"),
       db().raw("COALESCE(NULLIF(TRIM(o.created_by_name), ''), 'Unknown') as staff_name"),
       db().raw('COUNT(*) as order_count'),
-      db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as total_sales'),
+      db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0) as total_sales'),
       db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as total_tips'),
     ])
     .groupBy('staff_id', 'staff_name')
-    .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0)'), 'desc');
+    .orderBy(db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0) - COALESCE(o.takeaway_fee, 0))), 0)'), 'desc');
 
   // Get product sales breakdown
   const productSales = await db()
@@ -597,8 +598,6 @@ const validateShiftClose = async ({ shiftId }) => {
     };
   }
 
-  const expectedCash = await calculateExpectedCash({ shiftId });
-
   // NOTE: order_payments has no 'status' column, do NOT filter by status.
   const payments = await db()
     .select(['method', 'amount', 'order_id'])
@@ -612,24 +611,35 @@ const validateShiftClose = async ({ shiftId }) => {
   }
 
   // Calculate cash received specifically (for expected cash calculation).
-  // NOTE: order_payments has no 'status' column.
-  const cashPaymentsRow = await db()
-    .sum('amount as total')
-    .from('order_payments')
-    .where({ shift_id: shiftId })
-    .whereRaw("LOWER(method) = 'cash'")
-    .first();
-  const cashReceived = Number(cashPaymentsRow?.total || 0);
+  const cashReceived = paymentBreakdown['cash'] || 0;
 
   // Get orders summary
   const orders = await db()
-    .select(['id', 'status', 'subtotal', 'total', 'tax', 'tip', 'discount', 'takeaway_fee'])
+    .select([
+      'id',
+      'status',
+      'total',
+      'tax',
+      'tip',
+      'discount',
+      'takeaway_fee',
+      'payment_method',
+      'created_by_staff_id',
+      'created_by_name',
+      'payload',
+    ])
     .from('orders')
     .where({ shift_id: shiftId });
 
   const paidOrders = orders.filter((o) => o.status === 'Paid');
   const voidedOrders = orders.filter((o) => o.status === 'Voided');
   const refundedOrders = orders.filter((o) => o.status === 'Refunded');
+
+  const cashTips = paidOrders
+    .filter((o) => String(o.payment_method || '').toLowerCase().trim() === 'cash')
+    .reduce((sum, o) => sum + Number(o.tip || 0), 0);
+  const openingCash = Number(shift.opening_cash_etb || 0);
+  const expectedCash = openingCash + cashReceived - cashTips;
 
   const grossSales = paidOrders.reduce((sum, o) => sum + Number(o.subtotal || (Number(o.total || 0) - Number(o.tax || 0) - Number(o.tip || 0) - Number(o.takeaway_fee || 0) + Number(o.discount || 0)) || 0), 0);
   const totalDiscounts = paidOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
@@ -642,47 +652,50 @@ const validateShiftClose = async ({ shiftId }) => {
   const netSales = Math.max(0, grossSales - totalDiscounts);
   const totalCollection = totalSales;
 
-  const takeawayBreakdown = {};
-  for (const o of paidOrders) {
-    const fee = Number(o.takeaway_fee || 0);
-    if (fee > 0) {
-      const orderPayments = payments.filter(p => p.order_id === o.id);
-      const totalPaid = orderPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-      // If there are no payments but a fee exists (should be rare), attribute to 'other'
-      if (orderPayments.length === 0) {
-        takeawayBreakdown['other'] = (takeawayBreakdown['other'] || 0) + fee;
-      } else {
-        for (const p of orderPayments) {
-          const key = String(p.method || 'Other').toLowerCase().replace(/\s+/g, '_');
-          const weight = totalPaid > 0 ? (Number(p.amount || 0) / totalPaid) : 0;
-          takeawayBreakdown[key] = (takeawayBreakdown[key] || 0) + (fee * weight);
-        }
+  // Look up staff names from staff table if needed
+  const staffIds = Array.from(new Set(paidOrders.map(o => o.created_by_staff_id).filter(Boolean)));
+  const staffNameMap = new Map();
+  if (staffIds.length > 0) {
+    try {
+      const staffRows = await db()
+        .select(['id', 'name'])
+        .from('staff')
+        .whereIn('id', staffIds);
+      for (const s of staffRows) {
+        if (s.id && s.name) staffNameMap.set(s.id, s.name);
       }
-    }
-  }
-
-  // If historical payments were recorded without takeaway fee, merge takeaway breakdown to ensure sum equals totalCollection
-  const paymentsSum = Object.values(paymentBreakdown).reduce((sum, v) => sum + Number(v || 0), 0);
-  if (Math.abs(paymentsSum - totalCollection) > 0.01 && Object.keys(takeawayBreakdown).length > 0) {
-    for (const [method, fee] of Object.entries(takeawayBreakdown)) {
-      paymentBreakdown[method] = (paymentBreakdown[method] || 0) + Number(fee || 0);
-    }
+    } catch {}
   }
 
   // Get staff performance with tips
-  const staffPerformance = await db()
-    .from({ o: 'orders' })
-    .where({ 'o.shift_id': shiftId, 'o.status': 'Paid' })
-    .select([
-      db().raw("COALESCE(NULLIF(TRIM(o.created_by_staff_id), ''), 'unknown') as staff_id"),
-      db().raw("COALESCE(NULLIF(TRIM(o.created_by_name), ''), 'Unknown') as staff_name"),
-      db().raw('COUNT(*) as order_count'),
-      db().raw('COALESCE(SUM(GREATEST(0, COALESCE(o.total, 0) - COALESCE(o.tax, 0) - COALESCE(o.tip, 0))), 0) as total_sales'),
-      db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0) as total_tips'),
-    ])
-    .groupBy('staff_id', 'staff_name')
-    .orderBy(db().raw('COALESCE(SUM(COALESCE(o.tip, 0)), 0)'), 'desc');
+  const byStaff = new Map();
+  for (const o of paidOrders) {
+    let sid = String(o.created_by_staff_id || '').trim();
+    let sname = String(o.created_by_name || '').trim();
+    if (!sid || sid === 'unknown') {
+      try {
+        const p = typeof o.payload === 'string' ? JSON.parse(o.payload) : o.payload;
+        sid = String(p?.createdByStaffId || p?.created_by_staff_id || '').trim();
+        sname = sname || String(p?.createdByName || p?.created_by_name || '').trim();
+      } catch {}
+    }
+    if ((!sname || sname === 'Unknown') && staffNameMap.has(sid)) {
+      sname = staffNameMap.get(sid);
+    }
+    sid = sid || 'unknown';
+    sname = sname || (sid === 'unknown' ? 'Unknown' : 'Staff');
+
+    const cur = byStaff.get(sid) || { staffId: sid, staffName: sname, orderCount: 0, totalSales: 0, totalTips: 0 };
+    cur.orderCount += 1;
+    const net = Math.max(0, Number(o.total || 0) - Number(o.tax || 0) - Number(o.tip || 0) - Number(o.takeaway_fee || 0));
+    cur.totalSales += net;
+    cur.totalTips += Number(o.tip || 0);
+    if ((!cur.staffName || cur.staffName === 'Unknown') && sname && sname !== 'Unknown') {
+      cur.staffName = sname;
+    }
+    byStaff.set(sid, cur);
+  }
+  const staffTips = Array.from(byStaff.values()).filter(s => s.totalTips > 0).sort((a, b) => b.totalTips - a.totalTips);
 
   return {
     canClose: true,
@@ -705,17 +718,11 @@ const validateShiftClose = async ({ shiftId }) => {
         totalCollection,
       },
       paymentBreakdown,
-      takeawayBreakdown,
-      openingCash: Number(shift.opening_cash_etb || 0),
+      openingCash,
       cashReceived,
+      cashTips,
       expectedCash,
-      staffTips: staffPerformance.map(s => ({
-        staffId: s.staff_id,
-        staffName: s.staff_name,
-        orderCount: Number(s.order_count || 0),
-        totalSales: Number(s.total_sales || 0),
-        totalTips: Number(s.total_tips || 0),
-      })).filter(s => s.totalTips > 0),
+      staffTips,
     },
   };
 };

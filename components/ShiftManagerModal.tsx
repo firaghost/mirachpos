@@ -75,9 +75,9 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
         totalCollection?: number;
       };
       paymentBreakdown: Record<string, number>;
-      takeawayBreakdown?: Record<string, number>;
       openingCash: number;
       cashReceived: number;
+      cashTips?: number;
       expectedCash: number;
       staffTips?: Array<{
         staffId: string;
@@ -564,19 +564,18 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                       <div className="space-y-1 text-xs">
                         {(() => {
                           const paymentBreakdown = closePreview.breakdowns.paymentBreakdown || {};
-                          const takeawayBreakdown = closePreview.breakdowns.takeawayBreakdown || {};
-                          const allMethods = Array.from(new Set([...Object.keys(paymentBreakdown), ...Object.keys(takeawayBreakdown)]));
+                          const allMethods = Object.keys(paymentBreakdown);
                           if (allMethods.length === 0) {
                             return <p className="text-muted-foreground">No payment data available</p>;
                           }
                           const reconciledTotal = allMethods.reduce(
-                            (runningTotal, method) => runningTotal + (Number(paymentBreakdown[method] || 0)) + (Number(takeawayBreakdown[method] || 0)),
+                            (runningTotal, method) => runningTotal + Number(paymentBreakdown[method] || 0),
                             0
                           );
                           return (
                             <>
                               {allMethods.map((method) => {
-                                const collectedAmount = (Number(paymentBreakdown[method] || 0)) + (Number(takeawayBreakdown[method] || 0));
+                                const collectedAmount = Number(paymentBreakdown[method] || 0);
                                 return (
                                   <div key={method} className="flex justify-between">
                                     <span className="text-muted-foreground capitalize">{method.replace(/_/g, ' ')}</span>
@@ -606,10 +605,10 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
                           <span className="text-muted-foreground">(+) Cash Collected</span>
                           <span className="font-medium">ETB {(closePreview.breakdowns.cashReceived ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
-                        {(closePreview.breakdowns.summary.totalTips ?? 0) > 0 && (
+                        {(closePreview.breakdowns.cashTips ?? 0) > 0 && (
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">(-) Tips Paid to Staff</span>
-                            <span className="font-medium text-red-600">-ETB {(closePreview.breakdowns.summary.totalTips ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <span className="text-muted-foreground">(-) Tips Paid to Staff (Cash Only)</span>
+                            <span className="font-medium text-red-600">-ETB {(closePreview.breakdowns.cashTips ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                           </div>
                         )}
                         <div className="flex justify-between border-t pt-1 font-semibold">
