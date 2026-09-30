@@ -161,12 +161,13 @@ const buildOwnerReportWorkbook = async ({
   addTable(dailySheet, dailyCols.map((c) => ({ header: c.header, key: c.key })), dailyRows);
 
   const productsSheet = wb.addWorksheet('Products');
-  addMetaBlock(productsSheet, businessName, 'Product Performance', from || fromDate, to || toDate, 9);
+  addMetaBlock(productsSheet, businessName, 'Product Performance', from || fromDate, to || toDate, 10);
   const productCols = [
     { header: 'Product ID', key: 'productId', width: 18 },
     { header: 'Name', key: 'name', width: 32 },
     { header: 'Category', key: 'category', width: 20 },
     { header: 'Qty Sold', key: 'qtySold', width: 12 },
+    { header: 'Payment Breakdown', key: 'paymentBreakdown', width: 30 },
     { header: 'Unit Price', key: 'unitPrice', width: 14, style: { numFmt: '#,##0.00' } },
     { header: 'Revenue', key: 'revenue', width: 14, style: { numFmt: '#,##0.00' } },
     { header: 'Cost', key: 'cost', width: 14, style: { numFmt: '#,##0.00' } },
@@ -180,6 +181,7 @@ const buildOwnerReportWorkbook = async ({
     name: String(r?.name || ''),
     category: String(r?.category || ''),
     qtySold: asNumber(r?.qtySold),
+    paymentBreakdown: r?.paymentBreakdown ? Object.entries(r.paymentBreakdown).map(([k, v]) => `${k}: ${v}x`).join(', ') : '',
     unitPrice: asNumber(r?.qtySold) > 0 ? asNumber(r?.revenue) / asNumber(r?.qtySold) : 0,
     revenue: asNumber(r?.revenue),
     cost: asNumber(r?.cost),

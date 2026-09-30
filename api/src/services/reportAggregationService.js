@@ -1207,24 +1207,60 @@ const getProductPerformance = async ({ tenantId, branchId, fromDate, toDate, lim
             db().raw("COALESCE(NULLIF(TRIM(oi.product_id), ''), NULLIF(TRIM(oi.product_code), ''), TRIM(oi.name)) as product_id"),
             db().raw("COALESCE(NULLIF(TRIM(p.name), ''), TRIM(oi.name)) as product_name"),
             db().raw("COALESCE(NULLIF(TRIM(p.category), ''), NULLIF(TRIM(oi.product_code), ''), '') as category"),
+            'o.payload',
+            'o.id as order_id',
             db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0))) as qty_sold'),
             db().raw('SUM(GREATEST(0, COALESCE(oi.voided_qty, 0))) as void_qty'),
             db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) * COALESCE(oi.unit_price, 0)) as revenue_etb'),
         ])
-        .groupBy(['product_id', 'product_name', 'category'])
-        .orderBy(db().raw('SUM(GREATEST(0, COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) * COALESCE(oi.unit_price, 0))'), 'desc')
-        .limit(Math.max(1, Math.min(5000, Number(limit || 100) || 100)));
+        .groupBy(['o.id', 'product_id', 'product_name', 'category', 'o.payload']);
 
-    const rows = baseRows.map((r) => ({
-        productId: String(r.product_id || '').trim(),
-        name: String(r.product_name || r.product_id || '').trim(),
-        category: String(r.category || 'Uncategorized').trim() || 'Uncategorized',
-        qtySold: Number(r.qty_sold || 0) || 0,
-        revenue: Number(r.revenue_etb || 0) || 0,
-        cost: 0,
-        profit: 0,
-        voidQty: Number(r.void_qty || 0) || 0,
-    }));
+    const productMap = new Map();
+    for (const r of baseRows) {
+        const productId = String(r.product_id || '').trim();
+        const existing = productMap.get(productId);
+        
+        const qtySold = Number(r.qty_sold || 0) || 0;
+        const revenue = Number(r.revenue_etb || 0) || 0;
+        const voidQty = Number(r.void_qty || 0) || 0;
+        
+        let payloadObj = {};
+        try {
+            payloadObj = typeof r.payload === 'string' ? JSON.parse(r.payload) : (r.payload || {});
+        } catch(e) {}
+        
+        let paymentMethod = String(payloadObj.paymentMethod || payloadObj.method || payloadObj.tender || 'other').trim().toLowerCase();
+        if (paymentMethod === 'null' || paymentMethod === '') paymentMethod = 'other';
+
+        if (existing) {
+            existing.qtySold += qtySold;
+            existing.revenue += revenue;
+            existing.voidQty += voidQty;
+            if (qtySold > 0) {
+                existing.paymentBreakdown[paymentMethod] = (existing.paymentBreakdown[paymentMethod] || 0) + qtySold;
+            }
+        } else {
+            const breakdown = {};
+            if (qtySold > 0) {
+                breakdown[paymentMethod] = qtySold;
+            }
+            productMap.set(productId, {
+                productId,
+                name: String(r.product_name || r.product_id || '').trim(),
+                category: String(r.category || 'Uncategorized').trim() || 'Uncategorized',
+                qtySold,
+                revenue,
+                cost: 0,
+                profit: 0,
+                voidQty,
+                paymentBreakdown: breakdown,
+            });
+        }
+    }
+
+    let rows = Array.from(productMap.values());
+    rows.sort((a, b) => b.revenue - a.revenue);
+    rows = rows.slice(0, Math.max(1, Math.min(5000, Number(limit || 100) || 100)));
 
     const recipeIds = rows.map((r) => r.productId).filter(Boolean);
     if (recipeIds.length) {

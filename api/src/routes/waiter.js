@@ -800,6 +800,8 @@ const makeWaiterRouter = () => {
       .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
       .andWhere((qb) => applyDateFilter(qb, 'o'))
       .select([
+        'o.payload',
+        'o.id as order_id',
         db().raw('COALESCE(NULLIF(TRIM(oi.name), \'\'), \'Unknown\') as product_name'),
         db().raw('COALESCE(NULLIF(TRIM(p.category), \'\'), \'Uncategorized\') as category'),
         db().raw('SUM(COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) as qty_sold'),
@@ -808,7 +810,7 @@ const makeWaiterRouter = () => {
         db().raw('COALESCE(oi.product_id, \'\') as product_id'),
         db().raw('SUM(COALESCE(oi.voided_qty, 0)) as void_qty'),
       ])
-      .groupBy('product_name', 'category', 'oi.product_id');
+      .groupBy('o.id', 'o.payload', 'product_name', 'category', 'oi.product_id');
 
     // Products by Shift - DAY vs NIGHT breakdown
     // LEFT JOIN shifts so orders with no shift_id (unlinked) are still captured as 'ALL'
@@ -834,6 +836,8 @@ const makeWaiterRouter = () => {
         .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
         .andWhere((qb) => applyDateFilter(qb, 'o'))  // respects hour filter
         .select([
+          'o.payload',
+          'o.id as order_id',
           db().raw("COALESCE(NULLIF(TRIM(s.shift_type), ''), 'ALL') as shift_type"),
           db().raw('COALESCE(NULLIF(TRIM(oi.name), \'\'), \'Unknown\') as product_name'),
           db().raw('COALESCE(NULLIF(TRIM(p.category), \'\'), \'Uncategorized\') as category'),
@@ -841,7 +845,7 @@ const makeWaiterRouter = () => {
           db().raw('SUM((COALESCE(oi.qty, 0) - COALESCE(oi.voided_qty, 0)) * COALESCE(oi.unit_price, 0)) as revenue_etb'),
           db().raw('COALESCE(oi.product_id, \'\') as product_id'),
         ])
-        .groupBy('shift_type', 'product_name', 'category', 'oi.product_id');
+        .groupBy('o.id', 'o.payload', 'shift_type', 'product_name', 'category', 'oi.product_id');
     } catch (err) {
       console.error('productsByShift query failed:', err.message);
       productsByShiftRaw = [];
@@ -875,15 +879,43 @@ const makeWaiterRouter = () => {
       staffByShiftRaw = [];
     }
 
-    const rows = productRowsRaw
-      .map((r) => ({
-        productId: String(r.product_id || ''),
-        name: String(r.product_name || ''),
-        category: String(r.category || 'Uncategorized'),
-        qtySold: Number(r.qty_sold || 0),
-        revenue: Number(r.revenue_etb || 0),
-        voidQty: Number(r.void_qty || 0),
-      }))
+    const productMap = new Map();
+    for (const r of productRowsRaw) {
+      const productId = String(r.product_id || '').trim();
+      
+      const qtySold = Number(r.qty_sold || 0);
+      const revenue = Number(r.revenue_etb || 0);
+      const voidQty = Number(r.void_qty || 0);
+      
+      let payloadObj = {};
+      try {
+          payloadObj = typeof r.payload === 'string' ? JSON.parse(r.payload) : (r.payload || {});
+      } catch(e) {}
+      
+      let paymentMethodRaw = String(payloadObj.paymentMethod || payloadObj.method || payloadObj.tender || 'Other').trim();
+      if (paymentMethodRaw.toLowerCase() === 'null' || paymentMethodRaw === '') paymentMethodRaw = 'Other';
+      
+      const mapKey = `${productId}_${paymentMethodRaw}`;
+      const existing = productMap.get(mapKey);
+
+      if (existing) {
+          existing.qtySold += qtySold;
+          existing.revenue += revenue;
+          existing.voidQty += voidQty;
+      } else {
+          productMap.set(mapKey, {
+              productId,
+              name: String(r.product_name || ''),
+              category: String(r.category || 'Uncategorized'),
+              paymentMethod: paymentMethodRaw,
+              qtySold,
+              revenue,
+              voidQty,
+          });
+      }
+    }
+
+    const rows = Array.from(productMap.values())
       .filter((r) => r.qtySold > 0)
       .sort((a, b) => b.revenue - a.revenue);
 
@@ -957,15 +989,44 @@ const makeWaiterRouter = () => {
       total: Number(s.total || 0),
     }));
 
-    // Format products by shift
-    const productsByShift = (productsByShiftRaw || []).map((r) => ({
-      shiftType: String(r.shift_type || ''),
-      productId: String(r.product_id || ''),
-      name: String(r.product_name || ''),
-      category: String(r.category || 'Uncategorized'),
-      qtySold: Number(r.qty_sold || 0),
-      revenue: Number(r.revenue_etb || 0),
-    })).filter((r) => r.qtySold > 0).sort((a, b) => b.revenue - a.revenue);
+    const productsByShiftMap = new Map();
+    for (const r of productsByShiftRaw || []) {
+      const shiftType = String(r.shift_type || '').trim();
+      const productId = String(r.product_id || '').trim();
+      
+      let payloadObj = {};
+      try {
+          payloadObj = typeof r.payload === 'string' ? JSON.parse(r.payload) : (r.payload || {});
+      } catch(e) {}
+      
+      let paymentMethodRaw = String(payloadObj.paymentMethod || payloadObj.method || payloadObj.tender || 'Other').trim();
+      if (paymentMethodRaw.toLowerCase() === 'null' || paymentMethodRaw === '') paymentMethodRaw = 'Other';
+      
+      const mapKey = `${shiftType}_${productId}_${paymentMethodRaw}`;
+      const existing = productsByShiftMap.get(mapKey);
+      
+      const qtySold = Number(r.qty_sold || 0);
+      const revenue = Number(r.revenue_etb || 0);
+      
+      if (existing) {
+          existing.qtySold += qtySold;
+          existing.revenue += revenue;
+      } else {
+          productsByShiftMap.set(mapKey, {
+              shiftType,
+              productId,
+              name: String(r.product_name || ''),
+              category: String(r.category || 'Uncategorized'),
+              paymentMethod: paymentMethodRaw,
+              qtySold,
+              revenue,
+          });
+      }
+    }
+
+    const productsByShift = Array.from(productsByShiftMap.values())
+      .filter((r) => r.qtySold > 0)
+      .sort((a, b) => b.revenue - a.revenue);
 
     // Format staff by shift
     const staffByShift = (staffByShiftRaw || []).map((s) => ({
@@ -1505,7 +1566,7 @@ const makeWaiterRouter = () => {
 
       // Products Detail Sheet
       const products = wb.addWorksheet('Products');
-      const prodMaxCol = 6;
+      const prodMaxCol = 7;
 
       // Header rows
       products.addRow([businessName]);
@@ -1537,7 +1598,7 @@ const makeWaiterRouter = () => {
         products.mergeCells(titleRow, 1, titleRow, prodMaxCol);
 
         // Table Header
-        const headerCols = ['Product', 'Category', 'Qty Sold', 'Unit Price', 'Revenue (ETB)', 'Void Qty'];
+        const headerCols = ['Product', 'Payment Method', 'Category', 'Qty Sold', 'Unit Price', 'Revenue (ETB)', 'Void Qty'];
         products.addRow(headerCols);
         const headerRowIdx = products.rowCount;
         const headerRow = products.getRow(headerRowIdx);
@@ -1552,6 +1613,7 @@ const makeWaiterRouter = () => {
           const unitPrice = qtySold > 0 ? revenue / qtySold : 0;
           products.addRow([
             String(p.name || ''),
+            String(p.paymentMethod || 'Other'),
             String(p.category || ''),
             qtySold,
             unitPrice,
@@ -1565,6 +1627,7 @@ const makeWaiterRouter = () => {
         products.addRow([
           'TOTAL',
           '',
+          '',
           items.reduce((sum, p) => sum + Number(p.qtySold || 0), 0),
           '',
           items.reduce((sum, p) => sum + Number(p.revenue || 0), 0).toFixed(2),
@@ -1577,6 +1640,7 @@ const makeWaiterRouter = () => {
       // Set columns configuration first
       products.columns = [
         { key: 'name', width: 32 },
+        { key: 'paymentMethod', width: 20 },
         { key: 'category', width: 18 },
         { key: 'qtySold', width: 12 },
         { key: 'unitPrice', width: 14, style: { numFmt: '#,##0.00' } },
