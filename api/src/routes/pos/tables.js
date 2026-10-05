@@ -254,11 +254,11 @@ const makePosTablesRouter = ({
         const body = req.body && typeof req.body === 'object' ? req.body : {};
         const patch = {};
 
-        if (typeof body?.assignedStaffId === 'string') {
-          patch.assigned_staff_id = body.assignedStaffId.trim() ? body.assignedStaffId.trim() : null;
+        if (body?.assignedStaffId !== undefined) {
+          patch.assigned_staff_id = typeof body.assignedStaffId === 'string' && body.assignedStaffId.trim() ? body.assignedStaffId.trim() : null;
         }
-        if (typeof body?.assignedStaffName === 'string') {
-          patch.assigned_staff_name = body.assignedStaffName.trim() ? body.assignedStaffName.trim() : null;
+        if (body?.assignedStaffName !== undefined) {
+          patch.assigned_staff_name = typeof body.assignedStaffName === 'string' && body.assignedStaffName.trim() ? body.assignedStaffName.trim() : null;
         }
 
         const nowIso = toSqlDateTime(new Date());
@@ -351,11 +351,11 @@ const makePosTablesRouter = ({
           patch.shift_type = body.shiftType.toUpperCase();
         }
 
-        if (typeof body?.assignedStaffId === 'string') {
-          patch.assigned_staff_id = body.assignedStaffId.trim() ? body.assignedStaffId.trim() : null;
+        if (body?.assignedStaffId !== undefined) {
+          patch.assigned_staff_id = typeof body.assignedStaffId === 'string' && body.assignedStaffId.trim() ? body.assignedStaffId.trim() : null;
         }
-        if (typeof body?.assignedStaffName === 'string') {
-          patch.assigned_staff_name = body.assignedStaffName.trim() ? body.assignedStaffName.trim() : null;
+        if (body?.assignedStaffName !== undefined) {
+          patch.assigned_staff_name = typeof body.assignedStaffName === 'string' && body.assignedStaffName.trim() ? body.assignedStaffName.trim() : null;
         }
         if (typeof body?.openOrderId === 'string') {
           patch.open_order_id = body.openOrderId.trim() ? body.openOrderId.trim() : null;
