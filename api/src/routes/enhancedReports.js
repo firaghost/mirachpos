@@ -742,54 +742,88 @@ const makeEnhancedReportsRouter = () => {
 
             const businessName = await getOwnerBusinessName(req.tenant.id);
 
-            const [daily, products, staff] = await Promise.all([
+            const [daily, products, staff, voidsRes, paymentOrders] = await Promise.all([
                 getDailySalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to }),
                 getProductPerformance({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 5000 }),
                 getStaffSalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 5000 }),
+                (async () => {
+                    const fromDt = `${from} 00:00:00`;
+                    const toDt = `${to} 23:59:59`;
+                    const fromIso = `${from}T00:00:00.000Z`;
+                    const toIso = `${to}T23:59:59.999Z`;
+
+                    let query = db()
+                        .select([
+                            'v.*',
+                            'b.name as branch_name',
+                            's.name as authorized_by_name',
+                        ])
+                        .from({ v: 'void_refund_log' })
+                        .leftJoin({ b: 'branches' }, function () {
+                            this.on('b.id', '=', 'v.branch_id').andOn('b.tenant_id', '=', 'v.tenant_id');
+                        })
+                        .leftJoin({ s: 'staff' }, 's.id', 'v.authorized_by')
+                        .where({ 'v.tenant_id': req.tenant.id })
+                        .andWhere((qb) => {
+                            qb.whereBetween('v.occurred_at', [fromDt, toDt]).orWhereBetween('v.occurred_at', [fromIso, toIso]);
+                        });
+
+                    if (branchId) {
+                        query = query.andWhere('v.branch_id', branchId);
+                    }
+
+                    const rows = await query.orderBy('v.occurred_at', 'desc').limit(2000);
+                    return rows.map((l) => ({
+                        id: l.id,
+                        type: l.type,
+                        orderId: l.order_id,
+                        productId: l.product_id,
+                        productName: l.product_name || '',
+                        qty: Number(l.qty || 0),
+                        amount: Number(l.amount_etb || 0),
+                        reason: l.reason || '',
+                        authorizedBy: l.authorized_by_name || '',
+                        occurredAt: l.occurred_at,
+                    }));
+                })(),
+                (async () => {
+                    const fromDt = `${from} 00:00:00`;
+                    const toDt = `${to} 23:59:59`;
+                    const fromIso = `${from}T00:00:00.000Z`;
+                    const toIso = `${to}T23:59:59.999Z`;
+
+                    let query = db()
+                        .select(['id', 'display_number', 'total', 'created_at', 'payload'])
+                        .from('orders')
+                        .where({ tenant_id: req.tenant.id, status: 'Paid' })
+                        .andWhere((qb) => {
+                            qb.whereBetween('created_at', [fromDt, toDt]).orWhereBetween('created_at', [fromIso, toIso]);
+                        });
+
+                    if (branchId) {
+                        query = query.andWhere('branch_id', branchId);
+                    }
+
+                    const rows = await query.orderBy('created_at', 'desc').limit(10000);
+                    return rows.map((r) => {
+                        let p = {};
+                        try { p = typeof r.payload === 'string' ? JSON.parse(r.payload) : (r.payload || {}); } catch(e){}
+                        let pm = String(p.paymentMethod || p.method || p.tender || 'Other').trim();
+                        if (pm.toLowerCase() === 'null' || pm === '') pm = 'Other';
+                        return {
+                            id: r.id,
+                            displayNumber: r.display_number,
+                            total: Number(r.total || 0),
+                            createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+                            method: pm
+                        };
+                    });
+                })(),
             ]);
 
             const payments = sumPaymentBreakdown(daily);
 
-            const voidsRes = await (async () => {
-                const fromDt = `${from} 00:00:00`;
-                const toDt = `${to} 23:59:59`;
-                const fromIso = `${from}T00:00:00.000Z`;
-                const toIso = `${to}T23:59:59.999Z`;
 
-                let query = db()
-                    .select([
-                        'v.*',
-                        'b.name as branch_name',
-                        's.name as authorized_by_name',
-                    ])
-                    .from({ v: 'void_refund_log' })
-                    .leftJoin({ b: 'branches' }, function () {
-                        this.on('b.id', '=', 'v.branch_id').andOn('b.tenant_id', '=', 'v.tenant_id');
-                    })
-                    .leftJoin({ s: 'staff' }, 's.id', 'v.authorized_by')
-                    .where({ 'v.tenant_id': req.tenant.id })
-                    .andWhere((qb) => {
-                        qb.whereBetween('v.occurred_at', [fromDt, toDt]).orWhereBetween('v.occurred_at', [fromIso, toIso]);
-                    });
-
-                if (branchId) {
-                    query = query.andWhere('v.branch_id', branchId);
-                }
-
-                const rows = await query.orderBy('v.occurred_at', 'desc').limit(2000);
-                return rows.map((l) => ({
-                    id: l.id,
-                    type: l.type,
-                    orderId: l.order_id,
-                    productId: l.product_id,
-                    productName: l.product_name || '',
-                    qty: Number(l.qty || 0),
-                    amount: Number(l.amount_etb || 0),
-                    reason: l.reason || '',
-                    authorizedBy: l.authorized_by_name || '',
-                    occurredAt: l.occurred_at,
-                }));
-            })();
 
             const { buildOwnerReportWorkbook } = require('../services/reportXlsxExportService');
 
@@ -801,6 +835,7 @@ const makeEnhancedReportsRouter = () => {
                 products,
                 staff,
                 payments,
+                paymentOrders,
                 voids: voidsRes,
             });
 

@@ -887,15 +887,7 @@ const makeWaiterRouter = () => {
       const revenue = Number(r.revenue_etb || 0);
       const voidQty = Number(r.void_qty || 0);
       
-      let payloadObj = {};
-      try {
-          payloadObj = typeof r.payload === 'string' ? JSON.parse(r.payload) : (r.payload || {});
-      } catch(e) {}
-      
-      let paymentMethodRaw = String(payloadObj.paymentMethod || payloadObj.method || payloadObj.tender || 'Other').trim();
-      if (paymentMethodRaw.toLowerCase() === 'null' || paymentMethodRaw === '') paymentMethodRaw = 'Other';
-      
-      const mapKey = `${productId}_${paymentMethodRaw}`;
+      const mapKey = `${productId}`;
       const existing = productMap.get(mapKey);
 
       if (existing) {
@@ -907,7 +899,6 @@ const makeWaiterRouter = () => {
               productId,
               name: String(r.product_name || ''),
               category: String(r.category || 'Uncategorized'),
-              paymentMethod: paymentMethodRaw,
               qtySold,
               revenue,
               voidQty,
@@ -961,6 +952,34 @@ const makeWaiterRouter = () => {
     const grossSales = netSales + discounts;
     const avgOrderValue = orderCount > 0 ? (netSales / orderCount) : 0;
 
+    // Fetch individual payment orders
+    let paymentOrders = [];
+    try {
+      const orderRows = await db()
+        .from({ o: 'orders' })
+        .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
+        .andWhere((qb) => applyDateFilter(qb, 'o'))
+        .select(['o.id', 'o.display_number', 'o.total', 'o.created_at', 'o.payload'])
+        .orderBy('o.created_at', 'desc')
+        .limit(10000);
+        
+      paymentOrders = orderRows.map(r => {
+        let p = {};
+        try { p = typeof r.payload === 'string' ? JSON.parse(r.payload) : (r.payload || {}); } catch(e){}
+        let pm = String(p.paymentMethod || p.method || p.tender || 'Other').trim();
+        if (pm.toLowerCase() === 'null' || pm === '') pm = 'Other';
+        return {
+          id: r.id,
+          displayNumber: r.display_number,
+          total: Number(r.total || 0),
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+          method: pm
+        };
+      });
+    } catch(err) {
+      console.error('paymentOrders fetch failed:', err.message);
+    }
+
     // Format payment methods
     const paymentBreakdown = paymentMethods.map((p) => ({
       method: String(p.payment_method || 'Other'),
@@ -994,15 +1013,7 @@ const makeWaiterRouter = () => {
       const shiftType = String(r.shift_type || '').trim();
       const productId = String(r.product_id || '').trim();
       
-      let payloadObj = {};
-      try {
-          payloadObj = typeof r.payload === 'string' ? JSON.parse(r.payload) : (r.payload || {});
-      } catch(e) {}
-      
-      let paymentMethodRaw = String(payloadObj.paymentMethod || payloadObj.method || payloadObj.tender || 'Other').trim();
-      if (paymentMethodRaw.toLowerCase() === 'null' || paymentMethodRaw === '') paymentMethodRaw = 'Other';
-      
-      const mapKey = `${shiftType}_${productId}_${paymentMethodRaw}`;
+      const mapKey = `${shiftType}_${productId}`;
       const existing = productsByShiftMap.get(mapKey);
       
       const qtySold = Number(r.qty_sold || 0);
@@ -1017,7 +1028,6 @@ const makeWaiterRouter = () => {
               productId,
               name: String(r.product_name || ''),
               category: String(r.category || 'Uncategorized'),
-              paymentMethod: paymentMethodRaw,
               qtySold,
               revenue,
           });
@@ -1055,6 +1065,7 @@ const makeWaiterRouter = () => {
       voidCount: Number(voids?.void_count || 0),
       voidAmount: Number(voids?.void_amount || 0),
       products: rows,
+      paymentOrders,
       paymentMethods: paymentBreakdown,
       staffPerformance: staffBreakdown,
       shiftSales: shiftBreakdown,
@@ -1598,7 +1609,7 @@ const makeWaiterRouter = () => {
         products.mergeCells(titleRow, 1, titleRow, prodMaxCol);
 
         // Table Header
-        const headerCols = ['Product', 'Payment Method', 'Category', 'Qty Sold', 'Unit Price', 'Revenue (ETB)', 'Void Qty'];
+        const headerCols = ['Product', 'Category', 'Qty Sold', 'Unit Price', 'Revenue (ETB)', 'Void Qty'];
         products.addRow(headerCols);
         const headerRowIdx = products.rowCount;
         const headerRow = products.getRow(headerRowIdx);
@@ -1613,7 +1624,6 @@ const makeWaiterRouter = () => {
           const unitPrice = qtySold > 0 ? revenue / qtySold : 0;
           products.addRow([
             String(p.name || ''),
-            String(p.paymentMethod || 'Other'),
             String(p.category || ''),
             qtySold,
             unitPrice,
@@ -1627,7 +1637,6 @@ const makeWaiterRouter = () => {
         products.addRow([
           'TOTAL',
           '',
-          '',
           items.reduce((sum, p) => sum + Number(p.qtySold || 0), 0),
           '',
           items.reduce((sum, p) => sum + Number(p.revenue || 0), 0).toFixed(2),
@@ -1640,7 +1649,6 @@ const makeWaiterRouter = () => {
       // Set columns configuration first
       products.columns = [
         { key: 'name', width: 32 },
-        { key: 'paymentMethod', width: 20 },
         { key: 'category', width: 18 },
         { key: 'qtySold', width: 12 },
         { key: 'unitPrice', width: 14, style: { numFmt: '#,##0.00' } },
@@ -1700,6 +1708,39 @@ const makeWaiterRouter = () => {
           { width: 12, style: { numFmt: '0' } },
           { width: 18, style: { numFmt: '#,##0.00' } },
         ];
+
+        // Individual Paid Orders below
+        if (agg.paymentOrders && agg.paymentOrders.length > 0) {
+          pmSheet.addRow([]);
+          pmSheet.addRow([]);
+
+          const titleRow = pmSheet.addRow(['Paid Orders']);
+          titleRow.font = { bold: true, size: 12 };
+          pmSheet.addRow([]);
+
+          const orderCols = [
+            { header: 'Order Number', key: 'displayNumber' },
+            { header: 'Date', key: 'createdAt' },
+            { header: 'Payment Method', key: 'method' },
+            { header: 'Total', key: 'total' },
+          ];
+
+          const orderHeaderRow = pmSheet.addRow(orderCols.map(c => c.header));
+          orderHeaderRow.font = { bold: true };
+          orderHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
+
+          for (const o of agg.paymentOrders) {
+            const row = pmSheet.addRow([
+              o.displayNumber || o.id,
+              o.createdAt ? String(o.createdAt).replace('T', ' ').substring(0, 19) : '',
+              o.method,
+              Number(o.total || 0)
+            ]);
+            row.getCell(4).numFmt = '#,##0.00';
+          }
+          
+          pmSheet.getColumn(4).width = 16;
+        }
       }
 
       // Staff Performance sheet with Sales and Tips

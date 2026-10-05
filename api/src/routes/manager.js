@@ -587,6 +587,7 @@ const makeManagerRouter = () => {
           products,
           staff,
           voids,
+          paymentOrders,
         ] = await Promise.all([
           getDailySalesSummary({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to }),
           getProductPerformance({ tenantId: req.tenant.id, branchId, fromDate: from, toDate: to, limit: 5000 }),
@@ -621,6 +622,34 @@ const makeManagerRouter = () => {
               occurredAt: l.occurred_at,
             }));
           })(),
+          (async () => {
+            const fromDt = `${from} 00:00:00`;
+            const toDt = `${to} 23:59:59`;
+            const fromIso = `${from}T00:00:00.000Z`;
+            const toIso = `${to}T23:59:59.999Z`;
+            const rows = await db()
+              .select(['id', 'display_number', 'total', 'created_at', 'payload'])
+              .from('orders')
+              .where({ tenant_id: req.tenant.id, branch_id: branchId, status: 'Paid' })
+              .andWhere((qb) => {
+                qb.whereBetween('created_at', [fromDt, toDt]).orWhereBetween('created_at', [fromIso, toIso]);
+              })
+              .orderBy('created_at', 'desc')
+              .limit(10000);
+            return rows.map((r) => {
+              let p = {};
+              try { p = typeof r.payload === 'string' ? JSON.parse(r.payload) : (r.payload || {}); } catch(e){}
+              let pm = String(p.paymentMethod || p.method || p.tender || 'Other').trim();
+              if (pm.toLowerCase() === 'null' || pm === '') pm = 'Other';
+              return {
+                id: r.id,
+                displayNumber: r.display_number,
+                total: Number(r.total || 0),
+                createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
+                method: pm
+              };
+            });
+          })(),
         ]);
 
         const payments = sumPaymentBreakdown(daily);
@@ -635,6 +664,7 @@ const makeManagerRouter = () => {
           products,
           staff,
           payments,
+          paymentOrders,
           voids,
         });
 

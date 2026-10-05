@@ -117,6 +117,7 @@ const buildOwnerReportWorkbook = async ({
   products,
   staff,
   payments,
+  paymentOrders,
   voids,
 }) => {
   const wb = new ExcelJS.Workbook();
@@ -167,7 +168,6 @@ const buildOwnerReportWorkbook = async ({
     { header: 'Name', key: 'name', width: 32 },
     { header: 'Category', key: 'category', width: 20 },
     { header: 'Qty Sold', key: 'qtySold', width: 12 },
-    { header: 'Payment Breakdown', key: 'paymentBreakdown', width: 30 },
     { header: 'Unit Price', key: 'unitPrice', width: 14, style: { numFmt: '#,##0.00' } },
     { header: 'Revenue', key: 'revenue', width: 14, style: { numFmt: '#,##0.00' } },
     { header: 'Cost', key: 'cost', width: 14, style: { numFmt: '#,##0.00' } },
@@ -181,7 +181,6 @@ const buildOwnerReportWorkbook = async ({
     name: String(r?.name || ''),
     category: String(r?.category || ''),
     qtySold: asNumber(r?.qtySold),
-    paymentBreakdown: r?.paymentBreakdown ? Object.entries(r.paymentBreakdown).map(([k, v]) => `${k}: ${v}x`).join(', ') : '',
     unitPrice: asNumber(r?.qtySold) > 0 ? asNumber(r?.revenue) / asNumber(r?.qtySold) : 0,
     revenue: asNumber(r?.revenue),
     cost: asNumber(r?.cost),
@@ -233,6 +232,36 @@ const buildOwnerReportWorkbook = async ({
     }))
     .filter((r) => r.method);
   addTable(paymentsSheet, paymentCols.map((c) => ({ header: c.header, key: c.key })), paymentRows);
+
+  if (Array.isArray(paymentOrders) && paymentOrders.length > 0) {
+    paymentsSheet.addRow([]);
+    paymentsSheet.addRow([]);
+
+    const titleRow = paymentsSheet.addRow(['Paid Orders']);
+    titleRow.font = { bold: true, size: 12 };
+    paymentsSheet.addRow([]);
+
+    const orderCols = [
+      { header: 'Order Number', key: 'displayNumber' },
+      { header: 'Date', key: 'createdAt' },
+      { header: 'Payment Method', key: 'method' },
+      { header: 'Total', key: 'total' },
+    ];
+
+    const orderHeaderRow = paymentsSheet.addRow(orderCols.map((c) => c.header));
+    orderHeaderRow.font = { bold: true };
+    orderHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    for (const o of paymentOrders) {
+      const row = paymentsSheet.addRow([
+        o.displayNumber || o.id,
+        o.createdAt ? String(o.createdAt).replace('T', ' ').substring(0, 19) : '',
+        o.method,
+        asNumber(o.total)
+      ]);
+      row.getCell(4).numFmt = '#,##0.00';
+    }
+  }
 
   const voidsSheet = wb.addWorksheet('Voids');
   addMetaBlock(voidsSheet, businessName, 'Voids & Refunds', from || fromDate, to || toDate, 9);
