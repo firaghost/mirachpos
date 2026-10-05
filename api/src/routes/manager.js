@@ -628,7 +628,11 @@ const makeManagerRouter = () => {
             const fromIso = `${from}T00:00:00.000Z`;
             const toIso = `${to}T23:59:59.999Z`;
             const rows = await db()
-              .select(['id', 'display_number', 'total', 'created_at', 'payload'])
+              .select([
+                'id', 'display_number', 'table_name', 'created_by_name',
+                'payment_method', 'total', 'tax', 'tip', 'discount',
+                'created_at', 'paid_at', 'payload',
+              ])
               .from('orders')
               .where({ tenant_id: req.tenant.id, branch_id: branchId, status: 'Paid' })
               .andWhere((qb) => {
@@ -636,19 +640,60 @@ const makeManagerRouter = () => {
               })
               .orderBy('created_at', 'desc')
               .limit(10000);
-            return rows.map((r) => {
+            const mapped = rows.map((r) => {
               let p = {};
               try { p = typeof r.payload === 'string' ? JSON.parse(r.payload) : (r.payload || {}); } catch(e){}
-              let pm = String(p.paymentMethod || p.method || p.tender || 'Other').trim();
-              if (pm.toLowerCase() === 'null' || pm === '') pm = 'Other';
+              // Payment method: prefer DB column, fallback to payload
+              let pm = String(r.payment_method || '').trim();
+              if (!pm || pm.toLowerCase() === 'null') {
+                pm = String(p.paymentMethod || p.method || p.tender || 'Other').trim();
+              }
+              if (!pm || pm.toLowerCase() === 'null') pm = 'Other';
+              // Format time in EAT (UTC+3)
+              const formatEAT = (isoStr) => {
+                if (!isoStr) return '';
+                const d = new Date(isoStr);
+                if (isNaN(d.getTime())) return '';
+                const eat = new Date(d.getTime() + 3 * 60 * 60 * 1000);
+                const yyyy = eat.getUTCFullYear();
+                const mm = String(eat.getUTCMonth() + 1).padStart(2, '0');
+                const dd = String(eat.getUTCDate()).padStart(2, '0');
+                let hh = eat.getUTCHours();
+                const min = String(eat.getUTCMinutes()).padStart(2, '0');
+                const ampm = hh >= 12 ? 'PM' : 'AM';
+                hh = hh % 12; if (hh === 0) hh = 12;
+                return `${yyyy}-${mm}-${dd} ${String(hh).padStart(2, '0')}:${min} ${ampm}`;
+              };
+              // Build order name: use items if available, else display_number or id
+              const tableName = String(r.table_name || p.tableName || '').trim();
+              const itemsList = Array.isArray(p.items) ? p.items : (Array.isArray(p.cart) ? p.cart : []);
+              let itemsStr = itemsList.map(i => `${i.qty || 1}x ${i.name || 'Item'}`).join(', ');
+              
+              let orderName = itemsStr || String(r.display_number || p.number || '').trim();
+              if (!orderName) orderName = String(r.id || '').substring(0, 8);
+              if (!itemsStr && !orderName.startsWith('#')) orderName = '#' + orderName;
               return {
                 id: r.id,
-                displayNumber: r.display_number,
+                orderName,
+                tableName,
+                waiter: String(r.created_by_name || p.createdByName || '').trim() || 'N/A',
+                method: pm,
                 total: Number(r.total || 0),
-                createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
-                method: pm
+                tax: Number(r.tax || 0),
+                tip: Number(r.tip || 0),
+                discount: Number(r.discount || 0),
+                createdAt: formatEAT(r.created_at),
+                paidAt: formatEAT(r.paid_at || r.created_at),
               };
             });
+            
+            // Sort so same payment methods are together, then by date
+            mapped.sort((a, b) => {
+              const methodCmp = a.method.localeCompare(b.method);
+              if (methodCmp !== 0) return methodCmp;
+              return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+            return mapped;
           })(),
         ]);
 

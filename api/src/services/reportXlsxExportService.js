@@ -162,7 +162,7 @@ const buildOwnerReportWorkbook = async ({
   addTable(dailySheet, dailyCols.map((c) => ({ header: c.header, key: c.key })), dailyRows);
 
   const productsSheet = wb.addWorksheet('Products');
-  addMetaBlock(productsSheet, businessName, 'Product Performance', from || fromDate, to || toDate, 10);
+  addMetaBlock(productsSheet, businessName, 'Product Performance', from || fromDate, to || toDate, 9);
   const productCols = [
     { header: 'Product ID', key: 'productId', width: 18 },
     { header: 'Name', key: 'name', width: 32 },
@@ -217,50 +217,127 @@ const buildOwnerReportWorkbook = async ({
   }));
   addTable(staffSheet, staffCols.map((c) => ({ header: c.header, key: c.key })), staffRows);
 
-  const paymentsSheet = wb.addWorksheet('Payments');
-  addMetaBlock(paymentsSheet, businessName, 'Payments Breakdown', from || fromDate, to || toDate, 2);
-  const paymentCols = [
-    { header: 'Method', key: 'method', width: 20 },
-    { header: 'Amount', key: 'amount', width: 16, style: { numFmt: '#,##0.00' } },
-  ];
-  setColumns(paymentsSheet, paymentCols);
+  const paymentsSheet = wb.addWorksheet('Payment Methods');
+  const pmMaxCol = 8;
+  addMetaBlock(paymentsSheet, businessName, 'Payment Methods Report', from || fromDate, to || toDate, pmMaxCol);
 
-  const paymentRows = (Array.isArray(payments) ? payments : [])
-    .map((r) => ({
-      method: String(r?.method || ''),
-      amount: asNumber(r?.amount),
-    }))
-    .filter((r) => r.method);
-  addTable(paymentsSheet, paymentCols.map((c) => ({ header: c.header, key: c.key })), paymentRows);
+  // ── Section 1: Payment Method Totals ──
+  const summaryTitleRow = paymentsSheet.addRow(['PAYMENT METHOD SUMMARY']);
+  summaryTitleRow.font = { bold: true, size: 13, color: { argb: 'FFFFFF' } };
+  summaryTitleRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1A365D' } };
+  summaryTitleRow.alignment = { horizontal: 'center' };
+  paymentsSheet.mergeCells(summaryTitleRow.number, 1, summaryTitleRow.number, pmMaxCol);
 
+  paymentsSheet.addRow([]);
+
+  const pmHeaderRow = paymentsSheet.addRow(['Payment Method', 'Total Amount (ETB)']);
+  pmHeaderRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+  pmHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2C5282' } };
+  pmHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
+  pmHeaderRow.height = 22;
+
+  let grandMethodTotal = 0;
+  const paymentRows = (Array.isArray(payments) ? payments : []).filter((r) => r?.method);
+  for (const pm of paymentRows) {
+    const amt = asNumber(pm.amount);
+    grandMethodTotal += amt;
+    const row = paymentsSheet.addRow([String(pm.method), amt]);
+    row.getCell(1).font = { bold: true, size: 11 };
+    row.getCell(2).numFmt = '#,##0.00';
+    row.getCell(2).alignment = { horizontal: 'right' };
+  }
+
+  const methodTotalRow = paymentsSheet.addRow(['Total', grandMethodTotal]);
+  methodTotalRow.font = { bold: true, size: 12, color: { argb: '1A365D' } };
+  methodTotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EBF8FF' } };
+  methodTotalRow.getCell(2).numFmt = '#,##0.00';
+  methodTotalRow.getCell(2).alignment = { horizontal: 'right' };
+
+  paymentsSheet.getColumn(1).width = 22;
+  paymentsSheet.getColumn(2).width = 20;
+
+  // ── Section 2: Paid Orders Detail ──
   if (Array.isArray(paymentOrders) && paymentOrders.length > 0) {
     paymentsSheet.addRow([]);
     paymentsSheet.addRow([]);
 
-    const titleRow = paymentsSheet.addRow(['Paid Orders']);
-    titleRow.font = { bold: true, size: 12 };
+    const detailTitleRow = paymentsSheet.addRow(['PAID ORDERS DETAIL']);
+    detailTitleRow.font = { bold: true, size: 13, color: { argb: 'FFFFFF' } };
+    detailTitleRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1A365D' } };
+    detailTitleRow.alignment = { horizontal: 'center' };
+    paymentsSheet.mergeCells(detailTitleRow.number, 1, detailTitleRow.number, pmMaxCol);
+
     paymentsSheet.addRow([]);
 
-    const orderCols = [
-      { header: 'Order Number', key: 'displayNumber' },
-      { header: 'Date', key: 'createdAt' },
-      { header: 'Payment Method', key: 'method' },
-      { header: 'Total', key: 'total' },
+    const orderHeaders = [
+      'Order Name', 'Table', 'Waiter', 'Payment Method',
+      'Date & Time', 'Subtotal (ETB)', 'Tax (ETB)', 'Total (ETB)',
     ];
-
-    const orderHeaderRow = paymentsSheet.addRow(orderCols.map((c) => c.header));
-    orderHeaderRow.font = { bold: true };
+    const orderHeaderRow = paymentsSheet.addRow(orderHeaders);
+    orderHeaderRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+    orderHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2C5282' } };
     orderHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    orderHeaderRow.height = 22;
 
-    for (const o of paymentOrders) {
+    let totalSum = 0;
+    let taxSum = 0;
+    let subtotalSum = 0;
+
+    for (let i = 0; i < paymentOrders.length; i++) {
+      const o = paymentOrders[i];
+      const total = asNumber(o.total);
+      const tax = asNumber(o.tax);
+      const subtotal = total - tax;
+      totalSum += total;
+      taxSum += tax;
+      subtotalSum += subtotal;
+
       const row = paymentsSheet.addRow([
-        o.displayNumber || o.id,
-        o.createdAt ? String(o.createdAt).replace('T', ' ').substring(0, 19) : '',
+        o.orderName || o.id,
+        o.tableName || '—',
+        o.waiter || 'N/A',
         o.method,
-        asNumber(o.total)
+        o.paidAt || o.createdAt || '',
+        subtotal,
+        tax,
+        total,
       ]);
-      row.getCell(4).numFmt = '#,##0.00';
+
+      // Alternate row shading
+      if (i % 2 === 0) {
+        row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F7FAFC' } };
+      }
+      row.getCell(6).numFmt = '#,##0.00';
+      row.getCell(7).numFmt = '#,##0.00';
+      row.getCell(8).numFmt = '#,##0.00';
+      row.getCell(6).alignment = { horizontal: 'right' };
+      row.getCell(7).alignment = { horizontal: 'right' };
+      row.getCell(8).alignment = { horizontal: 'right' };
     }
+
+    // Grand totals row
+    const grandRow = paymentsSheet.addRow([
+      `Total (${paymentOrders.length} orders)`, '', '', '', '',
+      subtotalSum, taxSum, totalSum,
+    ]);
+    grandRow.font = { bold: true, size: 11, color: { argb: '1A365D' } };
+    grandRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EBF8FF' } };
+    grandRow.getCell(6).numFmt = '#,##0.00';
+    grandRow.getCell(7).numFmt = '#,##0.00';
+    grandRow.getCell(8).numFmt = '#,##0.00';
+    grandRow.getCell(6).alignment = { horizontal: 'right' };
+    grandRow.getCell(7).alignment = { horizontal: 'right' };
+    grandRow.getCell(8).alignment = { horizontal: 'right' };
+
+    // Column widths for detail section
+    paymentsSheet.getColumn(1).width = 50;
+    paymentsSheet.getColumn(2).width = 16;
+    paymentsSheet.getColumn(3).width = 18;
+    paymentsSheet.getColumn(4).width = 18;
+    paymentsSheet.getColumn(5).width = 24;
+    paymentsSheet.getColumn(6).width = 16;
+    paymentsSheet.getColumn(7).width = 14;
+    paymentsSheet.getColumn(8).width = 16;
   }
 
   const voidsSheet = wb.addWorksheet('Voids');

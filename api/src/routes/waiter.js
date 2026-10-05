@@ -959,22 +959,61 @@ const makeWaiterRouter = () => {
         .from({ o: 'orders' })
         .where({ 'o.tenant_id': tenantId, 'o.branch_id': branchId, 'o.status': 'Paid' })
         .andWhere((qb) => applyDateFilter(qb, 'o'))
-        .select(['o.id', 'o.display_number', 'o.total', 'o.created_at', 'o.payload'])
+        .select([
+          'o.id', 'o.display_number', 'o.table_name', 'o.created_by_name',
+          'o.payment_method', 'o.total', 'o.tax', 'o.tip', 'o.discount',
+          'o.created_at', 'o.paid_at', 'o.payload',
+        ])
         .orderBy('o.created_at', 'desc')
         .limit(10000);
         
       paymentOrders = orderRows.map(r => {
         let p = {};
         try { p = typeof r.payload === 'string' ? JSON.parse(r.payload) : (r.payload || {}); } catch(e){}
-        let pm = String(p.paymentMethod || p.method || p.tender || 'Other').trim();
-        if (pm.toLowerCase() === 'null' || pm === '') pm = 'Other';
+        let pm = String(r.payment_method || '').trim();
+        if (!pm || pm.toLowerCase() === 'null') {
+          pm = String(p.paymentMethod || p.method || p.tender || 'Other').trim();
+        }
+        if (!pm || pm.toLowerCase() === 'null') pm = 'Other';
+        const formatEAT = (isoStr) => {
+          if (!isoStr) return '';
+          const d = new Date(isoStr);
+          if (isNaN(d.getTime())) return '';
+          const eat = new Date(d.getTime() + 3 * 60 * 60 * 1000);
+          const yyyy = eat.getUTCFullYear();
+          const mm = String(eat.getUTCMonth() + 1).padStart(2, '0');
+          const dd = String(eat.getUTCDate()).padStart(2, '0');
+          let hh = eat.getUTCHours();
+          const min = String(eat.getUTCMinutes()).padStart(2, '0');
+          const ampm = hh >= 12 ? 'PM' : 'AM';
+          hh = hh % 12; if (hh === 0) hh = 12;
+          return `${yyyy}-${mm}-${dd} ${String(hh).padStart(2, '0')}:${min} ${ampm}`;
+        };
+        const tableName = String(r.table_name || p.tableName || '').trim();
+        const itemsList = Array.isArray(p.items) ? p.items : (Array.isArray(p.cart) ? p.cart : []);
+        let itemsStr = itemsList.map(i => `${i.qty || 1}x ${i.name || 'Item'}`).join(', ');
+        
+        let orderName = itemsStr || String(r.display_number || p.number || '').trim();
+        if (!orderName) orderName = String(r.id || '').substring(0, 8);
+        if (!itemsStr && !orderName.startsWith('#')) orderName = '#' + orderName;
         return {
           id: r.id,
-          displayNumber: r.display_number,
+          orderName,
+          tableName,
+          waiter: String(r.created_by_name || p.createdByName || '').trim() || 'N/A',
+          method: pm,
           total: Number(r.total || 0),
-          createdAt: r.created_at ? new Date(r.created_at).toISOString() : '',
-          method: pm
+          tax: Number(r.tax || 0),
+          tip: Number(r.tip || 0),
+          discount: Number(r.discount || 0),
+          createdAt: formatEAT(r.created_at),
+          paidAt: formatEAT(r.paid_at || r.created_at),
         };
+      });
+      paymentOrders.sort((a, b) => {
+        const methodCmp = a.method.localeCompare(b.method);
+        if (methodCmp !== 0) return methodCmp;
+        return new Date(b.createdAt) - new Date(a.createdAt);
       });
     } catch(err) {
       console.error('paymentOrders fetch failed:', err.message);
@@ -1577,7 +1616,7 @@ const makeWaiterRouter = () => {
 
       // Products Detail Sheet
       const products = wb.addWorksheet('Products');
-      const prodMaxCol = 7;
+      const prodMaxCol = 6;
 
       // Header rows
       products.addRow([businessName]);
@@ -1671,76 +1710,140 @@ const makeWaiterRouter = () => {
       // Payment Methods sheet with Tips and Sales breakdown
       if (agg.paymentMethods && agg.paymentMethods.length > 0) {
         const pmSheet = wb.addWorksheet('Payment Methods');
-        const pmMaxCol = 3;
+        const pmMaxCol = 8;
         
+        // Header block
         pmSheet.addRow([businessName]);
-        pmSheet.getRow(1).font = { bold: true, size: 16 };
+        pmSheet.getRow(1).font = { bold: true, size: 16, color: { argb: '1A365D' } };
         pmSheet.getRow(1).alignment = { horizontal: 'center' };
         pmSheet.mergeCells(1, 1, 1, pmMaxCol);
         
-        pmSheet.addRow(['Payment Methods Breakdown']);
-        pmSheet.getRow(2).font = { bold: true, size: 14 };
+        pmSheet.addRow(['Payment Methods Report']);
+        pmSheet.getRow(2).font = { bold: true, size: 14, color: { argb: '2C5282' } };
         pmSheet.getRow(2).alignment = { horizontal: 'center' };
         pmSheet.mergeCells(2, 1, 2, pmMaxCol);
         
         pmSheet.addRow([`Date: ${agg.date}`]);
-        pmSheet.getRow(3).font = { size: 11 };
+        pmSheet.getRow(3).font = { size: 12, color: { argb: '718096' } };
         pmSheet.getRow(3).alignment = { horizontal: 'center' };
         pmSheet.mergeCells(3, 1, 3, pmMaxCol);
         pmSheet.addRow([]);
-        
-        const pmHeaders = ['Payment Method', 'Orders', 'Amount (ETB)'];
-        pmSheet.addRow(pmHeaders);
-        pmSheet.getRow(5).font = { bold: true };
-        pmSheet.getRow(5).alignment = { horizontal: 'center' };
+
+        // ── Section 1: Payment Method Summary ──
+        const summaryTitle = pmSheet.addRow(['PAYMENT METHOD SUMMARY']);
+        summaryTitle.font = { bold: true, size: 13, color: { argb: 'FFFFFF' } };
+        summaryTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1A365D' } };
+        summaryTitle.alignment = { horizontal: 'center' };
+        pmSheet.mergeCells(summaryTitle.number, 1, summaryTitle.number, pmMaxCol);
+
+        pmSheet.addRow([]);
+
+        const pmHeaderRow = pmSheet.addRow(['Payment Method', 'Orders', 'Amount (ETB)']);
+        pmHeaderRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+        pmHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2C5282' } };
+        pmHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
+        pmHeaderRow.height = 22;
         
         agg.paymentMethods.forEach((pm) => {
-          pmSheet.addRow([pm.method, pm.count, Number(pm.total || 0).toFixed(2)]);
+          const row = pmSheet.addRow([pm.method, pm.count, Number(pm.total || 0)]);
+          row.getCell(1).font = { bold: true, size: 11 };
+          row.getCell(3).numFmt = '#,##0.00';
+          row.getCell(3).alignment = { horizontal: 'right' };
         });
         
-        // Add total row
-        const totalRow = pmSheet.rowCount + 1;
-        pmSheet.addRow(['Total', agg.orderCount, agg.paymentMethods.reduce((sum, pm) => sum + Number(pm.total || 0), 0).toFixed(2)]);
-        pmSheet.getRow(totalRow).font = { bold: true };
-        
-        pmSheet.columns = [
-          { width: 20 },
-          { width: 12, style: { numFmt: '0' } },
-          { width: 18, style: { numFmt: '#,##0.00' } },
-        ];
+        // Total row
+        const methodTotalRow = pmSheet.addRow([
+          'Total',
+          agg.orderCount,
+          agg.paymentMethods.reduce((sum, pm) => sum + Number(pm.total || 0), 0),
+        ]);
+        methodTotalRow.font = { bold: true, size: 12, color: { argb: '1A365D' } };
+        methodTotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EBF8FF' } };
+        methodTotalRow.getCell(3).numFmt = '#,##0.00';
+        methodTotalRow.getCell(3).alignment = { horizontal: 'right' };
 
-        // Individual Paid Orders below
+        // ── Section 2: Paid Orders Detail ──
         if (agg.paymentOrders && agg.paymentOrders.length > 0) {
           pmSheet.addRow([]);
           pmSheet.addRow([]);
 
-          const titleRow = pmSheet.addRow(['Paid Orders']);
-          titleRow.font = { bold: true, size: 12 };
+          const detailTitle = pmSheet.addRow(['PAID ORDERS DETAIL']);
+          detailTitle.font = { bold: true, size: 13, color: { argb: 'FFFFFF' } };
+          detailTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1A365D' } };
+          detailTitle.alignment = { horizontal: 'center' };
+          pmSheet.mergeCells(detailTitle.number, 1, detailTitle.number, pmMaxCol);
+
           pmSheet.addRow([]);
 
-          const orderCols = [
-            { header: 'Order Number', key: 'displayNumber' },
-            { header: 'Date', key: 'createdAt' },
-            { header: 'Payment Method', key: 'method' },
-            { header: 'Total', key: 'total' },
+          const orderHeaders = [
+            'Order Name', 'Table', 'Waiter', 'Payment Method',
+            'Date & Time', 'Subtotal (ETB)', 'Tax (ETB)', 'Total (ETB)',
           ];
-
-          const orderHeaderRow = pmSheet.addRow(orderCols.map(c => c.header));
-          orderHeaderRow.font = { bold: true };
+          const orderHeaderRow = pmSheet.addRow(orderHeaders);
+          orderHeaderRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+          orderHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2C5282' } };
           orderHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
+          orderHeaderRow.height = 22;
 
-          for (const o of agg.paymentOrders) {
+          let totalSum = 0;
+          let taxSum = 0;
+          let subtotalSum = 0;
+
+          for (let i = 0; i < agg.paymentOrders.length; i++) {
+            const o = agg.paymentOrders[i];
+            const total = Number(o.total || 0);
+            const tax = Number(o.tax || 0);
+            const subtotal = total - tax;
+            totalSum += total;
+            taxSum += tax;
+            subtotalSum += subtotal;
+
             const row = pmSheet.addRow([
-              o.displayNumber || o.id,
-              o.createdAt ? String(o.createdAt).replace('T', ' ').substring(0, 19) : '',
+              o.orderName || o.id,
+              o.tableName || '—',
+              o.waiter || 'N/A',
               o.method,
-              Number(o.total || 0)
+              o.paidAt || o.createdAt || '',
+              subtotal,
+              tax,
+              total,
             ]);
-            row.getCell(4).numFmt = '#,##0.00';
+
+            if (i % 2 === 0) {
+              row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F7FAFC' } };
+            }
+            row.getCell(6).numFmt = '#,##0.00';
+            row.getCell(7).numFmt = '#,##0.00';
+            row.getCell(8).numFmt = '#,##0.00';
+            row.getCell(6).alignment = { horizontal: 'right' };
+            row.getCell(7).alignment = { horizontal: 'right' };
+            row.getCell(8).alignment = { horizontal: 'right' };
           }
-          
-          pmSheet.getColumn(4).width = 16;
+
+          // Grand totals row
+          const grandRow = pmSheet.addRow([
+            `Total (${agg.paymentOrders.length} orders)`, '', '', '', '',
+            subtotalSum, taxSum, totalSum,
+          ]);
+          grandRow.font = { bold: true, size: 11, color: { argb: '1A365D' } };
+          grandRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EBF8FF' } };
+          grandRow.getCell(6).numFmt = '#,##0.00';
+          grandRow.getCell(7).numFmt = '#,##0.00';
+          grandRow.getCell(8).numFmt = '#,##0.00';
+          grandRow.getCell(6).alignment = { horizontal: 'right' };
+          grandRow.getCell(7).alignment = { horizontal: 'right' };
+          grandRow.getCell(8).alignment = { horizontal: 'right' };
         }
+
+        // Column widths
+        pmSheet.getColumn(1).width = 50;
+        pmSheet.getColumn(2).width = 16;
+        pmSheet.getColumn(3).width = 18;
+        pmSheet.getColumn(4).width = 18;
+        pmSheet.getColumn(5).width = 24;
+        pmSheet.getColumn(6).width = 16;
+        pmSheet.getColumn(7).width = 14;
+        pmSheet.getColumn(8).width = 16;
       }
 
       // Staff Performance sheet with Sales and Tips
