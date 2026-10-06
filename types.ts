@@ -4,7 +4,8 @@ export enum UserRole {
   WAITER_MANAGER = 'Waiter Manager',
   BRANCH_MANAGER = 'Branch Manager',
   CAFE_OWNER = 'Cafe Owner',
-  SUPER_ADMIN = 'Super Admin'
+  SUPER_ADMIN = 'Super Admin',
+  CASHIER = 'Cashier'
 }
 
 export enum Screen {

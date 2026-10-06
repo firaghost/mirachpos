@@ -216,8 +216,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
     ? (branding.platformName && branding.platformName.trim() ? branding.platformName.trim() : tenantName)
     : (businessName && businessName.trim() ? businessName.trim() : tenantName);
 
-  const readyBadge = activeRole === UserRole.WAITER || activeRole === UserRole.WAITER_MANAGER ? orders.filter((o) => o.status === 'Ready').length : 0;
-  const unreadBadge = activeRole === UserRole.WAITER || activeRole === UserRole.WAITER_MANAGER ? notifications.filter((n) => !n.read).length : 0;
+  const readyBadge = activeRole === UserRole.WAITER || activeRole === UserRole.WAITER_MANAGER || activeRole === UserRole.CASHIER ? orders.filter((o) => o.status === 'Ready').length : 0;
+  const unreadBadge = activeRole === UserRole.WAITER || activeRole === UserRole.WAITER_MANAGER || activeRole === UserRole.CASHIER ? notifications.filter((n) => !n.read).length : 0;
 
   const getRoleLabel = () => {
     switch (activeRole) {
@@ -226,6 +226,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
       case UserRole.BRANCH_MANAGER: return "Manager";
       case UserRole.WAITER: return "Waiter";
       case UserRole.WAITER_MANAGER: return "Waiter Manager";
+      case UserRole.CASHIER: return "Cashier";
       default: return "Staff";
     }
   };
@@ -414,7 +415,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, setScreen, role
       </div>
 
       <ScrollArea className={cn('flex-1 py-4', collapsed ? 'px-2' : 'px-4')}>
-        {(activeRole === UserRole.WAITER || activeRole === UserRole.WAITER_MANAGER) && (
+        {(activeRole === UserRole.WAITER || activeRole === UserRole.WAITER_MANAGER || activeRole === UserRole.CASHIER) && (
           <>
             <Section title="Live Operations">
               <NavItem screen={Screen.WAITER_WORKSPACE} icon="grid_view" label="Workspace" />

@@ -252,7 +252,7 @@ const makeManagerStaffRouter = () => {
       const q = typeof req.query?.q === 'string' ? req.query.q.trim().toLowerCase() : '';
       const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
       const page = Math.max(1, Number(req.query?.page || 1) || 1);
-      const pageSize = Math.min(50, Math.max(1, Number(req.query?.pageSize || 10) || 10));
+      const pageSize = Math.min(200, Math.max(1, Number(req.query?.pageSize || 10) || 10));
 
       const base = db().from('staff').where({ tenant_id: req.tenant.id, branch_id: branchId });
       if (status) base.andWhere({ status });

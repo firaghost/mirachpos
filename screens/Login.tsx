@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../api';
 import { Screen, UserRole } from '../types';
+import { normalizeRole } from '../rbac';
 import { writeSession } from '../session';
 import { AppIcon } from '@/components/ui/app-icon';
 
@@ -350,17 +351,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       if (!token || !role || !tenantId) throw new Error('login_failed');
 
-      const mappedRole =
-        role === UserRole.WAITER
-          ? UserRole.WAITER
-          : role === UserRole.WAITER_MANAGER
-            ? UserRole.WAITER_MANAGER
-          : role === UserRole.BRANCH_MANAGER
-            ? UserRole.BRANCH_MANAGER
-            : role === UserRole.CAFE_OWNER
-              ? UserRole.CAFE_OWNER
-              : (role as any);
-
+      const mappedRole = normalizeRole(role);
       const initialScreen = (() => {
         if (mappedRole === UserRole.WAITER) return Screen.WAITER_WORKSPACE;
         if (mappedRole === UserRole.WAITER_MANAGER) return Screen.WAITER_WORKSPACE;

@@ -59,10 +59,12 @@ const normalizedModules = (subscription: SubscriptionInfo | null | undefined): s
 };
 
 export const homeForRole = (role: UserRole): Screen => {
-  if (role === UserRole.WAITER) return Screen.WAITER_WORKSPACE;
-  if (role === UserRole.WAITER_MANAGER) return Screen.WAITER_WORKSPACE;
-  if (role === UserRole.BRANCH_MANAGER) return Screen.MANAGER_DASHBOARD;
-  if (role === UserRole.CAFE_OWNER) return Screen.OWNER_DASHBOARD;
+  const r = normalizeRole(role);
+  if (r === UserRole.WAITER) return Screen.WAITER_WORKSPACE;
+  if (r === UserRole.WAITER_MANAGER) return Screen.WAITER_WORKSPACE;
+  if (r === UserRole.CASHIER) return Screen.WAITER_WORKSPACE;
+  if (r === UserRole.BRANCH_MANAGER) return Screen.MANAGER_DASHBOARD;
+  if (r === UserRole.CAFE_OWNER) return Screen.OWNER_DASHBOARD;
   return Screen.SA_OVERVIEW;
 };
 
@@ -82,6 +84,7 @@ export const normalizeRole = (role: unknown): UserRole => {
   if (r.includes('owner')) return UserRole.CAFE_OWNER;
   if (r.includes('waiter') && r.includes('manager')) return UserRole.WAITER_MANAGER;
   if (r.includes('manager')) return UserRole.BRANCH_MANAGER;
+  if (r.includes('cashier')) return UserRole.CASHIER;
   return UserRole.WAITER;
 };
 
@@ -90,7 +93,7 @@ export const canAccessScreen = (role: UserRole | string, screen: Screen): boolea
   const r = normalizeRole(role);
   if (screen === Screen.BRANCH_SELECT) return r === UserRole.CAFE_OWNER || r === UserRole.SUPER_ADMIN;
 
-  if (r === UserRole.WAITER || r === UserRole.WAITER_MANAGER) {
+  if (r === UserRole.WAITER || r === UserRole.WAITER_MANAGER || r === UserRole.CASHIER) {
     return (
       screen === Screen.WAITER_WORKSPACE ||
       screen === Screen.WAITER_KDS ||
@@ -328,7 +331,7 @@ export const canAccessScreenWithPermissions = (
 ): boolean => {
   const r = normalizeRole(role);
   if (!canAccessScreenWithSubscription(r, screen, subscription)) return false;
-  if (r === UserRole.WAITER || r === UserRole.WAITER_MANAGER) return true;
+  if (r === UserRole.WAITER || r === UserRole.WAITER_MANAGER || r === UserRole.CASHIER) return true;
   const required = screenRequiredPermission(screen);
   if (!required) return true;
   return hasPermission(permissions, required);

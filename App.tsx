@@ -82,7 +82,7 @@ import { Screen, UserRole } from './types';
 
 import { clearSession, initTabSession, readSession, updateSession, writeSession } from './session';
 
-import { canAccessScreenWithPermissions, canAccessScreenWithSubscription, homeForRoleWithSubscription } from './rbac';
+import { canAccessScreenWithPermissions, canAccessScreenWithSubscription, homeForRoleWithSubscription, normalizeRole } from './rbac';
 
 import { usePosIdleTimeout } from '@/hooks/usePosIdleTimeout';
 import { useSessionEventWiring } from '@/hooks/useSessionEventWiring';
@@ -93,7 +93,7 @@ const ScreenFallback: React.FC = () => (
   <div className="p-6 text-muted-foreground text-sm">Loading...</div>
 );
 
-const isPosRole = (role: string | null) => role === UserRole.WAITER || role === UserRole.WAITER_MANAGER || role === UserRole.BRANCH_MANAGER;
+const isPosRole = (role: string | null) => role === UserRole.WAITER || role === UserRole.WAITER_MANAGER || role === UserRole.CASHIER || role === UserRole.BRANCH_MANAGER;
 
 const parseScreen = (raw: unknown): Screen | null => {
   const s = String(raw ?? '').trim();
@@ -226,18 +226,7 @@ const AppContent: React.FC = () => {
 
       if (!token || !tenantSlug || !tenantId || !roleRaw) return;
 
-      const mappedRole =
-        roleRaw === UserRole.WAITER
-          ? UserRole.WAITER
-          : roleRaw === UserRole.WAITER_MANAGER
-            ? UserRole.WAITER_MANAGER
-            : roleRaw === UserRole.BRANCH_MANAGER
-              ? UserRole.BRANCH_MANAGER
-              : roleRaw === UserRole.SUPER_ADMIN
-                ? UserRole.SUPER_ADMIN
-                : roleRaw === UserRole.CAFE_OWNER
-                  ? UserRole.CAFE_OWNER
-                  : (roleRaw as any);
+      const mappedRole = normalizeRole(roleRaw);
 
       const initialScreen = (() => {
         if (mappedRole === UserRole.WAITER) return Screen.WAITER_WORKSPACE;
@@ -873,16 +862,17 @@ const AppContent: React.FC = () => {
 
   const handleLogin = (role: UserRole) => {
     setUserRole(role);
+    const r = normalizeRole(role);
     // Redirect based on role
-    if (role === UserRole.WAITER || role === UserRole.WAITER_MANAGER) {
+    if (r === UserRole.WAITER || r === UserRole.WAITER_MANAGER || r === UserRole.CASHIER) {
       navigate(Screen.WAITER_WORKSPACE);
-    } else if (role === UserRole.SUPER_ADMIN) {
+    } else if (r === UserRole.SUPER_ADMIN) {
       navigate(Screen.SA_OVERVIEW);
-    } else if (role === UserRole.CAFE_OWNER) {
+    } else if (r === UserRole.CAFE_OWNER) {
       const sess = readSession<any>() as any;
       const sub = sess?.subscription ?? subscription;
       navigate(homeForRoleWithSubscription(role, sub));
-    } else if (role === UserRole.BRANCH_MANAGER) {
+    } else if (r === UserRole.BRANCH_MANAGER) {
       navigate(Screen.MANAGER_DASHBOARD);
     } else {
       navigate(Screen.DASHBOARD);
@@ -1220,7 +1210,7 @@ const AppContent: React.FC = () => {
           {currentScreen === Screen.ORDERS && canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && <Orders />}
 
           {/* WAITER SPECIFIC SCREENS (Consolidated Into Workspace) */}
-          {(userRole === UserRole.WAITER || userRole === UserRole.WAITER_MANAGER) && 
+          {(userRole === UserRole.WAITER || userRole === UserRole.WAITER_MANAGER || userRole === UserRole.CASHIER) && 
             currentScreen === Screen.WAITER_WORKSPACE &&
             canAccessScreenWithPermissions(userRole!, currentScreen, subscription, permissions) && (
               <Workspace currentScreen={currentScreen} onNavigate={navigate} posUiV2Enabled={posUiV2Enabled} />

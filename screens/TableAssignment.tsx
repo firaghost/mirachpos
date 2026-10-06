@@ -54,7 +54,8 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
     try {
       const s = readSession<any>();
       const role = typeof s?.role === 'string' ? s.role : '';
-      if (role !== 'Branch Manager' && role !== 'Cafe Owner') return;
+      const allowedRoles = ['Branch Manager', 'Cafe Owner', 'Waiter Manager', 'Manager'];
+      if (!allowedRoles.includes(role)) return;
     } catch {
       return;
     }
@@ -62,7 +63,7 @@ export const TableAssignment: React.FC<Props> = ({ onNavigate }) => {
     const run = async () => {
       try {
         if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-        const res = await apiFetch('/api/manager/staff?pageSize=50');
+        const res = await apiFetch('/api/manager/staff?pageSize=200&status=Active');
         const json = (await res.json().catch(() => null)) as any;
         if (!res.ok) return;
         const rows = Array.isArray(json?.staff) ? (json.staff as StaffRow[]) : [];

@@ -13,6 +13,9 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Sun, Moon, AlertCircle, TrendingUp, DollarSign, ShoppingCart, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { readSession } from '../session';
+import { normalizeRole } from '../rbac';
+import { UserRole } from '../types';
 
 interface ShiftManagerModalProps {
   isOpen: boolean;
@@ -43,6 +46,14 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
   const [closingCash, setClosingCash] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeRole, setActiveRole] = useState<UserRole | null>(null);
+
+  useEffect(() => {
+    try {
+      const sess = readSession<any>();
+      setActiveRole(normalizeRole(sess?.role));
+    } catch {}
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [forceClose, setForceClose] = useState(false);
   const [isForcePaying, setIsForcePaying] = useState(false);
@@ -347,22 +358,26 @@ export const ShiftManagerModal: React.FC<ShiftManagerModalProps> = ({
               >
                 Current Shift
               </Button>
-              <Button
-                variant={activeTab === 'close' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('close')}
-                className="flex-1"
-              >
-                Close Shift
-              </Button>
+              {activeRole !== UserRole.CASHIER && (
+                <Button
+                  variant={activeTab === 'close' ? 'default' : 'outline'}
+                  onClick={() => setActiveTab('close')}
+                  className="flex-1"
+                >
+                  Close Shift
+                </Button>
+              )}
             </>
           )}
-          <Button
-            variant={activeTab === 'new' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('new')}
-            className="flex-1"
-          >
-            Open New Shift
-          </Button>
+          {activeRole !== UserRole.CASHIER && (
+            <Button
+              variant={activeTab === 'new' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('new')}
+              className="flex-1"
+            >
+              Open New Shift
+            </Button>
+          )}
         </div>
 
         {/* Current Shift View */}
