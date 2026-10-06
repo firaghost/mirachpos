@@ -53,7 +53,7 @@ const makeScheduleRouter = () => {
     '/schedule',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager', 'Cashier'),
     loadEntitlements,
     requireModule('staff'),
     requireBranchId(),

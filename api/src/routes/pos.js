@@ -1702,7 +1702,7 @@ const resolveBranchId = async (req) => {
 
   const role = String(req.auth?.role || '');
   const isOwnerGlobal = role === 'Cafe Owner' && (!fromToken || fromToken === 'global');
-  const isWaiterManagerGlobal = role === 'Waiter Manager' && (!fromToken || fromToken === 'global');
+  const isWaiterManagerGlobal = role === 'Waiter Manager' || role === 'Cashier' && (!fromToken || fromToken === 'global');
   if (!isOwnerGlobal && !isWaiterManagerGlobal) return fromToken;
 
   if (q) return q;
@@ -1785,7 +1785,7 @@ const makePosRouter = () => {
     '/pos/payments',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager', 'Cashier'),
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.update'),
@@ -1796,7 +1796,7 @@ const makePosRouter = () => {
     '/pos/settings',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager', 'Cashier'),
     async (req, res, next) => {
       try {
         const branchId = await resolveBranchId(req);
@@ -1893,7 +1893,7 @@ const makePosRouter = () => {
     '/pos/staff/verify-pin',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager', 'Cashier'),
     loadEntitlements,
     requireModule('pos'),
     requirePermission('orders.read'),

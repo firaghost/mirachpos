@@ -22,7 +22,7 @@ const makeRealtimeRouter = () => {
     '/realtime/pos',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager', 'Cashier'),
     loadEntitlements,
     requireModule('pos'),
     requirePermission('orders.read'),

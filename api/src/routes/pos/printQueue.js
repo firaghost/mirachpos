@@ -30,7 +30,7 @@ const makePosPrintQueueRouter = ({
     '/pos/print/queue/retry',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager', 'Cashier'),
     loadEntitlements,
     requireModule('orders'),
     requirePermission('orders.read'),

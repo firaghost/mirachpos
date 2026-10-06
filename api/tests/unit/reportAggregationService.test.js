@@ -343,6 +343,7 @@ describe('services/reportAggregationService', () => {
       cost: 6,
       profit: 14,
       voidQty: 0,
+      paymentBreakdown: { other: 2 },
     });
   });
 

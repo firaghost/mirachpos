@@ -13,17 +13,29 @@ describe('services/reportXlsxExportService', () => {
             worksheets.push(this);
           }
 
+          getColumn(i) {
+            return { width: 10 };
+          }
+
           get rowCount() {
             return this._rows.length;
           }
 
           addRow(values) {
-            this._rows.push(values);
-            return {};
+            const rowObj = {
+              values,
+              getCell: () => ({ font: {}, alignment: {}, numFmt: '' }),
+              font: {},
+              fill: {},
+              alignment: {},
+              number: this._rows.length + 1
+            };
+            this._rows.push(rowObj);
+            return rowObj;
           }
 
           getRow() {
-            return { font: {}, alignment: {} };
+            return { font: {}, alignment: {}, fill: {}, getCell: () => ({}) };
           }
 
           mergeCells() {}
@@ -67,7 +79,7 @@ describe('services/reportXlsxExportService', () => {
     });
 
     const names = worksheets.map((w) => w.name);
-    expect(names).toEqual(['Summary', 'Products', 'Staff', 'Payments', 'Voids']);
+    expect(names).toEqual(['Summary', 'Products', 'Staff', 'Payment Methods', 'Voids']);
   });
 
   it('buildOwnerReportWorkbook handles empty data gracefully', async () => {
@@ -78,9 +90,14 @@ describe('services/reportXlsxExportService', () => {
             this.name = name;
             this._rows = [];
           }
-          addRow(values) { this._rows.push(values); }
+          getColumn(i) { return { width: 10 }; }
+          addRow(values) {
+            const rowObj = { values, getCell: () => ({ font: {}, alignment: {}, numFmt: '' }), font: {}, fill: {}, alignment: {}, number: this._rows.length + 1 };
+            this._rows.push(rowObj);
+            return rowObj;
+          }
           get rowCount() { return this._rows.length; }
-          getRow() { return { font: {}, alignment: {} }; }
+          getRow() { return { font: {}, alignment: {}, fill: {}, getCell: () => ({}) }; }
           mergeCells() {}
         }
         class Workbook {
@@ -114,9 +131,14 @@ describe('services/reportXlsxExportService', () => {
       jest.doMock('exceljs', () => {
         class Worksheet {
           constructor(name) { this.name = name; this._rows = []; }
-          addRow(values) { this._rows.push(values); }
+          getColumn(i) { return { width: 10 }; }
+          addRow(values) {
+            const rowObj = { values, getCell: () => ({ font: {}, alignment: {}, numFmt: '' }), font: {}, fill: {}, alignment: {}, number: this._rows.length + 1 };
+            this._rows.push(rowObj);
+            return rowObj;
+          }
           get rowCount() { return this._rows.length; }
-          getRow() { return { font: {}, alignment: {} }; }
+          getRow() { return { font: {}, alignment: {}, fill: {}, getCell: () => ({}) }; }
           mergeCells() {}
         }
         class Workbook {

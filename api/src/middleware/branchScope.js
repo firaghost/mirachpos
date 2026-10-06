@@ -12,8 +12,10 @@ const resolveBranchId = (req) => {
   const q = typeof req.query?.branchId === 'string' ? normalizeBranchId(req.query.branchId) : '';
 
   if (fromToken) return fromToken;
-  if (q) return q;
-  return 'br_main';
+  if ((role === 'Cafe Owner' || role === 'Waiter Manager' || role === 'Cashier') && (!fromToken || fromToken === 'global')) {
+    return q || '';
+  }
+  return fromToken || '';
 };
 
 const resolveBranchIdFromBody = (req, body) => {
@@ -23,7 +25,7 @@ const resolveBranchIdFromBody = (req, body) => {
 
   const fromBody = body && typeof body === 'object' && typeof body.branchId === 'string' ? normalizeBranchId(body.branchId) : '';
 
-  if ((role === 'Cafe Owner' || role === 'Waiter Manager') && (!fromToken || fromToken === 'global')) {
+  if ((role === 'Cafe Owner' || role === 'Waiter Manager' || role === 'Cashier') && (!fromToken || fromToken === 'global')) {
     return fromBody || q || '';
   }
 

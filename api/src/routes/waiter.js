@@ -16,11 +16,11 @@ const { getCurrentShift, updateShiftMetrics } = require('../services/shiftServic
 const makeWaiterRouter = () => {
   const r = express.Router();
 
-  r.get('/waiter/floor', tenantMiddleware, requireAuth, loadEntitlements, requireRole('Waiter', 'Waiter Manager'), requireFeature('waiter_floor'), async (_req, res) => {
+  r.get('/waiter/floor', tenantMiddleware, requireAuth, loadEntitlements, requireRole('Waiter', 'Waiter Manager', 'Cashier'), requireFeature('waiter_floor'), async (_req, res) => {
     return res.json({ ok: true, tables: [] });
   });
 
-  r.get('/waiter/menu', tenantMiddleware, requireAuth, loadEntitlements, requireRole('Waiter', 'Waiter Manager'), requireFeature('waiter_menu'), async (_req, res) => {
+  r.get('/waiter/menu', tenantMiddleware, requireAuth, loadEntitlements, requireRole('Waiter', 'Waiter Manager', 'Cashier'), requireFeature('waiter_menu'), async (_req, res) => {
     return res.json({ ok: true, menu: [] });
   });
 
@@ -29,7 +29,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
-    requireRole('Waiter', 'Waiter Manager'),
+    requireRole('Waiter', 'Waiter Manager', 'Cashier'),
     requireFeature('waiter_menu'),
     async (req, res, next) => {
     try {
@@ -238,7 +238,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
-    requireRole('Waiter', 'Waiter Manager'),
+    requireRole('Waiter', 'Waiter Manager', 'Cashier'),
     requireFeature('waiter_orders_active'),
     async (req, res, next) => {
     try {
@@ -320,7 +320,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
-    requireRole('Waiter', 'Waiter Manager'),
+    requireRole('Waiter', 'Waiter Manager', 'Cashier'),
     requireFeature('waiter_payments'),
     async (req, res, next) => {
     try {
@@ -458,7 +458,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
-    requireRole('Waiter', 'Waiter Manager'),
+    requireRole('Waiter', 'Waiter Manager', 'Cashier'),
     requireFeature('waiter_voids'),
     async (req, res, next) => {
     try {
@@ -535,7 +535,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
-    requireRole('Waiter', 'Waiter Manager'),
+    requireRole('Waiter', 'Waiter Manager', 'Cashier'),
     requireFeature('waiter_kds'),
     async (req, res, next) => {
     try {
@@ -1149,7 +1149,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
-    requireRole('Waiter', 'Waiter Manager'),
+    requireRole('Waiter', 'Waiter Manager', 'Cashier'),
     requireFeature('waiter_account'),
     validateWaiterAccount,
     async (req, res, next) => {
@@ -1206,7 +1206,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
-    requireRole('Waiter', 'Waiter Manager'),
+    requireRole('Waiter', 'Waiter Manager', 'Cashier'),
     requireFeature('waiter_history'),
     validateWaiterHistoryQuery,
     async (req, res, next) => {
@@ -1248,7 +1248,7 @@ const makeWaiterRouter = () => {
       const fromIso = fromDateOnly ? `${fromDateOnly} 00:00:00` : (fromRaw ? String(fromRaw) : null);
       const toIso = toDateOnly ? `${toDateOnly} 23:59:59` : (toRaw ? String(toRaw) : null);
 
-      const isManagerRole = role === 'Waiter Manager' || role === 'Branch Manager' || role === 'Cafe Owner';
+      const isManagerRole = role === 'Waiter Manager' || role === 'Cashier' || role === 'Branch Manager' || role === 'Cafe Owner';
       const branchVariants = [branchId, branchId.startsWith('br_') ? `b_${branchId.slice(3)}` : `br_${branchId}`].filter(Boolean);
 
       const base = db().from('orders').where({ tenant_id: req.tenant.id }).whereIn('branch_id', branchVariants);
@@ -1393,7 +1393,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
-    requireRole('Waiter Manager'),
+    requireRole('Waiter Manager', 'Cashier'),
     requireFeature('waiter_history'),
     async (req, res, next) => {
     try {
@@ -1417,7 +1417,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
-    requireRole('Waiter Manager'),
+    requireRole('Waiter Manager', 'Cashier'),
     requireFeature('waiter_history'),
     async (req, res, next) => {
     try {
@@ -2257,7 +2257,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
-    requireRole('Waiter Manager'),
+    requireRole('Waiter Manager', 'Cashier'),
     requireFeature('waiter_history'),
     async (req, res, next) => {
     try {
@@ -2517,7 +2517,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
-    requireRole('Waiter', 'Waiter Manager'),
+    requireRole('Waiter', 'Waiter Manager', 'Cashier'),
     requireFeature('waiter_orders_active'),
     async (req, res, next) => {
     try {
@@ -2567,7 +2567,7 @@ const makeWaiterRouter = () => {
         payload,
       };
 
-      if (role !== 'Waiter Manager' && String(order.createdByStaffId || '').trim() !== staffId) return res.status(403).json({ error: 'forbidden' });
+      if (role !== 'Waiter Manager' && role !== 'Cashier' && String(order.createdByStaffId || '').trim() !== staffId) return res.status(403).json({ error: 'forbidden' });
 
       return res.json({ ok: true, branchId, order });
     } catch (e) {
@@ -2580,7 +2580,7 @@ const makeWaiterRouter = () => {
     tenantMiddleware,
     requireAuth,
     loadEntitlements,
-    requireRole('Waiter', 'Waiter Manager'),
+    requireRole('Waiter', 'Waiter Manager', 'Cashier'),
     requireFeature('waiter_shift_report'),
     async (req, res, next) => {
     try {
@@ -2591,7 +2591,7 @@ const makeWaiterRouter = () => {
       const staffId = String(req.auth?.staffId || '');
       if (!staffId) return res.status(401).json({ error: 'unauthorized' });
 
-      const isManagerRole = role === 'Waiter Manager' || role === 'Branch Manager' || role === 'Cafe Owner';
+      const isManagerRole = role === 'Waiter Manager' || role === 'Cashier' || role === 'Branch Manager' || role === 'Cafe Owner';
 
       const logsQuery = db()
         .from('shift_logs')

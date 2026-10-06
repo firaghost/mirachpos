@@ -238,7 +238,7 @@ const makeManagerStaffRouter = () => {
     '/manager/staff',
     tenantMiddleware,
     requireAuth,
-    requireRole('Branch Manager', 'Cafe Owner', 'Waiter Manager'),
+    requireRole('Branch Manager', 'Cafe Owner', 'Waiter Manager', 'Cashier'),
     loadEntitlements,
     requireModule('staff'),
     requirePermission('staff.read'),

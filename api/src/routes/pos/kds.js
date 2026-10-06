@@ -91,7 +91,7 @@ const syncOrderAndTableStatus = async ({ tenantId, branchId, orderId, nextStatus
 const makePosKdsRouter = ({ resolveBranchId } = {}) => {
   const r = express.Router();
 
-  const requirePosRole = requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager');
+  const requirePosRole = requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager', 'Cashier');
 
   r.post(
     '/pos/kds/tickets/fire',

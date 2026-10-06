@@ -231,6 +231,7 @@ const AppContent: React.FC = () => {
       const initialScreen = (() => {
         if (mappedRole === UserRole.WAITER) return Screen.WAITER_WORKSPACE;
         if (mappedRole === UserRole.WAITER_MANAGER) return Screen.WAITER_WORKSPACE;
+        if (mappedRole === UserRole.CASHIER) return Screen.WAITER_WORKSPACE;
         if (mappedRole === UserRole.BRANCH_MANAGER) return Screen.MANAGER_DASHBOARD;
         if (mappedRole === UserRole.SUPER_ADMIN) return Screen.SA_OVERVIEW;
         if (mappedRole === UserRole.CAFE_OWNER) return Screen.OWNER_DASHBOARD;

@@ -560,7 +560,7 @@ const makePosHardwareRouter = ({ resolveBranchId, sendTcp }) => {
     '/pos/devices/:id/heartbeat',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter', 'Waiter Manager', 'Cashier'),
     loadEntitlements,
     requireModule('settings'),
     requirePermission('orders.read'),

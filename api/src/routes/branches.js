@@ -16,7 +16,7 @@ const makeBranchesRouter = () => {
     '/branches',
     tenantMiddleware,
     requireAuth,
-    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager', 'Waiter'),
+    requireRole('Cafe Owner', 'Branch Manager', 'Waiter Manager', 'Waiter', 'Cashier'),
     loadEntitlements,
     async (req, res, next) => {
     try {
