@@ -29,7 +29,10 @@
     "protobufjs": "^7.5.8",
     "ws": "^8.21.0",
     "tmp": "^0.2.6",
-    "uuid": "^11.1.1"
+    "uuid": "^11.1.1",
+    "braces": "^3.0.3",
+    "sprintf-js": "^1.1.3",
+    "cross-spawn": "^7.0.6"
   },
   "scripts": {
     "postinstall": "node -e \"process.exit(process.env.VERCEL ? 0 : 1)\" || (patch-package && electron-builder install-app-deps) || exit 0",
@@ -88,23 +91,22 @@
     "@typescript-eslint/eslint-plugin": "^8.26.1",
     "@typescript-eslint/parser": "^8.26.1",
     "@vitejs/plugin-react": "^5.0.0",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^5.0.3",
     "autoprefixer": "^10.4.21",
     "concurrently": "^10.0.3",
     "electron": "^41.1.1",
-    "electron-builder": "^26.4.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^8.57.1",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^5.2.0",
     "jsdom": "^26.1.0",
-    "patch-package": "^6.0.7",
     "postcss": "^8.5.6",
     "rollup-plugin-visualizer": "^5.14.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.8.2",
     "vite": "^8.0.16",
-    "vitest": "^4.1.8",
+    "vitest": "^5.0.3",
     "wait-on": "^8.0.5"
   },
   "build": {
