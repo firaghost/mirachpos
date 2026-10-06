@@ -652,17 +652,18 @@ const makeManagerRouter = () => {
               // Format time in EAT (UTC+3)
               const formatEAT = (isoStr) => {
                 if (!isoStr) return '';
-                const d = new Date(isoStr);
+                let str = isoStr;
+                if (str.length === 19 && str[10] === ' ') {
+                  str = str.replace(' ', 'T') + 'Z';
+                } else if (!str.includes('Z') && !str.includes('+')) {
+                  str += 'Z';
+                }
+                const d = new Date(str);
                 if (isNaN(d.getTime())) return '';
-                const eat = new Date(d.getTime() + 3 * 60 * 60 * 1000);
-                const yyyy = eat.getUTCFullYear();
-                const mm = String(eat.getUTCMonth() + 1).padStart(2, '0');
-                const dd = String(eat.getUTCDate()).padStart(2, '0');
-                let hh = eat.getUTCHours();
-                const min = String(eat.getUTCMinutes()).padStart(2, '0');
-                const ampm = hh >= 12 ? 'PM' : 'AM';
-                hh = hh % 12; if (hh === 0) hh = 12;
-                return `${yyyy}-${mm}-${dd} ${String(hh).padStart(2, '0')}:${min} ${ampm}`;
+                return d.toLocaleString('en-GB', {
+                  year: 'numeric', month: 'short', day: '2-digit',
+                  hour: '2-digit', minute: '2-digit', hour12: true
+                });
               };
               // Build order name: use items if available, else display_number or id
               const tableName = String(r.table_name || p.tableName || '').trim();

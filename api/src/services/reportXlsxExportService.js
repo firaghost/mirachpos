@@ -279,46 +279,84 @@ const buildOwnerReportWorkbook = async ({
     orderHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
     orderHeaderRow.height = 22;
 
-    let totalSum = 0;
-    let taxSum = 0;
-    let subtotalSum = 0;
-
-    for (let i = 0; i < paymentOrders.length; i++) {
-      const o = paymentOrders[i];
-      const total = asNumber(o.total);
-      const tax = asNumber(o.tax);
-      const subtotal = total - tax;
-      totalSum += total;
-      taxSum += tax;
-      subtotalSum += subtotal;
-
-      const row = paymentsSheet.addRow([
-        o.orderName || o.id,
-        o.tableName || '—',
-        o.waiter || 'N/A',
-        o.method,
-        o.paidAt || o.createdAt || '',
-        subtotal,
-        tax,
-        total,
-      ]);
-
-      // Alternate row shading
-      if (i % 2 === 0) {
-        row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F7FAFC' } };
-      }
-      row.getCell(6).numFmt = '#,##0.00';
-      row.getCell(7).numFmt = '#,##0.00';
-      row.getCell(8).numFmt = '#,##0.00';
-      row.getCell(6).alignment = { horizontal: 'right' };
-      row.getCell(7).alignment = { horizontal: 'right' };
-      row.getCell(8).alignment = { horizontal: 'right' };
+    // Group by method
+    const grouped = {};
+    for (const o of paymentOrders) {
+      const m = String(o.method || 'Other').trim();
+      if (!grouped[m]) grouped[m] = [];
+      grouped[m].push(o);
     }
 
-    // Grand totals row
+    let globalTotal = 0;
+    let globalTax = 0;
+    let globalSubtotal = 0;
+
+    for (const [method, orders] of Object.entries(grouped)) {
+      // Method Sub-Header
+      const methodHeader = paymentsSheet.addRow([`Payment Method: ${method}`]);
+      methodHeader.font = { bold: true, size: 12, color: { argb: '1A365D' } };
+      methodHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EDF2F7' } };
+      paymentsSheet.mergeCells(methodHeader.number, 1, methodHeader.number, pmMaxCol);
+
+      let methodTotal = 0;
+      let methodTax = 0;
+      let methodSubtotal = 0;
+
+      for (let i = 0; i < orders.length; i++) {
+        const o = orders[i];
+        const total = asNumber(o.total);
+        const tax = asNumber(o.tax);
+        const subtotal = total - tax;
+        methodTotal += total;
+        methodTax += tax;
+        methodSubtotal += subtotal;
+
+        globalTotal += total;
+        globalTax += tax;
+        globalSubtotal += subtotal;
+
+        const row = paymentsSheet.addRow([
+          o.orderName || o.id,
+          o.tableName || '—',
+          o.waiter || 'N/A',
+          o.method,
+          o.paidAt || o.createdAt || '',
+          subtotal,
+          tax,
+          total,
+        ]);
+
+        if (i % 2 === 0) {
+          row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F7FAFC' } };
+        }
+        row.getCell(6).numFmt = '#,##0.00';
+        row.getCell(7).numFmt = '#,##0.00';
+        row.getCell(8).numFmt = '#,##0.00';
+        row.getCell(6).alignment = { horizontal: 'right' };
+        row.getCell(7).alignment = { horizontal: 'right' };
+        row.getCell(8).alignment = { horizontal: 'right' };
+      }
+
+      // Method Sub-Total
+      const methodSumRow = paymentsSheet.addRow([
+        `${method} Total (${orders.length} orders)`, '', '', '', '',
+        methodSubtotal, methodTax, methodTotal,
+      ]);
+      methodSumRow.font = { bold: true, size: 11, color: { argb: '2D3748' } };
+      methodSumRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E2E8F0' } };
+      methodSumRow.getCell(6).numFmt = '#,##0.00';
+      methodSumRow.getCell(7).numFmt = '#,##0.00';
+      methodSumRow.getCell(8).numFmt = '#,##0.00';
+      methodSumRow.getCell(6).alignment = { horizontal: 'right' };
+      methodSumRow.getCell(7).alignment = { horizontal: 'right' };
+      methodSumRow.getCell(8).alignment = { horizontal: 'right' };
+      
+      paymentsSheet.addRow([]); // space between groups
+    }
+
     const grandRow = paymentsSheet.addRow([
-      `Total (${paymentOrders.length} orders)`, '', '', '', '',
-      subtotalSum, taxSum, totalSum,
+      `Grand Total (${paymentOrders.length} orders)`, '', '', '', '',
+      globalSubtotal, globalTax, globalTotal,
     ]);
     grandRow.font = { bold: true, size: 11, color: { argb: '1A365D' } };
     grandRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'EBF8FF' } };
